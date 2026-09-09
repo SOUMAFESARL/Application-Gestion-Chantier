@@ -1,0 +1,43 @@
+/* Badge — charte §7.7 : fond à 12 % d'opacité, rayon plein. */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs, 12px);
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.primaire {
+  background: var(--color-primary-100);
+  color: var(--color-primary-800);
+}
+
+.secondaire {
+  background: var(--color-secondary-100);
+  color: var(--color-secondary-700);
+}
+
+.neutre {
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-600);
+}
+
+.succes {
+  background: color-mix(in srgb, var(--color-semantic-success) 12%, transparent);
+  color: var(--color-semantic-success);
+}
+
+.erreur {
+  background: color-mix(in srgb, var(--color-semantic-error) 12%, transparent);
+  color: var(--color-semantic-error);
+}
+
+.avertissement {
+  background: color-mix(in srgb, var(--color-semantic-warning) 12%, transparent);
+  color: var(--color-semantic-warning);
+}

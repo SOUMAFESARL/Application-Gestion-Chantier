@@ -1,0 +1,65 @@
+.groupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+  width: 100%;
+}
+
+.etiquette {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-neutral-800, #363431);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+}
+
+.requis {
+  color: var(--color-danger-500, #DC2626);
+}
+
+.select {
+  width: 100%;
+  height: 48px;
+  padding: 0 var(--space-3, 12px);
+  border: 1px solid var(--color-neutral-300, #C5C2BA);
+  border-radius: var(--radius-md, 8px);
+  background-color: var(--color-neutral-0, #FFFFFF);
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--color-neutral-900, #1E1D1B);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+.select:focus {
+  border-color: var(--color-primary-500, #D4652A);
+  box-shadow: 0 0 0 3px rgba(212, 101, 42, 0.15);
+}
+
+.select:disabled {
+  background-color: var(--color-neutral-100, #F2F1EE);
+  color: var(--color-neutral-500, #8A8680);
+  cursor: not-allowed;
+}
+
+.selectErreur {
+  border-color: var(--color-danger-500, #DC2626);
+}
+
+.champPersonnalise {
+  margin-top: var(--space-2, 8px);
+}
+
+.aide {
+  font-size: 12px;
+  color: var(--color-neutral-500, #8A8680);
+  margin-top: 2px;
+}
+
+.erreur {
+  font-size: 12px;
+  color: var(--color-danger-600, #B91C1C);
+  margin-top: 2px;
+}

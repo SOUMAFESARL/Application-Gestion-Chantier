@@ -1,0 +1,157 @@
+/* Inscription d'une entreprise — maquette M8, écrans 1, 2 et 7.
+   Le cadre, le titre et l'accroche viennent de `layout/CarteAuth`. */
+
+.formulaire {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* --- Sélecteur de pays ----------------------------------------------------
+   `Champ` ne couvre que `<input>`. Un `<select>` n'est pas un champ de saisie :
+   il se stylise différemment et se remplira demain depuis le référentiel. */
+
+.groupeSelect {
+  margin-bottom: var(--space-4);
+}
+
+.libelleSelect {
+  display: block;
+  font-size: var(--font-size-sm, 14px);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-neutral-800);
+  margin-bottom: var(--space-1);
+}
+
+.obligatoire {
+  color: var(--color-semantic-error);
+  margin-left: 2px;
+}
+
+.select {
+  width: 100%;
+  height: var(--input-height);
+  padding: 0 var(--space-6) 0 var(--input-padding-x);
+  font-family: inherit;
+  font-size: var(--font-size-base, 16px);
+  color: var(--color-neutral-900);
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--input-radius);
+  appearance: none;
+  cursor: pointer;
+  /* La flèche est dessinée en fond : une image externe serait une requête de
+     plus, et un SVG inline dupliquerait l'icône du design system. */
+  background-image: linear-gradient(45deg, transparent 50%, var(--color-neutral-500) 50%),
+    linear-gradient(135deg, var(--color-neutral-500) 50%, transparent 50%);
+  background-position:
+    calc(100% - var(--space-5)) calc(50% + 2px),
+    calc(100% - var(--space-4)) calc(50% + 2px);
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+}
+
+.select:focus-visible {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: var(--shadow-focus);
+}
+
+.select:disabled {
+  background-color: var(--color-neutral-50);
+  color: var(--color-neutral-400);
+  cursor: not-allowed;
+}
+
+.selectErreur {
+  border-color: var(--color-semantic-error);
+}
+
+.messageErreur {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs, 12px);
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-semantic-error);
+}
+
+/* --- Consentement ---------------------------------------------------------
+   L'acceptation est conservée avec sa version, son horodatage et l'adresse IP
+   (T-021 §9) : un booléen ne dit pas *ce qui* a été accepté. */
+
+.consentement {
+  margin: var(--space-3) 0 var(--space-5);
+}
+
+.caseLibelle {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm, 14px);
+  line-height: 1.5;
+  color: var(--color-neutral-700);
+  cursor: pointer;
+}
+
+/* 20 px de visuel, mais la zone tactile atteint 48 px par le libellé, qui est
+   cliquable — charte §8.2. */
+.case {
+  flex-shrink: 0;
+  width: var(--space-5);
+  height: var(--space-5);
+  margin-top: 1px;
+  accent-color: var(--color-primary-500);
+  cursor: pointer;
+}
+
+.case:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--radius-sm);
+}
+
+.lien {
+  color: var(--color-primary-600);
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+/* --- Actions et bascule ---------------------------------------------------- */
+
+.actionsEmpilees {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  margin-top: var(--space-5);
+}
+
+.lienDiscret {
+  font-size: var(--font-size-sm, 14px);
+  color: var(--color-neutral-600);
+}
+
+.bascule {
+  margin-top: var(--space-5);
+  text-align: center;
+  font-size: var(--font-size-sm, 14px);
+  color: var(--color-neutral-600);
+}
+
+.bascule a {
+  color: var(--color-primary-600);
+  font-weight: var(--font-weight-semibold, 600);
+}
+
+/* Référence de support — seule information technique qu'on affiche
+   (guide frontend §9). */
+.reference {
+  display: block;
+  margin-top: var(--space-2);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs, 12px);
+  opacity: 0.85;
+}

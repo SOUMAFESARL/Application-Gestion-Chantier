@@ -1,0 +1,228 @@
+/* Gestion des collaborateurs et invitations — T-015 */
+
+.page {
+  padding: var(--space-6, 24px);
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6, 24px);
+}
+
+.entete {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4, 16px);
+  flex-wrap: wrap;
+}
+
+.titreBloc {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.titre {
+  font-size: var(--font-size-2xl, 24px);
+  font-weight: var(--font-weight-bold, 700);
+  color: var(--color-neutral-900, #1c1917);
+  margin: 0;
+}
+
+.sousTitre {
+  font-size: var(--font-size-sm, 14px);
+  color: var(--color-neutral-600, #6b6762);
+  margin: 0;
+}
+
+.barreOutils {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4, 16px);
+  flex-wrap: wrap;
+}
+
+.filtres {
+  display: flex;
+  gap: var(--space-2, 8px);
+}
+
+.boutonFiltre {
+  padding: 6px 14px;
+  font-size: var(--font-size-sm, 14px);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-neutral-200, #e6e2dc);
+  background: var(--color-neutral-50, #fcfbf9);
+  color: var(--color-neutral-700, #44403c);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.boutonFiltre:hover {
+  background: var(--color-neutral-100, #f5f3f0);
+}
+
+.boutonFiltreActif {
+  background: var(--color-primary-600, #ea580c);
+  color: #ffffff;
+  border-color: var(--color-primary-600, #ea580c);
+}
+
+.boutonFiltreActif:hover {
+  background: var(--color-primary-700, #c2410c);
+}
+
+.rechercheInput {
+  padding: 8px 14px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-neutral-300, #d6d1c9);
+  font-size: var(--font-size-sm, 14px);
+  min-width: 260px;
+}
+
+.tableauConteneur {
+  background: #ffffff;
+  border: 1px solid var(--color-neutral-200, #e6e2dc);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.tableau {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.tableau th {
+  background: var(--color-neutral-50, #fcfbf9);
+  padding: 12px 16px;
+  font-size: var(--font-size-xs, 12px);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-neutral-500, #8c877f);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--color-neutral-200, #e6e2dc);
+}
+
+.tableau td {
+  padding: 14px 16px;
+  font-size: var(--font-size-sm, 14px);
+  color: var(--color-neutral-800, #292524);
+  border-bottom: 1px solid var(--color-neutral-100, #f5f3f0);
+}
+
+.tableau tr:last-child td {
+  border-bottom: none;
+}
+
+.celluleMembre {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-primary-100, #ffedd5);
+  color: var(--color-primary-700, #c2410c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-bold, 700);
+  font-size: 13px;
+}
+
+.detailsMembre {
+  display: flex;
+  flex-direction: column;
+}
+
+.nomMembre {
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-neutral-900, #1c1917);
+}
+
+.emailMembre {
+  font-size: var(--font-size-xs, 12px);
+  color: var(--color-neutral-500, #8c877f);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: var(--font-size-xs, 12px);
+  font-weight: var(--font-weight-medium, 500);
+}
+
+.badgeRole {
+  background: var(--color-neutral-100, #f5f3f0);
+  color: var(--color-neutral-800, #292524);
+  border: 1px solid var(--color-neutral-200, #e6e2dc);
+}
+
+.badgeActif {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.badgeAttente {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badgeExpire {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.modaleCorps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 16px);
+  padding: var(--space-2, 8px) 0;
+}
+
+.champGroupe {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.champLabel {
+  font-size: var(--font-size-sm, 14px);
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-neutral-800, #292524);
+}
+
+.champInput,
+.champSelect {
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-neutral-300, #d6d1c9);
+  font-size: var(--font-size-sm, 14px);
+  background: #ffffff;
+}
+
+.champInput:focus,
+.champSelect:focus {
+  outline: none;
+  border-color: var(--color-primary-500, #f97316);
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
+}
+
+.modaleActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3, 12px);
+}

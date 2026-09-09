@@ -1,0 +1,64 @@
+/* La double saisie et ses cinq contrôles — M2, M6 écran 3, M8 écran 3.
+
+   Ces règles vivaient dans la feuille de l'écran d'activation. Elles suivent le
+   composant : une feuille de page ne peut pas habiller un composant partagé
+   sans que le troisième écran qui l'utilise hérite d'un style qu'il n'a pas
+   déclaré. */
+
+.controles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 var(--space-5);
+  list-style: none;
+}
+
+.controle,
+.controleValide {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.875rem; /* 14px — plancher du Socle §7.3 */
+  transition: color 0.2s;
+}
+
+.controle {
+  color: var(--color-neutral-500);
+}
+
+/* La coche pleine et le cercle vide se distinguent sans la couleur — la charte
+   §8.4 l'impose, et un homme sur douze distingue mal le rouge du vert. */
+.controleValide {
+  color: var(--color-semantic-success);
+  font-weight: var(--font-weight-medium, 500);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .controle,
+  .controleValide {
+    transition: none;
+  }
+}
+
+.oeil {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-neutral-500);
+  cursor: pointer;
+}
+
+.oeil:hover {
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-700);
+}
+
+.oeil:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}

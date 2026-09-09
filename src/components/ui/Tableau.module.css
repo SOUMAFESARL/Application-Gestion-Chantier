@@ -1,0 +1,97 @@
+/* Tableau — charte §7.8 : bordures droites, alternance de fond. */
+
+.conteneur {
+  /* Le débordement est confiné ici : la page ne défile jamais latéralement. */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-md);
+}
+
+.sansBordure {
+  border: none;
+  border-radius: 0;
+}
+
+/* Colonne figée au défilement horizontal */
+.figee {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+
+th.figee {
+  background: var(--color-neutral-50, #FAF9F7);
+  z-index: 4;
+}
+
+td.figee {
+  background: #FFFFFF;
+  box-shadow: 2px 0 5px -1px rgba(0, 0, 0, 0.06);
+}
+
+.tableau tbody tr:nth-child(even) td.figee {
+  background: var(--color-neutral-50, #FAF9F7);
+}
+
+.cliquable:hover td.figee {
+  background: var(--color-primary-50, #FDF4ED) !important;
+}
+
+.tableau {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm, 14px);
+}
+
+.legende {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-neutral-800);
+}
+
+.tableau th {
+  background: var(--color-neutral-50);
+  color: var(--color-neutral-800);
+  font-weight: 600;
+  text-align: left;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-neutral-200);
+  white-space: nowrap;
+}
+
+.tableau td {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-neutral-200);
+  color: var(--color-neutral-700);
+}
+
+.tableau tbody tr:nth-child(even) {
+  background: var(--color-neutral-50);
+}
+
+.tableau tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cliquable {
+  cursor: pointer;
+}
+
+.cliquable:hover {
+  background: var(--color-primary-50) !important;
+}
+
+/* Charte §8.1 : les données critiques — montants — en semibold minimum. */
+.droite {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+@media (max-width: 767px) {
+  .secondaire {
+    display: none;
+  }
+}

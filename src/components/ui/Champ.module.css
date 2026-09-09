@@ -1,0 +1,129 @@
+/* Champ de saisie — charte §7.4. */
+
+.groupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+.libelle {
+  font-size: var(--font-size-sm, 14px);
+  font-weight: 600;
+  color: var(--color-neutral-800);
+}
+
+.obligatoire {
+  color: var(--color-semantic-error);
+  margin-left: 2px;
+}
+
+.enveloppe {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.champ {
+  width: 100%;
+  height: var(--input-height, 48px);
+  padding: 0 var(--input-padding-x, var(--space-4));
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--input-radius, var(--radius-md));
+  color: var(--color-neutral-700);
+  outline: none;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.champ::placeholder {
+  color: var(--color-neutral-500);
+}
+
+.champ:hover:not(:disabled):not(:focus) {
+  border-color: var(--color-neutral-400);
+}
+
+.champ:focus {
+  border: 2px solid var(--color-primary-500);
+  box-shadow: var(--shadow-focus);
+  color: var(--color-neutral-900);
+  /* Compense l'épaississement de la bordure pour que le texte ne saute pas. */
+  padding: 0 calc(var(--input-padding-x, var(--space-4)) - 1px);
+}
+
+.champ:disabled {
+  background: var(--color-neutral-50);
+  border-color: var(--color-neutral-200);
+  color: var(--color-neutral-400);
+  cursor: not-allowed;
+}
+
+.erreur {
+  border: 2px solid var(--color-semantic-error);
+  padding: 0 calc(var(--input-padding-x, var(--space-4)) - 1px);
+}
+
+.erreur:focus {
+  border-color: var(--color-semantic-error);
+  box-shadow: 0 0 0 3px rgb(153 27 27 / 0.12);
+}
+
+.avecIcone {
+  padding-right: var(--space-7);
+}
+
+.icone {
+  position: absolute;
+  right: var(--space-3);
+  display: flex;
+  align-items: center;
+  color: var(--color-neutral-500);
+  pointer-events: none;
+}
+
+.messageAide {
+  font-size: var(--font-size-xs, 12px);
+  color: var(--color-neutral-600);
+}
+
+.messageErreur {
+  font-size: var(--font-size-xs, 12px);
+  font-weight: 500;
+  color: var(--color-semantic-error);
+}
+
+/* Bouton à droite du champ — révéler le mot de passe. Contrairement à
+   `.icone`, il reçoit les clics et respecte la cible tactile de 48 px. */
+.action {
+  position: absolute;
+  right: var(--space-1);
+  display: flex;
+  align-items: center;
+}
+
+.action button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-neutral-500);
+  cursor: pointer;
+}
+
+.action button::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+
+.action button:hover {
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-700);
+}

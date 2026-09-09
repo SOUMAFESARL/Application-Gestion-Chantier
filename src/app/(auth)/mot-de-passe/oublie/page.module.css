@@ -1,0 +1,41 @@
+/* Écran « Mot de passe oublié » — M6 écrans 1 et 2.
+   Le cadre, la marque et le pied viennent de `CarteAuth` : cette feuille ne
+   porte que ce qui appartient à l'écran. */
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.actions > button {
+  width: 100%;
+}
+
+.lienDiscret {
+  font-size: 0.875rem; /* 14px — plancher du Socle §7.3 */
+  color: var(--color-neutral-600);
+  text-decoration: none;
+}
+
+.lienDiscret:hover {
+  color: var(--color-primary-600);
+  text-decoration: underline;
+}
+
+.lienDiscret:focus-visible {
+  outline: none;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-focus);
+}
+
+/* La référence de trace : lisible pour qui la recopie au support, discrète
+   pour qui n'en a pas besoin — guide frontend §9. */
+.reference {
+  display: block;
+  margin-top: var(--space-2);
+  font-size: 0.875rem;
+  color: var(--color-neutral-500);
+}

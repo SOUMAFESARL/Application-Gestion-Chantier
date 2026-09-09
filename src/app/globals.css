@@ -1,0 +1,91 @@
+/* ====================================================================
+   Styles globaux — CCD Digital
+
+   Ce fichier ne contient que la remise à zéro et les styles de base.
+   Toute valeur — couleur, espacement, rayon — vient des jetons.
+   Aucune valeur codée en dur ici : c'est ce qui rend le white-label
+   possible (charte §10).
+   ==================================================================== */
+
+@import "../styles/tokens.css";
+
+/* La charte déclare `--font-family-base: Inter, …` en supposant la police
+   déjà chargée. next/font l'auto-héberge sous un nom généré : on rebranche
+   le jeton dessus, sans toucher au fichier de jetons lui-même. */
+:root {
+  --font-family-base: var(--police-inter), Inter, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-family-base);
+  background: var(--color-neutral-50);
+  color: var(--color-neutral-700);
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--color-neutral-900);
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+a {
+  color: var(--color-primary-600);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Cibles tactiles de 48 px minimum sur mobile — charte §8, règles terrain. */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  a.bouton {
+    min-height: 48px;
+  }
+}
+
+/* Accessibilité : l'anneau de focus n'est jamais supprimé, seulement stylé. */
+:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

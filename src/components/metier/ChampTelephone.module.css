@@ -1,0 +1,154 @@
+.groupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+  width: 100%;
+  /* `min-width: 0` : sans lui, la largeur minimale du bloc pays — drapeau,
+     indicatif, chevron — remonte à la colonne de grille qui contient le champ,
+     et écrase la colonne voisine. Vu à l'étape 2, où « Client / Maître
+     d'ouvrage » s'était réduit à cinquante pixels. */
+  min-width: 0;
+  /* Le champ se mesure **lui-même**, pas la fenêtre : il vit dans une colonne
+     de formulaire qui peut être étroite sur un grand écran — c'est le cas des
+     duos de l'assistant, entre une barre latérale et un panneau de contrôle. */
+  container-type: inline-size;
+}
+
+.libelle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-neutral-800, #363431);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+}
+
+.obligatoire {
+  color: var(--color-danger-500, #dc2626);
+}
+
+/* Le sélecteur de pays et le numéro forment **un seul champ** à l'œil : une
+   bordure commune, et le focus l'éclaire en entier. Deux champs côte à côte
+   laisseraient croire à deux informations distinctes. */
+.enveloppe {
+  display: flex;
+  align-items: stretch;
+  height: 48px;
+  border: 1px solid var(--color-neutral-300, #c5c2ba);
+  border-radius: var(--radius-md, 8px);
+  background-color: var(--color-neutral-0, #ffffff);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  overflow: hidden;
+}
+
+.enveloppe:focus-within {
+  border-color: var(--color-primary-500, #d4652a);
+  box-shadow: 0 0 0 3px rgba(212, 101, 42, 0.15);
+}
+
+.enveloppeErreur {
+  border-color: var(--color-danger-500, #dc2626);
+}
+
+.enveloppeDesactivee {
+  background-color: var(--color-neutral-100, #f2f1ee);
+}
+
+/* Le bloc pays : ce qu'on voit. Le vrai `select` est transparent, posé
+   par-dessus — un `option` natif ne peut pas contenir d'image. */
+.pays {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+  padding: 0 var(--space-2, 8px) 0 var(--space-3, 12px);
+  border-right: 1px solid var(--color-neutral-200, #e5e3de);
+  background-color: var(--color-neutral-50, #faf9f7);
+  flex-shrink: 0;
+}
+
+.indicatif {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-neutral-900, #1e1d1b);
+  white-space: nowrap;
+}
+
+.chevron {
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid var(--color-neutral-500, #8a8680);
+  border-bottom: 1.5px solid var(--color-neutral-500, #8a8680);
+  transform: rotate(45deg) translate(-2px, -2px);
+  flex-shrink: 0;
+}
+
+/* Invisible, mais bien **présent** : c'est lui qui reçoit le clavier, le focus,
+   et la roue crantée du sélecteur natif sur mobile.
+   `color: transparent` plutôt que `opacity: 0` : un élément à opacité nulle est
+   traité comme masqué par une partie de l'outillage d'accessibilité, alors
+   qu'ici il porte le seul libellé du choix de pays. Le texte disparaît, le
+   contrôle reste. */
+.selectPays {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: transparent;
+  background-color: transparent;
+  cursor: pointer;
+  font-size: 16px; /* iOS zoome sous 16px */
+  appearance: none;
+  border: 0;
+}
+
+.selectPays:disabled {
+  cursor: not-allowed;
+}
+
+.numero {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  padding: 0 var(--space-3, 12px);
+  background: transparent;
+  font-family: inherit;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--color-neutral-900, #1e1d1b);
+}
+
+.numero:disabled {
+  color: var(--color-neutral-500, #8a8680);
+  cursor: not-allowed;
+}
+
+.messageAide {
+  font-size: 12px;
+  color: var(--color-neutral-500, #8a8680);
+  margin: 2px 0 0;
+}
+
+.messageErreur {
+  font-size: 12px;
+  color: var(--color-danger-600, #b91c1c);
+  margin: 2px 0 0;
+}
+
+/* Quand le champ lui-même devient étroit, le bloc pays perd son indicatif
+   écrit : le drapeau et le chevron suffisent à dire quel pays est choisi, et
+   les dix chiffres du numéro ont besoin de toute la place. L'indicatif reste
+   lu par le sélecteur et annoncé par son libellé. */
+@container (max-width: 260px) {
+  .indicatif {
+    display: none;
+  }
+
+  .pays {
+    padding: 0 var(--space-2, 8px);
+  }
+}

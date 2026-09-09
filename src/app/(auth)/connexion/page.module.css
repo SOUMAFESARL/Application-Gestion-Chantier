@@ -1,0 +1,197 @@
+/* Écran de connexion — maquette M1.
+   Aucune valeur en dur : tout vient des jetons de la charte. */
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--color-neutral-50);
+}
+
+.carte {
+  width: 100%;
+  max-width: 420px;
+  background: var(--color-neutral-0);
+  padding: var(--space-7) var(--space-5) var(--space-6);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Au-delà du téléphone, la carte se détache du fond. En dessous, elle
+   occupe tout l'écran : un cadre flottant sur 360 px vole de la place. */
+@media (min-width: 480px) {
+  .page {
+    align-items: center;
+  }
+
+  .carte {
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-neutral-200);
+    box-shadow: var(--shadow-lg);
+    margin: var(--space-6) 0;
+  }
+}
+
+/* --- Marque --------------------------------------------------------------- */
+
+.marque {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.logo {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary-500);
+  color: var(--color-neutral-0);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: var(--font-size-lg, 18px);
+}
+
+.nom {
+  display: block;
+  font-size: var(--font-size-lg, 18px);
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.sousTitre {
+  display: block;
+  font-size: var(--font-size-xs, 12px);
+  font-weight: 500;
+  color: var(--color-neutral-500);
+}
+
+/* --- Titres --------------------------------------------------------------- */
+
+.titre {
+  font-size: var(--font-size-3xl, 32px);
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  line-height: 1.2;
+  margin-bottom: var(--space-2);
+}
+
+.accroche {
+  font-size: var(--font-size-base, 16px);
+  color: var(--color-neutral-600);
+  margin-bottom: var(--space-5);
+}
+
+/* --- Formulaire ----------------------------------------------------------- */
+
+.formulaire {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.attente {
+  height: 280px;
+}
+
+.lienDroite {
+  text-align: right;
+  margin-bottom: var(--space-4);
+}
+
+.lien {
+  font-size: var(--font-size-sm, 14px);
+  font-weight: 500;
+  color: var(--color-primary-600);
+}
+
+/* Précision sous un message : nombre de tentatives, minutes restantes,
+   référence de support. Volontairement plus discret que le message. */
+.compteur {
+  margin-top: var(--space-1);
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.compteur code {
+  font-family: var(--font-family-mono);
+}
+
+/* --- Séparateur et Inscription — maquette M1 ------------------------------- */
+
+.separateur {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-5) 0 var(--space-3);
+}
+
+.separateurLigne {
+  flex: 1;
+  height: 1px;
+  background-color: var(--color-neutral-200);
+}
+
+.separateurTexte {
+  font-size: var(--font-size-xs, 12px);
+  color: var(--color-neutral-500);
+  text-transform: uppercase;
+  font-weight: var(--font-weight-semibold, 600);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.boutonInscription {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--button-height-lg, 48px);
+  padding: 0 var(--space-5);
+  font-size: var(--font-size-base, 16px);
+  font-weight: var(--font-weight-semibold, 600);
+  border: 1px solid var(--color-primary-500);
+  border-radius: var(--button-radius, var(--radius-md));
+  color: var(--color-primary-600);
+  background-color: transparent;
+  text-decoration: none;
+  text-align: center;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+  box-sizing: border-box;
+}
+
+.boutonInscription:hover {
+  background-color: var(--color-primary-50);
+  color: var(--color-primary-700);
+  border-color: var(--color-primary-600);
+}
+
+.boutonInscription:active {
+  background-color: var(--color-primary-100);
+  border-color: var(--color-primary-600);
+}
+
+.boutonInscription:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+/* --- Pied ----------------------------------------------------------------- */
+
+.pied {
+  margin-top: var(--space-6);
+  text-align: center;
+  font-size: var(--font-size-xs, 12px);
+  color: var(--color-neutral-400);
+  line-height: 1.6;
+}

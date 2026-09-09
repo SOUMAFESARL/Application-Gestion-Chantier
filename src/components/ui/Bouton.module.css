@@ -1,0 +1,178 @@
+/* Bouton — charte §7.3. Aucune valeur en dur : tout vient des jetons. */
+
+.bouton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--button-radius, var(--radius-md));
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+  position: relative;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.bouton svg,
+.libelle svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Règle terrain §8.2 : la zone cliquable dépasse le visuel jusqu'à 48 px.
+   Un bouton de 40 px reste atteignable avec des gants. */
+.bouton::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+
+.bouton:disabled {
+  cursor: not-allowed;
+}
+
+/* --- Tailles — charte §7.3 « Dimensions » --------------------------------- */
+
+.sm {
+  height: var(--button-height-sm, 32px);
+  padding: 0 var(--space-4);
+  font-size: var(--font-size-sm, 14px);
+}
+
+.md {
+  height: var(--button-height-md, 40px);
+  padding: 0 var(--space-5);
+  font-size: var(--font-size-base, 16px);
+}
+
+.lg {
+  height: var(--button-height-lg, 48px);
+  padding: 0 var(--space-5);
+  font-size: var(--font-size-base, 16px);
+}
+
+/* Sur appareil tactile, aucun bouton ne descend sous 48 px. */
+@media (pointer: coarse) {
+  .sm,
+  .md {
+    height: var(--button-height-lg, 48px);
+  }
+}
+
+.pleineLargeur {
+  width: 100%;
+}
+
+/* --- Variantes ------------------------------------------------------------ */
+
+.primaire {
+  background: var(--color-primary-500);
+  color: var(--color-neutral-0);
+}
+
+.primaire:hover:not(:disabled) {
+  background: var(--color-primary-600);
+}
+
+.primaire:active:not(:disabled) {
+  background: var(--color-primary-700);
+}
+
+.primaire:disabled {
+  background: var(--color-neutral-200);
+  color: var(--color-neutral-400);
+}
+
+.secondaire {
+  background: transparent;
+  color: var(--color-primary-600);
+  border-color: var(--color-primary-500);
+}
+
+.secondaire:hover:not(:disabled) {
+  background: var(--color-primary-50);
+  color: var(--color-primary-700);
+  border-color: var(--color-primary-600);
+}
+
+.secondaire:active:not(:disabled) {
+  background: var(--color-primary-100);
+  color: var(--color-primary-800);
+  border-color: var(--color-primary-700);
+}
+
+.secondaire:disabled {
+  color: var(--color-neutral-400);
+  border-color: var(--color-neutral-200);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--color-neutral-700);
+  font-weight: 500;
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-900);
+}
+
+.ghost:active:not(:disabled) {
+  background: var(--color-neutral-200);
+}
+
+.ghost:disabled {
+  color: var(--color-neutral-400);
+}
+
+/* Danger : réservé aux actions destructrices — archivage, révocation, rejet. */
+.danger {
+  background: var(--color-semantic-error);
+  color: var(--color-neutral-0);
+}
+
+.danger:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.danger:disabled {
+  background: var(--color-neutral-200);
+  color: var(--color-neutral-400);
+}
+
+/* --- Indicateur d'action en cours ---------------------------------------- */
+
+.indicateur {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--radius-full);
+  animation: rotation 0.7s linear infinite;
+  flex-shrink: 0;
+  display: block;
+}
+
+.libelle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  line-height: 1;
+}
+
+.libelle:empty {
+  display: none;
+}
+
+@keyframes rotation {
+  to {
+    transform: rotate(360deg);
+  }
+}

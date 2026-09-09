@@ -1,0 +1,58 @@
+/* La marque CCD Digital — typographie commune à la barre d'application et au
+   cadre d'authentification.
+
+   Les deux écrans portaient chacun leur copie : 18 px et 12 px d'un côté,
+   18 px et 14 px de l'autre. Le 12 px passait sous le plancher de lisibilité
+   du Socle §7.3 — c'est le 14 px qui fait foi. */
+
+.marque {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3, 12px);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.logo {
+  flex-shrink: 0;
+  display: block;
+}
+
+.texte {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.nom {
+  font-size: 1.125rem; /* 18px */
+  font-weight: var(--font-weight-bold, 700);
+  color: var(--color-neutral-900, #1E1D1B);
+  letter-spacing: -0.02em;
+}
+
+.accroche {
+  /* Plancher de lisibilité — Socle §7.3. */
+  font-size: 0.875rem; /* 14px */
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-neutral-500, #8A8680);
+  white-space: nowrap;
+}
+
+/* Sur écran large, le plancher du Socle descend à 13 px — c'est la valeur que
+   le cadre d'authentification appliquait déjà. La barre d'application, elle,
+   affichait 12 px : sous le plancher. */
+@media (min-width: 1024px) {
+  .accroche {
+    font-size: 0.8125rem; /* 13px — plancher web du Socle §7.3 */
+  }
+}
+
+/* Le signe seul sur téléphone : c'est la place ainsi rendue qui permet au logo
+   du client de rester dans la barre. */
+@media (max-width: 767px) {
+  .texteCompact {
+    display: none;
+  }
+}

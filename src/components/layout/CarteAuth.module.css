@@ -1,0 +1,176 @@
+/* Cadre commun des écrans hors application — M1, M2, M3, M6, M8.
+
+   **Une seule structure, deux habillages.** Les maquettes donnent deux cadres,
+   mobile 390 px et desktop 1280 px, et la différence entre les deux n'est pas
+   structurelle : c'est le même en-tête de marque, le même contenu, le même
+   pied. Ce qui change est l'habillage — sur téléphone tout est à plat sur du
+   blanc, sur écran large une barre de marque surmonte un fond neutre où la
+   carte se détache.
+
+   Dupliquer la marque dans le DOM pour la « déplacer » aurait produit deux
+   bannières, dont une masquée : un lecteur d'écran les lit toutes les deux. */
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-neutral-0);
+}
+
+/* --- Marque --------------------------------------------------------------- */
+
+.barre {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: none;
+  padding: var(--space-7) var(--space-4) 0;
+}
+
+/* Le signe, le nom et l'accroche vivent dans `MarqueCCD` — une seule marque
+   pour l'application entière. */
+
+/* --- Zone de contenu ------------------------------------------------------ */
+
+.zone {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5) var(--space-4) var(--space-4);
+}
+
+.carte {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Écran large : barre de marque, fond neutre, carte détachée ------------
+   Rupture à 1024 px — le Socle §7.2 y place l'« interface web complète ».
+   En dessous, la carte reste à plat : un cadre flottant sur un téléphone vole
+   de la place utile. */
+
+@media (min-width: 1024px) {
+  .page {
+    background: var(--color-neutral-50);
+  }
+
+  .barre {
+    height: var(--space-8); /* 64 px */
+    padding: 0 var(--space-6);
+    background: var(--color-neutral-0);
+    border-bottom: 1px solid var(--color-neutral-200);
+  }
+
+  .zone {
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+  }
+
+  .carte {
+    flex: none;
+    max-width: 440px;
+    background: var(--color-neutral-0);
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-lg);
+    /* 40 px : la maquette sort de la grille de 8, on la reconstruit. */
+    padding: calc(var(--space-6) + var(--space-2));
+    box-shadow: var(--shadow-md);
+  }
+}
+
+/* --- Titres --------------------------------------------------------------- */
+
+.titre {
+  font-size: 2rem; /* 32px — charte `.text-h1` */
+  font-weight: var(--font-weight-bold, 700);
+  color: var(--color-neutral-900);
+  line-height: 1.2;
+  margin-bottom: var(--space-2);
+}
+
+/* Dans la carte détachée, le titre descend d'un cran — maquette M1 desktop. */
+@media (min-width: 1024px) {
+  .titre {
+    font-size: 1.75rem; /* 28px — charte `.text-h2` */
+  }
+}
+
+.accroche {
+  font-size: 1rem; /* 16px */
+  color: var(--color-neutral-600);
+  line-height: 1.5;
+  margin-bottom: var(--space-5);
+}
+
+.accroche strong {
+  color: var(--color-neutral-800);
+  font-weight: var(--font-weight-semibold, 600);
+}
+
+/* --- Bloc centré des écrans de confirmation ------------------------------- */
+
+.centre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.centre .titre,
+.centre .accroche {
+  text-align: center;
+}
+
+.pastille {
+  width: var(--space-8);
+  height: var(--space-8);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  margin-bottom: var(--space-5);
+}
+
+.primaire {
+  background: var(--color-primary-50);
+  color: var(--color-primary-500);
+}
+
+.succes {
+  background: var(--color-semantic-success-bg);
+  color: var(--color-semantic-success);
+}
+
+.avertissement {
+  background: var(--color-semantic-warning-bg);
+  color: var(--color-semantic-warning);
+}
+
+/* --- Pied ----------------------------------------------------------------- */
+
+/* Sur téléphone le pied se colle au bas de l'écran ; dans la carte détachée il
+   suit le contenu. `margin-top:auto` d'un côté, une marge fixe de l'autre —
+   c'est exactement ce que font les deux cadres de la maquette. */
+.pied {
+  margin-top: auto;
+  padding-top: var(--space-5);
+  text-align: center;
+  /* La maquette écrivait 11 px. **Le Socle §7.3 l'interdit** : « 14 px sur
+     mobile, 13 px sur web. Jamais en dessous. » Les maquettes ont été
+     corrigées — 75 règles produit relevées au plancher, sur les onze fichiers. */
+  font-size: 0.875rem; /* 14px */
+  color: var(--color-neutral-400);
+  line-height: 1.5;
+}
+
+@media (min-width: 1024px) {
+  .pied {
+    margin-top: var(--space-6);
+    padding-top: 0;
+    font-size: 0.8125rem; /* 13px — plancher web du Socle §7.3 */
+  }
+}
