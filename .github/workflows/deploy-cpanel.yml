@@ -17,7 +17,8 @@ jobs:
   deploy:
     name: Build and deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Le premier envoi FTP contient le runtime Node.js autonome et peut être long.
+    timeout-minutes: 90
 
     env:
       NEXT_PUBLIC_API_URL: https://api-chantier.soumafe.com
@@ -49,6 +50,9 @@ jobs:
           cp -a .next/standalone/. deploy/
           cp -a .next/static deploy/.next/static
           cp -a public deploy/public
+          # Les source maps servent au débogage et représentent des milliers de
+          # fichiers inutiles au fonctionnement de l'application en production.
+          find deploy -type f -name '*.map' -delete
           mkdir -p deploy/tmp
           date -u +'%Y-%m-%dT%H:%M:%SZ' > deploy/tmp/restart.txt
 
