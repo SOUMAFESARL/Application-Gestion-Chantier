@@ -5,7 +5,8 @@ import type { NextConfig } from "next";
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Produit un serveur Node.js autonome, adapté au déploiement cPanel.
+  output: "standalone",
 };
 
 export default withNextIntl(nextConfig);

@@ -1,0 +1,66 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-cpanel
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      NEXT_PUBLIC_API_URL: https://api-chantier.soumafe.com
+      NEXT_PUBLIC_API_PLATEFORME: https://api-chantier.soumafe.com
+      NEXT_PUBLIC_API_PORT: ""
+      NEXT_PUBLIC_DOMAINE_PRINCIPAL: api-chantier.soumafe.com
+      NEXT_PUBLIC_API_SIMULE: "0"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production application
+        run: npm run build
+
+      - name: Prepare standalone artifact
+        shell: bash
+        run: |
+          mkdir -p deploy/.next
+          cp -a .next/standalone/. deploy/
+          cp -a .next/static deploy/.next/static
+          cp -a public deploy/public
+          mkdir -p deploy/tmp
+          date -u +'%Y-%m-%dT%H:%M:%SZ' > deploy/tmp/restart.txt
+
+      - name: Upload to cPanel by FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.CPANEL_FTP_SERVER }}
+          port: 21
+          protocol: ftp
+          username: ${{ secrets.CPANEL_FTP_USERNAME }}
+          password: ${{ secrets.CPANEL_FTP_PASSWORD }}
+          local-dir: ./deploy/
+          server-dir: ${{ secrets.CPANEL_FTP_DEPLOY_PATH }}
+          exclude: |
+            **/.env*
