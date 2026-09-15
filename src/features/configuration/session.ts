@@ -14,9 +14,18 @@
 
 const CLE_RENOUVELLEMENT = "ccd.jeton_renouvellement";
 
-/** Le sous-domaine, ou `public` sur le domaine de la plateforme. */
+/** Le schéma PostgreSQL actif (lu du jeton JWT ou du sous-domaine). */
 export function schemaCourant(): string {
   if (typeof window === "undefined") return "public";
+  try {
+    const jeton = window.localStorage.getItem(CLE_RENOUVELLEMENT);
+    if (jeton) {
+      const charge = JSON.parse(atob(jeton.split(".")[1])) as { schema?: string };
+      if (charge.schema) return charge.schema;
+    }
+  } catch {
+    // Ignorer si jeton manquant ou illisible
+  }
   const [premier, ...reste] = window.location.hostname.split(".");
   return reste.length > 0 ? premier : "public";
 }

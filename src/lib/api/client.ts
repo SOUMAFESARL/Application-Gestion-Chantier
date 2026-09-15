@@ -235,6 +235,7 @@ export async function appeler<T>(chemin: string, options: Options = {}): Promise
 export function basePlateforme(): string {
   const surcharge = process.env.NEXT_PUBLIC_API_PLATEFORME;
   if (surcharge) return surcharge;
+  if (SURCHARGE) return SURCHARGE;
   if (typeof window === "undefined") return "http://localhost:8000";
 
   const { protocol } = window.location;
