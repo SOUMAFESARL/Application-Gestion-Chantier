@@ -27,11 +27,11 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { MarqueCCD } from "@/components/layout/MarqueCCD";
 import { BadgeEssai } from "@/components/metier/BadgeEssai";
-import { sessionOuverte } from "@/lib/api";
+import { EVENEMENT_SESSION_EXPIREE, sessionOuverte } from "@/lib/api";
 import { lireAbonnement } from "@/features/abonnement/api";
 import type { Abonnement } from "@/features/abonnement/api";
 import { obtenirProfilMoi } from "@/features/auth/api";
@@ -47,6 +47,16 @@ import styles from "./layout.module.css";
 interface LayoutAppProps {
   children: React.ReactNode;
 }
+
+const abonnementSession = (rappel: () => void) => {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener(EVENEMENT_SESSION_EXPIREE, rappel);
+  window.addEventListener("storage", rappel);
+  return () => {
+    window.removeEventListener(EVENEMENT_SESSION_EXPIREE, rappel);
+    window.removeEventListener("storage", rappel);
+  };
+};
 
 function IconeMeteo({
   condition,
@@ -97,7 +107,11 @@ export default function LayoutApp({ children }: LayoutAppProps) {
   const t = useTranslations("tableauDeBord.navigation");
   const router = useRouter();
   const pathname = usePathname();
-  const [estAuthentifie, setEstAuthentifie] = useState<boolean | null>(null);
+  const estAuthentifie = useSyncExternalStore(
+    abonnementSession,
+    () => sessionOuverte(),
+    () => null
+  );
   const [abonnement, setAbonnement] = useState<Abonnement | null>(null);
   const [profil, setProfil] = useState<ProfilUtilisateur | null>(null);
   const [entreprise, setEntreprise] = useState<DonneesEntreprise | null>(null);
@@ -119,15 +133,12 @@ export default function LayoutApp({ children }: LayoutAppProps) {
 
   // Garde de session : redirection immédiate vers la connexion si aucune session
   useEffect(() => {
-    if (!sessionOuverte()) {
-      setEstAuthentifie(false);
+    if (estAuthentifie === false) {
       if (typeof window !== "undefined" && !window.location.search.includes("session=expiree")) {
         router.replace("/connexion");
       }
-    } else {
-      setEstAuthentifie(true);
     }
-  }, [router, pathname]);
+  }, [estAuthentifie, router, pathname]);
 
   // Détection d'un projetId dans l'URL (ex: /projets/[id])
   const segments = pathname.split("/").filter(Boolean);

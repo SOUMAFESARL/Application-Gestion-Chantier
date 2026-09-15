@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 import { ModalSession } from "@/components/auth";
 import { ecrireProfilLocal, seDeconnecter } from "@/features/auth/api";
@@ -23,6 +23,8 @@ const CHEMINS_EXEMPTES = [
   "/mot-de-passe",
 ];
 
+const videAbonnement = () => () => {};
+
 /**
  * Surveillant de session web — DEV-3.
  *
@@ -35,11 +37,11 @@ export function SurveillantSession() {
   const chemin = usePathname();
   const session = useSession();
 
-  const [estMonte, setEstMonte] = useState(false);
-
-  useEffect(() => {
-    setEstMonte(true);
-  }, []);
+  const estMonte = useSyncExternalStore(
+    videAbonnement,
+    () => true,
+    () => false
+  );
 
   const estSurCheminExempte = CHEMINS_EXEMPTES.some((prefixe) =>
     chemin?.startsWith(prefixe)
