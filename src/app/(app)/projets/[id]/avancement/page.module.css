@@ -1,3 +1,598 @@
-.page {
+/* ====================================================================
+   Suivi d'Avancement des Travaux & Photos de Preuve — CCD Digital
+   ==================================================================== */
+
+.conteneur {
+  max-width: 1250px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-4) var(--space-9);
+}
+
+@media (min-width: 768px) {
+  .conteneur {
+    padding: var(--space-6) var(--space-6) var(--space-10);
+  }
+}
+
+/* En-tête de page */
+.enTete {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+@media (min-width: 768px) {
+  .enTete {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.titreBloc {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.titre {
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: var(--color-neutral-900);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sousTitre {
+  font-size: 0.9375rem;
+  color: var(--color-neutral-600);
+}
+
+.actionsHaut {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* --- BANDEAU GAUGE GLOBALE (Réel vs Théorique) --- */
+.bandeauSynthese {
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-xl, 16px);
+  padding: var(--space-5);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  margin-bottom: var(--space-6);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
+}
+
+@media (min-width: 860px) {
+  .bandeauSynthese {
+    grid-template-columns: 1.5fr 1fr;
+    align-items: center;
+  }
+}
+
+.jaugeAvancementSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.jaugeLignePourcent {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.grandPourcentage {
+  font-size: 2.75rem;
+  font-weight: 800;
+  color: var(--color-primary-600, #B85522);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.pourcentageTheorique {
+  font-size: 1rem;
+  color: var(--color-neutral-500);
+  font-weight: 600;
+}
+
+.barreDoubleFond {
+  position: relative;
+  width: 100%;
+  height: 14px;
+  background: var(--color-neutral-100);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.barreReelle {
+  height: 100%;
+  background: var(--color-primary-500, #D4652A);
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+.repereTheorique {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--color-neutral-900);
+  z-index: 2;
+}
+
+.legendeJauge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: 0.8125rem;
+  color: var(--color-neutral-600);
+}
+
+.pastilleLegende {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 4px;
+}
+
+.badgeEcart {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.ecartAvance {
+  background: var(--color-semantic-success-bg, #DCFCE7);
+  color: var(--color-semantic-success, #166534);
+}
+
+.ecartRetard {
+  background: var(--color-semantic-error-bg, #FEE2E2);
+  color: var(--color-semantic-error, #991B1B);
+}
+
+/* Infos planning droite */
+.planningInfos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-neutral-50);
+  border-radius: var(--radius-lg, 12px);
+  font-size: 0.8125rem;
+}
+
+.planningItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.planningLabel {
+  color: var(--color-neutral-500);
+}
+
+.planningValeur {
+  font-weight: 700;
+  color: var(--color-neutral-900);
+}
+
+/* --- ONGLETS / SECTIONS PRINCIPALES --- */
+.barreOnglets {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-neutral-100);
+  padding: 4px;
+  border-radius: var(--radius-lg, 12px);
+  width: fit-content;
+  margin-bottom: var(--space-5);
+}
+
+.ongletBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md, 8px);
+  border: none;
+  background: transparent;
+  color: var(--color-neutral-600);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ongletActif {
+  background: var(--color-neutral-0);
+  color: var(--color-primary-600, #B85522);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* --- SECTION SUIVI PAR LOTS --- */
+.grilleLots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.carteLot {
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-xl, 16px);
+  padding: var(--space-5);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.lotEntete {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-neutral-100);
+}
+
+@media (min-width: 640px) {
+  .lotEntete {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.lotTitreGroupe {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.badgeNumeroLot {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--color-primary-50, #FDF2EC);
+  color: var(--color-primary-700, #97461E);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.lotNom {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+}
+
+.lotControlePourcentage {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.inputSlider {
+  width: 140px;
+  cursor: pointer;
+  accent-color: var(--color-primary-500, #D4652A);
+}
+
+.lotPourcentageAffiche {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-primary-600, #B85522);
+  min-width: 52px;
+  text-align: right;
+}
+
+/* Sous-tâches du lot */
+.listeSousTaches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.ligneSousTache {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-neutral-50);
+  border-radius: var(--radius-md, 8px);
+}
+
+@media (min-width: 640px) {
+  .ligneSousTache {
+    grid-template-columns: 1.5fr 1fr 60px;
+  }
+}
+
+.sousTacheLibelle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-neutral-800);
+}
+
+.sousTacheCurseur {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sousTachePourcent {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  text-align: right;
+}
+
+/* --- SECTION PHOTOS DE PREUVE (Photothèque) --- */
+.sectionPhotos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.barreActionsPhotos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+@media (min-width: 640px) {
+  .barreActionsPhotos {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.grillePhotosPreuves {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 500px) {
+  .grillePhotosPreuves {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 960px) {
+  .grillePhotosPreuves {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.cartePhotoPreuve {
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-xl, 16px);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+}
+
+.cartePhotoPreuve:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -2px rgba(0, 0, 0, 0.1);
+}
+
+.photoImageWrapper {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  background: var(--color-neutral-100);
+  overflow: hidden;
+}
+
+.photoImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.cartePhotoPreuve:hover .photoImage {
+  transform: scale(1.04);
+}
+
+.badgePourcentPhoto {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  backdrop-filter: blur(4px);
+}
+
+.photoCorps {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.photoTitre {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  line-height: 1.3;
+}
+
+.photoMetas {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.75rem;
+  color: var(--color-neutral-500);
+}
+
+.photoCommentaire {
+  font-size: 0.8125rem;
+  color: var(--color-neutral-700);
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.badgeCertif {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.certifVerifiee {
+  background: var(--color-semantic-success-bg, #DCFCE7);
+  color: var(--color-semantic-success, #166534);
+}
+
+.certifAttente {
+  background: #FEF3C7;
+  color: #B45309;
+}
+
+/* Modale d'ajout de photo de preuve */
+.modaleOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.modaleBox {
+  background: var(--color-neutral-0);
+  border-radius: var(--radius-xl, 16px);
+  max-width: 640px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
   padding: var(--space-6);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.modaleEntete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.formulairePhoto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.champItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.champLabel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+}
+
+.champInput,
+.champSelect,
+.champTextarea {
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-neutral-0);
+  font-size: 0.9375rem;
+  font-family: inherit;
+}
+
+.zoneDepotPhoto {
+  border: 2px dashed var(--color-primary-400, #DF7F52);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-5);
+  text-align: center;
+  background: var(--color-primary-50, #FDF2EC);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.apercuImage {
+  max-height: 220px;
+  border-radius: var(--radius-md, 8px);
+  object-fit: cover;
+  margin-top: var(--space-2);
+}
+
+/* Boutons */
+.btnAction {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md, 8px);
+  border: none;
+  background: var(--color-primary-500, #D4652A);
+  color: var(--color-neutral-0);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btnAction:hover {
+  background: var(--color-primary-600, #B85522);
+}
+
+.btnSecondaire {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-neutral-0);
+  color: var(--color-neutral-800);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnSecondaire:hover {
+  background: var(--color-neutral-100);
 }
