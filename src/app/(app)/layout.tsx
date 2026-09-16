@@ -397,10 +397,12 @@ export default function LayoutApp({ children }: LayoutAppProps) {
 
         <div className={styles.droite}>
           {/* Badge du compte à rebours 14 jours */}
-          <BadgeEssai
-            joursRestants={abonnement?.jours_essai_restants ?? 14}
-            estExpire={abonnement?.est_expire ?? false}
-          />
+          <Link href="/abonnement" style={{ textDecoration: "none" }} title="Gérer mon abonnement et forfaits">
+            <BadgeEssai
+              joursRestants={abonnement?.jours_essai_restants ?? 14}
+              estExpire={abonnement?.est_expire ?? false}
+            />
+          </Link>
 
           {/* Météo locale dynamique issue de l'API temps réel */}
           <div

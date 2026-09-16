@@ -1,0 +1,932 @@
+/* ====================================================================
+   Page Tarifs, Choix du Paiement et Confirmation d'Abonnement — CCD Digital
+   ==================================================================== */
+
+.conteneur {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-4) var(--space-8);
+}
+
+@media (min-width: 768px) {
+  .conteneur {
+    padding: var(--space-6) var(--space-6) var(--space-9);
+  }
+}
+
+/* --- Stepper de progression --- */
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-lg, 12px);
+}
+
+.stepItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-neutral-500);
+}
+
+.stepPast {
+  color: var(--color-semantic-success, #166534);
+}
+
+.stepActive {
+  color: var(--color-primary-600, #B85522);
+  font-weight: var(--font-weight-bold, 700);
+}
+
+.stepNumero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-600);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.stepActive .stepNumero {
+  background: var(--color-primary-500, #D4652A);
+  color: var(--color-neutral-0);
+}
+
+.stepPast .stepNumero {
+  background: var(--color-semantic-success, #166534);
+  color: var(--color-neutral-0);
+}
+
+.stepSeparateur {
+  width: 24px;
+  height: 1px;
+  background: var(--color-neutral-200);
+}
+
+@media (min-width: 640px) {
+  .stepSeparateur {
+    width: 48px;
+  }
+}
+
+/* --- En-tête principal --- */
+.entete {
+  text-align: center;
+  margin-bottom: var(--space-6);
+}
+
+.badgeHeader {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full, 9999px);
+  background: var(--color-primary-50, #FDF2EC);
+  color: var(--color-primary-700, #97461E);
+  font-size: 0.8125rem;
+  font-weight: var(--font-weight-semibold, 600);
+  margin-bottom: var(--space-2);
+}
+
+.titre {
+  font-size: 1.875rem;
+  line-height: 1.25;
+  font-weight: var(--font-weight-bold, 700);
+  color: var(--color-neutral-900);
+  margin-bottom: var(--space-2);
+}
+
+@media (min-width: 768px) {
+  .titre {
+    font-size: 2.25rem;
+  }
+}
+
+.sousTitre {
+  font-size: 1rem;
+  color: var(--color-neutral-600);
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+/* --- Commutateur Mensuel / Annuel --- */
+.togglePeriode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  margin: var(--space-6) 0 var(--space-7);
+}
+
+.toggleLabel {
+  font-size: 0.9375rem;
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-neutral-600);
+  cursor: pointer;
+}
+
+.toggleLabelActif {
+  color: var(--color-neutral-900);
+  font-weight: var(--font-weight-bold, 700);
+}
+
+.switch {
+  position: relative;
+  width: 52px;
+  height: 28px;
+  background: var(--color-neutral-300);
+  border-radius: 9999px;
+  padding: 2px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border: none;
+}
+
+.switchAnnuel {
+  background: var(--color-primary-500, #D4652A);
+}
+
+.switchPoignee {
+  display: block;
+  width: 24px;
+  height: 24px;
+  background: var(--color-neutral-0);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.switchAnnuel .switchPoignee {
+  transform: translateX(24px);
+}
+
+.badgeEconomie {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px 8px;
+  background: var(--color-semantic-success-bg, #DCFCE7);
+  color: var(--color-semantic-success, #166534);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* --- Grille des Forfaits --- */
+.grilleForfaits {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
+  margin-bottom: var(--space-8);
+}
+
+@media (min-width: 900px) {
+  .grilleForfaits {
+    grid-template-columns: repeat(3, 1fr);
+    align-items: stretch;
+  }
+}
+
+.carteForfait {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-xl, 16px);
+  padding: var(--space-6);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.carteForfait:hover {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+}
+
+.cartePopulaire {
+  border: 2px solid var(--color-primary-500, #D4652A);
+  box-shadow: 0 10px 30px -5px rgba(212, 101, 42, 0.15);
+  transform: scale(1.02);
+}
+
+@media (max-width: 899px) {
+  .cartePopulaire {
+    transform: none;
+  }
+}
+
+.badgePopulaire {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-primary-500, #D4652A);
+  color: var(--color-neutral-0);
+  padding: 4px 14px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.forfaitNom {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  margin-bottom: var(--space-1);
+}
+
+.forfaitDescription {
+  font-size: 0.875rem;
+  color: var(--color-neutral-600);
+  min-height: 42px;
+  margin-bottom: var(--space-4);
+}
+
+.prixBloc {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  margin-bottom: var(--space-1);
+}
+
+.prixMontant {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--color-neutral-900);
+  letter-spacing: -0.02em;
+}
+
+.prixUnite {
+  font-size: 0.875rem;
+  color: var(--color-neutral-500);
+  font-weight: 500;
+}
+
+.prixSousTexte {
+  font-size: 0.75rem;
+  color: var(--color-neutral-500);
+  margin-bottom: var(--space-5);
+}
+
+.quotasResume {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-neutral-50);
+  border-radius: var(--radius-md, 8px);
+  margin-bottom: var(--space-5);
+}
+
+.quotaItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.8125rem;
+  color: var(--color-neutral-700);
+  font-weight: 500;
+}
+
+.quotaIcone {
+  color: var(--color-primary-600, #B85522);
+  flex-shrink: 0;
+}
+
+.listeFonctionnalites {
+  list-style: none;
+  margin: 0 0 var(--space-6);
+  padding: 0;
+  flex: 1;
+}
+
+.itemFonctionnalite {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: 0.875rem;
+  color: var(--color-neutral-700);
+  margin-bottom: var(--space-3);
+}
+
+.iconeCheck {
+  color: var(--color-semantic-success, #166534);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.btnChoisir {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-neutral-0);
+  color: var(--color-neutral-800);
+  transition: all 0.15s ease;
+}
+
+.btnChoisir:hover {
+  border-color: var(--color-primary-500, #D4652A);
+  color: var(--color-primary-600, #B85522);
+  background: var(--color-primary-50, #FDF2EC);
+}
+
+.btnChoisirPopulaire {
+  background: var(--color-primary-500, #D4652A);
+  color: var(--color-neutral-0);
+  border: none;
+}
+
+.btnChoisirPopulaire:hover {
+  background: var(--color-primary-600, #B85522);
+  color: var(--color-neutral-0);
+}
+
+/* --- Section Réassurance & Sécurité --- */
+.reassuranceSection {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-lg, 12px);
+  margin-bottom: var(--space-8);
+}
+
+@media (min-width: 640px) {
+  .reassuranceSection {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.reassuranceItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.reassuranceIcone {
+  color: var(--color-primary-600, #B85522);
+  flex-shrink: 0;
+}
+
+.reassuranceTitre {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-neutral-900);
+  margin-bottom: 2px;
+}
+
+.reassuranceTexte {
+  font-size: 0.8125rem;
+  color: var(--color-neutral-600);
+  line-height: 1.4;
+}
+
+/* ====================================================================
+   ÉTAPE 2 : CHOIX DU PAIEMENT & RÉCAPITULATIF
+   ==================================================================== */
+
+.layoutPaiement {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .layoutPaiement {
+    grid-template-columns: 1.6fr 1fr;
+  }
+}
+
+.colonnePaiement {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.carteSection {
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-xl, 16px);
+  padding: var(--space-5);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+@media (min-width: 640px) {
+  .carteSection {
+    padding: var(--space-6);
+  }
+}
+
+.sectionTitre {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  margin-bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sectionDescription {
+  font-size: 0.875rem;
+  color: var(--color-neutral-600);
+  margin-bottom: var(--space-4);
+}
+
+/* Sélection des moyens de paiement */
+.grilleMoyens {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+@media (min-width: 500px) {
+  .grilleMoyens {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.tuileMoyen {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--color-neutral-200);
+  border-radius: var(--radius-lg, 12px);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: var(--color-neutral-0);
+  text-align: left;
+}
+
+.tuileMoyen:hover {
+  border-color: var(--color-neutral-400);
+}
+
+.tuileMoyenActive {
+  border-color: var(--color-primary-500, #D4652A);
+  background: var(--color-primary-50, #FDF2EC);
+}
+
+.tuileEntete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-1);
+}
+
+.badgeMoyen {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+}
+
+.tagMoyen {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-700);
+}
+
+.tagWave {
+  background: #E0F2FE;
+  color: #0369A1;
+}
+
+.tagOrange {
+  background: #FFEDD5;
+  color: #C2410C;
+}
+
+.tagMtn {
+  background: #FEF08A;
+  color: #854D0E;
+}
+
+.tagMoov {
+  background: #DCFCE7;
+  color: #15803D;
+}
+
+.tuileDesc {
+  font-size: 0.75rem;
+  color: var(--color-neutral-600);
+  line-height: 1.3;
+}
+
+/* Formulaires de paiement */
+.formulairePaiement {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-neutral-200);
+}
+
+.champGroupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.champLabel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+}
+
+.champInput {
+  width: 100%;
+  padding: var(--space-3) var(--space-3);
+  font-size: 0.9375rem;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-neutral-0);
+  color: var(--color-neutral-900);
+  transition: border-color 0.15s ease;
+}
+
+.champInput:focus {
+  outline: none;
+  border-color: var(--color-primary-500, #D4652A);
+  box-shadow: 0 0 0 3px rgba(212, 101, 42, 0.15);
+}
+
+.champLigneTel {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.selectIndicatif {
+  width: 120px;
+  padding: var(--space-3) var(--space-2);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-neutral-50);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-neutral-800);
+}
+
+.champLigneDouble {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.aideTerrain {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-secondary-50, #F4F6F7);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.8125rem;
+  color: var(--color-secondary-700, #3D4B50);
+  line-height: 1.4;
+}
+
+.aideIcone {
+  flex-shrink: 0;
+  color: var(--color-primary-600, #B85522);
+}
+
+/* Virement box */
+.virementBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-neutral-50);
+  border: 1px dashed var(--color-neutral-300);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.875rem;
+}
+
+.virementLigne {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-neutral-200);
+  padding-bottom: var(--space-2);
+}
+
+.virementLabel {
+  color: var(--color-neutral-600);
+}
+
+.virementValeur {
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  font-family: var(--font-family-mono, monospace);
+}
+
+/* Colonne Récapitulatif Sticky */
+.recapitulatifSticky {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.recapLigne {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  color: var(--color-neutral-600);
+  margin-bottom: var(--space-2);
+}
+
+.recapTotal {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-top: var(--space-3);
+  border-top: 2px solid var(--color-neutral-200);
+  margin-top: var(--space-3);
+}
+
+.recapTotalLabel {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+}
+
+.recapTotalMontant {
+  font-size: 1.625rem;
+  font-weight: 800;
+  color: var(--color-primary-600, #B85522);
+  letter-spacing: -0.02em;
+}
+
+.btnPayer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--color-primary-500, #D4652A);
+  color: var(--color-neutral-0);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(212, 101, 42, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btnPayer:hover:not(:disabled) {
+  background: var(--color-primary-600, #B85522);
+  transform: translateY(-1px);
+}
+
+.btnPayer:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnRetourForfaits {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-neutral-600);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.btnRetourForfaits:hover {
+  color: var(--color-neutral-900);
+  text-decoration: underline;
+}
+
+/* ====================================================================
+   ÉTAPE 3 : CONFIRMATION & REÇU DE PAIEMENT
+   ==================================================================== */
+
+.conteneurConfirmation {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.carteConfirmation {
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-xl, 16px);
+  padding: var(--space-6) var(--space-5);
+  text-align: center;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.06);
+}
+
+@media (min-width: 640px) {
+  .carteConfirmation {
+    padding: var(--space-8) var(--space-7);
+  }
+}
+
+.iconeSuccesAnim {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--color-semantic-success-bg, #DCFCE7);
+  color: var(--color-semantic-success, #166534);
+  margin-bottom: var(--space-4);
+  box-shadow: 0 0 0 8px rgba(220, 252, 231, 0.5);
+}
+
+.titreConfirmation {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--color-neutral-900);
+  margin-bottom: var(--space-2);
+}
+
+.texteConfirmation {
+  font-size: 0.9375rem;
+  color: var(--color-neutral-600);
+  max-width: 480px;
+  margin: 0 auto var(--space-6);
+  line-height: 1.5;
+}
+
+/* Bordereau de facture */
+.recuFacture {
+  background: var(--color-neutral-50);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-4);
+  text-align: left;
+  margin-bottom: var(--space-6);
+}
+
+.recuEntete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-neutral-200);
+  margin-bottom: var(--space-3);
+}
+
+.recuTitre {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-neutral-800);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.recuBadgeStatut {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--color-semantic-success-bg, #DCFCE7);
+  color: var(--color-semantic-success, #166534);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.grilleRecu {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+@media (min-width: 540px) {
+  .grilleRecu {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.recuItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recuItemLabel {
+  font-size: 0.75rem;
+  color: var(--color-neutral-500);
+}
+
+.recuItemValeur {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-neutral-900);
+}
+
+.recuItemMontant {
+  color: var(--color-primary-600, #B85522);
+  font-weight: 800;
+  font-size: 1.125rem;
+}
+
+/* Actions Confirmation */
+.actionsConfirmation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  justify-content: center;
+}
+
+@media (min-width: 500px) {
+  .actionsConfirmation {
+    flex-direction: row;
+  }
+}
+
+.btnDashboard {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--color-primary-500, #D4652A);
+  color: var(--color-neutral-0);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.btnDashboard:hover {
+  background: var(--color-primary-600, #B85522);
+  text-decoration: none;
+}
+
+.btnTelechargerFacture {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--color-neutral-0);
+  color: var(--color-neutral-800);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border: 1px solid var(--color-neutral-300);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnTelechargerFacture:hover {
+  background: var(--color-neutral-100);
+}
+
+/* Toast simulation */
+.toastFacture {
+  padding: var(--space-3);
+  background: var(--color-neutral-900);
+  color: var(--color-neutral-0);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.8125rem;
+  text-align: center;
+  margin-top: var(--space-2);
+}
