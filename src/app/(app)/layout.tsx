@@ -667,6 +667,19 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                     <span className={styles.dropdownDesc}>Formules BTP, paiements CinetPay et factures</span>
                   </div>
                 </Link>
+
+                <Link
+                  href="/super-admin"
+                  role="menuitem"
+                  className={`${styles.dropdownLien} ${pathname === "/super-admin" ? styles.dropdownLienActif : ""}`}
+                  onClick={() => setMenuPlusOuvert(false)}
+                >
+                  <ShieldCheck size={20} weight={pathname === "/super-admin" ? "fill" : "regular"} className={styles.dropdownIcone} />
+                  <div className={styles.dropdownTexte}>
+                    <span className={styles.dropdownTitre}>Console Super Admin</span>
+                    <span className={styles.dropdownDesc}>Entreprises clientes, formules et métriques globales</span>
+                  </div>
+                </Link>
               </div>
             )}
           </div>
