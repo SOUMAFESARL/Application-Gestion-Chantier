@@ -1,0 +1,420 @@
+/* ====================================================================
+   Tableau de Bord Super Admin — CCD Digital
+   ==================================================================== */
+
+.conteneur {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-4) var(--space-9);
+}
+
+@media (min-width: 768px) {
+  .conteneur {
+    padding: var(--space-6) var(--space-6) var(--space-10);
+  }
+}
+
+/* En-tête */
+.enTete {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+@media (min-width: 768px) {
+  .enTete {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.titreBloc {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.titre {
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: var(--color-neutral-900);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.badgeSuperAdmin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--color-primary-50, #FDF2EC);
+  border: 1px solid var(--color-primary-300, #EAA27A);
+  color: var(--color-primary-700, #97461E);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  width: fit-content;
+}
+
+.sousTitre {
+  font-size: 0.9375rem;
+  color: var(--color-neutral-600);
+}
+
+/* --- Grille des KPI Cards --- */
+.grilleKpi {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+@media (min-width: 540px) {
+  .grilleKpi {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .grilleKpi {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.carteKpi {
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-xl, 16px);
+  padding: var(--space-5);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.kpiEntete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8125rem;
+  color: var(--color-neutral-600);
+  font-weight: 600;
+}
+
+.kpiIcone {
+  color: var(--color-primary-600, #B85522);
+}
+
+.kpiValeur {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--color-neutral-900);
+  letter-spacing: -0.02em;
+}
+
+.kpiSousTexte {
+  font-size: 0.75rem;
+  color: var(--color-neutral-500);
+}
+
+/* --- Cartes synthétiques des forfaits --- */
+.grilleForfaitsSynth {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+@media (min-width: 640px) {
+  .grilleForfaitsSynth {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.carteForfaitSynth {
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.forfaitNomSynth {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-neutral-700);
+  text-transform: uppercase;
+}
+
+.forfaitChiffre {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-neutral-900);
+}
+
+.forfaitDetails {
+  font-size: 0.75rem;
+  color: var(--color-neutral-500);
+}
+
+/* --- Section Tableau des Entreprises --- */
+.sectionTableau {
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-xl, 16px);
+  padding: var(--space-5);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.barreFiltres {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+@media (min-width: 768px) {
+  .barreFiltres {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.rechercheInput {
+  width: 100%;
+  max-width: 380px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.875rem;
+}
+
+.groupesFiltres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.selectFiltre {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-neutral-0);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-neutral-800);
+}
+
+/* Table */
+.tableConteneur {
+  overflow-x: auto;
+}
+
+.tableEntreprises {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.tableEntreprises th {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-neutral-50);
+  color: var(--color-neutral-600);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.tableEntreprises td {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-neutral-100);
+  vertical-align: middle;
+}
+
+.tableEntreprises tr:hover td {
+  background: var(--color-neutral-50);
+}
+
+/* Badges Statuts */
+.badgeStatut {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.statutActif {
+  background: var(--color-semantic-success-bg, #DCFCE7);
+  color: var(--color-semantic-success, #166534);
+}
+
+.statutEssai {
+  background: #E0F2FE;
+  color: #0369A1;
+}
+
+.statutImpaye {
+  background: var(--color-semantic-error-bg, #FEE2E2);
+  color: var(--color-semantic-error, #991B1B);
+}
+
+.statutSuspendu {
+  background: var(--color-neutral-200);
+  color: var(--color-neutral-700);
+}
+
+/* Badges Forfaits */
+.badgePlan {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.planBatisseur {
+  background: #FEF3C7;
+  color: #B45309;
+}
+
+.planMaitreOeuvre {
+  background: var(--color-primary-50, #FDF2EC);
+  color: var(--color-primary-700, #97461E);
+  border: 1px solid var(--color-primary-200, #F3C5A9);
+}
+
+.planPromoteur {
+  background: #EDE9FE;
+  color: #6D28D9;
+}
+
+.planEssai {
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-700);
+}
+
+/* Boutons */
+.btnActionTable {
+  padding: 6px 12px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-neutral-0);
+  color: var(--color-neutral-800);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btnActionTable:hover {
+  background: var(--color-neutral-100);
+}
+
+.btnExport {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-neutral-0);
+  color: var(--color-neutral-800);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnExport:hover {
+  background: var(--color-neutral-100);
+}
+
+/* Modale Fiche Entreprise */
+.modaleOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.modaleBox {
+  background: var(--color-neutral-0);
+  border-radius: var(--radius-xl, 16px);
+  max-width: 700px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: var(--space-6);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.modaleEntete {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-neutral-200);
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.grilleInfosFiche {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  font-size: 0.875rem;
+  margin-bottom: var(--space-5);
+}
+
+@media (min-width: 500px) {
+  .grilleInfosFiche {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.infoBloc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.infoLabel {
+  font-size: 0.75rem;
+  color: var(--color-neutral-500);
+}
+
+.infoValeur {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-neutral-900);
+}
+
+.zoneActionsAdmin {
+  padding: var(--space-4);
+  background: var(--color-neutral-50);
+  border: 1px dashed var(--color-neutral-300);
+  border-radius: var(--radius-lg, 12px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
