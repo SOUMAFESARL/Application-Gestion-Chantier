@@ -20,6 +20,7 @@ import {
   Package,
   ShieldCheck,
   ShoppingCart,
+  SlidersHorizontal,
   SquaresFour,
   Sun,
   TrendUp,
@@ -692,6 +693,19 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                   <div className={styles.dropdownTexte}>
                     <span className={styles.dropdownTitre}>Console Super Admin</span>
                     <span className={styles.dropdownDesc}>Entreprises clientes, formules et métriques globales</span>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/alertes-quotas"
+                  role="menuitem"
+                  className={`${styles.dropdownLien} ${pathname === "/alertes-quotas" ? styles.dropdownLienActif : ""}`}
+                  onClick={() => setMenuPlusOuvert(false)}
+                >
+                  <SlidersHorizontal size={20} weight={pathname === "/alertes-quotas" ? "fill" : "regular"} className={styles.dropdownIcone} />
+                  <div className={styles.dropdownTexte}>
+                    <span className={styles.dropdownTitre}>Quotas & Alertes de Surclassement</span>
+                    <span className={styles.dropdownDesc}>Capacités allouées, jauges et simulation de dépassements</span>
                   </div>
                 </Link>
               </div>

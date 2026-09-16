@@ -22,6 +22,7 @@ import { Alerte } from "@/components/ui/Alerte";
 import { Badge } from "@/components/ui/Badge";
 import { Bouton } from "@/components/ui/Bouton";
 import { Carte } from "@/components/ui/Carte";
+import BanniereAlerteQuota from "@/components/metier/quotas/BanniereAlerteQuota";
 import { Tableau } from "@/components/ui/Tableau";
 import type { Colonne } from "@/components/ui/Tableau";
 import type { ProjetDetail } from "@/features/projets/api";
@@ -379,6 +380,9 @@ export function TableauDeBordClient({ initialData }: TableauDeBordClientProps) {
           </div>
         );
       })()}
+
+      {/* Bannière de Quota contextuelle (Alerte ou Blocage de dépassement) */}
+      <BanniereAlerteQuota />
 
       {/* 4 Indicateurs clés (KPIs) BTP */}
       <section className={styles.grilleMetriques} aria-label={t("kpis.indicateursCles")}>

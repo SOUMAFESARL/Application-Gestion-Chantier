@@ -12,18 +12,37 @@ import {
   Users,
 } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 import { Abonnement, lireAbonnement } from "@/features/abonnement/api";
+import { obtenirQuotasActuels, EVENEMENT_QUOTAS_MODIFIE } from "@/features/quotas/api";
+import { ResumeQuotas } from "@/features/quotas/types";
+import BanniereAlerteQuota from "@/components/metier/quotas/BanniereAlerteQuota";
 
 import styles from "./page.module.css";
 
 export default function PageParametres() {
   const [abonnement, setAbonnement] = useState<Abonnement | null>(null);
+  const [quotas, setQuotas] = useState<ResumeQuotas | null>(null);
+
+  const recharger = useCallback(() => {
+    lireAbonnement().then(setAbonnement).catch(() => {});
+    obtenirQuotasActuels().then(setQuotas).catch(() => {});
+  }, []);
 
   useEffect(() => {
-    lireAbonnement().then(setAbonnement).catch(() => {});
-  }, []);
+    recharger();
+    window.addEventListener(EVENEMENT_QUOTAS_MODIFIE, recharger);
+    window.addEventListener("storage", recharger);
+    return () => {
+      window.removeEventListener(EVENEMENT_QUOTAS_MODIFIE, recharger);
+      window.removeEventListener("storage", recharger);
+    };
+  }, [recharger]);
+
+  const chantiers = quotas?.ressources.chantiers;
+  const collaborateurs = quotas?.ressources.collaborateurs;
+  const stockage = quotas?.ressources.stockage;
 
   return (
     <main className={styles.page}>
@@ -33,6 +52,9 @@ export default function PageParametres() {
           Gérez votre formule d&apos;abonnement, vos collaborateurs, les droits d&apos;accès et les données de votre entreprise.
         </p>
       </header>
+
+      {/* Alerte contextuelle si quota critique */}
+      <BanniereAlerteQuota />
 
       <div className={styles.grilleSections}>
         {/* SECTION 1 : ABONNEMENT & FACTURATION (Mise en avant) */}
@@ -52,7 +74,7 @@ export default function PageParametres() {
             <div>
               <span className={styles.planActuelBadge}>
                 <Sparkle size={14} weight="fill" />
-                <span>{abonnement?.plan?.libelle || "Forfait Maître d'Œuvre (Essai)"}</span>
+                <span>{quotas?.forfaitLibelle || abonnement?.plan?.libelle || "Forfait BTP"}</span>
               </span>
             </div>
           </div>
@@ -65,10 +87,21 @@ export default function PageParametres() {
                 <Buildings size={16} weight="duotone" />
               </div>
               <div className={styles.quotaValeur}>
-                3 / {abonnement?.plan?.limite_projets ? `${abonnement.plan.limite_projets}` : "50"}
+                {chantiers ? `${chantiers.actuel} / ${chantiers.limite !== null ? chantiers.limite : "∞"}` : "3 / 50"}
               </div>
               <div className={styles.barreFond}>
-                <div className={styles.barreProgression} style={{ width: "6%" }} />
+                <div
+                  className={styles.barreProgression}
+                  style={{
+                    width: `${chantiers ? chantiers.pourcentage : 6}%`,
+                    backgroundColor:
+                      chantiers?.statut === "BLOQUANT"
+                        ? "#EF4444"
+                        : chantiers?.statut === "AVERTISSEMENT"
+                        ? "#F59E0B"
+                        : undefined,
+                  }}
+                />
               </div>
             </div>
 
@@ -78,10 +111,21 @@ export default function PageParametres() {
                 <Users size={16} weight="duotone" />
               </div>
               <div className={styles.quotaValeur}>
-                5 / {abonnement?.plan?.limite_utilisateurs ? `${abonnement.plan.limite_utilisateurs}` : "25"}
+                {collaborateurs ? `${collaborateurs.actuel} / ${collaborateurs.limite !== null ? collaborateurs.limite : "∞"}` : "5 / 25"}
               </div>
               <div className={styles.barreFond}>
-                <div className={styles.barreProgression} style={{ width: "20%" }} />
+                <div
+                  className={styles.barreProgression}
+                  style={{
+                    width: `${collaborateurs ? collaborateurs.pourcentage : 20}%`,
+                    backgroundColor:
+                      collaborateurs?.statut === "BLOQUANT"
+                        ? "#EF4444"
+                        : collaborateurs?.statut === "AVERTISSEMENT"
+                        ? "#F59E0B"
+                        : undefined,
+                  }}
+                />
               </div>
             </div>
 
@@ -91,10 +135,21 @@ export default function PageParametres() {
                 <HardDrive size={16} weight="duotone" />
               </div>
               <div className={styles.quotaValeur}>
-                1.2 Go / {abonnement?.plan?.limite_stockage_mo ? `${Math.round(abonnement.plan.limite_stockage_mo / 1000)} Go` : "20 Go"}
+                {stockage ? `${stockage.actuel} Go / ${stockage.limite !== null ? `${stockage.limite} Go` : "∞"}` : "1.2 Go / 20 Go"}
               </div>
               <div className={styles.barreFond}>
-                <div className={styles.barreProgression} style={{ width: "6%" }} />
+                <div
+                  className={styles.barreProgression}
+                  style={{
+                    width: `${stockage ? stockage.pourcentage : 6}%`,
+                    backgroundColor:
+                      stockage?.statut === "BLOQUANT"
+                        ? "#EF4444"
+                        : stockage?.statut === "AVERTISSEMENT"
+                        ? "#F59E0B"
+                        : undefined,
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -106,10 +161,10 @@ export default function PageParametres() {
               <ArrowRight size={16} weight="bold" />
             </Link>
             <Link
-              href="/abonnement"
-              style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--color-neutral-700)" }}
+              href="/alertes-quotas"
+              style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--color-primary-600, #D4652A)" }}
             >
-              Consulter la grille des tarifs
+              Superviser les quotas & simulateur ➜
             </Link>
           </div>
         </section>

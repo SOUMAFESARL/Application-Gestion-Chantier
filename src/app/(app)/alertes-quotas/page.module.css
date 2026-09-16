@@ -1,0 +1,418 @@
+.page {
+  padding: 32px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: inherit;
+}
+
+.enTete {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.titre {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--color-neutral-900, #0F172A);
+  margin: 0 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sousTitre {
+  font-size: 0.9375rem;
+  color: var(--color-neutral-600, #475569);
+  margin: 0;
+}
+
+.actionsHaut {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.badgeFormuleActuelle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: #1D4ED8;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.84375rem;
+  font-weight: 700;
+}
+
+.btnLienAbonnement {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-primary-600, #D4652A);
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btnLienAbonnement:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+/* Grille des cartes de quotas */
+.grilleQuotas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.carteQuota {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.03);
+  border: 1px solid #E2E8F0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.carteQuota:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+.carteQuotaAvertissement {
+  border-color: #FCD34D;
+  background: linear-gradient(180deg, #FFFDF5 0%, #ffffff 100%);
+}
+
+.carteQuotaBloquant {
+  border-color: #FCA5A5;
+  background: linear-gradient(180deg, #FFF5F5 0%, #ffffff 100%);
+}
+
+.quotaEntete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.quotaTitreEtIcone {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.quotaIcone {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F1F5F9;
+  color: #334155;
+}
+
+.quotaNom {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #1E293B;
+}
+
+.badgeStatut {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+
+.badgeNormal {
+  background: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #A7F3D0;
+}
+
+.badgeAvertissement {
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FDE68A;
+}
+
+.badgeBloquant {
+  background: #FEE2E2;
+  color: #991B1B;
+  border: 1px solid #FECACA;
+}
+
+.badgeIllimite {
+  background: #F3E8FF;
+  color: #6B21A8;
+  border: 1px solid #E9D5FF;
+}
+
+.quotaChiffres {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.valeurChiffre {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.valeurPourcent {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #64748B;
+}
+
+.barreFond {
+  width: 100%;
+  height: 8px;
+  background: #F1F5F9;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.barreRemplissage {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.remplissageNormal {
+  background: #10B981;
+}
+
+.remplissageAvertissement {
+  background: #F59E0B;
+}
+
+.remplissageBloquant {
+  background: #EF4444;
+}
+
+.remplissageIllimite {
+  background: linear-gradient(90deg, #8B5CF6, #3B82F6);
+}
+
+.cartePied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid #F1F5F9;
+  font-size: 0.8125rem;
+  color: #64748B;
+}
+
+.btnActionTest {
+  background: none;
+  border: 1px solid #CBD5E1;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnActionTest:hover {
+  background: #F1F5F9;
+  border-color: #94A3B8;
+}
+
+/* SECTION SIMULATEUR / BAC A SABLE */
+.sectionSimulateur {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  margin-bottom: 32px;
+}
+
+.enTeteSimulateur {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.titreSimulateur {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: #0F172A;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.grilleScenarios {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.carteScenario {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.carteScenario:hover {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+  transform: translateY(-1px);
+}
+
+.carteScenarioActive {
+  background: #EFF6FF;
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.nomScenario {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1E293B;
+  margin-bottom: 4px;
+}
+
+.descScenario {
+  font-size: 0.8125rem;
+  color: #64748B;
+  line-height: 1.4;
+}
+
+/* CARTE HERO SURCLASSEMENT RECOMMANDÉ */
+.carteSurclassementHero {
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+  border-radius: 18px;
+  padding: 32px;
+  color: #ffffff;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 32px;
+  align-items: center;
+  box-shadow: 0 12px 30px -8px rgba(15, 23, 42, 0.4);
+}
+
+.heroGauche {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.heroTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(212, 101, 42, 0.25);
+  border: 1px solid rgba(212, 101, 42, 0.6);
+  color: #FDBA74;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  width: fit-content;
+}
+
+.heroTitre {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.3;
+  margin: 0;
+  color: #ffffff;
+}
+
+.heroDescription {
+  font-size: 0.9375rem;
+  color: #CBD5E1;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.heroDroite {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.heroPrixLabel {
+  font-size: 0.8125rem;
+  color: #94A3B8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.heroPrixValeur {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.heroPrixCycle {
+  font-size: 0.875rem;
+  color: #94A3B8;
+  font-weight: 500;
+}
+
+.btnHeroSurclasser {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(135deg, var(--color-primary-500, #D4652A) 0%, #B84D19 100%);
+  color: #ffffff;
+  padding: 14px 20px;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(212, 101, 42, 0.5);
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.btnHeroSurclasser:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 900px) {
+  .carteSurclassementHero {
+    grid-template-columns: 1fr;
+  }
+}

@@ -8,14 +8,19 @@ import {
   HardHat,
   MagnifyingGlass,
   MapPin,
+  Plus,
   TrendUp,
   Users,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import BanniereAlerteQuota from "@/components/metier/quotas/BanniereAlerteQuota";
+import ModaleQuotaAtteint from "@/components/metier/quotas/ModaleQuotaAtteint";
 import { obtenirProjetsAvancement } from "@/features/avancement/api";
 import { ProjetAvancement } from "@/features/avancement/types";
+import { verifierActionQuota } from "@/features/quotas/api";
+import { InfoSurclassement, MetriqueQuota } from "@/features/quotas/types";
 
 import styles from "./page.module.css";
 
@@ -23,10 +28,24 @@ export default function PageListeProjets() {
   const [projets, setProjets] = useState<ProjetAvancement[]>([]);
   const [recherche, setRecherche] = useState("");
   const [filtreStatut, setFiltreStatut] = useState("TOUS");
+  const [modaleQuotaOuverte, setModaleQuotaOuverte] = useState(false);
+  const [ressourceBloquante, setRessourceBloquante] = useState<MetriqueQuota | undefined>(undefined);
+  const [recommandation, setRecommandation] = useState<InfoSurclassement | null>(null);
 
   useEffect(() => {
     obtenirProjetsAvancement().then(setProjets);
   }, []);
+
+  const handleNouveauChantier = async () => {
+    const check = await verifierActionQuota("CREER_CHANTIER");
+    if (!check.autorise) {
+      setRessourceBloquante(check.ressource);
+      setRecommandation(check.recommandation || null);
+      setModaleQuotaOuverte(true);
+    } else {
+      alert("✅ Quota disponible ! L'interface de création de chantier s'ouvrirait ici.");
+    }
+  };
 
   const projetsFiltres = useMemo(() => {
     return projets.filter((p) => {
@@ -42,6 +61,14 @@ export default function PageListeProjets() {
 
   return (
     <div className={styles.conteneur}>
+      {/* Modale de surclassement si quota atteint */}
+      <ModaleQuotaAtteint
+        ouvert={modaleQuotaOuverte}
+        surFermer={() => setModaleQuotaOuverte(false)}
+        ressourceBloquante={ressourceBloquante}
+        recommandation={recommandation}
+      />
+
       <header className={styles.enTete}>
         <div>
           <h1 className={styles.titre}>
@@ -53,10 +80,25 @@ export default function PageListeProjets() {
           </p>
         </div>
 
-        <Link href="/tableau-de-bord" className={styles.btnLienSecondaire}>
-          <span>Retour au tableau de bord</span>
-        </Link>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <button
+            type="button"
+            className={styles.btnLienPrimaire}
+            onClick={handleNouveauChantier}
+            title="Créer un nouveau chantier (soumis aux quotas du forfait)"
+          >
+            <Plus size={16} weight="bold" />
+            <span>Nouveau chantier</span>
+          </button>
+
+          <Link href="/tableau-de-bord" className={styles.btnLienSecondaire}>
+            <span>Tableau de bord</span>
+          </Link>
+        </div>
       </header>
+
+      {/* Bannière d'alerte quota chantiers contextuelle */}
+      <BanniereAlerteQuota ressourceCible="CHANTIERS" />
 
       {/* Barre de recherche et filtres */}
       <div className={styles.barreFiltres}>
