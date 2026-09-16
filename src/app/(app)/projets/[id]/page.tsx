@@ -2,12 +2,14 @@
 
 import {
   ArrowLeft,
+  ArrowRight,
   BuildingOffice,
   CalendarBlank,
   CheckCircle,
   CurrencyCircleDollar,
   Envelope,
   Phone,
+  TrendUp,
   WhatsappLogo,
 } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
@@ -135,6 +137,24 @@ export default function Page() {
               : t("badgeConforme", { ecart: Math.abs(ecart) })}
           </Badge>
           <Badge variante="neutre">{projet.statut}</Badge>
+          <Link
+            href={`/projets/${projet.id}/avancement`}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "6px 14px",
+              background: "var(--color-primary-500, #D4652A)",
+              color: "#fff",
+              borderRadius: "8px",
+              fontSize: "13px",
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+          >
+            <TrendUp size={16} weight="bold" />
+            <span>Suivi d&apos;avancement & Photos</span>
+          </Link>
         </div>
       </header>
 
@@ -171,6 +191,23 @@ export default function Page() {
                   style={{ left: `${Math.min(projet.avancement_theorique, 100)}%` }}
                 />
               </div>
+            </div>
+
+            <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px solid var(--color-neutral-200)" }}>
+              <Link
+                href={`/projets/${projet.id}/avancement`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "var(--color-primary-600, #B85522)",
+                }}
+              >
+                <span>Consulter les pourcentages par lot & photos de preuve</span>
+                <ArrowRight size={14} />
+              </Link>
             </div>
           </Carte>
 
