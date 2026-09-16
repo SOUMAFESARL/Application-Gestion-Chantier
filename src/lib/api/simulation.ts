@@ -220,7 +220,7 @@ export const simulation = {
     return attendre(
       {
         statut: "PRET" as const,
-        url_connexion: `http://${demande.slug.replace(/_/g, "-")}.localhost:3000/connexion`,
+        url_connexion: "/connexion",
       },
       200,
     );
