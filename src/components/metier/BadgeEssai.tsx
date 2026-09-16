@@ -1,6 +1,6 @@
 "use client";
 
-import { ClockCountdown } from "@phosphor-icons/react";
+import { CheckCircle, ClockCountdown } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 
 import styles from "./BadgeEssai.module.css";
@@ -9,14 +9,33 @@ export interface BadgeEssaiProps {
   joursRestants?: number | null;
   estExpire?: boolean;
   court?: boolean;
+  statut?: "ESSAI" | "ACTIF" | "IMPAYE" | "SUSPENDU" | "RESILIE";
+  nomPlan?: string;
 }
 
 /**
- * Badge de compteur d'essai gratuit — Maquette M10, US-016 & T-025.
- * La couleur n'est jamais seule : icône + texte explicite.
+ * Badge de statut d'abonnement / essai gratuit — Maquette M10, US-016 & T-025.
+ * Quand l'abonnement est payé (statut ACTIF), le décompte d'essai disparaît
+ * complètement pour afficher le badge officiel du forfait.
  */
-export function BadgeEssai({ joursRestants, estExpire = false, court = false }: BadgeEssaiProps) {
+export function BadgeEssai({
+  joursRestants,
+  estExpire = false,
+  court = false,
+  statut = "ESSAI",
+  nomPlan,
+}: BadgeEssaiProps) {
   const t = useTranslations("abonnement");
+
+  // CAS ABONNEMENT ACTIF PAYÉ : Aucune mention d'essai ni de jours restants
+  if (statut === "ACTIF") {
+    return (
+      <span className={`${styles.badge} ${styles.vert} ${court ? styles.court : ""}`}>
+        <CheckCircle size={court ? 14 : 16} weight="fill" />
+        <span>{court ? (nomPlan || "Actif") : `Forfait ${nomPlan || "Actif"}`}</span>
+      </span>
+    );
+  }
 
   if (estExpire || joursRestants === 0) {
     return (

@@ -33,7 +33,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { MarqueCCD } from "@/components/layout/MarqueCCD";
 import { BadgeEssai } from "@/components/metier/BadgeEssai";
 import { EVENEMENT_SESSION_EXPIREE, sessionOuverte } from "@/lib/api";
-import { lireAbonnement } from "@/features/abonnement/api";
+import { EVENEMENT_ABONNEMENT_MODIFIE, lireAbonnement } from "@/features/abonnement/api";
 import type { Abonnement } from "@/features/abonnement/api";
 import { obtenirProfilMoi } from "@/features/auth/api";
 import type { ProfilUtilisateur } from "@/features/auth/api";
@@ -189,6 +189,17 @@ export default function LayoutApp({ children }: LayoutAppProps) {
     window.addEventListener(EVENEMENT_ENTREPRISE_MODIFIEE, chargerEntreprise);
     return () => window.removeEventListener(EVENEMENT_ENTREPRISE_MODIFIEE, chargerEntreprise);
   }, [chargerEntreprise]);
+
+  const rafraichirAbonnement = useCallback(() => {
+    lireAbonnement()
+      .then((data) => setAbonnement(data))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener(EVENEMENT_ABONNEMENT_MODIFIE, rafraichirAbonnement);
+    return () => window.removeEventListener(EVENEMENT_ABONNEMENT_MODIFIE, rafraichirAbonnement);
+  }, [rafraichirAbonnement]);
 
   const estDirecteurGeneral = Boolean(profil?.is_dg || profil?.role_global === "DG");
 
@@ -397,9 +408,11 @@ export default function LayoutApp({ children }: LayoutAppProps) {
         </Link>
 
         <div className={styles.droite}>
-          {/* Badge du compte à rebours 14 jours */}
+          {/* Badge du compte à rebours ou du forfait actif */}
           <Link href="/abonnement" style={{ textDecoration: "none" }} title="Gérer mon abonnement et forfaits">
             <BadgeEssai
+              statut={abonnement?.statut}
+              nomPlan={abonnement?.plan?.libelle}
               joursRestants={abonnement?.jours_essai_restants ?? 14}
               estExpire={abonnement?.est_expire ?? false}
             />

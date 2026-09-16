@@ -1,3 +1,509 @@
-.page {
-  padding: var(--space-6);
+/* ====================================================================
+   Journal de Chantier & Saisie Quotidienne — CCD Digital
+   ==================================================================== */
+
+.conteneur {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-4) var(--space-9);
+}
+
+@media (min-width: 768px) {
+  .conteneur {
+    padding: var(--space-6) var(--space-6) var(--space-10);
+  }
+}
+
+/* --- En-tête de page --- */
+.enTetePage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+@media (min-width: 768px) {
+  .enTetePage {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.titreModule {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--color-neutral-900);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sousTitreModule {
+  font-size: 0.9375rem;
+  color: var(--color-neutral-600);
+  margin-top: 2px;
+}
+
+/* Onglets Saisie / Historique */
+.barreOnglets {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-neutral-100);
+  padding: 4px;
+  border-radius: var(--radius-lg, 12px);
+  width: fit-content;
+}
+
+.ongletBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md, 8px);
+  border: none;
+  background: transparent;
+  color: var(--color-neutral-600);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ongletActif {
+  background: var(--color-neutral-0);
+  color: var(--color-primary-600, #B85522);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* --- Formulaire de Saisie Quotidienne --- */
+.formulaire {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Bloc métadonnées du chantier */
+.blocCartouche {
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-xl, 16px);
+  padding: var(--space-5);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.grilleCartouche {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .grilleCartouche {
+    grid-template-columns: 1.5fr 1fr 1fr;
+  }
+}
+
+.champItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.champLabel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+}
+
+.champInput,
+.champSelect {
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-neutral-0);
+  color: var(--color-neutral-900);
+  font-size: 0.9375rem;
+  transition: border-color 0.15s ease;
+}
+
+.champInput:focus,
+.champSelect:focus {
+  outline: none;
+  border-color: var(--color-primary-500, #D4652A);
+  box-shadow: 0 0 0 3px rgba(212, 101, 42, 0.15);
+}
+
+/* --- Section Générique --- */
+.sectionCadre {
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-xl, 16px);
+  padding: var(--space-5);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+@media (min-width: 768px) {
+  .sectionCadre {
+    padding: var(--space-6);
+  }
+}
+
+.sectionEntete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.sectionTitreGroupe {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sectionTitre {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+}
+
+.sectionIcone {
+  color: var(--color-primary-600, #B85522);
+}
+
+/* --- SECTION 1 : METEO --- */
+.grilleMeteo {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .grilleMeteo {
+    grid-template-columns: 1.6fr 1fr;
+  }
+}
+
+.choixConditions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+@media (min-width: 500px) {
+  .choixConditions {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.tuileMeteo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 2px solid var(--color-neutral-200);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--color-neutral-0);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 80px;
+}
+
+.tuileMeteo:hover {
+  border-color: var(--color-neutral-400);
+}
+
+.tuileMeteoActive {
+  border-color: var(--color-primary-500, #D4652A);
+  background: var(--color-primary-50, #FDF2EC);
+  color: var(--color-primary-700, #97461E);
+}
+
+.tuileMeteoLabel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.detailsMeteo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* --- SECTION 2 : PRESENCES --- */
+.badgeTotalEffectif {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 14px;
+  background: var(--color-primary-50, #FDF2EC);
+  border: 1px solid var(--color-primary-200, #F3C5A9);
+  border-radius: 9999px;
+  color: var(--color-primary-800, #78381B);
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.tableauPresences {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--space-4);
+  font-size: 0.875rem;
+}
+
+.tableauPresences th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-neutral-50);
+  color: var(--color-neutral-600);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.tableauPresences td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-neutral-200);
+  vertical-align: middle;
+}
+
+.btnLigneSuppr {
+  background: transparent;
+  border: none;
+  color: var(--color-neutral-400);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+}
+
+.btnLigneSuppr:hover {
+  color: var(--color-semantic-error, #991B1B);
+}
+
+.btnAjouterLigne {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md, 8px);
+  border: 1px dashed var(--color-primary-400, #DF7F52);
+  background: var(--color-primary-50, #FDF2EC);
+  color: var(--color-primary-700, #97461E);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnAjouterLigne:hover {
+  background: var(--color-primary-100, #F9E2D4);
+}
+
+/* --- SECTION 3 : MATERIAUX --- */
+.badgeConformite {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.confConforme {
+  background: var(--color-semantic-success-bg, #DCFCE7);
+  color: var(--color-semantic-success, #166534);
+}
+
+.confReserves {
+  background: var(--color-semantic-warning-bg, #FEF3C7);
+  color: var(--color-semantic-warning, #B45309);
+}
+
+.confNonConforme {
+  background: var(--color-semantic-error-bg, #FEE2E2);
+  color: var(--color-semantic-error, #991B1B);
+}
+
+/* --- SECTION 4 : REMARQUES & TRAVAUX --- */
+.textareaChamp {
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.9375rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 90px;
+}
+
+.textareaChamp:focus {
+  outline: none;
+  border-color: var(--color-primary-500, #D4652A);
+  box-shadow: 0 0 0 3px rgba(212, 101, 42, 0.15);
+}
+
+/* --- Barre d'actions flottante / en bas --- */
+.barreActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.btnBrouillon {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-neutral-0);
+  color: var(--color-neutral-800);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnBrouillon:hover {
+  background: var(--color-neutral-100);
+}
+
+.btnSoumettre {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-md, 8px);
+  border: none;
+  background: var(--color-primary-500, #D4652A);
+  color: var(--color-neutral-0);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(212, 101, 42, 0.25);
+  transition: background 0.15s ease;
+}
+
+.btnSoumettre:hover {
+  background: var(--color-primary-600, #B85522);
+}
+
+/* --- HISTORIQUE & LISTE DES RAPPORTS --- */
+.grilleHistorique {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.filtresHistorique {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.carteRapport {
+  background: var(--color-neutral-0);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-xl, 16px);
+  padding: var(--space-5);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.15s ease;
+}
+
+.carteRapport:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.carteRapportEntete {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--color-neutral-100);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+@media (min-width: 640px) {
+  .carteRapportEntete {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.badgeStatut {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.statutSoumis {
+  background: #E0F2FE;
+  color: #0369A1;
+}
+
+.statutApprouve {
+  background: var(--color-semantic-success-bg, #DCFCE7);
+  color: var(--color-semantic-success, #166534);
+}
+
+.statutBrouillon {
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-600);
+}
+
+.resumeLigne {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  font-size: 0.875rem;
+  color: var(--color-neutral-600);
+  margin-bottom: var(--space-3);
+}
+
+.resumeItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.actionsRapport {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* Modale de consultation */
+.modaleContenu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: var(--space-4);
 }
