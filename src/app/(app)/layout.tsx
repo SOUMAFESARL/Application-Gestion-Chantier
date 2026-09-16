@@ -9,6 +9,7 @@ import {
   CloudLightning,
   CloudRain,
   CloudSun,
+  CreditCard,
   CurrencyCircleDollar,
   DotsThreeCircle,
   Folder,
@@ -397,10 +398,12 @@ export default function LayoutApp({ children }: LayoutAppProps) {
 
         <div className={styles.droite}>
           {/* Badge du compte à rebours 14 jours */}
-          <BadgeEssai
-            joursRestants={abonnement?.jours_essai_restants ?? 14}
-            estExpire={abonnement?.est_expire ?? false}
-          />
+          <Link href="/abonnement" style={{ textDecoration: "none" }} title="Gérer mon abonnement et forfaits">
+            <BadgeEssai
+              joursRestants={abonnement?.jours_essai_restants ?? 14}
+              estExpire={abonnement?.est_expire ?? false}
+            />
+          </Link>
 
           {/* Météo locale dynamique issue de l'API temps réel */}
           <div
@@ -636,6 +639,19 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                   <div className={styles.dropdownTexte}>
                     <span className={styles.dropdownTitre}>{t("tiers")}</span>
                     <span className={styles.dropdownDesc}>{t("descTiers")}</span>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/abonnement"
+                  role="menuitem"
+                  className={`${styles.dropdownLien} ${pathname === "/abonnement" ? styles.dropdownLienActif : ""}`}
+                  onClick={() => setMenuPlusOuvert(false)}
+                >
+                  <CreditCard size={20} weight={pathname === "/abonnement" ? "fill" : "regular"} className={styles.dropdownIcone} />
+                  <div className={styles.dropdownTexte}>
+                    <span className={styles.dropdownTitre}>Abonnement & Tarifs</span>
+                    <span className={styles.dropdownDesc}>Formules BTP, paiements CinetPay et factures</span>
                   </div>
                 </Link>
               </div>
