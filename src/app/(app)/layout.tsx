@@ -22,6 +22,7 @@ import {
   ShoppingCart,
   SquaresFour,
   Sun,
+  TrendUp,
   Truck,
   Users,
 } from "@phosphor-icons/react";
@@ -665,6 +666,19 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                   <div className={styles.dropdownTexte}>
                     <span className={styles.dropdownTitre}>Abonnement & Tarifs</span>
                     <span className={styles.dropdownDesc}>Formules BTP, paiements CinetPay et factures</span>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/avancement"
+                  role="menuitem"
+                  className={`${styles.dropdownLien} ${pathname.includes("/avancement") ? styles.dropdownLienActif : ""}`}
+                  onClick={() => setMenuPlusOuvert(false)}
+                >
+                  <TrendUp size={20} weight={pathname.includes("/avancement") ? "fill" : "regular"} className={styles.dropdownIcone} />
+                  <div className={styles.dropdownTexte}>
+                    <span className={styles.dropdownTitre}>Suivi d&apos;Avancement & Photos</span>
+                    <span className={styles.dropdownDesc}>Pourcentages par lot, preuves et écarts planning</span>
                   </div>
                 </Link>
 

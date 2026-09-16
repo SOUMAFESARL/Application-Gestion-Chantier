@@ -188,25 +188,31 @@ export function TableauDeBordClient({ initialData }: TableauDeBordClientProps) {
         const ecartSigne = p.ecart >= 0 ? `+${p.ecart}` : `${p.ecart}`;
         const estRetard = p.ecart < -5;
         return (
-          <div className={styles.gaugeCell}>
-            <div className={styles.gaugeLegend}>
-              <span style={{ fontWeight: 600 }}>{t("chantiers.reel", { taux: p.avancement_reel })}</span>
-              <span style={{ color: "var(--color-neutral-500, #8A8680)" }}>
-                {t("chantiers.prevu", { taux: p.avancement_theorique, ecart: ecartSigne })}
-              </span>
+          <Link
+            href={`/projets/${p.id}/avancement`}
+            style={{ textDecoration: "none", color: "inherit", display: "block" }}
+            title="Consulter le suivi d'avancement détaillé et les photos de preuve"
+          >
+            <div className={styles.gaugeCell}>
+              <div className={styles.gaugeLegend}>
+                <span style={{ fontWeight: 600 }}>{t("chantiers.reel", { taux: p.avancement_reel })}</span>
+                <span style={{ color: "var(--color-neutral-500, #8A8680)" }}>
+                  {t("chantiers.prevu", { taux: p.avancement_theorique, ecart: ecartSigne })}
+                </span>
+              </div>
+              <div className={styles.gaugeTrack}>
+                <div
+                  className={`${styles.gaugeFill} ${estRetard ? styles.gaugeFillDelay : ""}`}
+                  style={{ width: `${Math.min(p.avancement_reel, 100)}%` }}
+                />
+                <div
+                  className={styles.gaugeTarget}
+                  style={{ left: `${Math.min(p.avancement_theorique, 100)}%` }}
+                  title={t("chantiers.prevu", { taux: p.avancement_theorique, ecart: ecartSigne })}
+                />
+              </div>
             </div>
-            <div className={styles.gaugeTrack}>
-              <div
-                className={`${styles.gaugeFill} ${estRetard ? styles.gaugeFillDelay : ""}`}
-                style={{ width: `${Math.min(p.avancement_reel, 100)}%` }}
-              />
-              <div
-                className={styles.gaugeTarget}
-                style={{ left: `${Math.min(p.avancement_theorique, 100)}%` }}
-                title={t("chantiers.prevu", { taux: p.avancement_theorique, ecart: ecartSigne })}
-              />
-            </div>
-          </div>
+          </Link>
         );
       },
     },
