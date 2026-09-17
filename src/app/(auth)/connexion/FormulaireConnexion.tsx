@@ -30,7 +30,7 @@ export function FormulaireConnexion() {
   const router = useRouter();
   const parametres = useSearchParams();
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => parametres.get("email") || "");
   const [motDePasse, setMotDePasse] = useState("");
   const [motDePasseVisible, setMotDePasseVisible] = useState(false);
   const [emailRenvoye, setEmailRenvoye] = useState(false);
@@ -163,9 +163,16 @@ export function FormulaireConnexion() {
         fonctionnelle, pas un choix de mise en page — contrat §6.4.
       */}
       <div className={styles.lienDroite}>
-        <a href="/mot-de-passe/oublie" className={styles.lien}>
+        <Link
+          href={
+            email.trim()
+              ? `/mot-de-passe/oublie?email=${encodeURIComponent(email.trim())}`
+              : "/mot-de-passe/oublie"
+          }
+          className={styles.lien}
+        >
           {t("motDePasseOublie")}
-        </a>
+        </Link>
       </div>
 
       <Bouton
