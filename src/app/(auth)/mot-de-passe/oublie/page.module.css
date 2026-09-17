@@ -39,3 +39,8 @@
   font-size: 0.875rem;
   color: var(--color-neutral-500);
 }
+
+.attente {
+  height: 280px;
+}
+

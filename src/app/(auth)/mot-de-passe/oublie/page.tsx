@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { Suspense } from "react";
 
 import { CarteAuth } from "@/components/layout/CarteAuth";
 
 import { FormulaireOubli } from "./FormulaireOubli";
+import styles from "./page.module.css";
 
 /**
  * Écran « Mot de passe oublié » — maquette M6, écrans 1 et 2.
@@ -24,10 +26,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function Page() {
   return (
-    <>
-      <CarteAuth>
+    <CarteAuth>
+      <Suspense fallback={<div className={styles.attente} aria-hidden="true" />}>
         <FormulaireOubli />
-      </CarteAuth>
-    </>
+      </Suspense>
+    </CarteAuth>
   );
 }
