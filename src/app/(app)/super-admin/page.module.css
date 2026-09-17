@@ -418,3 +418,124 @@
   flex-direction: column;
   gap: var(--space-3);
 }
+
+/* État Verrouillé / Restriction IP (US-023) */
+.centreurVerrouillage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+  padding: var(--space-6);
+}
+
+.carteVerrouillage {
+  max-width: 540px;
+  width: 100%;
+  background: var(--color-surface, #FFFFFF);
+  border: 1px solid var(--color-neutral-200, #E2E8F0);
+  border-radius: var(--radius-xl, 16px);
+  padding: var(--space-8);
+  text-align: center;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.iconeCercleVerrou {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #FEF2F2;
+  border: 2px solid #FEE2E2;
+  color: #DC2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-2);
+}
+
+.titreVerrouille {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-neutral-900, #0F172A);
+  line-height: 1.25;
+}
+
+.texteVerrouille {
+  font-size: 0.9375rem;
+  color: var(--color-neutral-600, #475569);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.badgeIpRefusee {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 14px;
+  background: var(--color-neutral-100, #F1F5F9);
+  border: 1px solid var(--color-neutral-300, #CBD5E1);
+  border-radius: 9999px;
+  font-family: monospace;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-neutral-700, #334155);
+}
+
+.actionsVerrouille {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+@media (min-width: 480px) {
+  .actionsVerrouille {
+    flex-direction: row;
+    justify-content: center;
+  }
+}
+
+.btnReessayer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--color-primary-600, #C25E2E);
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btnReessayer:hover {
+  background: var(--color-primary-700, #97461E);
+}
+
+.btnRetourTableau {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: transparent;
+  color: var(--color-neutral-700, #334155);
+  border: 1px solid var(--color-neutral-300, #CBD5E1);
+  border-radius: var(--radius-md, 8px);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.btnRetourTableau:hover {
+  background: var(--color-neutral-50, #F8FAFC);
+  color: var(--color-neutral-900, #0F172A);
+}

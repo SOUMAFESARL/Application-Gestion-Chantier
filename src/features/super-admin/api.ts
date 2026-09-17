@@ -2,10 +2,46 @@
  * API pour le tableau de bord Super Admin.
  */
 
+import { apiPlateforme, ErreurApi } from "@/lib/api";
 import { EntrepriseCliente, StatsSuperAdmin } from "./types";
 import { ENTREPRISES_CLIENTES_MOCK, STATS_SUPER_ADMIN_MOCK } from "./mockData";
 
 const STORAGE_KEY_ADMIN = "ccd_super_admin_entreprises";
+
+export interface ResultatVerificationAcces {
+  autorise: boolean;
+  ip?: string;
+  message?: string;
+}
+
+export async function verifierAccesSuperAdmin(): Promise<ResultatVerificationAcces> {
+  try {
+    const rep = await apiPlateforme.lire<{ statut: string; ip?: string; message?: string }>(
+      "/super-admin/verifier-acces/"
+    );
+    return {
+      autorise: rep.statut === "autorise",
+      ip: rep.ip,
+      message: rep.message,
+    };
+  } catch (err) {
+    if (err instanceof ErreurApi) {
+      if (err.code === "acces_refuse" || err.statut === 403) {
+        return {
+          autorise: false,
+          message: err.message,
+        };
+      }
+    }
+    // En environnement de dev local ou test si l'API n'est pas joignable
+    if (typeof window !== "undefined" && window.location.hostname === "localhost") {
+      return { autorise: true, ip: "127.0.0.1" };
+    }
+    return {
+      autorise: false,
+    };
+  }
+}
 
 export async function obtenirStatsSuperAdmin(): Promise<StatsSuperAdmin> {
   return STATS_SUPER_ADMIN_MOCK;
