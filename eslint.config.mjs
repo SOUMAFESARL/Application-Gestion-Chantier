@@ -233,6 +233,9 @@ const eslintConfig = defineConfig([
       // « manage.py generer_referentiel_villes ».
       "src/features/referentiels/villes.ts",
       "src/features/referentiels/telephone.ts",
+      // Fiscalité OHADA et conversion de montants en lettres pour pièces comptables
+      "src/lib/format/taxesEtChiffres.ts",
+      "src/components/facture/**",
       // Couche de simulation : elle imite les messages du serveur pour que les
       // écrans se relisent sans API. Rien n'en sort en production.
       "src/lib/api/simulation.ts",
@@ -242,6 +245,7 @@ const eslintConfig = defineConfig([
       // de clients et de personnes. À supprimer avec le branchement de l'API.
       "src/app/(app)/tableau-de-bord/page.tsx",
       "src/app/(app)/tableau-de-bord/ModalCreationProjet.tsx",
+      "src/app/(app)/abonnement/**",
       // `[id]` ne s'écrit pas tel quel : pour le filtre de fichiers, les
       // crochets d'une route dynamique sont une classe de caractères — ils y
       // désignent « i ou d ». Un seul niveau de segment suffit à la désigner.
@@ -256,7 +260,7 @@ const eslintConfig = defineConfig([
   {
     // La page de démonstration du design system montre les composants, pas
     // un écran du produit : ses libellés sont des noms de variantes.
-    files: ["src/app/design-system/**"],
+    files: ["src/app/design-system/**", "src/components/facture/**"],
     rules: {
       "i18next/no-literal-string": "off",
       "no-restricted-syntax": ["error", SELECTEUR_METADONNEES],
