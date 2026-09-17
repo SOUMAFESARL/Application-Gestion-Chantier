@@ -1,34 +1,54 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  ArrowSquareOut,
-  EnvelopeSimple,
-  WarningCircle,
-} from "@phosphor-icons/react";
+  CircleX,
+  ExternalLink,
+  LoaderCircle,
+  Mail,
+  RefreshCw,
+  TriangleAlert,
+} from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  AccrocheAuth,
-  BlocCentre,
-  TitreAuth,
-} from "@/components/layout/CarteAuth";
-import { Alerte, Bouton, Champ } from "@/components/ui";
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { SelecteurPays } from "@/components/metier/SelecteurPays";
+import { deposerInscription, renvoyerEmail } from "@/features/inscription/api";
+import {
+  schemaInscription,
+  type SaisieInscription,
+  type ValeursInscription,
+} from "@/features/inscription/validations";
 import { ErreurApi } from "@/lib/api";
-import { deriverSlug } from "@/lib/api/simulation";
-import {
-  PAYS,
-  deposerInscription,
-  renvoyerEmail,
-} from "@/features/inscription/api";
-
-import styles from "./page.module.css";
-import { nomDePays } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 /** Le délai que M6 applique déjà au renvoi d'un email — même geste, même verrou (60 s). */
 const SECONDES_AVANT_RENVOI = 60;
+
+/** Le rayon de la maquette, commun aux champs et aux boutons de cet écran. */
+const RAYON = "rounded-lg";
+
+/** Les champs du serveur (`snake_case`) vers ceux du formulaire. */
+const CHAMPS_SERVEUR: Record<string, keyof SaisieInscription> = {
+  raison_sociale: "raisonSociale",
+  pays: "pays",
+  email: "email",
+  cgu_acceptees: "cgu",
+};
 
 type Etat =
   | { nom: "saisie" }
@@ -41,17 +61,15 @@ export function FormulaireInscription() {
   // Conventions A7 : l'identifiant est **fourni par le client**, engendré une
   // fois par affichage du formulaire. Un double-clic sur « Créer mon compte »
   // rejoue la même requête et ne crée pas deux demandes.
-  const identifiant = useRef<string | null>(null);
-  if (identifiant.current == null) identifiant.current = crypto.randomUUID();
-
-  const [raisonSociale, setRaisonSociale] = useState("");
-  const [pays, setPays] = useState("");
-  const [email, setEmail] = useState("");
-  const [cgu, setCgu] = useState(false);
+  const [identifiant] = useState(() => crypto.randomUUID());
 
   const [etat, setEtat] = useState<Etat>({ nom: "saisie" });
-  const [erreurs, setErreurs] = useState<Record<string, string>>({});
   const [attenteRenvoi, setAttenteRenvoi] = useState(0);
+
+  const form = useForm<SaisieInscription, unknown, ValeursInscription>({
+    resolver: zodResolver(schemaInscription),
+    defaultValues: { raisonSociale: "", pays: "", email: "", cgu: false },
+  });
 
   // Le verrou de renvoi s'écoule tout seul : sans cela, le bouton reste
   // désactivé jusqu'à un rechargement de page.
@@ -61,64 +79,31 @@ export function FormulaireInscription() {
     return () => clearTimeout(minuterie);
   }, [attenteRenvoi]);
 
-  /** Une erreur disparaît dès que le champ qu'elle vise change : la laisser
-   *  affichée sous une valeur corrigée, c'est afficher un chiffre faux. */
-  function effacerErreur(champ: string) {
-    setErreurs((precedentes) => {
-      if (!(champ in precedentes)) return precedentes;
-      const reste = { ...precedentes };
-      delete reste[champ];
-      return reste;
-    });
-  }
-
-  function valider(): boolean {
-    const trouvees: Record<string, string> = {};
-
-    if (raisonSociale.trim().length < 2) {
-      trouvees.raison_sociale = t("erreurNomRequis");
-    } else if (!deriverSlug(raisonSociale)) {
-      // T-021 §2.5 — le serveur refusera aussi, mais l'aller-retour est inutile.
-      trouvees.raison_sociale =
-        t("erreurNomNonLatin");
-    }
-    if (!pays) trouvees.pays = t("erreurPaysRequis");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      trouvees.email = t("erreurEmailInvalide");
-    }
-    if (!cgu) trouvees.cgu_acceptees = t("erreurCguRequis");
-
-    setErreurs(trouvees);
-    return Object.keys(trouvees).length === 0;
-  }
-
-  async function soumettre(evenement: FormEvent) {
-    evenement.preventDefault();
-    if (!valider()) return;
-
+  async function soumettre(valeurs: ValeursInscription) {
     setEtat({ nom: "chargement" });
     try {
       const accuse = await deposerInscription({
-        id: identifiant.current ?? crypto.randomUUID(),
-        raison_sociale: raisonSociale.trim(),
-        pays,
-        email: email.trim().toLowerCase(),
-        cgu_acceptees: cgu,
+        id: identifiant,
+        raison_sociale: valeurs.raisonSociale,
+        pays: valeurs.pays,
+        email: valeurs.email,
+        cgu_acceptees: valeurs.cgu,
       });
       setEtat({ nom: "envoye", email: accuse.email });
       setAttenteRenvoi(SECONDES_AVANT_RENVOI);
     } catch (cause) {
       if (cause instanceof ErreurApi && cause.code === "validation") {
-        setErreurs(cause.erreursParChamp);
+        for (const [champServeur, message] of Object.entries(cause.erreursParChamp)) {
+          const champ = CHAMPS_SERVEUR[champServeur];
+          if (champ) form.setError(champ, { message });
+        }
         setEtat({ nom: "saisie" });
         return;
       }
       const erreur = cause as ErreurApi;
       setEtat({
         nom: "erreur",
-        message:
-          erreur.message ??
-          t("erreurGenerique"),
+        message: erreur.message ?? t("erreurGenerique"),
         reference: erreur.traceId ?? null,
       });
     }
@@ -127,7 +112,7 @@ export function FormulaireInscription() {
   async function relancerEmail() {
     setAttenteRenvoi(SECONDES_AVANT_RENVOI);
     try {
-      await renvoyerEmail(identifiant.current ?? "");
+      await renvoyerEmail(identifiant);
     } catch {
       // Le contrat répond `202` même sur un identifiant inconnu : il n'y a
       // rien à annoncer, et surtout rien à révéler.
@@ -139,36 +124,52 @@ export function FormulaireInscription() {
   // -------------------------------------------------------------------------
   if (etat.nom === "envoye") {
     return (
-      <BlocCentre pastille={<EnvelopeSimple size={32} weight="regular" />}>
-        <TitreAuth>{t("emailTitre")}</TitreAuth>
-        <AccrocheAuth>
+      <div className="flex flex-col items-center text-center">
+        <span
+          aria-hidden="true"
+          className="mb-5 flex size-16 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-500"
+        >
+          <Mail size={32} />
+        </span>
+
+        <h1 className="text-2xl leading-tight font-bold tracking-tight text-neutral-900">
+          {t("emailTitre")}
+        </h1>
+        <p className="mt-1.5 mb-5 text-base leading-relaxed text-neutral-600">
           {t.rich("emailAccroche", {
             email: etat.email,
             fort: (morceaux) => <strong>{morceaux}</strong>,
           })}
-        </AccrocheAuth>
+        </p>
 
-        <Alerte type="information">
-          {t.rich("emailValidite", { fort: (morceaux) => <strong>{morceaux}</strong> })}
-        </Alerte>
+        <Alert variant="information" className="text-left">
+          <AlertDescription>
+            {t.rich("emailValidite", { fort: (morceaux) => <strong>{morceaux}</strong> })}
+          </AlertDescription>
+        </Alert>
 
-        <div className={styles.actionsEmpilees}>
-          <Bouton
-            variante="secondaire"
-            pleineLargeur
+        <div className="mt-6 flex w-full flex-col gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className={cn(RAYON, "w-full")}
             onClick={relancerEmail}
             disabled={attenteRenvoi > 0}
           >
             {attenteRenvoi > 0
               ? t("renvoyerAttente", { secondes: attenteRenvoi })
               : t("renvoyer")}
-          </Bouton>
+          </Button>
 
-          <Link className={styles.lienDiscret} href="/connexion">
+          <Link
+            href="/connexion"
+            className="text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline"
+          >
             {t("retourConnexion")}
           </Link>
         </div>
-      </BlocCentre>
+      </div>
     );
   }
 
@@ -177,25 +178,39 @@ export function FormulaireInscription() {
   // -------------------------------------------------------------------------
   if (etat.nom === "erreur") {
     return (
-      <BlocCentre
-        ton="avertissement"
-        pastille={<WarningCircle size={32} weight="regular" />}
-      >
-        <TitreAuth>{t("erreurTitre")}</TitreAuth>
-        <Alerte type="erreur" titre={t("erreurAlerte")}>
-          {etat.message}
-          {etat.reference && (
-            <span className={styles.reference}>
-              {t("reference", { reference: etat.reference })}
-            </span>
-          )}
-        </Alerte>
-        <div className={styles.actionsEmpilees}>
-          <Bouton pleineLargeur onClick={() => setEtat({ nom: "saisie" })}>
-            {t("reessayer")}
-          </Bouton>
-        </div>
-      </BlocCentre>
+      <div className="flex flex-col items-center text-center">
+        <span
+          aria-hidden="true"
+          className="mb-5 flex size-16 shrink-0 items-center justify-center rounded-full bg-avertissement-fond text-avertissement"
+        >
+          <TriangleAlert size={32} />
+        </span>
+
+        <h1 className="mb-5 text-2xl leading-tight font-bold tracking-tight text-neutral-900">
+          {t("erreurTitre")}
+        </h1>
+
+        <Alert variant="erreur" className="text-left">
+          <CircleX />
+          <AlertTitle>{t("erreurAlerte")}</AlertTitle>
+          <AlertDescription>
+            {etat.message}
+            {etat.reference && (
+              <span className="opacity-85">{t("reference", { reference: etat.reference })}</span>
+            )}
+          </AlertDescription>
+        </Alert>
+
+        <Button
+          type="button"
+          size="lg"
+          className={cn(RAYON, "mt-6 w-full")}
+          onClick={() => setEtat({ nom: "saisie" })}
+        >
+          <RefreshCw />
+          {t("reessayer")}
+        </Button>
+      </div>
     );
   }
 
@@ -203,145 +218,155 @@ export function FormulaireInscription() {
   // M8 écrans 1 et 7 — saisie, et saisie en erreur
   // -------------------------------------------------------------------------
   const enChargement = etat.nom === "chargement";
-  const nombreErreurs = Object.keys(erreurs).length;
 
   return (
     <>
-      <TitreAuth>{t("titre")}</TitreAuth>
-      <AccrocheAuth>
-        {t.rich("accroche", { fort: (morceaux) => <strong>{morceaux}</strong> })}
-      </AccrocheAuth>
+      <h1 className="mb-5 text-center text-2xl leading-tight font-bold tracking-tight text-neutral-900 sm:text-3xl">
+        {t("titre")}
+      </h1>
 
-      {nombreErreurs > 0 && (
-        <Alerte
-          type="erreur"
-          titre={t("champsIncorrects", { nombre: nombreErreurs })}
-        >
-          {t("champsIncorrectsAide")}
-        </Alerte>
-      )}
+      <Form {...form}>
+        <form className="flex flex-col gap-4" onSubmit={form.handleSubmit(soumettre)} noValidate>
+          <FormField
+            control={form.control}
+            name="raisonSociale"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("champRaisonSociale")}</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    autoComplete="organization"
+                    placeholder={t("champRaisonSocialePlaceholder")}
+                    disabled={enChargement}
+                    className={RAYON}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-      <form className={styles.formulaire} onSubmit={soumettre} noValidate>
-        <Champ
-          libelle={t("champRaisonSociale")}
-          required
-          autoComplete="organization"
-          placeholder={t("champRaisonSocialeExemple")}
-          value={raisonSociale}
-          erreur={erreurs.raison_sociale}
-          aide={
-            raisonSociale && !erreurs.raison_sociale
-              ? `Votre adresse : ${deriverSlug(raisonSociale).replace(/_/g, "-")}.ccd-digital.ci`
-              : undefined
-          }
-          disabled={enChargement}
-          onChange={(e) => {
-            setRaisonSociale(e.target.value);
-            effacerErreur("raison_sociale");
-          }}
-        />
+          <FormField
+            control={form.control}
+            name="pays"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("champPays")}</FormLabel>
+                <FormControl>
+                  <SelecteurPays
+                    value={field.value}
+                    onChange={field.onChange}
+                    disabled={enChargement}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <div className={styles.groupeSelect}>
-          <label className={styles.libelleSelect} htmlFor="pays">
-            {t("champPays")}
-            <span className={styles.obligatoire} aria-hidden="true">
-              *
-            </span>
-          </label>
-          <select
-            id="pays"
-            className={[styles.select, erreurs.pays ? styles.selectErreur : ""]
-              .filter(Boolean)
-              .join(" ")}
-            value={pays}
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("champEmail")}</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    type="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    placeholder={t("champEmailExemple")}
+                    disabled={enChargement}
+                    className={RAYON}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="cgu"
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex items-start gap-3">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={(coche) => field.onChange(coche === true)}
+                      disabled={enChargement}
+                      className="mt-0.5"
+                    />
+                  </FormControl>
+                  <FormLabel className="block text-xs leading-relaxed font-normal text-neutral-600">
+                    {t.rich("cgu", {
+                      lienCgu: (morceaux) => (
+                        <a
+                          className="font-medium text-primary-600 hover:text-primary-700 hover:underline"
+                          href="/cgu"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {morceaux}
+                          <ExternalLink className="inline" size={11} aria-hidden="true" />
+                        </a>
+                      ),
+                      lienConfidentialite: (morceaux) => (
+                        <a
+                          className="font-medium text-primary-600 hover:text-primary-700 hover:underline"
+                          href="/confidentialite"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {morceaux}
+                          <ExternalLink className="inline" size={11} aria-hidden="true" />
+                        </a>
+                      ),
+                    })}
+                  </FormLabel>
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <Button
+            type="submit"
+            size="lg"
+            className={cn(RAYON, "w-full text-base font-semibold")}
+            aria-busy={enChargement}
             disabled={enChargement}
-            aria-invalid={Boolean(erreurs.pays) || undefined}
-            aria-describedby={erreurs.pays ? "pays-erreur" : undefined}
-            onChange={(e) => {
-              setPays(e.target.value);
-              effacerErreur("pays");
-            }}
           >
-            <option value="">{t("champPaysChoisir")}</option>
-            {PAYS.map((code) => (
-              <option key={code} value={code}>
-                {nomDePays(code)}
-              </option>
-            ))}
-          </select>
-          {erreurs.pays && (
-            <p id="pays-erreur" className={styles.messageErreur}>
-              {erreurs.pays}
-            </p>
-          )}
-        </div>
+            {enChargement && <LoaderCircle className="animate-spin" />}
+            {enChargement ? t("creationEnCours") : t("creer")}
+          </Button>
+        </form>
+      </Form>
 
-        <Champ
-          libelle={t("champEmail")}
-          type="email"
-          required
-          autoComplete="email"
-          placeholder={t("champEmailExemple")}
-          value={email}
-          erreur={erreurs.email}
-          aide={t("champEmailAide")}
-          disabled={enChargement}
-          onChange={(e) => {
-            setEmail(e.target.value);
-            effacerErreur("email");
-          }}
-        />
-
-        <div className={styles.consentement}>
-          <label className={styles.caseLibelle}>
-            <input
-              type="checkbox"
-              className={styles.case}
-              checked={cgu}
-              disabled={enChargement}
-              aria-invalid={Boolean(erreurs.cgu_acceptees) || undefined}
-              onChange={(e) => {
-                setCgu(e.target.checked);
-                effacerErreur("cgu_acceptees");
-              }}
-            />
-            <span>
-              {t("cguDebut")}{" "}
-              <a
-                className={styles.lien}
-                href="/cgu"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {t("cguLien")}
-                <ArrowSquareOut size={12} aria-hidden="true" />
-              </a>{" "}
-              {t("cguEt")}{" "}
-              <a
-                className={styles.lien}
-                href="/confidentialite"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {t("confidentialiteLien")}
-                <ArrowSquareOut size={12} aria-hidden="true" />
-              </a>{" "}
-              {t("cguFin")}
-            </span>
-          </label>
-          {erreurs.cgu_acceptees && (
-            <p className={styles.messageErreur}>{erreurs.cgu_acceptees}</p>
-          )}
-        </div>
-
-        <Bouton type="submit" pleineLargeur taille="lg" enCours={enChargement}>
-          {enChargement ? t("creationEnCours") : t("creer")}
-        </Bouton>
-      </form>
-
-      <p className={styles.bascule}>
-        {t("dejaCompte")} <Link href="/connexion">{t("seConnecter")}</Link>
-      </p>
+      {/*
+        Pied bleedé jusqu'aux bords de la carte, comme celui de la connexion
+        (`(auth)/connexion/page.tsx`) : même filet `border-t`, même bande
+        `bg-neutral-50`. Ici la carte n'a qu'un `CardContent`, donc le pied
+        annule son padding (`-mx`/`-mb`) plutôt que d'exister comme
+        `CardFooter` séparé — la création de compte n'est qu'un des quatre
+        états de ce formulaire, contrairement à la connexion à état fixe.
+      */}
+      <div className="-mx-6 -mb-8 mt-6 border-t border-border bg-neutral-50 px-6 py-5 text-center sm:-mx-8 sm:px-8">
+        <p className="text-sm text-neutral-600">
+          {t("dejaCompte")}{" "}
+          <Link
+            href="/connexion"
+            className="font-semibold text-primary-600 hover:text-primary-700 hover:underline"
+          >
+            {t("seConnecter")}
+          </Link>
+        </p>
+      </div>
     </>
   );
 }

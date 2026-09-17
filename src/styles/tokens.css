@@ -177,30 +177,14 @@
 }
 
 /* --------------------------------------------
-   3. RESET & BASE
+   3. RESET & BASE — retiré (plan de refonte, lot 1)
+
+   Il faisait doublon avec `src/app/globals.css`, qui portait les mêmes
+   règles et gagnait de toute façon (déclaré après cet import). Un seul
+   reset, dans un seul fichier : les deux propriétés que celui-ci était
+   seul à porter (`-moz-osx-font-smoothing`, `text-rendering`) y ont été
+   rapatriées.
    -------------------------------------------- */
-
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html {
-  font-size: 16px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-}
-
-body {
-  font-family: var(--font-family-base);
-  font-weight: var(--font-weight-regular);
-  font-size: 1rem;
-  line-height: 1.5;
-  color: var(--color-neutral-700);
-  background-color: var(--color-neutral-50);
-}
 
 /* --------------------------------------------
    4. TYPOGRAPHIE
@@ -590,23 +574,16 @@ body {
    11. UTILITAIRES
    -------------------------------------------- */
 
-/* Grille 8px */
-.gap-1 { gap: var(--space-1); }
-.gap-2 { gap: var(--space-2); }
-.gap-3 { gap: var(--space-3); }
-.gap-4 { gap: var(--space-4); }
-.gap-5 { gap: var(--space-5); }
-.gap-6 { gap: var(--space-6); }
+/* Grille 8px — retirée (plan de refonte, lot 1).
 
-.p-4 { padding: var(--space-4); }
-.p-5 { padding: var(--space-5); }
-.p-6 { padding: var(--space-6); }
+   `.gap-1…6` et `.p-4…6` portaient exactement les noms des utilitaires
+   Tailwind, avec d'autres valeurs : `.gap-6` valait 32 px là où Tailwind
+   en donne 24. Déclarées hors couche, elles l'emportaient sur la couche
+   `utilities` — une classe qui ne fait pas ce qu'elle dit, et en silence.
+   Aucun `className` du produit ne les utilisait (vérifié avant retrait). */
 
-/* Focus visible global */
-:focus-visible {
-  outline: none;
-  box-shadow: var(--shadow-focus);
-}
+/* Focus visible global — retiré : `globals.css` déclare le sien, et deux
+   anneaux de focus se superposaient. */
 
 /* Réduction de mouvement */
 @media (prefers-reduced-motion: reduce) {

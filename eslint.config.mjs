@@ -37,6 +37,14 @@ const ATTRIBUTS_TECHNIQUES = [
   "variante",
   "taille",
   "motif",
+  // Les mêmes, côté shadcn : les primitives générées parlent anglais, et leurs
+  // props sont des noms de variantes (« icon-sm », « outline »).
+  "variant",
+  "size",
+  // `data-slot` est le crochet de style des primitives shadcn — un sélecteur.
+  "data-slot",
+  // `sizes` de next/image : une liste de media queries, pas une phrase.
+  "sizes",
   "name",
   "autoComplete",
   "href",

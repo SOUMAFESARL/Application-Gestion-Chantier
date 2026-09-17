@@ -1,0 +1,15 @@
+ ## FRAMEWORK ET LIBRAIRIE
+    - Requetes: privilégié les server action
+    - composant éssentiellement basé sur sur shadcn
+    - utiliser zod, react-hook-form
+    - backend : je fournirez une api
+
+    !! important : Ergonomie	Interface responsive (ordinateur, tablette, Android 8+, iOS 13+) 
+
+  ## important: (adapter à l'architecture actuelle)
+    - séparer la logique metier de l'interface
+    - isolé les appel à la base de données dans une couche dédiée
+    - appel d'api séparer et facile à maintenair en cas de changement
+    - découper le code en composant réutilisable dans chaque profils
+
+## verifier et supprimer les ligne de code, fichiers et dossiers, inutilisés

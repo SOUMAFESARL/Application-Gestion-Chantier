@@ -40,6 +40,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Le double garde-fou i18n (eslint.config.mjs) et le typage ne valent que
+      # s'ils tournent ici : avant le build, et sur chaque envoi vers `main`.
+      # Un echec arrete le deploiement plutot que de le livrer.
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Build production application
         run: npm run build
 
