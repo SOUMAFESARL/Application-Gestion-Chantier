@@ -35,6 +35,7 @@ import styles from "./page.module.css";
 
 type Etat =
   | { nom: "verification" }
+  | { nom: "incomplet" }
   | {
       nom: "saisie";
       contenu: ContenuJetonMdp;
@@ -42,7 +43,7 @@ type Etat =
       reference?: string | null;
     }
   | { nom: "expire" }
-  | { nom: "succes"; email: string; urlConnexion?: string | null }
+  | { nom: "succes"; email: string }
   | {
       nom: "echec";
       message: string;
@@ -74,15 +75,19 @@ export function EcranDefinition() {
     const cible = fragment.get("redirection") || query.get("redirection") || "";
     jeton.current = valeur;
 
+    // Règle de sécurité : effacer immédiatement le fragment de l'URL pour
+    // qu'il ne survive ni dans l'historique ni dans la barre d'adresse.
+    if (typeof window !== "undefined" && window.location.hash) {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+
     let vivant = true;
 
-    // L'absence de jeton emprunte le même chemin qu'un jeton refusé : elle
-    // n'est qu'une cinquième cause pour un écran qui n'en distingue aucune.
-    // Passer par la promesse évite en plus un `setState` synchrone dans un
-    // effet, que `react-hooks` refuse — et sans requête inutile au serveur.
+    // L'absence de jeton emprunte la même mécanique asynchrone pour éviter
+    // un setState synchrone dans l'effet (règle react-hooks).
     const lecture = valeur
       ? verifierJetonReinitialisation(valeur)
-      : Promise.reject(new Error("jeton absent"));
+      : Promise.reject(new Error("jeton_incomplet"));
 
     lecture
       .then((contenu) => {
@@ -91,16 +96,44 @@ export function EcranDefinition() {
           if (cible) setRedirection(cible);
         }
       })
-      .catch(() => {
-        // Un seul code pour quatre causes — expiré, consommé, invalidé,
-        // inexistant (contrat §5.3). La conduite à tenir est la même.
-        if (vivant) setEtat({ nom: "expire" });
+      .catch((err: unknown) => {
+        if (vivant) {
+          if (err instanceof Error && err.message === "jeton_incomplet") {
+            setEtat({ nom: "incomplet" });
+          } else {
+            setEtat({ nom: "expire" });
+          }
+        }
       });
 
     return () => {
       vivant = false;
     };
   }, []);
+
+  // Décompte automatique de la validité du lien pendant la saisie
+  useEffect(() => {
+    if (etat.nom !== "saisie") return;
+
+    const minuterie = setInterval(() => {
+      setEtat((actuel) => {
+        if (actuel.nom !== "saisie") return actuel;
+        const restant = actuel.contenu.expire_dans - 1;
+        if (restant <= 0) {
+          return { nom: "expire" };
+        }
+        return {
+          ...actuel,
+          contenu: {
+            ...actuel.contenu,
+            expire_dans: restant,
+          },
+        };
+      });
+    }, 1000);
+
+    return () => clearInterval(minuterie);
+  }, [etat.nom]);
 
   const { regles, complet } = useReglesMotDePasse(motDePasse, confirmation);
 
@@ -112,9 +145,7 @@ export function EcranDefinition() {
     try {
       await reinitialiserMotDePasse(jeton.current, motDePasse);
       const email = etat.nom === "saisie" ? etat.contenu.email : "";
-      const urlConnexion =
-        etat.nom === "saisie" ? etat.contenu.url_connexion : null;
-      setEtat({ nom: "succes", email, urlConnexion });
+      setEtat({ nom: "succes", email });
     } catch (cause) {
       const erreur = cause as ErreurApi;
       if (erreur.code === "jeton_expire") {
@@ -140,6 +171,26 @@ export function EcranDefinition() {
 
   if (etat.nom === "verification") {
     return <EtatChargement message={t("verification")} />;
+  }
+
+  // -------------------------------------------------------------------------
+  // Lien incomplet ou manquant
+  // -------------------------------------------------------------------------
+  if (etat.nom === "incomplet") {
+    return (
+      <BlocCentre ton="avertissement" pastille={<Timer size={32} />}>
+        <TitreAuth>{t("incompletTitre")}</TitreAuth>
+        <AccrocheAuth>{t("incompletAccroche")}</AccrocheAuth>
+        <div className={styles.actions}>
+          <Bouton pleineLargeur onClick={() => router.push("/mot-de-passe/oublie")}>
+            {t("incompletAction")}
+          </Bouton>
+          <Link className={styles.lienDiscret} href="/connexion">
+            {t("retourConnexion")}
+          </Link>
+        </div>
+      </BlocCentre>
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -184,15 +235,10 @@ export function EcranDefinition() {
           <Bouton
             pleineLargeur
             onClick={() => {
-              if (etat.urlConnexion) {
-                window.location.href = etat.urlConnexion;
-              } else {
-                router.push(
-                  redirection
-                    ? `/connexion?redirection=${encodeURIComponent(redirection)}`
-                    : "/connexion",
-                );
-              }
+              const destination = redirection
+                ? `/connexion?email=${encodeURIComponent(etat.email)}&redirection=${encodeURIComponent(redirection)}`
+                : `/connexion?email=${encodeURIComponent(etat.email)}`;
+              router.push(destination);
             }}
           >
             {t("seConnecter")}
@@ -277,7 +323,11 @@ export function EcranDefinition() {
           {t("retourConnexion")}
         </Link>
 
-        <p className={styles.validite}>{t("validite")}</p>
+        <p className={styles.validite}>
+          {etat.contenu.expire_dans < 3600
+            ? `${t("validite")} (${Math.max(1, Math.ceil(etat.contenu.expire_dans / 60))} min)`
+            : t("validite")}
+        </p>
       </div>
     </form>
   );

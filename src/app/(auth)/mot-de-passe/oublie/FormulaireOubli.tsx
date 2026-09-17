@@ -2,6 +2,7 @@
 
 import { EnvelopeSimple, WarningCircle } from "@phosphor-icons/react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
@@ -26,8 +27,16 @@ import styles from "./page.module.css";
  * quoi faire »).
  */
 
-/** Le même verrou de renvoi que M6 et M8 — un geste, un délai. */
-const SECONDES_AVANT_RENVOI = 60;
+/** Verrou de renvoi synchronisé avec ThrottleDemandeMdpRapprochee du backend (5 min). */
+const SECONDES_AVANT_RENVOI = 300;
+const CLE_SESSION_VERROU = "ccd:verrou-renvoi-reinit";
+
+function formaterDelai(secondes: number): string {
+  if (secondes < 60) return `${secondes} s`;
+  const minutes = Math.floor(secondes / 60);
+  const sec = secondes % 60;
+  return sec > 0 ? `${minutes} min ${sec} s` : `${minutes} min`;
+}
 
 type Etat =
   | { nom: "saisie" }
@@ -37,16 +46,27 @@ type Etat =
 
 export function FormulaireOubli() {
   const t = useTranslations("motDePasseOublie");
+  const parametres = useSearchParams();
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => parametres.get("email") || "");
   const [erreurEmail, setErreurEmail] = useState<string | null>(null);
   const [etat, setEtat] = useState<Etat>({ nom: "saisie" });
-  const [attenteRenvoi, setAttenteRenvoi] = useState(0);
+  const [attenteRenvoi, setAttenteRenvoi] = useState(() => {
+    if (typeof window === "undefined") return 0;
+    const stocke = sessionStorage.getItem(CLE_SESSION_VERROU);
+    if (!stocke) return 0;
+    const restantMs = Number(stocke) - Date.now();
+    return restantMs > 0 ? Math.ceil(restantMs / 1000) : 0;
+  });
 
-  // Le verrou s'écoule tout seul : sans cela le bouton reste désactivé
-  // jusqu'à un rechargement de page.
+  // Le verrou s'écoule tout seul et persiste face aux rechargements de page (F5).
   useEffect(() => {
-    if (attenteRenvoi <= 0) return;
+    if (attenteRenvoi <= 0) {
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem(CLE_SESSION_VERROU);
+      }
+      return;
+    }
     const minuterie = setTimeout(() => setAttenteRenvoi((n) => n - 1), 1000);
     return () => clearTimeout(minuterie);
   }, [attenteRenvoi]);
@@ -57,6 +77,12 @@ export function FormulaireOubli() {
       await demanderReinitialisation(adresse);
       setEtat({ nom: "envoye", email: adresse });
       setAttenteRenvoi(SECONDES_AVANT_RENVOI);
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(
+          CLE_SESSION_VERROU,
+          String(Date.now() + SECONDES_AVANT_RENVOI * 1000),
+        );
+      }
     } catch (cause) {
       const erreur = cause as ErreurApi;
       setEtat({
@@ -102,11 +128,18 @@ export function FormulaireOubli() {
             onClick={() => void envoyer(etat.email)}
           >
             {attenteRenvoi > 0
-              ? t("renvoyerAttente", { secondes: attenteRenvoi })
+              ? `${t("renvoyer")} (${formaterDelai(attenteRenvoi)})`
               : t("renvoyer")}
           </Bouton>
 
-          <Link className={styles.lienDiscret} href="/connexion">
+          <Link
+            className={styles.lienDiscret}
+            href={
+              etat.email
+                ? `/connexion?email=${encodeURIComponent(etat.email)}`
+                : "/connexion"
+            }
+          >
             {t("retourConnexion")}
           </Link>
         </div>
