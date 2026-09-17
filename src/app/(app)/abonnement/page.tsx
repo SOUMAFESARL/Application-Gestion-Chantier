@@ -11,9 +11,12 @@ import {
   CreditCard,
   DeviceMobile,
   DownloadSimple,
+  Eye,
+  FileText,
   HardDrive,
   Info,
   Lock,
+  Printer,
   Receipt,
   ShieldCheck,
   Sparkle,
@@ -22,6 +25,13 @@ import {
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+
+import {
+  ClientOHADA,
+  FactureLegaleData,
+  ModalFacture,
+} from "@/components/facture";
+import { obtenirTauxTVA, TAUX_TVA_OHADA } from "@/lib/format/taxesEtChiffres";
 
 import {
   ForfaitBTP,
@@ -62,6 +72,13 @@ export default function PageAbonnement() {
   const [chargementPaiement, setChargementPaiement] = useState(false);
   const [transaction, setTransaction] = useState<TransactionPaiement | null>(null);
   const [messageToast, setMessageToast] = useState<string | null>(null);
+
+  // Informations fiscales & facture OHADA
+  const [modalFactureOuverte, setModalFactureOuverte] = useState(false);
+  const [rccmClient, setRccmClient] = useState("CI-ABJ-2024-B-12984");
+  const [nifClient, setNifClient] = useState("2412890 A");
+  const [adresseClient, setAdresseClient] = useState("Cocody Riviera 3, Boulevard de Marseille");
+  const [paysClient, setPaysClient] = useState("CI");
 
   useEffect(() => {
     obtenirCataloguePlans().then((data) => {
@@ -111,46 +128,69 @@ export default function PageAbonnement() {
     }
   };
 
-  const telechargerFacture = () => {
-    if (!transaction) return;
-    const contenuFacture = `
-=====================================================
-            CCD DIGITAL — FACTURE OFFICIELLE
-=====================================================
-Facture N° : ${transaction.referenceFacture}
-Transaction N° : ${transaction.idTransaction}
-Date : ${transaction.datePaiement}
-Entreprise : ${nomEntreprise}
-Email : ${emailFacturation}
-
------------------------------------------------------
-DESIGNATION                       MONTANT
------------------------------------------------------
-Forfait ${transaction.forfait.libelle} (${transaction.cycle === "ANNUEL" ? "Annuel" : "Mensuel"})
-Montant HT :                      ${formatFcfa(transaction.montantFcfa)}
-TVA (0%) :                        0 FCFA
-TOTAL TTC REGLE :                 ${formatFcfa(transaction.montantTotalFcfa)}
-
------------------------------------------------------
-MODE DE REGLEMENT : ${transaction.moyenPaiement.nom}
-STATUT : REGLE / CONFIRME
-Plateforme certifiée CinetPay & Banque Centrale
-=====================================================
-    `;
-    const element = document.createElement("a");
-    const fichier = new Blob([contenuFacture], { type: "text/plain" });
-    element.href = URL.createObjectURL(fichier);
-    element.download = `Facture_${transaction.referenceFacture}.txt`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-
-    setMessageToast("La facture a été téléchargée sur votre appareil.");
-    setTimeout(() => setMessageToast(null), 4000);
-  };
-
   const montantActuel = cycle === "ANNUEL" ? planSelectionne.prixAnnuelFcfa : planSelectionne.prixMensuelFcfa;
   const economieAnnuelle = (planSelectionne.prixMensuelFcfa * 12) - planSelectionne.prixAnnuelFcfa;
+
+  // TVA dynamique selon le pays sélectionné
+  const infoTva = obtenirTauxTVA(paysClient);
+  const montantHtActuel = Math.round(montantActuel / (1 + infoTva.taux / 100));
+  const montantTvaActuel = montantActuel - montantHtActuel;
+
+  // Données de facture officielle OHADA
+  const donneesFacture: FactureLegaleData | null = transaction
+    ? (() => {
+        const totalTtc = transaction.montantTotalFcfa;
+        const totalHt = Math.round(totalTtc / (1 + infoTva.taux / 100));
+        const montantTva = totalTtc - totalHt;
+        return {
+          numero: transaction.referenceFacture,
+          dateEmission: transaction.datePaiement.split(" à ")[0] || "17 septembre 2026",
+          dateEcheance: "Comptant (Acquittée)",
+          periodeDebut: "17/09/2026",
+          periodeFin: cycle === "ANNUEL" ? "16/09/2027" : "16/10/2026",
+          statut: "ACQUITTEE" as const,
+          referenceTransaction: transaction.idTransaction,
+          moyenPaiementNom: transaction.moyenPaiement.nom,
+          datePaiementEffectif: transaction.datePaiement,
+          lignes: [
+            {
+              code: `SUB-${transaction.forfait.code.slice(0, 3)}`,
+              designation: `Abonnement CCD Digital — Forfait ${transaction.forfait.libelle}`,
+              descriptionDetaillee: `Licence logicielle BTP (${cycle === "ANNUEL" ? "Cycle Annuel" : "Cycle Mensuel"}). Accès illimité aux modules chantiers selon quotas souscrits.`,
+              quantite: 1,
+              prixUnitaireHtFcfa: totalHt,
+              totalHtFcfa: totalHt,
+            },
+          ],
+          sousTotalHtFcfa: totalHt,
+          tauxTvaPourcent: infoTva.taux,
+          libelleTva: infoTva.libelleTaxe,
+          montantTvaFcfa: montantTva,
+          totalTtcFcfa: totalTtc,
+        };
+      })()
+    : null;
+
+  const coordonneesClient: ClientOHADA = {
+    raisonSociale: nomEntreprise,
+    rccm: rccmClient,
+    nif: nifClient,
+    adresse: adresseClient,
+    ville: "Abidjan",
+    pays: infoTva.nomPays,
+    codePays: paysClient,
+    emailContact: emailFacturation,
+    telephoneContact: `${indicatif} ${telephone}`,
+  };
+
+  const telechargerFacture = () => {
+    setModalFactureOuverte(true);
+    setTimeout(() => {
+      if (typeof window !== "undefined") {
+        window.print();
+      }
+    }, 300);
+  };
 
   return (
     <div className={styles.conteneur}>
@@ -518,12 +558,12 @@ Plateforme certifiée CinetPay & Banque Centrale
                 {/* Coordonnées de facturation */}
                 <h3 className={styles.sectionTitre} style={{ marginTop: "var(--space-3)", fontSize: "1rem" }}>
                   <Receipt size={18} weight="duotone" />
-                  <span>Informations de facturation</span>
+                  <span>Informations de facturation (Normes OHADA)</span>
                 </h3>
 
                 <div className={styles.champLigneDouble}>
                   <div className={styles.champGroupe}>
-                    <label className={styles.champLabel}>Nom de l&apos;entreprise</label>
+                    <label className={styles.champLabel}>Nom / Raison sociale de l&apos;entreprise</label>
                     <input
                       type="text"
                       required
@@ -540,6 +580,56 @@ Plateforme certifiée CinetPay & Banque Centrale
                       className={styles.champInput}
                       value={emailFacturation}
                       onChange={(e) => setEmailFacturation(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.champLigneDouble}>
+                  <div className={styles.champGroupe}>
+                    <label className={styles.champLabel}>Pays fiscal (Taux TVA applicable)</label>
+                    <select
+                      className={styles.champInput}
+                      value={paysClient}
+                      onChange={(e) => setPaysClient(e.target.value)}
+                    >
+                      {Object.values(TAUX_TVA_OHADA).map((p) => (
+                        <option key={p.code} value={p.code}>
+                          {p.nomPays} — {p.taux}% ({p.zone})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className={styles.champGroupe}>
+                    <label className={styles.champLabel}>Adresse du siège social</label>
+                    <input
+                      type="text"
+                      className={styles.champInput}
+                      value={adresseClient}
+                      onChange={(e) => setAdresseClient(e.target.value)}
+                      placeholder="Ex: Cocody, Bd de Marseille"
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.champLigneDouble}>
+                  <div className={styles.champGroupe}>
+                    <label className={styles.champLabel}>Numéro RCCM (facultatif si en cours)</label>
+                    <input
+                      type="text"
+                      className={styles.champInput}
+                      value={rccmClient}
+                      onChange={(e) => setRccmClient(e.target.value)}
+                      placeholder="Ex: CI-ABJ-2024-B-12984"
+                    />
+                  </div>
+                  <div className={styles.champGroupe}>
+                    <label className={styles.champLabel}>Numéro NIF / NCC</label>
+                    <input
+                      type="text"
+                      className={styles.champInput}
+                      value={nifClient}
+                      onChange={(e) => setNifClient(e.target.value)}
+                      placeholder="Ex: 2412890 A"
                     />
                   </div>
                 </div>
@@ -589,12 +679,17 @@ Plateforme certifiée CinetPay & Banque Centrale
               )}
 
               <div className={styles.recapLigne}>
-                <span>TVA / Taxes</span>
-                <span>0 FCFA (Inclus)</span>
+                <span>Sous-total HT</span>
+                <span>{formatFcfa(montantHtActuel)}</span>
+              </div>
+
+              <div className={styles.recapLigne}>
+                <span>{infoTva.libelleTaxe} ({infoTva.taux}%)</span>
+                <span>{formatFcfa(montantTvaActuel)}</span>
               </div>
 
               <div className={styles.recapTotal}>
-                <span className={styles.recapTotalLabel}>Total net à régler</span>
+                <span className={styles.recapTotalLabel}>Total TTC à régler</span>
                 <span className={styles.recapTotalMontant}>{formatFcfa(montantActuel)}</span>
               </div>
 
@@ -687,14 +782,31 @@ Plateforme certifiée CinetPay & Banque Centrale
 
             {/* Actions */}
             <div className={styles.actionsConfirmation}>
-              <Link href="/tableau-de-bord" className={styles.btnDashboard}>
+              <button
+                type="button"
+                onClick={() => setModalFactureOuverte(true)}
+                className={styles.btnDashboard}
+                style={{ background: "var(--color-primary-600)", gap: "8px" }}
+              >
+                <FileText size={18} weight="bold" />
+                <span>Voir la facture officielle OHADA</span>
+              </button>
+              <button
+                type="button"
+                onClick={telechargerFacture}
+                className={styles.btnTelechargerFacture}
+                style={{ gap: "8px" }}
+              >
+                <Printer size={18} weight="bold" />
+                <span>Imprimer / Enregistrer en PDF</span>
+              </button>
+            </div>
+
+            <div style={{ marginTop: "var(--space-3)", display: "flex", justifyContent: "center" }}>
+              <Link href="/tableau-de-bord" className={styles.btnDashboard} style={{ background: "var(--color-neutral-800)" }}>
                 <span>Accéder au tableau de bord</span>
                 <ArrowRight size={16} weight="bold" />
               </Link>
-              <button type="button" onClick={telechargerFacture} className={styles.btnTelechargerFacture}>
-                <DownloadSimple size={18} weight="bold" />
-                <span>Télécharger la facture (PDF / Reçu)</span>
-              </button>
             </div>
 
             {messageToast && <div className={styles.toastFacture}>{messageToast}</div>}
@@ -708,6 +820,16 @@ Plateforme certifiée CinetPay & Banque Centrale
                 <span>Changer ou tester un autre forfait</span>
               </button>
             </div>
+
+            {/* Modale d'affichage de la facture officielle OHADA */}
+            {donneesFacture && (
+              <ModalFacture
+                ouvert={modalFactureOuverte}
+                onFermer={() => setModalFactureOuverte(false)}
+                facture={donneesFacture}
+                client={coordonneesClient}
+              />
+            )}
           </div>
         </section>
       )}
