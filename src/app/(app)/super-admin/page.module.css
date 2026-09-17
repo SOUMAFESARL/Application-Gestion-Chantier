@@ -539,3 +539,185 @@
   background: var(--color-neutral-50, #F8FAFC);
   color: var(--color-neutral-900, #0F172A);
 }
+
+/* --- Onglets de navigation Super Admin --- */
+.barreOnglets {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid var(--color-neutral-200);
+  margin-bottom: var(--space-6);
+}
+
+.onglet {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-neutral-600);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.onglet:hover {
+  color: var(--color-neutral-900);
+}
+
+.ongletActif {
+  color: var(--color-primary-600, #c25e2e);
+  border-bottom-color: var(--color-primary-600, #c25e2e);
+  font-weight: 700;
+}
+
+/* Boutons d'assistance */
+.btnAssistance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #ea580c;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 4px rgba(234, 88, 12, 0.25);
+}
+
+.btnAssistance:hover {
+  background: #c2410c;
+  transform: translateY(-1px);
+}
+
+.btnAssistanceTable {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  border-radius: var(--radius-md, 6px);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnAssistanceTable:hover {
+  background: #ffedd5;
+  border-color: #ea580c;
+  color: #9a3412;
+}
+
+/* Modale d'assistance */
+.carteSecuriteAssistance {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-lg, 10px);
+  padding: 14px 16px;
+  margin: 16px 0;
+  color: #92400e;
+}
+
+.titreSecurite {
+  font-size: 0.875rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.listeReglesSecurite {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.champFormulaire {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.champLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-neutral-800);
+}
+
+.champInput,
+.champSelect,
+.champTextarea {
+  padding: 10px 12px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.875rem;
+  font-family: inherit;
+  background: #ffffff;
+  transition: border-color 0.15s ease;
+}
+
+.champInput:focus,
+.champSelect:focus,
+.champTextarea:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px var(--color-primary-100);
+}
+
+.erreurChamp {
+  color: #dc2626;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Badges du journal d'audit plateforme */
+.badgeAuditAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.badgeConnexion {
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.badgeDeconnexion {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.badgeBlocage {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.badgeAutre {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
