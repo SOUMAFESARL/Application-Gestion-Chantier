@@ -32,6 +32,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
+import { BanniereAssistance } from "@/components/assistance/BanniereAssistance";
 import { MarqueCCD } from "@/components/layout/MarqueCCD";
 import { BadgeEssai } from "@/components/metier/BadgeEssai";
 import { EVENEMENT_SESSION_EXPIREE, sessionOuverte } from "@/lib/api";
@@ -401,6 +402,9 @@ export default function LayoutApp({ children }: LayoutAppProps) {
 
   return (
     <div className={styles.layout}>
+      {/* Bannière persistante de sécurité Super Admin en mode assistance */}
+      <BanniereAssistance />
+
       {/* Barre d'application. La marque est le tracé de `public/icon.svg`, le
           même que l'onglet du navigateur — plus la lettre « C » d'une police
           système, qui n'était un logo que par ressemblance. */}

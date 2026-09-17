@@ -6,6 +6,7 @@ import {
   ArrowsClockwise,
   Buildings,
   CheckCircle,
+  Clock,
   CurrencyCircleDollar,
   DownloadSimple,
   Eye,
@@ -24,26 +25,34 @@ import {
   X,
 } from "@phosphor-icons/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  demarrerAssistance,
   modifierEntrepriseCliente,
   obtenirEntreprisesClientes,
+  obtenirJournalPlateforme,
   obtenirStatsSuperAdmin,
+  obtenirUtilisateursEntreprise,
   verifierAccesSuperAdmin,
   ResultatVerificationAcces,
 } from "@/features/super-admin/api";
 import {
   CodePlanSuperAdmin,
   EntrepriseCliente,
+  EntreeJournalPlateforme,
   StatsSuperAdmin,
   StatutEntrepriseClient,
+  UtilisateurCibleAssistance,
 } from "@/features/super-admin/types";
+import { activerSessionAssistance } from "@/lib/auth/assistance";
 
 import styles from "./page.module.css";
 
 export default function PageSuperAdmin() {
+  const router = useRouter();
   const tSecurite = useTranslations("superAdmin");
   const [chargementAcces, setChargementAcces] = useState(true);
   const [acces, setAcces] = useState<ResultatVerificationAcces>({ autorise: false });
@@ -55,6 +64,24 @@ export default function PageSuperAdmin() {
   const [entrepriseSelectionnee, setEntrepriseSelectionnee] = useState<EntrepriseCliente | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
 
+  // Navigation par onglets Super Admin
+  const [ongletActif, setOngletActif] = useState<"ENTREPRISES" | "JOURNAL">("ENTREPRISES");
+
+  // Journal d'audit plateforme
+  const [journalPlateforme, setJournalPlateforme] = useState<EntreeJournalPlateforme[]>([]);
+  const [rechercheJournal, setRechercheJournal] = useState("");
+  const [filtreActionJournal, setFiltreActionJournal] = useState<string>("TOUTES");
+  const [chargementJournal, setChargementJournal] = useState(false);
+
+  // Modale de connexion d'assistance Super Admin
+  const [entrepriseAssistance, setEntrepriseAssistance] = useState<EntrepriseCliente | null>(null);
+  const [utilisateursAssistance, setUtilisateursAssistance] = useState<UtilisateurCibleAssistance[]>([]);
+  const [chargementUtilisateurs, setChargementUtilisateurs] = useState(false);
+  const [utilisateurCibleId, setUtilisateurCibleId] = useState<string>("");
+  const [motifAssistance, setMotifAssistance] = useState<string>("");
+  const [erreurMotif, setErreurMotif] = useState<string | null>(null);
+  const [lancementAssistanceEnCours, setLancementAssistanceEnCours] = useState(false);
+
   useEffect(() => {
     let monte = true;
     verifierAccesSuperAdmin().then((res) => {
@@ -64,6 +91,12 @@ export default function PageSuperAdmin() {
       if (res.autorise) {
         obtenirStatsSuperAdmin().then(setStats);
         obtenirEntreprisesClientes().then(setEntreprises);
+        setChargementJournal(true);
+        obtenirJournalPlateforme().then((data) => {
+          if (!monte) return;
+          setJournalPlateforme(data);
+          setChargementJournal(false);
+        });
       }
     });
     return () => {
@@ -73,6 +106,46 @@ export default function PageSuperAdmin() {
 
   const formatFcfa = (montant: number) => {
     return new Intl.NumberFormat("fr-FR").format(montant) + " FCFA";
+  };
+
+  const ouvrirModaleAssistance = async (e: EntrepriseCliente) => {
+    setEntrepriseAssistance(e);
+    setMotifAssistance("");
+    setErreurMotif(null);
+    setChargementUtilisateurs(true);
+    try {
+      const utilisateurs = await obtenirUtilisateursEntreprise(e.id);
+      setUtilisateursAssistance(utilisateurs);
+      const defaut = utilisateurs.find((u) => u.is_owner || u.is_dg) || utilisateurs[0];
+      setUtilisateurCibleId(defaut ? defaut.id : "");
+    } finally {
+      setChargementUtilisateurs(false);
+    }
+  };
+
+  const lancerSessionAssistance = async () => {
+    if (!entrepriseAssistance) return;
+    const motifNettoye = motifAssistance.trim();
+    if (motifNettoye.length < 5) {
+      setErreurMotif(tSecurite("assistanceMotifErreur"));
+      return;
+    }
+    setErreurMotif(null);
+    setLancementAssistanceEnCours(true);
+    try {
+      const rep = await demarrerAssistance(
+        entrepriseAssistance.id,
+        motifNettoye,
+        utilisateurCibleId || undefined
+      );
+      activerSessionAssistance(rep);
+      setEntrepriseAssistance(null);
+      router.push(rep.url_redirection || "/tableau-de-bord");
+    } catch {
+      setErreurMotif(tSecurite("assistanceEchec"));
+    } finally {
+      setLancementAssistanceEnCours(false);
+    }
   };
 
   // Filtrage réactif des entreprises
@@ -90,6 +163,26 @@ export default function PageSuperAdmin() {
       return correspondRecherche && correspondStatut && correspondPlan;
     });
   }, [entreprises, recherche, filtreStatut, filtrePlan]);
+
+  // Filtrage réactif du journal plateforme
+  const journalFiltre = useMemo(() => {
+    return journalPlateforme.filter((entree) => {
+      const motif = (entree.detail?.motif as string) || "";
+      const cible = (entree.detail?.cible_email as string) || "";
+      const correspondTexte =
+        entree.action.toLowerCase().includes(rechercheJournal.toLowerCase()) ||
+        entree.entreprise_nom.toLowerCase().includes(rechercheJournal.toLowerCase()) ||
+        entree.utilisateur_nom.toLowerCase().includes(rechercheJournal.toLowerCase()) ||
+        motif.toLowerCase().includes(rechercheJournal.toLowerCase()) ||
+        cible.toLowerCase().includes(rechercheJournal.toLowerCase()) ||
+        (entree.adresse_ip || "").includes(rechercheJournal);
+
+      const correspondAction =
+        filtreActionJournal === "TOUTES" || entree.action === filtreActionJournal;
+
+      return correspondTexte && correspondAction;
+    });
+  }, [journalPlateforme, rechercheJournal, filtreActionJournal]);
 
   // Actions d'administration
   const changerStatutEntreprise = async (id: string, nouveauStatut: StatutEntrepriseClient) => {
@@ -246,6 +339,33 @@ export default function PageSuperAdmin() {
         </button>
       </header>
 
+      {/* Navigation par onglets */}
+      <nav className={styles.barreOnglets} aria-label="Navigation Super Admin">
+        <button
+          type="button"
+          className={`${styles.onglet} ${ongletActif === "ENTREPRISES" ? styles.ongletActif : ""}`}
+          onClick={() => setOngletActif("ENTREPRISES")}
+        >
+          <Buildings size={18} weight={ongletActif === "ENTREPRISES" ? "bold" : "regular"} />
+          <span>{tSecurite("ongletEntreprises")}</span>
+        </button>
+        <button
+          type="button"
+          className={`${styles.onglet} ${ongletActif === "JOURNAL" ? styles.ongletActif : ""}`}
+          onClick={() => {
+            setOngletActif("JOURNAL");
+            setChargementJournal(true);
+            obtenirJournalPlateforme().then((data) => {
+              setJournalPlateforme(data);
+              setChargementJournal(false);
+            });
+          }}
+        >
+          <FileText size={18} weight={ongletActif === "JOURNAL" ? "bold" : "regular"} />
+          <span>{tSecurite("ongletJournalPlateforme")}</span>
+        </button>
+      </nav>
+
       {/* Toast Notification */}
       {notification && (
         <div
@@ -267,9 +387,11 @@ export default function PageSuperAdmin() {
         </div>
       )}
 
-      {/* 1. KPIs PRINCIPAUX DE LA PLATEFORME */}
-      {stats && (
-        <section className={styles.grilleKpi}>
+      {ongletActif === "ENTREPRISES" && (
+        <>
+          {/* 1. KPIs PRINCIPAUX DE LA PLATEFORME */}
+          {stats && (
+            <section className={styles.grilleKpi}>
           <div className={styles.carteKpi}>
             <div className={styles.kpiEntete}>
               <span>Revenu Mensuel (MRR)</span>
@@ -491,14 +613,25 @@ export default function PageSuperAdmin() {
                     </td>
 
                     <td>
-                      <button
-                        type="button"
-                        className={styles.btnActionTable}
-                        onClick={() => setEntrepriseSelectionnee(e)}
-                      >
-                        <Eye size={16} weight="bold" />
-                        <span>Gérer</span>
-                      </button>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <button
+                          type="button"
+                          className={styles.btnActionTable}
+                          onClick={() => setEntrepriseSelectionnee(e)}
+                        >
+                          <Eye size={16} weight="bold" />
+                          <span>Gérer</span>
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.btnAssistanceTable}
+                          title={tSecurite("assistanceBouton")}
+                          onClick={() => ouvrirModaleAssistance(e)}
+                        >
+                          <ShieldCheck size={14} weight="bold" />
+                          <span>{tSecurite("assistanceActionTable")}</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -507,6 +640,169 @@ export default function PageSuperAdmin() {
           </table>
         </div>
       </section>
+    </>
+  )}
+
+      {/* 4. JOURNAL D'AUDIT PLATEFORME */}
+      {ongletActif === "JOURNAL" && (
+        <section className={styles.sectionTableau}>
+          <div style={{ marginBottom: "20px" }}>
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--color-neutral-900)" }}>
+              {tSecurite("journalTitre")}
+            </h2>
+            <p style={{ fontSize: "0.875rem", color: "var(--color-neutral-500)", margin: "4px 0 0" }}>
+              {tSecurite("journalDescription")}
+            </p>
+          </div>
+
+          <div className={styles.barreFiltres}>
+            <div style={{ position: "relative", width: "100%", maxWidth: "380px" }}>
+              <MagnifyingGlass
+                size={18}
+                style={{ position: "absolute", left: 12, top: 11, color: "var(--color-neutral-400)" }}
+              />
+              <input
+                type="text"
+                className={styles.rechercheInput}
+                style={{ paddingLeft: "36px" }}
+                placeholder="Rechercher par opérateur, entreprise, motif, IP..."
+                value={rechercheJournal}
+                onChange={(e) => setRechercheJournal(e.target.value)}
+              />
+            </div>
+
+            <div className={styles.groupesFiltres}>
+              <select
+                className={styles.selectFiltre}
+                value={filtreActionJournal}
+                onChange={(e) => setFiltreActionJournal(e.target.value)}
+              >
+                <option value="TOUTES">Toutes les actions</option>
+                <option value="ASSISTANCE_DEBUT">Connexion d&apos;assistance (Début)</option>
+                <option value="ASSISTANCE_FIN">Fin d&apos;assistance</option>
+                <option value="ASSISTANCE_BLOCAGE_ECRITURE">Blocage écriture (R-128)</option>
+                <option value="STATUT_CHANGE">Changement statut</option>
+                <option value="PLAN_CHANGE">Surclassement formule</option>
+              </select>
+            </div>
+          </div>
+
+          <div className={styles.tableConteneur}>
+            <table className={styles.tableEntreprises}>
+              <thead>
+                <tr>
+                  <th>{tSecurite("journalHorodatage")}</th>
+                  <th>{tSecurite("journalAction")}</th>
+                  <th>{tSecurite("journalOperateur")}</th>
+                  <th>{tSecurite("journalEntreprise")}</th>
+                  <th>{tSecurite("journalDetails")}</th>
+                  <th>{tSecurite("journalIp")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {chargementJournal ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: "center", padding: "32px", color: "var(--color-neutral-500)" }}>
+                      <ArrowsClockwise size={20} className="animate-spin" style={{ display: "inline-block", verticalAlign: "middle", marginRight: "8px" }} />
+                      <span>{tSecurite("journalChargement")}</span>
+                    </td>
+                  </tr>
+                ) : journalFiltre.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: "center", padding: "32px", color: "var(--color-neutral-500)" }}>
+                      {tSecurite("journalVide")}
+                    </td>
+                  </tr>
+                ) : (
+                  journalFiltre.map((item) => {
+                    let badgeClass = styles.badgeAutre;
+                    let actionLabel = item.action;
+                    if (item.action === "ASSISTANCE_DEBUT") {
+                      badgeClass = styles.badgeConnexion;
+                      actionLabel = "Assistance · Connexion";
+                    } else if (item.action === "ASSISTANCE_FIN") {
+                      badgeClass = styles.badgeDeconnexion;
+                      actionLabel = "Assistance · Fin";
+                    } else if (item.action === "ASSISTANCE_BLOCAGE_ECRITURE") {
+                      badgeClass = styles.badgeBlocage;
+                      actionLabel = "Écriture bloquée (R-128)";
+                    } else if (item.action === "STATUT_CHANGE") {
+                      actionLabel = "Statut modifié";
+                    } else if (item.action === "PLAN_CHANGE") {
+                      actionLabel = "Formule modifiée";
+                    }
+
+                    const dateFormatee = new Date(item.horodatage).toLocaleString("fr-FR", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    });
+
+                    const motif = item.detail?.motif as string | undefined;
+                    const cibleEmail = item.detail?.cible_email as string | undefined;
+                    const superAdminEmail = (item.detail?.super_admin_email as string | undefined) || "";
+                    const methode = item.detail?.methode as string | undefined;
+                    const path = item.detail?.path as string | undefined;
+
+                    return (
+                      <tr key={item.id}>
+                        <td style={{ whiteSpace: "nowrap", fontSize: "0.8125rem", color: "var(--color-neutral-600)" }}>
+                          {dateFormatee}
+                        </td>
+                        <td>
+                          <span className={`${styles.badgeAuditAction} ${badgeClass}`}>
+                            {actionLabel}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", flexDirection: "column" }}>
+                            <strong style={{ fontSize: "0.8125rem" }}>{item.utilisateur_nom}</strong>
+                            {superAdminEmail && (
+                              <span style={{ fontSize: "0.75rem", color: "var(--color-neutral-500)" }}>
+                                {superAdminEmail}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", flexDirection: "column" }}>
+                            <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>{item.entreprise_nom}</span>
+                            {cibleEmail && (
+                              <span style={{ fontSize: "0.75rem", color: "var(--color-neutral-500)" }}>
+                                Cible : {cibleEmail}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ maxWidth: "280px" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                            {motif && (
+                              <span style={{ fontSize: "0.8125rem", color: "var(--color-neutral-800)" }}>
+                                <strong>Motif :</strong> {motif}
+                              </span>
+                            )}
+                            {methode && path && (
+                              <span style={{ fontSize: "0.75rem", color: "#b91c1c", fontFamily: "monospace" }}>
+                                {methode} {path}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "var(--color-neutral-600)" }}>
+                          {item.adresse_ip || "—"}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* 4. MODALE FICHE ENTREPRISE & GESTION SUPER ADMIN */}
       {entrepriseSelectionnee && (
@@ -583,6 +879,15 @@ export default function PageSuperAdmin() {
               <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                 <button
                   type="button"
+                  className={styles.btnAssistance}
+                  onClick={() => ouvrirModaleAssistance(entrepriseSelectionnee)}
+                >
+                  <ShieldCheck size={14} weight="bold" />
+                  <span>{tSecurite("assistanceBouton")}</span>
+                </button>
+
+                <button
+                  type="button"
                   className={styles.btnActionTable}
                   onClick={() => changerPlanEntreprise(entrepriseSelectionnee.id, "MAITRE_OEUVRE", "Maître d'Œuvre", 79000)}
                 >
@@ -630,6 +935,136 @@ export default function PageSuperAdmin() {
                 onClick={() => setEntrepriseSelectionnee(null)}
               >
                 <span>Fermer la fiche</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. MODALE DE CONNEXION D'ASSISTANCE (R-128) */}
+      {entrepriseAssistance && (
+        <div
+          className={styles.modaleOverlay}
+          onClick={() => !lancementAssistanceEnCours && setEntrepriseAssistance(null)}
+        >
+          <div className={styles.modaleBox} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modaleEntete}>
+              <div>
+                <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--color-neutral-900)" }}>
+                  {tSecurite("assistanceTitre")}
+                </h2>
+                <span style={{ fontSize: "0.875rem", color: "var(--color-neutral-500)" }}>
+                  {entrepriseAssistance.nomCommercial} ({entrepriseAssistance.raisonSociale})
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => !lancementAssistanceEnCours && setEntrepriseAssistance(null)}
+                style={{ background: "none", border: "none", cursor: "pointer", padding: "4px" }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: "0.875rem", color: "var(--color-neutral-600)", margin: "8px 0 16px" }}>
+              {tSecurite("assistanceDescription")}
+            </p>
+
+            {/* Carte de sécurité R-128 */}
+            <div className={styles.carteSecuriteAssistance}>
+              <div className={styles.titreSecurite}>
+                <LockKey size={16} weight="fill" />
+                <span>{tSecurite("assistanceSecuriteTitre")}</span>
+              </div>
+              <ul className={styles.listeReglesSecurite}>
+                <li>{tSecurite("assistanceSecurite1")}</li>
+                <li>{tSecurite("assistanceSecurite2")}</li>
+                <li>{tSecurite("assistanceSecurite3")}</li>
+              </ul>
+            </div>
+
+            {/* Formulaire de sélection utilisateur et motif */}
+            <div className={styles.champFormulaire}>
+              <label htmlFor="select-utilisateur-cible" className={styles.champLabel}>
+                {tSecurite("assistanceUtilisateurCible")}
+              </label>
+              {chargementUtilisateurs ? (
+                <div style={{ padding: "10px", fontSize: "0.875rem", color: "var(--color-neutral-500)" }}>
+                  {tSecurite("chargementUtilisateurs")}
+                </div>
+              ) : (
+                <select
+                  id="select-utilisateur-cible"
+                  className={styles.champSelect}
+                  value={utilisateurCibleId}
+                  onChange={(e) => setUtilisateurCibleId(e.target.value)}
+                  disabled={lancementAssistanceEnCours}
+                >
+                  {utilisateursAssistance.map((u) => {
+                    const nomAffiche = `${u.prenom} ${u.nom}`.trim() || u.email;
+                    const roleAffiche = u.role_libelle || u.role_global || tSecurite("roleDefaut");
+                    const badgeRole = u.is_owner ? tSecurite("badgeOwner") : u.is_dg ? tSecurite("badgeDg") : "";
+                    return (
+                      <option key={u.id} value={u.id}>
+                        {nomAffiche} ({roleAffiche}) {badgeRole ? `${badgeRole} - ` : ""}{u.email}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
+              <span style={{ fontSize: "0.75rem", color: "var(--color-neutral-500)" }}>
+                {tSecurite("assistanceUtilisateurAide")}
+              </span>
+            </div>
+
+            <div className={styles.champFormulaire}>
+              <label htmlFor="textarea-motif-assistance" className={styles.champLabel}>
+                {tSecurite("assistanceMotif")} <span style={{ color: "#dc2626" }}>*</span>
+              </label>
+              <textarea
+                id="textarea-motif-assistance"
+                className={styles.champTextarea}
+                rows={3}
+                placeholder={tSecurite("assistanceMotifPlaceholder")}
+                value={motifAssistance}
+                onChange={(e) => {
+                  setMotifAssistance(e.target.value);
+                  if (erreurMotif && e.target.value.trim().length >= 5) {
+                    setErreurMotif(null);
+                  }
+                }}
+                disabled={lancementAssistanceEnCours}
+              />
+              {erreurMotif && <span className={styles.erreurChamp}>{erreurMotif}</span>}
+            </div>
+
+            {/* Boutons d'action */}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
+              <button
+                type="button"
+                className={styles.btnActionTable}
+                onClick={() => setEntrepriseAssistance(null)}
+                disabled={lancementAssistanceEnCours}
+              >
+                <span>{tSecurite("assistanceAnnuler")}</span>
+              </button>
+              <button
+                type="button"
+                className={styles.btnAssistance}
+                onClick={lancerSessionAssistance}
+                disabled={lancementAssistanceEnCours || chargementUtilisateurs}
+              >
+                {lancementAssistanceEnCours ? (
+                  <>
+                    <ArrowsClockwise size={16} className="animate-spin" />
+                    <span>{tSecurite("assistanceEnCours")}</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck size={16} weight="bold" />
+                    <span>{tSecurite("assistanceDemarrer")}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
