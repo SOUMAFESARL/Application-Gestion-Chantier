@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowLeft,
   ArrowUpRight,
   ArrowsClockwise,
   Buildings,
@@ -11,6 +12,7 @@ import {
   FileText,
   Funnel,
   HardHat,
+  LockKey,
   MagnifyingGlass,
   ShieldCheck,
   Sparkle,
@@ -21,12 +23,16 @@ import {
   WarningCircle,
   X,
 } from "@phosphor-icons/react";
+import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 
 import {
   modifierEntrepriseCliente,
   obtenirEntreprisesClientes,
   obtenirStatsSuperAdmin,
+  verifierAccesSuperAdmin,
+  ResultatVerificationAcces,
 } from "@/features/super-admin/api";
 import {
   CodePlanSuperAdmin,
@@ -38,6 +44,9 @@ import {
 import styles from "./page.module.css";
 
 export default function PageSuperAdmin() {
+  const tSecurite = useTranslations("superAdmin");
+  const [chargementAcces, setChargementAcces] = useState(true);
+  const [acces, setAcces] = useState<ResultatVerificationAcces>({ autorise: false });
   const [stats, setStats] = useState<StatsSuperAdmin | null>(null);
   const [entreprises, setEntreprises] = useState<EntrepriseCliente[]>([]);
   const [recherche, setRecherche] = useState("");
@@ -47,8 +56,19 @@ export default function PageSuperAdmin() {
   const [notification, setNotification] = useState<string | null>(null);
 
   useEffect(() => {
-    obtenirStatsSuperAdmin().then(setStats);
-    obtenirEntreprisesClientes().then(setEntreprises);
+    let monte = true;
+    verifierAccesSuperAdmin().then((res) => {
+      if (!monte) return;
+      setAcces(res);
+      setChargementAcces(false);
+      if (res.autorise) {
+        obtenirStatsSuperAdmin().then(setStats);
+        obtenirEntreprisesClientes().then(setEntreprises);
+      }
+    });
+    return () => {
+      monte = false;
+    };
   }, []);
 
   const formatFcfa = (montant: number) => {
@@ -136,6 +156,74 @@ export default function PageSuperAdmin() {
   const totalPromoteur = entreprises.filter((e) => e.planActuel.code === "PROMOTEUR" && e.statut === "ACTIF").length;
   const totalBatisseur = entreprises.filter((e) => e.planActuel.code === "BATISSEUR" && e.statut === "ACTIF").length;
   const totalEssai = entreprises.filter((e) => e.statut === "ESSAI").length;
+
+  if (chargementAcces) {
+    return (
+      <div className={styles.centreurVerrouillage}>
+        <div className={styles.carteVerrouillage}>
+          <div
+            className={styles.iconeCercleVerrou}
+            style={{
+              background: "var(--color-primary-50, #FDF2EC)",
+              borderColor: "var(--color-primary-200, #F6C8B1)",
+              color: "var(--color-primary-600, #C25E2E)",
+            }}
+          >
+            <ArrowsClockwise size={36} className="animate-spin" />
+          </div>
+          <h2 className={styles.titreVerrouille}>{tSecurite("verificationReseau")}</h2>
+          <p className={styles.texteVerrouille}>
+            {tSecurite("verificationDescription")}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!acces.autorise) {
+    return (
+      <div className={styles.centreurVerrouillage}>
+        <div className={styles.carteVerrouillage}>
+          <div className={styles.iconeCercleVerrou}>
+            <LockKey size={38} weight="duotone" />
+          </div>
+          <h2 className={styles.titreVerrouille}>{tSecurite("accesRestreintTitre")}</h2>
+          <p className={styles.texteVerrouille}>
+            {tSecurite("accesRestreintDescription")}
+          </p>
+          {acces.ip && (
+            <div className={styles.badgeIpRefusee}>
+              <span>{tSecurite("ipDetectee")}</span>
+              <code>{acces.ip}</code>
+            </div>
+          )}
+          <p className={styles.texteVerrouille} style={{ fontSize: "0.8125rem", color: "var(--color-neutral-500)" }}>
+            {tSecurite("conseilSecurite")}
+          </p>
+          <div className={styles.actionsVerrouille}>
+            <button
+              type="button"
+              onClick={() => {
+                setChargementAcces(true);
+                verifierAccesSuperAdmin().then((res) => {
+                  setAcces(res);
+                  setChargementAcces(false);
+                });
+              }}
+              className={styles.btnReessayer}
+            >
+              <ArrowsClockwise size={16} weight="bold" />
+              <span>{tSecurite("reessayer")}</span>
+            </button>
+            <Link href="/tableau-de-bord" className={styles.btnRetourTableau}>
+              <ArrowLeft size={16} weight="bold" />
+              <span>{tSecurite("retourTableau")}</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.conteneur}>

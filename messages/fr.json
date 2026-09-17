@@ -943,6 +943,16 @@
     "sousTitre": "Situation d'exploitation consolidée — Semaine 36",
     "titre": "Tableau de bord de pilotage"
   },
+  "superAdmin": {
+    "verificationReseau": "Vérification des accès réseau...",
+    "verificationDescription": "Contrôle de l'adresse IP et validation des habilitations de la console Super Admin.",
+    "accesRestreintTitre": "Accès Restreint : Console Super Admin",
+    "accesRestreintDescription": "Conformément à la politique de sécurité de CCD Digital (US-023), l'accès au panneau d'administration de la plateforme est strictement réservé aux adresses IP autorisées dans la liste blanche d'infrastructure.",
+    "ipDetectee": "IP détectée :",
+    "conseilSecurite": "Si vous êtes un administrateur légitime de la plateforme, veuillez vous connecter depuis le VPN d'entreprise ou contacter l'équipe infrastructure.",
+    "reessayer": "Réessayer",
+    "retourTableau": "Retour au tableau de bord"
+  },
   "telephone": {
     "aide": "Numéro mobile, sans l'indicatif — il est choisi à gauche.",
     "choisirPays": "Indicatif du pays",
