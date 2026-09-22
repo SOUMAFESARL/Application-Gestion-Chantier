@@ -17,7 +17,7 @@ tourne.
 
 Mesuré :
 
-| Brique attendue | Installée | Utilisée dans `src/` |
+| Brique attendue | Installée | Utilisée dans le dépôt |
 | --- | --- | --- |
 | Tailwind v4 | oui | **0 classe utilitaire** |
 | shadcn/ui (`base-nova`) | `components.json` posé | **0 composant généré** |
@@ -49,14 +49,14 @@ sur lequel la refonte s'appuie ; **aucun lot n'a le droit de les dégrader.**
 
 | Brique | Fichier | Pourquoi c'est un acquis |
 | --- | --- | --- |
-| Point de passage HTTP unique | `src/lib/api/client.ts` | Renouvellement 401 **partagé** (une seule tentative en vol), pivot du jeton de renouvellement pris en compte, panne réseau distinguée de l'erreur applicative, `ErreurApi` à `code` stable, événement `EVENEMENT_SESSION_EXPIREE` plutôt qu'une redirection depuis la couche HTTP. C'est le §3.1 de la doc, en mieux commenté. |
-| Formatage centralisé | `src/lib/format/index.ts` | `ABSENT = "—"` : jamais « 0 FCFA » pour dire « non renseigné ». C'est exactement la seconde règle du §3.2. |
-| Règles d'un domaine déjà isolées | `src/features/auth/etats.ts` | Un vrai `regles.ts` : il classe des issues, il ne rédige pas. **Preuve que le découpage est atteignable dans ce dépôt.** |
-| Horloges de session | `src/lib/auth/session.ts` | Deux horloges indépendantes (inactivité 30 min extensible, plafond 8 h non négociable), synchronisation `BroadcastChannel`, sauvegarde des saisies au démontage. La doc de référence ne couvre pas ce sujet : c'est un actif net. |
-| Réglages React Query | `src/app/providers.tsx` | `QueryClient` en `useState` (pas de fuite de cache entre utilisateurs en SSR), pas de retry sur 4xx, pas de retry sur mutation. Rien à reprendre. |
-| Multi-tenant par sous-domaine | `src/lib/api/client.ts` (`baseApi`) | Le même build sert toutes les entreprises. Les deux échappatoires sont documentées avec leur mode de panne. |
+| Point de passage HTTP unique | `lib/api/client.ts` | Renouvellement 401 **partagé** (une seule tentative en vol), pivot du jeton de renouvellement pris en compte, panne réseau distinguée de l'erreur applicative, `ErreurApi` à `code` stable, événement `EVENEMENT_SESSION_EXPIREE` plutôt qu'une redirection depuis la couche HTTP. C'est le §3.1 de la doc, en mieux commenté. |
+| Formatage centralisé | `lib/format/index.ts` | `ABSENT = "—"` : jamais « 0 FCFA » pour dire « non renseigné ». C'est exactement la seconde règle du §3.2. |
+| Règles d'un domaine déjà isolées | `features/auth/etats.ts` | Un vrai `regles.ts` : il classe des issues, il ne rédige pas. **Preuve que le découpage est atteignable dans ce dépôt.** |
+| Horloges de session | `lib/auth/session.ts` | Deux horloges indépendantes (inactivité 30 min extensible, plafond 8 h non négociable), synchronisation `BroadcastChannel`, sauvegarde des saisies au démontage. La doc de référence ne couvre pas ce sujet : c'est un actif net. |
+| Réglages React Query | `app/providers.tsx` | `QueryClient` en `useState` (pas de fuite de cache entre utilisateurs en SSR), pas de retry sur 4xx, pas de retry sur mutation. Rien à reprendre. |
+| Multi-tenant par sous-domaine | `lib/api/client.ts` (`baseApi`) | Le même build sert toutes les entreprises. Les deux échappatoires sont documentées avec leur mode de panne. |
 | Double garde-fou i18n | `eslint.config.mjs` | `i18next/no-literal-string` **plus** l'interdiction de tout caractère accentué dans un littéral `.ts`/`.tsx`, avec une liste d'exemptions au fichier près et justifiée. Plus strict que ce que demande la doc. |
-| Outillage de développement | `src/dev/` | Double verrou (variable d'environnement **et** hôte localhost), délibérément pas `NODE_ENV`. |
+| Outillage de développement | `dev/` | Double verrou (variable d'environnement **et** hôte localhost), délibérément pas `NODE_ENV`. |
 
 ---
 
@@ -64,7 +64,7 @@ sur lequel la refonte s'appuie ; **aucun lot n'a le droit de les dégrader.**
 
 ### D1 — Deux systèmes de jetons qui ne se connaissent pas *(bloquant)*
 
-`src/app/globals.css` importe `../styles/tokens.css` (la charte :
+`app/globals.css` importe `../styles/tokens.css` (la charte :
 `--color-primary-500: #D4652A`, `--space-*`, `--radius-md: 8px`) **et** déclare
 à côté le socle shadcn (`--primary: oklch(0.205 0 0)`, `--radius: 0.625rem`).
 
@@ -79,7 +79,7 @@ aujourd'hui, c'est écrire hors charte.
 
 ### D2 — Collisions de noms d'utilitaires *(bloquant, silencieux)*
 
-`src/styles/tokens.css:594-603` définit des classes qui portent **le nom
+`styles/tokens.css:594-603` définit des classes qui portent **le nom
 d'utilitaires Tailwind, avec des valeurs différentes** :
 
 | Classe | `tokens.css` | Tailwind v4 | Écart |
@@ -145,12 +145,12 @@ s'appliquent → double anneau de focus.
 1. `tokens.css:623-673` — cinq blocs `[data-theme="primary-*"]`. **Rien ne pose
    jamais l'attribut `data-theme`** (zéro occurrence hors de ce fichier). Code
    mort.
-2. `src/styles/theme.ts:159` `appliquerCouleurPrimaire()` — calcule l'échelle
+2. `styles/theme.ts:159` `appliquerCouleurPrimaire()` — calcule l'échelle
    50→900 en JavaScript et l'injecte sur `documentElement`. C'est le mécanisme
    réel, appelé depuis `(app)/layout.tsx:130` dans un `useEffect`, **après le
    premier rendu** : chaque client non terre-cuite voit donc la couleur par
    défaut clignoter à chaque chargement.
-3. `src/styles/FournisseurTheme.tsx` — un fournisseur prévu exactement pour ça,
+3. `styles/FournisseurTheme.tsx` — un fournisseur prévu exactement pour ça,
    **jamais monté**. Code mort également.
 
 ### D8 — Trois sources de vérité pour la couleur primaire
@@ -158,8 +158,8 @@ s'appliquent → double anneau de focus.
 `#D4652A` est écrit en dur :
 
 - dans `tokens.css:31` (le jeton, légitime) ;
-- dans `src/styles/couleurs.ts:31` (`COULEUR_PRIMAIRE_DEFAUT`, pour le `<meta>`) ;
-- dans `src/styles/theme.ts:9` (`COULEUR_TERRE_CUITE_DEFAUT`) ;
+- dans `styles/couleurs.ts:31` (`COULEUR_PRIMAIRE_DEFAUT`, pour le `<meta>`) ;
+- dans `styles/theme.ts:9` (`COULEUR_TERRE_CUITE_DEFAUT`) ;
 - **et 18 fois comme valeur de repli** dans des `var(--color-primary-500, #D4652A)`,
   réparties sur 9 fichiers CSS Modules et 4 fichiers TSX.
 
@@ -178,7 +178,7 @@ Tailwind, et au lint. Elles ne peuvent pas être reprises en un fichier.
 
 Le §7.1 de la doc demande un `components/statut/tons.ts` unique. Ici, la
 correspondance statut → couleur est écrite **dans la page de démonstration**
-(`src/app/design-system/page.tsx:81` : `EN_RETARD: "avertissement"`), donc dans
+(`app/design-system/page.tsx:81` : `EN_RETARD: "avertissement"`), donc dans
 le seul écran qui n'est pas le produit. Chaque écran réel décide de sa teinte
 localement.
 
@@ -188,7 +188,7 @@ localement.
 
 ### A1 — Aucune couche domaine : les types de l'API sont les types des écrans *(structurant)*
 
-`src/features/<domaine>/api.ts` exporte directement les charges utiles du
+`features/<domaine>/api.ts` exporte directement les charges utiles du
 service, en `snake_case` :
 
 ```ts
@@ -209,8 +209,8 @@ renommage de champ côté Django traverse jusqu'au JSX.
 
 L'écart d'avancement est calculé **deux fois, indépendamment** :
 
-- `src/app/(app)/projets/[id]/page.tsx:92`
-- `src/app/(app)/tableau-de-bord/TableauDeBordClient.tsx` (`ecart` consommé,
+- `app/(app)/projets/[id]/page.tsx:92`
+- `app/(app)/tableau-de-bord/TableauDeBordClient.tsx` (`ecart` consommé,
   seuil `< -5` codé en dur ligne 395)
 
 Même chose pour le ratio de consommation budgétaire
@@ -257,13 +257,13 @@ coquille applicative complète et voit l'écran avant d'être renvoyé. Le §5 d
 doc pose la règle inverse : « masquer un bouton ne protège rien ».
 
 Corollaire : le jeton de renouvellement est en `localStorage`
-(`src/lib/api/jetons.ts`), ce que le fichier lui-même signale comme « à
+(`lib/api/jetons.ts`), ce que le fichier lui-même signale comme « à
 trancher avant la mise en production ». Ce n'est pas un oubli, c'est la
 conséquence mécanique de l'absence de session serveur.
 
 ### A5 — Pas de catalogue de permissions, pas de menu déclaratif
 
-`src/features/roles/types.ts` définit un RBAC complet (`NiveauAcces` 0→3, douze
+`features/roles/types.ts` définit un RBAC complet (`NiveauAcces` 0→3, douze
 modules) — mais **rien ne s'en sert pour garder une route ou masquer une
 rubrique**. Le menu est un arbre JSX écrit à la main dans `(app)/layout.tsx`,
 **808 lignes**, composant client, avec les 24 icônes, la météo, l'abonnement,
@@ -273,7 +273,7 @@ ni fil d'Ariane, ni pastilles.
 ### A6 — React Query configuré mais court-circuité
 
 Le `QueryClient` est réglé finement… et `useQuery` n'apparaît que dans
-`src/lib/api/enumerations.ts`. Les 18 autres écrans font `useEffect` +
+`lib/api/enumerations.ts`. Les 18 autres écrans font `useEffect` +
 `useState` + appel manuel : pas de cache partagé, pas de déduplication, pas de
 politique de retry, et **chaque écran réimplémente ses états de chargement /
 erreur / vide**.
@@ -282,19 +282,19 @@ erreur / vide**.
 
 | Fichier | Lignes |
 | --- | --- |
-| `src/app/(app)/layout.tsx` | 808 |
-| `src/app/(app)/tableau-de-bord/TableauDeBordClient.tsx` | 763 |
-| `src/app/(app)/configuration/EtapeEntreprise.tsx` | 517 |
-| `src/app/(app)/configuration/EtapeProjet.tsx` | 463 |
-| `src/lib/api/simulation.ts` | 456 |
-| `src/app/(app)/configuration/EtapeEquipe.tsx` | 396 |
+| `app/(app)/layout.tsx` | 808 |
+| `app/(app)/tableau-de-bord/TableauDeBordClient.tsx` | 763 |
+| `app/(app)/configuration/EtapeEntreprise.tsx` | 517 |
+| `app/(app)/configuration/EtapeProjet.tsx` | 463 |
+| `lib/api/simulation.ts` | 456 |
+| `app/(app)/configuration/EtapeEquipe.tsx` | 396 |
 
 À quoi s'ajoutent leurs feuilles : `layout.module.css` 597 lignes,
 `TableauDeBord.module.css` 649, `configuration/page.module.css` 1 117.
 
 ### A8 — Pas de motif de liste partagé
 
-`src/components/ui/Tableau.tsx` (105 lignes) rend un `<table>`. Il n'a **ni
+`components/ui/Tableau.tsx` (105 lignes) rend un `<table>`. Il n'a **ni
 recherche, ni tri, ni pagination, ni repli en cartes sous `md`**, et ne
 distingue pas « aucune donnée » de « aucun résultat » (§7.3). Les écrans de
 liste (`parametres/utilisateurs`, `parametres/roles`) refont donc chacun leur
@@ -302,7 +302,7 @@ version.
 
 ### A9 — La couche de simulation accepte des écritures
 
-`src/lib/api/simulation.ts:352` `enregistrerEntreprise()`, `:359`
+`lib/api/simulation.ts:352` `enregistrerEntreprise()`, `:359`
 `creerProjet()`. C'est précisément ce que le §3.2 interdit : « un décor qui
 accepte une écriture est pire que pas de décor » — l'entité s'affiche comme
 créée alors que la base ne l'a jamais vue. C'est de plus **un fichier unique
@@ -316,13 +316,13 @@ fur et à mesure du branchement.
 | # | Constat | Détail |
 | --- | --- | --- |
 | O1 | Deux bibliothèques d'icônes | `@phosphor-icons/react` (26 fichiers, réel) et `lucide-react` (0 fichier, exigé par la doc et livré avec `base-nova`). |
-| O2 | Dépendances mortes | `@base-ui/react`, `class-variance-authority`, `clsx`, `tailwind-merge`, `date-fns`, `react-day-picker`, `tw-animate-css` : installées, jamais importées. `clsx` et `tailwind-merge` le resteront, `src/lib/utils.ts` réexportant `cn` depuis le paquet `cn` (équivalent fonctionnel officiel shadcn — décision à assumer explicitement plutôt qu'à subir). |
+| O2 | Dépendances mortes | `@base-ui/react`, `class-variance-authority`, `clsx`, `tailwind-merge`, `date-fns`, `react-day-picker`, `tw-animate-css` : installées, jamais importées. `clsx` et `tailwind-merge` le resteront, `lib/utils.ts` réexportant `cn` depuis le paquet `cn` (équivalent fonctionnel officiel shadcn — décision à assumer explicitement plutôt qu'à subir). |
 | O3 | `@tailwindcss/postcss` en `dependencies` | Outil de compilation ; sa place est en `devDependencies`. |
 | O4 | `packageManager` absent | La doc l'exige épinglé. Rien ne garantit aujourd'hui que deux machines résolvent le même arbre. |
 | O5 | Pas de script `typecheck` | `npx tsc --noEmit` fonctionne mais n'est pas dans `package.json`, donc pas dans la CI. |
 | O6 | Aucun test | Constaté, et conforme à `CLAUDE.md` — mais c'est ce qui rend la refonte risquée : le seul filet est `build` + `tsc` + `eslint`. |
 | O7 | Trois documents de suivi manquants | `docs/DEMANDES_BACKEND.md`, `docs/SCHEMAS_ATTENDUS.md`, `docs/POINTS_OUVERTS.md` (§11). Sans le premier, chaque contournement devient une règle du projet. |
-| O8 | Divergence d'arborescence | Le dépôt a `src/features/<domaine>/` ; la doc décrit `lib/<domaine>/` + `lib/api/<domaine>.ts` + `components/<domaine>/`. À arbitrer — voir `plan_refont.md` §2. |
+| O8 | Divergence d'arborescence | Le dépôt a `features/<domaine>/` ; la doc décrit `lib/<domaine>/` + `lib/api/<domaine>.ts` + `components/<domaine>/`. À arbitrer — voir `plan_refont.md` §2. |
 | O9 | La CI ne vérifie que le build | `.github/workflows/deploy-cpanel.yml` enchaîne `npm ci` puis `npm run build`. Ni `lint` ni `tsc --noEmit` ne tournent. Le double garde-fou i18n — le meilleur acquis du dépôt — **n'est donc jamais appliqué automatiquement** : il ne tient qu'à la discipline de qui lance `eslint` à la main. |
 | O10 | La production est épinglée sur un seul tenant | Le même workflow pose `NEXT_PUBLIC_API_URL: https://api-chantier.soumafe.com`. Or `client.ts` documente cette variable comme « à n'employer qu'en dernier recours », parce qu'elle **annule la résolution de l'API par sous-domaine**. Le build déployé interroge donc toujours le même hôte, quel que soit le sous-domaine visité — exactement le mode de panne que `CLAUDE.md` décrit (« un client fraîchement inscrit verrait sa connexion vérifiée contre la base d'une autre entreprise »). À confirmer avec l'hébergement : soit le déploiement actuel est mono-tenant et c'est assumé, soit c'est un défaut de production. **Hors périmètre de la refonte, mais à trancher en priorité.** |
 

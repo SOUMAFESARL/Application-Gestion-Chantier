@@ -11,7 +11,7 @@ vaut rien.
 Prérequis :
 
 1. le backend Django du tenant `demo` répond sur `demo.localhost:8000` — c'est
-   le **sous-domaine** qui désigne le tenant (`src/lib/api/client.ts`), jamais
+   le **sous-domaine** qui désigne le tenant (`lib/api/client.ts`), jamais
    `localhost` tout court ;
 2. le frontend tourne en **production** (`next build && next start`), pas en
    `next dev` : le serveur de développement injecte son indicateur dans la

@@ -127,7 +127,7 @@ const LETTRES_ACCENTUEES = "àâäæçèéêëîïôöùûüœÀÂÇÈÉÊÎÔÙ
 /**
  * Interdire la **forme statique** de la métadonnée — troisième angle mort.
  *
- * Il vivait dans son propre bloc de configuration, pour `src/app/**` ; la
+ * Il vivait dans son propre bloc de configuration, pour `app/**` ; la
  * règle du quatrième angle mort, déclarée plus largement et plus bas,
  * **remplaçait** ce bloc au lieu de s'y ajouter : ESLint fusionne par règle,
  * pas par sélecteur. Les deux sont donc désormais dans la même déclaration.
@@ -168,6 +168,31 @@ const SIGNATURES_PHRASE = [
 const MESSAGE_TEXTE_EN_DUR =
   'Texte français en dur — Socle Commun §1.1. Passer par t("…") dans un composant, ' +
   "ou par `texte()` de `@/i18n/horsReact` en dehors.";
+
+/**
+ * Les dossiers de code applicatif, depuis que `src/` a disparu et que
+ * l'application vit à la racine du dépôt.
+ *
+ * Ils sont nommés un par un plutôt que par un glob racine : à la racine, un
+ * glob attraperait aussi les fichiers de configuration (`next.config.ts`) et
+ * les scripts de `docs/`, dont les littéraux ne sont pas du texte d'interface.
+ */
+const DOSSIERS_SOURCE =
+  "{app,components,dev,features,hooks,i18n,lib,styles,types}/**/*.{ts,tsx}";
+
+/** Le message du garde-fou de couche d'acces aux donnees — lot 4. */
+const MESSAGE_COUCHE_DONNEES =
+  "Appel HTTP depuis un ecran : passer par features/<domaine>/adaptateur.ts.";
+
+/**
+ * Un identifiant `snake_case` importe dans un ecran, c'est une charge utile de
+ * serveur qui a franchi la couche domaine. Les types du domaine s'ecrivent en
+ * francais et en camelCase ; le `snake_case` ne vit que dans l'adaptateur.
+ */
+const SELECTEUR_IMPORT_SNAKE_CASE = {
+  selector: "ImportSpecifier[imported.name=/^[a-z][a-z0-9]*(_[a-z0-9]+)+$/]",
+  message: "Identifiant HTTP importe dans un ecran : passer par la couche domaine.",
+};
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -214,11 +239,55 @@ const eslintConfig = defineConfig([
      * Les fichiers listés plus bas en sont exemptés : ils portent des
      * **données**, pas des libellés d'interface.
      */
-    files: ["src/**/*.ts", "src/**/*.tsx"],
+    files: [DOSSIERS_SOURCE],
     rules: {
       "no-restricted-syntax": [
         "error",
         SELECTEUR_METADONNEES,
+        ...SIGNATURES_PHRASE.flatMap((motif) => [
+          { selector: `Literal[value=/${motif}/]`, message: MESSAGE_TEXTE_EN_DUR },
+          { selector: `TemplateElement[value.raw=/${motif}/]`, message: MESSAGE_TEXTE_EN_DUR },
+        ]),
+      ],
+    },
+  },
+  {
+    /**
+     * **La couche d'acces aux donnees ne se contourne pas.**
+     *
+     * Un ecran qui appelle `api.lire("/tiers/")` est un ecran a rouvrir le
+     * jour ou la route change, et il n'existe alors plus aucun endroit ou
+     * lire les appels d'un domaine. C'est exactement ce que faisait
+     * `ModalCreationProjet`, et ce que cette regle empeche de refaire.
+     *
+     * Seuls `features/<domaine>/adaptateur.ts` (et les `api.ts` qui restent a
+     * renommer) parlent au client HTTP. Un ecran importe l'adaptateur, jamais
+     * le client. `ErreurApi`, les jetons et les evenements de session restent
+     * accessibles : ce sont des types et des outils, pas des appels.
+     */
+    files: ["app/**/*.ts", "app/**/*.tsx", "components/**/*.ts", "components/**/*.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@/lib/api",
+              importNames: ["api", "apiAdministration", "apiPlateforme", "appeler"],
+              message: MESSAGE_COUCHE_DONNEES,
+            },
+            {
+              name: "@/lib/api/client",
+              importNames: ["api", "apiAdministration", "apiPlateforme", "appeler"],
+              message: MESSAGE_COUCHE_DONNEES,
+            },
+          ],
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        SELECTEUR_METADONNEES,
+        SELECTEUR_IMPORT_SNAKE_CASE,
         ...SIGNATURES_PHRASE.flatMap((motif) => [
           { selector: `Literal[value=/${motif}/]`, message: MESSAGE_TEXTE_EN_DUR },
           { selector: `TemplateElement[value.raw=/${motif}/]`, message: MESSAGE_TEXTE_EN_DUR },
@@ -239,23 +308,26 @@ const eslintConfig = defineConfig([
       // indicatifs téléphoniques. Des noms propres et des codes, qui ne se
       // traduisent jamais — `villes.ts` est en outre **généré** par
       // « manage.py generer_referentiel_villes ».
-      "src/features/referentiels/villes.ts",
-      "src/features/referentiels/telephone.ts",
+      "features/referentiels/villes.ts",
+      "features/referentiels/telephone.ts",
       // Couche de simulation : elle imite les messages du serveur pour que les
       // écrans se relisent sans API. Rien n'en sort en production.
-      "src/lib/api/simulation.ts",
-      "src/features/auth/api.ts",
-      "src/features/configuration/api.ts",
+      "lib/api/simulation.ts",
+      // Meme role pour le back-office de la plateforme, dont aucun endpoint
+      // n'existe encore : le module rejoue les messages du serveur.
+      "lib/api/simulationAdministration.ts",
+      "features/auth/api.ts",
+      "features/configuration/api.ts",
       // Jeux de démonstration en attente des endpoints — noms de chantiers,
       // de clients et de personnes. À supprimer avec le branchement de l'API.
-      "src/app/(app)/tableau-de-bord/page.tsx",
-      "src/app/(app)/tableau-de-bord/ModalCreationProjet.tsx",
+      "app/(app)/tableau-de-bord/page.tsx",
+      "app/(app)/tableau-de-bord/ModalCreationProjet.tsx",
       // `[id]` ne s'écrit pas tel quel : pour le filtre de fichiers, les
       // crochets d'une route dynamique sont une classe de caractères — ils y
       // désignent « i ou d ». Un seul niveau de segment suffit à la désigner.
-      "src/app/(app)/projets/*/page.tsx",
+      "app/(app)/projets/*/page.tsx",
       // Le catalogue lui-même, et la langue.
-      "src/i18n/**",
+      "i18n/**",
     ],
     // Le garde-fou des métadonnées reste, lui : ces fichiers portent des
     // données, ce qui ne les autorise pas à écrire un titre de page en dur.
@@ -264,7 +336,7 @@ const eslintConfig = defineConfig([
   {
     // La page de démonstration du design system montre les composants, pas
     // un écran du produit : ses libellés sont des noms de variantes.
-    files: ["src/app/design-system/**"],
+    files: ["app/design-system/**"],
     rules: {
       "i18next/no-literal-string": "off",
       "no-restricted-syntax": ["error", SELECTEUR_METADONNEES],

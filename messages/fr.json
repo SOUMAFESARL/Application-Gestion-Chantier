@@ -36,6 +36,8 @@
     "lenteurMessage": "La création de votre espace prend plus de temps que prévu. Nos équipes en sont informées.",
     "masquerMotDePasse": "Masquer le mot de passe",
     "metaDescription": "Définissez votre mot de passe pour ouvrir votre espace.",
+    "panneauBienvenue": "Bienvenue <fort>{entreprise}</fort> ! Votre espace de gestion de chantier est presque prêt.",
+    "panneauBienvenueDefaut": "Créez votre espace pour piloter vos chantiers, de la préparation à la livraison.",
     "pretAccroche": "Vous allez être redirigé vers votre page de connexion.",
     "pretAction": "Accéder à mon espace",
     "pretTitre": "Votre espace est prêt",
@@ -47,6 +49,221 @@
     "sujetSupportAvecReference": "Incident création espace [{reference}]",
     "titre": "Activer votre compte",
     "verification": "Vérification du lien…"
+  },
+  "administration": {
+    "marque": "CCD Digital",
+    "espace": "Administration de la plateforme",
+    "espaceCourt": "Plateforme",
+    "connexion": {
+      "titre": "Connexion",
+      "email": "Adresse professionnelle",
+      "emailPlaceholder": "vous@ccd-digital.ci",
+      "motDePasse": "Mot de passe",
+      "motDePassePlaceholder": "Votre mot de passe",
+      "afficher": "Afficher le mot de passe",
+      "masquer": "Masquer le mot de passe",
+      "valider": "Se connecter",
+      "enCours": "Connexion en cours…",
+      "erreurEmailRequis": "L’adresse professionnelle est requise.",
+      "erreurEmailInvalide": "Cette adresse n’est pas valide.",
+      "erreurMotDePasseRequis": "Le mot de passe est requis.",
+      "echecIdentifiants": "Adresse ou mot de passe incorrect.",
+      "echecReseau": "Connexion au serveur impossible. Vérifiez votre réseau, puis réessayez.",
+      "echecInattendu": "La connexion a échoué. Réessayez dans un instant.",
+      "sessionExpiree": "Votre session d’administration a pris fin. Reconnectez-vous.",
+      "badge": "Administrateur uniquement",
+      "motDePasseOublie": "Mot de passe oublié ?",
+      "retourLien": "Aller à la connexion entreprise"
+    },
+    "navigation": {
+      "tableauDeBord": "Vue d’ensemble",
+      "clients": "Clients",
+      "abonnements": "Abonnements",
+      "deconnexion": "Se déconnecter",
+      "ouvrirMenu": "Ouvrir le menu"
+    },
+    "tableauDeBord": {
+      "titre": "Vue d’ensemble",
+      "nbClients": "Entreprises clientes",
+      "clientsActifs": "Clients actifs",
+      "enEssai": "En période d’essai",
+      "impayes": "Impayés",
+      "revenuMensuel": "Revenu mensuel récurrent",
+      "revenuAide": "Abonnements actifs uniquement — les essais et les impayés n’y sont pas comptés.",
+      "detailClients": "{nombre, plural, =0 {Aucune inscription en attente} one {# inscription en attente} other {# inscriptions en attente}}",
+      "detailActifs": "{part} % du parc",
+      "detailEssai": "{nombre, plural, =0 {Aucun essai à relancer} one {# essai se termine bientôt} other {# essais se terminent bientôt}}",
+      "detailRevenu": "{nombre, plural, =0 {Aucun abonnement facturé} one {# abonnement facturé} other {# abonnements facturés}}",
+      "variationHausse": "+{valeur} %",
+      "variationBaisse": "−{valeur} %",
+      "variationStable": "± 0 %",
+      "comparaisonMois": "Variation par rapport au mois dernier"
+    },
+    "graphiques": {
+      "evolutionTitre": "Renouvellements d’abonnements",
+      "renouveles": "Renouvelés",
+      "nonRenouveles": "Non renouvelés",
+      "periode": "Période affichée",
+      "periode90": "3 derniers mois",
+      "periode30": "30 derniers jours",
+      "periode7": "7 derniers jours",
+      "periode90Court": "3 mois",
+      "periode30Court": "30 j",
+      "periode7Court": "7 j",
+      "totalRenouveles": "{nombre} renouvelés",
+      "totalNonRenouveles": "{nombre} non renouvelés",
+      "parcTitre": "Parc clients",
+      "parcSousTitre": "Les entreprises par état d’abonnement.",
+      "parcTotal": "{nombre, plural, =0 {Entreprise} one {Entreprise} other {Entreprises}}",
+      "partLegende": "{nombre} · {part} %",
+      "aucuneDonnee": "Aucune donnée sur cette période.",
+      "etat": {
+        "ABONNEMENT_ACTIF": "Abonnement actif",
+        "ESSAI": "En essai",
+        "SANS_ABONNEMENT": "Sans abonnement"
+      }
+    },
+    "derniersAbonnements": {
+      "titre": "Derniers abonnements",
+      "sousTitre": "Les cinq souscriptions les plus récentes.",
+      "colonneReference": "Référence",
+      "colonneClient": "Entreprise",
+      "colonnePlan": "Plan",
+      "colonneStatut": "Statut",
+      "colonneMontant": "Montant mensuel",
+      "colonneDate": "Souscrit le",
+      "aucun": "Aucun abonnement souscrit à ce jour.",
+      "voirTous": "Voir tous les abonnements"
+    },
+    "clients": {
+      "titre": "Clients",
+      "sousTitre": "{nombre, plural, =0 {Aucune entreprise cliente} one {# entreprise cliente} other {# entreprises clientes}}",
+      "recherche": "Rechercher une entreprise",
+      "rechercheePlaceholder": "Raison sociale, ville, sous-domaine…",
+      "colonneClient": "Entreprise",
+      "colonnePays": "Pays",
+      "colonneStatut": "Statut",
+      "colonnePlan": "Plan",
+      "colonneUtilisateurs": "Utilisateurs",
+      "colonneProjets": "Chantiers",
+      "colonneAlerte": "À traiter",
+      "aucun": "Aucune entreprise ne correspond à cette recherche.",
+      "aucunTitre": "Aucun client",
+      "voir": "Ouvrir la fiche",
+      "villePays": "{ville} · {pays}"
+    },
+    "fiche": {
+      "retour": "Retour aux clients",
+      "identite": "Identité",
+      "abonnement": "Abonnement",
+      "activite": "Activité",
+      "slug": "Sous-domaine",
+      "pays": "Pays",
+      "ville": "Ville",
+      "emailContact": "Adresse de contact",
+      "telephoneContact": "Téléphone",
+      "creeLe": "Inscrit le",
+      "activeLe": "Activé le",
+      "jamaisActive": "Jamais activé",
+      "utilisateurs": "Utilisateurs",
+      "projets": "Chantiers",
+      "plan": "Plan",
+      "montantMensuel": "Montant mensuel",
+      "dateFin": "Échéance",
+      "finEssai": "Fin de l’essai",
+      "renouvellementAuto": "Renouvellement automatique",
+      "oui": "Oui",
+      "non": "Non",
+      "suspendre": "Suspendre l’accès",
+      "reactiver": "Réactiver l’accès",
+      "changerPlan": "Changer de plan",
+      "lectureSeule": "Votre rôle permet la consultation, pas la modification."
+    },
+    "suspension": {
+      "titre": "Suspendre l’accès de {client}",
+      "description": "Les utilisateurs de cette entreprise ne pourront plus se connecter. Le motif est conservé au journal.",
+      "motif": "Motif de la suspension",
+      "motifPlaceholder": "Impayé depuis deux échéances, relances sans réponse…",
+      "confirmer": "Suspendre",
+      "annuler": "Annuler",
+      "enCours": "Suspension en cours…",
+      "erreurMotifRequis": "Le motif est requis.",
+      "erreurMotifCourt": "Le motif doit être un peu plus explicite."
+    },
+    "reactivation": {
+      "titre": "Réactiver l’accès de {client}",
+      "description": "Les utilisateurs de cette entreprise pourront se reconnecter immédiatement.",
+      "confirmer": "Réactiver",
+      "annuler": "Annuler",
+      "enCours": "Réactivation en cours…"
+    },
+    "abonnement": {
+      "titre": "Changer le plan de {client}",
+      "description": "Le nouveau tarif s’applique à la prochaine échéance.",
+      "plan": "Plan",
+      "confirmer": "Enregistrer",
+      "annuler": "Annuler",
+      "enCours": "Enregistrement en cours…",
+      "erreurPlanRequis": "Choisissez un plan."
+    },
+    "statutClient": {
+      "EN_ATTENTE": "Jamais activé",
+      "ACTIF": "Actif",
+      "SUSPENDU": "Suspendu",
+      "RESILIE": "Résilié"
+    },
+    "statutAbonnement": {
+      "ESSAI": "Essai",
+      "ACTIF": "Actif",
+      "IMPAYE": "Impayé",
+      "SUSPENDU": "Suspendu",
+      "RESILIE": "Résilié"
+    },
+    "alerte": {
+      "IMPAYE": "Impayé",
+      "SUSPENDU": "Suspendu",
+      "ESSAI_BIENTOT_EXPIRE": "Essai bientôt fini",
+      "INSCRIPTION_SANS_SUITE": "Inscription sans suite",
+      "aucune": "—"
+    },
+    "plan": {
+      "DECOUVERTE": "Découverte",
+      "PRO": "Pro",
+      "ENTREPRISE": "Entreprise"
+    },
+    "role": {
+      "SUPERVISEUR": "Administrateur",
+      "SUPPORT": "Support"
+    },
+    "erreurs": {
+      "chargement": "Le chargement a échoué. Réessayez.",
+      "action": "L’opération a échoué. Réessayez.",
+      "reessayer": "Réessayer"
+    },
+    "meta": {
+      "titre": "Administration",
+      "titreConnexion": "Connexion — Administration",
+      "titreClients": "Clients — Administration",
+      "titreMotDePasseOublie": "Mot de passe oublié — Administration"
+    },
+    "motDePasseOublie": {
+      "titre": "Mot de passe oublié",
+      "accroche": "Indiquez votre adresse professionnelle : un lien de réinitialisation vous y sera envoyé.",
+      "champEmail": "Adresse professionnelle",
+      "champEmailExemple": "vous@ccd-digital.ci",
+      "envoyer": "Envoyer le lien",
+      "enCours": "Envoi en cours…",
+      "confirmationTitre": "Vérifiez votre boîte mail",
+      "confirmationCorps": "Si un compte d’administration existe pour <fort>{email}</fort>, un lien de réinitialisation vient d’y être envoyé.",
+      "confidentialite": "Nous ne confirmons jamais qu’une adresse correspond à un compte : la réponse est la même dans les deux cas.",
+      "renvoyer": "Renvoyer le lien",
+      "renvoyerAttente": "Renvoyer dans {secondes} s",
+      "retourConnexion": "Retour à la connexion",
+      "erreurTitre": "L’envoi a échoué",
+      "reessayer": "Réessayer",
+      "erreurEmailRequis": "L’adresse professionnelle est requise.",
+      "erreurEmailInvalide": "Cette adresse n’est pas valide."
+    }
   },
   "configuration": {
     "confirmation": {
@@ -68,7 +285,6 @@
       "titre": "Configuration terminée"
     },
     "entreprise": {
-      "aRenseigner": "À renseigner",
       "accroche": "Ces informations apparaîtront sur vos documents officiels et vos factures.",
       "champAdresse": "Adresse complète",
       "champAdresseExemple": "Zone industrielle, Treichville",
@@ -81,13 +297,6 @@
       "champVille": "Ville",
       "champVilleExemple": "Abidjan",
       "continuer": "Continuer",
-      "controle": {
-        "adresse": "Adresse renseignée",
-        "email": "Email de contact renseigné",
-        "nom": "Nom renseigné",
-        "telephone": "Téléphone renseigné",
-        "ville": "Ville renseignée"
-      },
       "couleurAccroche": "Personnalise la barre horizontale et les éléments visuels de l’application.",
       "couleurDetectee": "Couleur détectée :",
       "couleurDetecteeAppliquer": "Appliquer la couleur détectée ({hex})",
@@ -180,16 +389,13 @@
     },
     "etapes": {
       "ENTREPRISE": {
-        "libelle": "Votre entreprise",
-        "sousTitre": "Logo, adresse, RCCM"
+        "libelle": "Votre entreprise"
       },
       "EQUIPE": {
-        "libelle": "Votre équipe",
-        "sousTitre": "0 à 3 invitations"
+        "libelle": "Votre équipe"
       },
       "PROJET": {
-        "libelle": "Premier projet",
-        "sousTitre": "Nom, client, budget"
+        "libelle": "Premier projet"
       }
     },
     "metaDescription": "Complétez ces trois étapes pour activer votre espace de travail.",
@@ -257,7 +463,6 @@
       "chargement": "Chargement de votre configuration…",
       "continuer": "Continuer",
       "position": "Étape {rang} sur {total}",
-      "progression": "Progression",
       "progressionLibelle": "Progression de la configuration",
       "quitter": "Quitter",
       "reprise": "Vous reprenez à l’étape <fort>{etape}</fort>. Les étapes déjà validées sont conservées.",
@@ -302,6 +507,10 @@
     "titre": "Connexion",
     "tropDeRequetesCorps": "Trop de tentatives depuis cet appareil. Patientez une minute.",
     "tropDeRequetesTitre": "Trop de tentatives"
+  },
+  "dataTable": {
+    "selectionnerLigne": "Sélectionner cette ligne",
+    "selectionnerTout": "Sélectionner toutes les lignes de la page"
   },
   "erreurs": {
     "code404": "Erreur 404",
@@ -460,14 +669,16 @@
     "afficher": "Afficher le mot de passe",
     "champConfirmation": "Confirmer le mot de passe",
     "champNouveau": "Nouveau mot de passe",
+    "ilManque": "Il manque : {liste}",
     "masquer": "Masquer le mot de passe",
     "regle": {
       "chiffre": "1 chiffre",
-      "identiques": "Les deux mots de passe identiques",
+      "identiques": "Les deux mots de passe ne sont pas identiques",
       "longueur": "Au moins 8 caractères",
       "majuscule": "1 majuscule",
       "special": "1 caractère spécial"
-    }
+    },
+    "robuste": "Mot de passe robuste"
   },
   "motDePasseDefinir": {
     "activer": "Activer mon compte",
@@ -499,8 +710,9 @@
     "confidentialite": "Pour des raisons de sécurité, nous ne confirmons pas si un compte existe ou non. Vérifiez vos spams si vous ne recevez rien.",
     "confirmationCorps": "Si cette adresse est enregistrée dans notre système, vous recevrez un email avec un lien de réinitialisation valable <fort>1 heure</fort>.",
     "confirmationTitre": "Vérifiez votre boîte mail",
-    "emailInvalide": "Format d’email invalide.",
-    "envoyer": "Envoyer le lien",
+    "envoyer": "Envoyer l'adresse email",
+    "erreurEmailInvalide": "Cette adresse email n’est pas valide.",
+    "erreurEmailRequis": "L’adresse email est requise.",
     "erreurTitre": "Envoi impossible",
     "metaDescription": "Recevez un lien pour choisir un nouveau mot de passe.",
     "reessayer": "Réessayer",
@@ -509,6 +721,13 @@
     "renvoyerAttente": "Renvoyer l’email ({secondes} s)",
     "retourConnexion": "Retour à la connexion",
     "titre": "Mot de passe oublié ?"
+  },
+  "pagination": {
+    "dernierePage": "Dernière page",
+    "pageActuelle": "Page {page} sur {total}",
+    "pagePrecedente": "Page précédente",
+    "pageSuivante": "Page suivante",
+    "premierePage": "Première page"
   },
   "referentielVilles": {
     "aidePersonnalisee": "Localité absente de la liste : elle sera enregistrée telle quelle.",
@@ -621,27 +840,6 @@
     "titreCreation": "Créer un nouveau rôle personnalisé",
     "titreSuppression": "Supprimer le rôle « {role} »",
     "utilisateursCount": "{n, plural, =0 {0 utilisateur} =1 {1 utilisateur} other {# utilisateurs}}"
-  },
-  "session": {
-    "avertissementTexte": "Cliquez sur <fort>« Rester connecté »</fort> pour continuer à travailler sans interruption. Sinon, vous serez déconnecté automatiquement.",
-    "avertissementTitre": "Session bientôt expirée",
-    "compteRebours": "Votre session expire dans {temps}",
-    "compteReboursPlafond": "Votre session se termine dans {temps}",
-    "expireeTexte": "Vous avez été déconnecté pour des raisons de sécurité. Votre formulaire en cours a été <fort>sauvegardé automatiquement</fort>. Il sera restauré à votre reconnexion.",
-    "expireeTitre": "Session expirée",
-    "finDeSessionTexte": "Votre session de travail a atteint son plafond réglementaire de 8 heures. Votre travail en cours a été <fort>sauvegardé automatiquement</fort>.",
-    "finDeSessionTitre": "Session terminée",
-    "finProcheTexte": "Votre session de travail atteint son plafond de 8 heures dans {temps}. Enregistrez votre travail en cours — vous devrez vous reconnecter.",
-    "finProcheTitre": "Fin de session proche",
-    "minutes": "{compte, plural, one {# minute} other {# minutes}}",
-    "resterConnecte": "Rester connecté",
-    "retourAccueil": "Retour à l'accueil",
-    "seDeconnecter": "Se déconnecter",
-    "seReconnecter": "Se reconnecter",
-    "secondes": "{compte, plural, one {# seconde} other {# secondes}}",
-    "toastProlonge": "Session prolongée — Vous êtes toujours connecté",
-    "urgenceTexte": "<fort>Attention :</fort> sans action, vous serez déconnecté et votre travail en cours sera sauvegardé automatiquement.",
-    "urgenceTitre": "Session sur le point d'expirer"
   },
   "simulation": {
     "avertissement": "<fort>Configuration simulée.</fort> Les étapes de ce configurateur ne sont pas encore enregistrées : leurs endpoints n’existent pas. Le reste du produit — inscription, connexion, mot de passe — écrit en base pour de vrai."
@@ -863,6 +1061,8 @@
       "chantier": "Chantier",
       "chargementEntreprise": "Chargement…",
       "collaborateurs": "Collaborateurs",
+      "configuration": "Configuration",
+      "retour": "Revenir à l’écran précédent",
       "contrats": "Contrats",
       "deconnexion": "Se déconnecter",
       "descContrats": "Sous-traitance & marchés",
@@ -947,5 +1147,11 @@
     "choisirPays": "Indicatif du pays",
     "erreurIncomplet": "Ce numéro est incomplet pour le pays choisi.",
     "erreurRequis": "Le numéro de téléphone est requis."
+  },
+  "uiGenerique": {
+    "fermer": "Fermer",
+    "basculerBarreLaterale": "Basculer la barre latérale",
+    "menuMobile": "Menu",
+    "navigationMobile": "Navigation de l’application"
   }
 }

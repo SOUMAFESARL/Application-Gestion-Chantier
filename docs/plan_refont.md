@@ -1,6 +1,6 @@
 # Plan de refonte — alignement sur `docs/ARCHITECTURE_REUTILISABLE.md`
 
-> **État : en cours. Lot 0 terminé le 2026-09-17 ; `src/` n'a pas encore été touché.**
+> **État : en cours. Lot 0 terminé le 2026-09-17 ; le code applicatif n'a pas encore été touché.**
 > Avancement détaillé : §8 en fin de document.
 > Diagnostic complet : [`docs/DIAGNOSTIC_ARCHITECTURE.md`](docs/DIAGNOSTIC_ARCHITECTURE.md).
 > Les références `D1…D10`, `A1…A9`, `O1…O10` renvoient à ce diagnostic.
@@ -95,10 +95,10 @@ faut les trancher, pas les reporter — le lot 4 et le lot 5 en dépendent.
 ### A1 — `features/` ou `lib/<domaine>` ?
 
 La doc décrit `lib/<domaine>/types.ts` + `lib/api/<domaine>.ts` +
-`components/<domaine>/`. Le dépôt a `src/features/<domaine>/`, et `CLAUDE.md`
+`components/<domaine>/`. Le dépôt a `features/<domaine>/`, et `CLAUDE.md`
 en fait un invariant : « `features/projets` ↔ `backend/apps/projets/` ».
 
-> **Recommandation : garder `src/features/<domaine>/`, adopter le découpage en
+> **Recommandation : garder `features/<domaine>/`, adopter le découpage en
 > cinq couches à l'intérieur.** Ce que la doc impose est la *stratification*,
 > pas le nom des dossiers. Déplacer 116 fichiers pour renommer un dossier
 > consomme le budget de la refonte sans rien acheter, et casse la
@@ -107,7 +107,7 @@ en fait un invariant : « `features/projets` ↔ `backend/apps/projets/` ».
 Cible retenue :
 
 ```
-src/features/<domaine>/
+features/<domaine>/
   types.ts          les types du domaine, aucune forme HTTP
   regles.ts         les règles métier — pures, zéro React
   validations.ts    les schémas zod des écritures
@@ -195,7 +195,7 @@ personne.
 
 ## Lot 0 — Filet de sécurité et socle documentaire *(terminé)*
 
-**Objectif** : pouvoir constater une régression. Aucune ligne de `src/` n'est
+**Objectif** : pouvoir constater une régression. Aucune ligne de code applicatif n'est
 modifiée.
 
 **Contenu**
@@ -229,7 +229,7 @@ modifiée.
 
 5. Inscrire dans `CLAUDE.md` les arbitrages A1, A2, A3 une fois tranchés.
 
-**Recette** : `lint`, `typecheck`, `build` verts ; `git diff --stat src/` vide.
+**Recette** : `lint`, `typecheck`, `build` verts ; `git diff --stat ` vide.
 
 ---
 
@@ -271,7 +271,7 @@ critère de réussite est « rien n'a changé à l'écran ».
      qui couvre l'échelle complète 50→900 et les couleurs hors palette (logo
      client), et supprimer les blocs `data-theme`, qui n'en couvrent que cinq
      nuances.*
-   - Supprimer `src/styles/FournisseurTheme.tsx`, jamais monté.
+   - Supprimer `styles/FournisseurTheme.tsx`, jamais monté.
    - **Tuer le clignotement** : la couleur d'entreprise doit être posée avant
      le premier rendu, pas dans un `useEffect` de `(app)/layout.tsx:130`. Deux
      voies, selon l'arbitrage A4 : un script bloquant minimal dans `<head>`
@@ -296,8 +296,8 @@ critère de réussite est « rien n'a changé à l'écran ».
 - Charger `/tableau-de-bord` en tant que client « Océan » : **aucun éclat terre
   cuite** au premier rendu.
 
-**Réversibilité** : un seul commit, révocable. Aucun fichier de `src/app` ou
-`src/components` n'est touché hors `globals.css` et `styles/`.
+**Réversibilité** : un seul commit, révocable. Aucun fichier de `app` ou
+`components` n'est touché hors `globals.css` et `styles/`.
 
 ---
 
@@ -308,7 +308,7 @@ un seul écran**.
 
 **Contenu**
 
-1. **`src/components/statut/tons.ts`** (doc §7.1) — le vocabulaire de couleur,
+1. **`components/statut/tons.ts`** (doc §7.1) — le vocabulaire de couleur,
    avant tout le reste. Huit tons (`acquis`, `encours`, `jalon`, `attente`,
    `critique`, `inactif`, `engagement`, `distinction`), quatre classes chacun
    (`surface` **opaque**, `fond`, `texte`, `texteVif`). Les surfaces sont
@@ -322,14 +322,14 @@ un seul écran**.
    `button`, `input`, `label`, `select`, `checkbox`, `radio-group`, `textarea`,
    `dialog`, `sheet`, `popover`, `calendar`, `table`, `badge`, `alert`,
    `tooltip`, `dropdown-menu`, `skeleton`, `sonner`, `form`.
-   Elles atterrissent dans `src/components/ui/` — **en minuscules**
+   Elles atterrissent dans `components/ui/` — **en minuscules**
    (`button.tsx`), à côté des composants français existants (`Bouton.tsx`).
    Aucune collision : la casse diffère, et c'est ce qui permet la cohabitation.
 3. **Réécrire les 9 composants maison en enveloppes**, en conservant **exactement
    leur interface publique française** : `Bouton` (`variante="primaire"`,
    `enCours`, `pleineLargeur`, `iconeGauche`), `Champ` (`libelle`, `erreur`,
    `aide`), `Carte`, `Badge`, `Alerte`, `Modale`, `Tableau`, `Etats`.
-   `src/components/ui/index.ts` ne change pas d'une ligne → **les 19 écrans ne
+   `components/ui/index.ts` ne change pas d'une ligne → **les 19 écrans ne
    sont pas touchés**.
    - Conserver les acquis terrain que shadcn n'a pas : cible tactile de 48 px
      sous `(pointer: coarse)`, `aria-busy` sur `enCours`, `aria-describedby`
@@ -362,8 +362,8 @@ un seul écran**.
 - Les 12 écrans de référence sont **inchangés** (les enveloppes rendent la même
   chose).
 - `/design-system` montre les huit tons avec leur paire de contrastes mesurée.
-- `grep -r "module.css" src/components/ui/` ne renvoie rien.
-- Aucun import modifié dans `src/app/`.
+- `grep -r "module.css" components/ui/` ne renvoie rien.
+- Aucun import modifié dans `app/`.
 
 **Risque** : c'est le lot où une enveloppe peut trahir subtilement l'original
 (hauteur de 1 px, graisse). D'où la recette au pixel, et l'ordre : un composant
@@ -377,7 +377,7 @@ par commit, recetté seul.
 
 **Contenu**
 
-1. **`src/lib/validations/champs.ts`** — les briques partagées, pour que deux
+1. **`lib/validations/champs.ts`** — les briques partagées, pour que deux
    formulaires refusent la même nature de donnée de la même façon : `entier`
    (le navigateur renvoie une chaîne, une server action peut recevoir un
    nombre — les deux entrées aboutissent au même entier ou au même refus),
@@ -462,8 +462,8 @@ Pour chacun, dans l'ordre de dépendance (doc §12) :
    où c'est gratuit.
 
 **Garde-fou à poser dès le premier domaine migré** : une règle ESLint
-interdisant l'import d'un identifiant `snake_case` depuis `src/app/**` et
-`src/components/**`. Sans elle, la couche se reperce en trois semaines.
+interdisant l'import d'un identifiant `snake_case` depuis `app/**` et
+`components/**`. Sans elle, la couche se reperce en trois semaines.
 
 **Recette** : `tsc` vert ; chaque notion métier n'a **qu'une** définition
 (vérifiable par recherche : un seul `ecart`, un seul seuil de retard) ; les
@@ -484,7 +484,7 @@ interdisant l'import d'un identifiant `snake_case` depuis `src/app/**` et
    un fichier vide empêche la compilation. Puis fermé, **après avoir listé les
    routes publiques** : `/connexion`, `/inscription`, `/mot-de-passe/*`,
    `/activation`, `/invitation`, `/partage/[jeton]`.
-2. **`src/lib/auth/`** complété selon le §5 :
+2. **`lib/auth/`** complété selon le §5 :
    `constantes.ts` (noms de cookies, durées, `ROUTE_PAR_PROFIL`,
    `ROUTE_CONNEXION`), `session.ts` **serveur** (pose et lecture des cookies —
    à ne pas confondre avec l'actuel `session.ts`, qui porte les horloges
@@ -506,7 +506,7 @@ interdisant l'import d'un identifiant `snake_case` depuis `src/app/**` et
      c'est le catalogue de permissions qui manque. Ce qui reste en dur,
      délibérément : les **espaces** (routes + menu) et les verrous du cahier
      des charges.
-3. **`src/lib/navigation/`** — extraire le menu des 808 lignes de
+3. **`lib/navigation/`** — extraire le menu des 808 lignes de
    `(app)/layout.tsx` (A5) : `types.ts`, `menu.ts` (`menuPourProfil`),
    `fil-ariane.ts`, `compteurs.ts`.
    - Le menu est **déclaratif** : une rubrique décrit les permissions qu'elle
@@ -570,6 +570,27 @@ de passe imposé ne peut pas être contourné en naviguant à la main.
 ---
 
 ## Lot 7 — Retrait des CSS Modules
+
+> **État : fait (2026-09-22), mais pas de la façon prévue ci-dessous.**
+> Les 37 `*.module.css` restants — ~3 200 lignes — ont été migrés **en une
+> passe**, sur demande, et non écran par écran. `lint`, `typecheck` et `build`
+> passent ; il n'y a plus aucun `*.module.css` dans le dépôt.
+>
+> **Ce que cette méthode n'a pas fourni, et qu'il reste à faire** : la recette
+> visuelle. Le plan faisait d'« un écran = un commit = une comparaison contre
+> `docs/recette/avant/` » le filet du lot, précisément parce qu'il n'y a pas de
+> test. Ce filet n'a pas été tendu. `npm run recette:capture -- --dossier=apres`
+> puis la comparaison écran par écran restent à faire, et c'est là que se
+> verront les écarts assumés ci-dessous.
+>
+> **Écarts connus, assumés :** les jetons inexistants (`--font-size-*`,
+> `--color-danger-*`, `--color-warning-*`, `--color-success-*`,
+> `--color-semantic-*-text`/`-border`, `--transition-rapide`) ont été remplacés
+> par les jetons réels de la charte — quelques rouges, verts et tailles de
+> titre bougent d'un cran, et deux niveaux d'accès de `SelecteurNiveau`, qui
+> n'avaient aucun ton, en ont un. Les icônes Phosphor des fichiers touchés sont
+> passées à lucide (A2) : les pleines deviennent des contours. Le preflight
+> reste désactivé — voir `app/globals.css`.
 
 **Objectif** : une seule façon de styler. 45 fichiers, 5 600 lignes.
 **C'est le lot le plus long et le moins risqué** — il peut s'étaler et
@@ -712,7 +733,7 @@ demande backend ouverte sans numéro.
 
 ### Lot 0 — **terminé** (2026-09-17)
 
-`lint`, `typecheck` et `build` verts ; `git diff --stat src/` vide.
+`lint`, `typecheck` et `build` verts ; `git diff --stat ` vide.
 
 | Point du lot | État |
 | --- | --- |
@@ -752,10 +773,10 @@ différent de toute machine de développement. Rien ne les importe encore.
 ### Ce que le lot 1 doit faire différemment du plan
 
 Le diagnostic décrit un état que le dépôt n'a pas. Vérifié sur `main` :
-`components.json` est absent, et `src/app/globals.css` ne contient ni
+`components.json` est absent, et `app/globals.css` ne contient ni
 `@theme inline`, ni `--primary: oklch(…)`, ni bloc `.dark` ni
 `@custom-variant dark`. Il n'y a **qu'une** palette, celle de la charte, dans
-`src/styles/tokens.css`. Aucun stash ne porte l'état décrit.
+`styles/tokens.css`. Aucun stash ne porte l'état décrit.
 
 - **D1, D3, D4, D5 n'existent pas ici.** Il n'y a pas deux systèmes de jetons
   qui s'ignorent, pas de double échelle de rayons, pas de `--font-sans`
@@ -804,7 +825,7 @@ bandeau de session expirée.
 écran, et chacun touche des fichiers qu'il n'ouvre pas :
 
 - point 7 : les blocs morts `[data-theme="primary-*"]` de `tokens.css` et
-  `src/styles/FournisseurTheme.tsx` (jamais monté) sont toujours là ; le
+  `styles/FournisseurTheme.tsx` (jamais monté) sont toujours là ; le
   clignotement de la couleur d'entreprise attend `B-002`.
 - point 8 : les replis `var(--color-primary-500, #D4652A)` subsistent.
 
@@ -814,3 +835,71 @@ huit fichiers utilisent des variables CSS qui ne sont **définies nulle part** �
 `--color-warning-*`, `--color-danger-*`, `--color-info-*`. Leur repli n'est donc
 pas un filet : c'est la valeur réellement affichée, une couleur en dur qui
 ignore le white-label. `--p500` rend du terre cuite chez un client « Océan ».
+
+---
+
+### Lot 4 — **partiel** (2026-09-22) : domaines `projets`, `tableauDeBord`, `tiers`
+
+`lint`, `typecheck` et `build` verts. Recette visuelle **non rejouée** — voir
+la réserve en fin de section.
+
+**Les cinq couches sont posées sur les deux premiers domaines de l'ordre
+prévu**, plus un troisième ouvert par nécessité :
+
+| Domaine | `types.ts` | `regles.ts` | `adaptateur.ts` |
+| --- | --- | --- | --- |
+| `projets` | fait | fait | fait (ex-`api.ts`) |
+| `tableauDeBord` | fait | fait | fait (ex-`api.ts`) |
+| `tiers` | fait | — | fait (ouvert pour sortir `api.lire("/tiers/")` de la modale de création) |
+
+`validations.ts` n'est pas créé : les écrans de ces domaines n'ont pas encore
+de schéma zod, et un fichier vide n'est pas une couche. Il viendra avec le
+lot 3 sur ces écrans.
+
+**Duplications résorbées** — chacune était nommée dans le lot :
+
+- **le seuil de retard** : `SEUIL_RETARD_POINTS`, une seule définition. Il en
+  existait deux, et elles divergeaient — voir la réserve ci-dessous ;
+- **l'écart d'avancement** : `ecartAvancement`, calculé à deux endroits ;
+- **le ratio de consommation budgétaire** : `ratioConsommationBudget`, dont
+  les deux copies ne se gardaient pas pareil d'un budget `null` ;
+- **les seuils d'alerte budgétaire** (80 / 100), écrits en dur dans deux
+  ternaires imbriqués choisissant une classe CSS ;
+- **les conversions vers les centimes**, refaites à la main dans les deux
+  modales ; elles passent par `saisieEnCentimes` de `lib/format` ;
+- **l'estimation du retard en jours**, une expression de cinq lignes au milieu
+  d'une tuile de KPI.
+
+**Monolithe découpé** (point 5 du lot) : `TableauDeBordClient.tsx` passe de
+**763 à 145 lignes**, en neuf composants placés dans le dossier de l'écran et
+partageant son module CSS — aucune règle de coexistence n'est entamée.
+`JaugeAvancement`, `CelluleBudget` et `BadgeRapportJour` étaient chacun écrits
+**deux fois** dans ce fichier, une fois pour la vue tableau et une fois pour la
+vue cartes.
+
+**Garde-fou posé**, comme le lot l'exige dès le premier domaine migré — et
+même deux, dans `eslint.config.mjs` :
+
+1. `app/**` et `components/**` ne peuvent plus importer `api`, `apiPlateforme`
+   ni `appeler` depuis `@/lib/api`. C'est ce qui empêche de refaire ce que
+   faisait `ModalCreationProjet`, qui lisait `/tiers/` depuis son `useEffect` ;
+2. un identifiant `snake_case` **minuscule** ne peut plus être importé dans un
+   écran : c'est une charge utile de serveur qui a franchi la couche domaine.
+   Les constantes `EN_MAJUSCULES` restent permises, ce sont des constantes.
+
+**Code mort supprimé** (par anticipation du lot 8) :
+`styles/FournisseurTheme.tsx`, jamais monté.
+
+**Réserve, à lever avant de considérer le lot clos** :
+
+- **Un changement de comportement visible est assumé.** La fiche chantier
+  tenait un chantier pour « en retard » dès `ecart < 0`, le tableau de bord à
+  partir de `ecart < -5`. Un même chantier à -2,5 points s'affichait donc
+  conforme d'un côté et en retard de l'autre. Le seuil du tableau de bord est
+  retenu : **les chantiers entre -5 et 0 points basculent de « en retard » à
+  « conforme » sur leur fiche**. Le jeu de démonstration de `/projets/[id]`
+  est précisément dans cette bande (-2,5).
+- La recette visuelle n'a pas été rejouée : elle demande un backend branché,
+  et les écrans authentifiés ne sont de toute façon pas dans
+  `docs/recette/avant/` (dette n° 1 ci-dessus). Le découpage a été fait à JSX
+  et classes CSS constants, mais **ce n'est pas une preuve**.
