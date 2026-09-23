@@ -919,6 +919,7 @@
     "restrictionDgTitre": "Accès restreint",
     "role": "Rôle",
     "sousTitre": "Personnalisez les rôles de votre entreprise et configurez la matrice d’accès aux 12 modules CCD Digital. Ces habilitations constituent le standard par défaut appliqué à l’ensemble de vos chantiers.",
+    "sousTitreCreation": "Définissez l’intitulé, le code et les droits par module de ce nouveau rôle.",
     "succesCreation": "Le rôle « {role} » a été créé avec succès.",
     "succesModification": "Le rôle « {role} » a été modifié avec succès.",
     "succesSuppression": "Rôle supprimé. {users} utilisateur(s) et {aff} affectation(s) ont été réassignés.",

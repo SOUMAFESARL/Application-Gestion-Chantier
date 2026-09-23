@@ -2,10 +2,31 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { Bouton, Modale } from "@/components/ui";
+import { Bouton } from "@/components/ui";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Textarea } from "@/components/ui/textarea";
 import { MODULES_CCD } from "../types";
 import type { NiveauAcces, RoleItem } from "../types";
 import { SelecteurNiveau } from "./SelecteurNiveau";
+
+/** Ascenseur fin, dans le ton du contenu qu'il défile — même recette que `sidebar.tsx`. */
+const ASCENSEUR_FIN = "[scrollbar-width:thin] [scrollbar-color:var(--color-neutral-300)_transparent]";
 
 interface Props {
   ouverte: boolean;
@@ -20,6 +41,15 @@ interface Props {
   enCours?: boolean;
 }
 
+/** L'astérisque des champs obligatoires. */
+function Requis() {
+  return (
+    <span className="ml-0.5 text-erreur" aria-hidden="true">
+      *
+    </span>
+  );
+}
+
 export function ModalNouveauRole({
   ouverte,
   rolesExistant,
@@ -31,6 +61,7 @@ export function ModalNouveauRole({
   const [code, setCode] = useState("");
   const [libelle, setLibelle] = useState("");
   const [description, setDescription] = useState("");
+  const [modele, setModele] = useState("");
   const [permissions, setPermissions] = useState<Record<string, NiveauAcces>>(() => {
     const init: Record<string, NiveauAcces> = {};
     for (const code of MODULES_CCD) {
@@ -52,6 +83,7 @@ export function ModalNouveauRole({
   }
 
   function copierDepuis(roleId: string) {
+    setModele(roleId);
     const modele = rolesExistant.find((r) => r.id === roleId);
     if (modele) {
       setPermissions({ ...modele.permissions_modules });
@@ -102,190 +134,120 @@ export function ModalNouveauRole({
     });
   }
 
-  const actions = (
-    <>
-      <Bouton variante="secondaire" onClick={onFermer} disabled={enCours}>
-        {t("annuler")}
-      </Bouton>
-      <Bouton variante="primaire" onClick={valider} enCours={enCours}>
-        {t("creer")}
-      </Bouton>
-    </>
-  );
-
   return (
-    <Modale
-      ouverte={ouverte}
-      titre={t("titreCreation")}
-      taille="large"
-      onFermer={enCours ? undefined : onFermer}
-      actions={actions}
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: "var(--space-3)", alignItems: "start" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
-            <label
-              style={{
-                fontSize: "var(--font-size-sm)",
-                fontWeight: "var(--font-weight-medium)",
-                whiteSpace: "nowrap",
-                display: "flex",
-                alignItems: "center",
-                height: "20px",
-              }}
-            >
-              {t("champIntitule")} <span style={{ color: "var(--color-danger-500)", marginLeft: "2px" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={libelle}
-              placeholder={t("placeholderIntitule")}
-              onChange={(e) => handleLibelleChange(e.target.value)}
-              style={{
-                width: "100%",
-                height: "40px",
-                boxSizing: "border-box",
-                padding: "8px 12px",
-                borderRadius: "var(--radius-sm)",
-                border: "1px solid var(--color-neutral-300)",
-                fontSize: "var(--font-size-sm)",
-              }}
-            />
-            {erreurs.libelle && (
-              <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-danger-500)" }}>
-                {erreurs.libelle}
-              </span>
-            )}
+    <Sheet open={ouverte} onOpenChange={(ouvert) => !ouvert && !enCours && onFermer()}>
+      <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-[560px]">
+        <SheetHeader className="border-b border-neutral-200 py-5 pr-14 pl-6">
+          <SheetTitle className="text-lg font-medium text-neutral-900">{t("titreCreation")}</SheetTitle>
+          <SheetDescription>{t("sousTitreCreation")}</SheetDescription>
+        </SheetHeader>
+
+        <div className={`flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5 ${ASCENSEUR_FIN}`}>
+          <div className="grid grid-cols-[1.4fr_1fr] gap-3">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="role-libelle" className="font-normal">
+                {t("champIntitule")} <Requis />
+              </Label>
+              <Input
+                id="role-libelle"
+                type="text"
+                value={libelle}
+                placeholder={t("placeholderIntitule")}
+                onChange={(e) => handleLibelleChange(e.target.value)}
+                aria-invalid={Boolean(erreurs.libelle)}
+              />
+              {erreurs.libelle && <span className="text-xs text-erreur">{erreurs.libelle}</span>}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="role-code" className="font-normal">
+                {t("champCode")} <Requis />
+              </Label>
+              <Input
+                id="role-code"
+                type="text"
+                value={code}
+                placeholder={t("placeholderCode")}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                className="font-mono"
+                aria-invalid={Boolean(erreurs.code)}
+              />
+              {erreurs.code && <span className="text-xs text-erreur">{erreurs.code}</span>}
+            </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
-            <label
-              style={{
-                fontSize: "var(--font-size-sm)",
-                fontWeight: "var(--font-weight-medium)",
-                whiteSpace: "nowrap",
-                display: "flex",
-                alignItems: "center",
-                height: "20px",
-              }}
-            >
-              {t("champCode")} <span style={{ color: "var(--color-danger-500)", marginLeft: "2px" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={code}
-              placeholder={t("placeholderCode")}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              style={{
-                width: "100%",
-                height: "40px",
-                boxSizing: "border-box",
-                padding: "8px 12px",
-                borderRadius: "var(--radius-sm)",
-                border: "1px solid var(--color-neutral-300)",
-                fontFamily: "monospace",
-                fontSize: "var(--font-size-sm)",
-              }}
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="role-description" className="font-normal">
+              {t("champDescription")}
+            </Label>
+            <Textarea
+              id="role-description"
+              value={description}
+              rows={2}
+              placeholder={t("placeholderDescription")}
+              onChange={(e) => setDescription(e.target.value)}
             />
-            {erreurs.code && (
-              <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-danger-500)" }}>
-                {erreurs.code}
-              </span>
-            )}
           </div>
-        </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
-          <label style={{ fontSize: "var(--font-size-sm)", fontWeight: "var(--font-weight-medium)" }}>
-            {t("champDescription")}
-          </label>
-          <textarea
-            value={description}
-            rows={2}
-            placeholder={t("placeholderDescription")}
-            onChange={(e) => setDescription(e.target.value)}
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              padding: "8px 12px",
-              borderRadius: "var(--radius-sm)",
-              border: "1px solid var(--color-neutral-300)",
-              fontFamily: "inherit",
-              fontSize: "var(--font-size-sm)",
-              resize: "vertical",
-            }}
-          />
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
-          <label style={{ fontSize: "var(--font-size-sm)", fontWeight: "var(--font-weight-medium)" }}>
-            {t("champModele")}
-          </label>
-          <select
-            onChange={(e) => copierDepuis(e.target.value)}
-            defaultValue=""
-            style={{
-              width: "100%",
-              height: "40px",
-              boxSizing: "border-box",
-              padding: "8px 12px",
-              borderRadius: "var(--radius-sm)",
-              border: "1px solid var(--color-neutral-300)",
-              backgroundColor: "var(--color-neutral-0)",
-              fontSize: "var(--font-size-sm)",
-            }}
-          >
-            <option value="">{t("choisirModele")}</option>
-            {rolesExistant.map((r) => (
-              <option key={r.id} value={r.id}>
-                {t("copierDroitsDe", { role: r.libelle })}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label style={{ display: "block", marginBottom: "var(--space-2)", fontWeight: "var(--font-weight-medium)" }}>
-            {t("matriceDroitsTitre")}
-          </label>
-          <div
-            style={{
-              maxHeight: "320px",
-              overflowY: "auto",
-              border: "1px solid var(--color-neutral-200)",
-              borderRadius: "var(--radius-md)",
-            }}
-          >
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--font-size-sm)" }}>
-              <thead style={{ backgroundColor: "var(--color-neutral-50)", position: "sticky", top: 0 }}>
-                <tr>
-                  <th style={{ padding: "var(--space-2)", textAlign: "left" }}>{t("role")}</th>
-                  <th style={{ padding: "var(--space-2)", textAlign: "right" }}>{t("actions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MODULES_CCD.map((code) => (
-                  <tr key={code} style={{ borderTop: "1px solid var(--color-neutral-200)" }}>
-                    <td style={{ padding: "var(--space-2)" }}>
-                      <strong>{t(`modules.${code}.nom`)}</strong>
-                      <div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-neutral-500)" }}>
-                        {t(`modules.${code}.description`)}
-                      </div>
-                    </td>
-                    <td style={{ padding: "var(--space-2)", textAlign: "right" }}>
-                      <SelecteurNiveau
-                        valeur={permissions[code] ?? 0}
-                        onChange={(nouveau) => changerNiveauModule(code, nouveau)}
-                        libelleAria={t(`modules.${code}.nom`)}
-                      />
-                    </td>
-                  </tr>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="role-modele" className="font-normal">
+              {t("champModele")}
+            </Label>
+            <Select value={modele} onValueChange={copierDepuis}>
+              <SelectTrigger id="role-modele" className="w-full">
+                <SelectValue placeholder={t("choisirModele")} />
+              </SelectTrigger>
+              <SelectContent>
+                {rolesExistant.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {t("copierDroitsDe", { role: r.libelle })}
+                  </SelectItem>
                 ))}
-              </tbody>
-            </table>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="mb-2 font-normal">{t("matriceDroitsTitre")}</Label>
+            <div className={`max-h-[320px] overflow-y-auto rounded-md border border-neutral-200 ${ASCENSEUR_FIN}`}>
+              <table className="w-full border-collapse text-sm">
+                <thead className="sticky top-0 bg-neutral-50">
+                  <tr>
+                    <th className="p-2 text-left font-normal text-neutral-600">{t("role")}</th>
+                    <th className="p-2 text-right font-normal text-neutral-600">{t("actions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {MODULES_CCD.map((code) => (
+                    <tr key={code} className="border-t border-neutral-200">
+                      <td className="p-2">
+                        <span className="font-medium text-neutral-900">{t(`modules.${code}.nom`)}</span>
+                        <div className="text-xs text-neutral-500">{t(`modules.${code}.description`)}</div>
+                      </td>
+                      <td className="p-2 text-right">
+                        <SelecteurNiveau
+                          valeur={permissions[code] ?? 0}
+                          onChange={(nouveau) => changerNiveauModule(code, nouveau)}
+                          libelleAria={t(`modules.${code}.nom`)}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
-    </Modale>
+
+        <SheetFooter className="flex-row justify-end gap-3 border-t border-neutral-200 px-6 py-4">
+          <Bouton variante="secondaire" onClick={onFermer} disabled={enCours}>
+            {t("annuler")}
+          </Bouton>
+          <Bouton variante="primaire" onClick={valider} enCours={enCours}>
+            {t("creer")}
+          </Bouton>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
