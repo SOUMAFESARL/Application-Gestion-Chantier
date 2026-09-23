@@ -17,6 +17,9 @@
  */
 
 import { api } from "@/lib/api";
+import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
+
+import { simulationProjets } from "./simulationProjets";
 
 import type {
   AlerteIntemperies,
@@ -71,6 +74,11 @@ interface ChargeProjet {
   date_fin_reelle?: string | null;
   chef_projet?: ChargeIntervenant | null;
   conducteur_travaux?: ChargeIntervenant | null;
+}
+
+/** L'enveloppe de pagination de DRF, quand elle est activée sur la ressource. */
+interface ChargeListe<T> {
+  results?: T[];
 }
 
 interface ChargeMeteo {
@@ -251,11 +259,38 @@ function versChargeCreation(creation: CreationProjet): ChargeCreationProjet {
  * Lectures et écritures.
  * ------------------------------------------------------------------ */
 
+/**
+ * Les chantiers de l'entreprise, pour la liste.
+ *
+ * Django pagine ou non selon le réglage du `ViewSet`, et les deux formes se
+ * lisent ici : l'écran reçoit un tableau dans les deux cas et n'a pas à
+ * savoir laquelle est active. Le `signal` vient de React Query, qui annule
+ * la requête quand l'écran est quitté avant la réponse.
+ *
+ * `GET /projets/` n'est pas encore branché : sous `NEXT_PUBLIC_API_SIMULE`,
+ * la lecture vient du jeu de démonstration du domaine. L'appel réel est déjà
+ * à sa place définitive — le jour où la route existe, le drapeau passe à `0`
+ * et aucun écran ne bouge.
+ */
+export async function listerProjets(signal?: AbortSignal): Promise<Projet[]> {
+  if (SIMULATION_ACTIVE) return simulationProjets.lister();
+
+  const charge = await api.lire<ChargeProjet[] | ChargeListe<ChargeProjet>>(
+    "/projets/",
+    undefined,
+    signal,
+  );
+  const charges = Array.isArray(charge) ? charge : (charge?.results ?? []);
+  return charges.map(versProjet);
+}
+
 export async function lireProjet(id: string): Promise<Projet> {
+  if (SIMULATION_ACTIVE) return simulationProjets.lire(id);
   return versProjet(await api.lire<ChargeProjet>(`/projets/${id}/`));
 }
 
 export async function creerProjet(creation: CreationProjet): Promise<Projet> {
+  if (SIMULATION_ACTIVE) return simulationProjets.creer(creation);
   return versProjet(await api.creer<ChargeProjet>("/projets/", versChargeCreation(creation)));
 }
 

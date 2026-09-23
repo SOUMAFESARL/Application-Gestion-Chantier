@@ -16,6 +16,13 @@ import {
 } from "@/components/ui";
 import type { Colonne } from "@/components/ui";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   couleurIndiceSante,
   formaterDate,
   formaterMontant,
@@ -130,6 +137,7 @@ const COLONNES: Colonne<LigneDemo>[] = [
 
 export default function Page() {
   const [enCours, setEnCours] = useState(false);
+  const [statut, setStatut] = useState("tous");
 
   return (
     <main className="mx-auto flex max-w-[960px] flex-col gap-6 px-4 py-8">
@@ -187,6 +195,48 @@ export default function Page() {
           erreur="La justification doit faire au moins 30 caractères."
         />
         <Champ libelle="Référence" defaultValue="PRJ-2026-014" disabled />
+      </Carte>
+
+      <Carte titre="Listes déroulantes">
+        <div className="flex flex-wrap items-center gap-3">
+          <Select value={statut} onValueChange={setStatut}>
+            <SelectTrigger size="sm" aria-label="Filtrer par statut" className="min-w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tous">Tous les statuts</SelectItem>
+              <SelectItem value="EN_COURS">En cours</SelectItem>
+              <SelectItem value="EN_RETARD">En retard</SelectItem>
+              <SelectItem value="TERMINE">Terminé</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={statut} onValueChange={setStatut}>
+            <SelectTrigger aria-label="Filtrer par statut (taille moyenne)" className="min-w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tous">Tous les statuts</SelectItem>
+              <SelectItem value="EN_COURS">En cours</SelectItem>
+              <SelectItem value="EN_RETARD">En retard</SelectItem>
+              <SelectItem value="TERMINE">Terminé</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select disabled value="tous">
+            <SelectTrigger size="sm" aria-label="Filtre désactivé" className="min-w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tous">Tous les statuts</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <p className="mt-3 text-sm text-neutral-600">
+          Jamais de <code>&lt;select&gt;</code> natif dans une barre de filtres : sa liste est
+          dessinée par le système, donc ni la charte ni la largeur du champ ne s’y appliquent. La
+          taille <code>sm</code> s’aligne sur la hauteur des boutons posés à côté.
+        </p>
       </Carte>
 
       <Carte titre="Messages — les quatre types du Socle Commun">

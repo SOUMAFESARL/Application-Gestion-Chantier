@@ -11,6 +11,8 @@
  * s'était produit — voir `SEUIL_RETARD_POINTS` plus bas.
  */
 
+import type { Projet, StatutProjet } from "./types";
+
 /**
  * À partir de combien de points de retard un chantier est-il « en retard ».
  *
@@ -182,3 +184,114 @@ export function datesParDefaut(maintenant: Date = new Date()): {
  * à retoucher à chaque champ ajouté au domaine.
  */
 export const INDICE_SANTE_INITIAL = 100;
+
+
+/* ------------------------------------------------------------------ *
+ * Le filtrage du portefeuille.
+ * ------------------------------------------------------------------ */
+
+/**
+ * L'ordre dans lequel les statuts se présentent à l'utilisateur.
+ *
+ * Ce n'est **pas** l'ordre alphabétique ni celui de l'énumération serveur :
+ * c'est celui de l'urgence, du chantier qui réclame une décision à celui
+ * qu'on archive. Un sélecteur classé par hasard oblige à relire la liste
+ * entière à chaque ouverture.
+ */
+export const ORDRE_STATUTS: StatutProjet[] = [
+  "CRITIQUE",
+  "EN_RETARD",
+  "EN_COURS",
+  "SUSPENDU",
+  "EN_ATTENTE",
+  "TERMINE",
+  "ARCHIVE",
+];
+
+/**
+ * Le texte, réduit à ce qui se compare.
+ *
+ * Les accents sautent : on cherche « residence » et on veut trouver
+ * « Résidence ». Sur un clavier de chantier, l'accent n'est pas toujours
+ * à portée, et une recherche qui l'exige ne trouve rien.
+ */
+function normaliser(valeur: string): string {
+  return valeur
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
+/** Ce sur quoi la liste des chantiers se restreint. */
+export interface CriteresProjets {
+  /** Recherche libre : référence, nom, client, ville ou quartier. */
+  recherche: string;
+  /** Vide : tous les statuts. */
+  statut: StatutProjet | "";
+  /** Vide : tous les chefs de projet. */
+  chefProjetId: string;
+}
+
+export const CRITERES_VIDES: CriteresProjets = { recherche: "", statut: "", chefProjetId: "" };
+
+/** Un critère est-il actif — de quoi proposer une remise à zéro à propos. */
+export function criteresActifs(criteres: CriteresProjets): boolean {
+  return (
+    criteres.recherche.trim() !== "" || criteres.statut !== "" || criteres.chefProjetId !== ""
+  );
+}
+
+/**
+ * Le portefeuille, restreint aux critères de l'écran.
+ *
+ * Le filtrage vit ici et non dans le composant : c'est la même question que
+ * pose déjà la fiche chantier (« quels chantiers de ce client ? ») et que
+ * posera le rapport de portefeuille. Une copie dans le JSX, et les trois
+ * écrans finiraient par ne plus chercher sur les mêmes champs.
+ *
+ * La recherche porte sur ce qu'un conducteur de travaux a en tête quand il
+ * ouvre l'écran : une référence, un nom de chantier, un maître d'ouvrage ou
+ * un lieu. Pas sur le budget ni sur les dates — on ne cherche pas un
+ * chantier par son montant.
+ */
+export function filtrerProjets(projets: Projet[], criteres: CriteresProjets): Projet[] {
+  const recherche = normaliser(criteres.recherche);
+
+  return projets.filter((projet) => {
+    if (criteres.statut && projet.statut !== criteres.statut) return false;
+    if (criteres.chefProjetId && projet.chefProjet?.id !== criteres.chefProjetId) return false;
+    if (!recherche) return true;
+
+    return [
+      projet.reference,
+      projet.nom,
+      projet.client.raisonSociale,
+      projet.ville,
+      projet.quartier,
+    ].some((champ) => normaliser(champ).includes(recherche));
+  });
+}
+
+/** Les statuts effectivement portés par le portefeuille, dans l'ordre d'urgence. */
+export function statutsPresents(projets: Projet[]): StatutProjet[] {
+  const presents = new Set(projets.map((projet) => projet.statut));
+  return ORDRE_STATUTS.filter((statut) => presents.has(statut));
+}
+
+/**
+ * Les chefs de projet à proposer au filtre, sans doublon et classés.
+ *
+ * Les chantiers sans responsable désigné n'y apparaissent pas : il n'y a
+ * rien à sélectionner, et une entrée vide dans un sélecteur se lit comme
+ * un bogue.
+ */
+export function chefsDeProjet(projets: Projet[]): { id: string; nomComplet: string }[] {
+  const connus = new Map<string, string>();
+  for (const projet of projets) {
+    if (projet.chefProjet) connus.set(projet.chefProjet.id, projet.chefProjet.nomComplet);
+  }
+  return [...connus.entries()]
+    .map(([id, nomComplet]) => ({ id, nomComplet }))
+    .sort((a, b) => a.nomComplet.localeCompare(b.nomComplet));
+}

@@ -321,7 +321,9 @@ const eslintConfig = defineConfig([
       // Jeux de démonstration en attente des endpoints — noms de chantiers,
       // de clients et de personnes. À supprimer avec le branchement de l'API.
       "app/(app)/tableau-de-bord/page.tsx",
-      "app/(app)/tableau-de-bord/ModalCreationProjet.tsx",
+      // Le portefeuille de chantiers de démonstration, en attendant
+      // « GET /projets/ » : des noms de chantiers, de clients et de personnes.
+      "features/projets/simulationProjets.ts",
       // `[id]` ne s'écrit pas tel quel : pour le filtre de fichiers, les
       // crochets d'une route dynamique sont une classe de caractères — ils y
       // désignent « i ou d ». Un seul niveau de segment suffit à la désigner.

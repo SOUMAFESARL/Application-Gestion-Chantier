@@ -626,7 +626,12 @@ export default function LayoutApp({ children }: LayoutAppProps) {
       <SidebarInset>
         <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
           <SidebarTrigger />
-          <FilAriane />
+          {/* Le fil d'Ariane disparaît sous 640 px : deux niveaux et une
+              flèche de retour mangeaient la barre, alors que la barre
+              latérale (repliée en tiroir) y donne déjà la navigation. */}
+          <div className="hidden min-w-0 items-center sm:flex">
+            <FilAriane />
+          </div>
 
           <div className="ml-auto flex items-center gap-2">
             {/* Compteur d'essai — dans la barre du haut, et non plus dans le
@@ -695,7 +700,11 @@ export default function LayoutApp({ children }: LayoutAppProps) {
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+        {/* Sur téléphone la gouttière tombe à 8 px : l'écran fait 390 px de
+            large, et chaque pixel rendu à la marge est un pixel pris au
+            contenu — un tableau ou une carte y tient déjà son propre
+            `padding`. À partir de 640 px, la marge de confort revient. */}
+        <main className="flex-1 px-2 py-3 sm:p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

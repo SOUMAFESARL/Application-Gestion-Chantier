@@ -8,6 +8,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Bouton } from "@/components/ui/Bouton";
 import { Carte } from "@/components/ui/Carte";
+import { TiroirCreationProjet } from "@/features/projets/components/TiroirCreationProjet";
 import type { Projet } from "@/features/projets/types";
 import {
   apresCreationChantier,
@@ -20,7 +21,6 @@ import { BandeauIntemperies } from "./BandeauIntemperies";
 import { BandeauKpis } from "./BandeauKpis";
 import { ListeBonsAPayer } from "./ListeBonsAPayer";
 import { ListeReceptions } from "./ListeReceptions";
-import { ModalCreationProjet } from "./ModalCreationProjet";
 import { ModalDefinirBudget } from "./ModalDefinirBudget";
 import { PanneauChantiers } from "./PanneauChantiers";
 
@@ -41,7 +41,7 @@ interface TableauDeBordClientProps {
 export function TableauDeBordClient({ donneesInitiales }: TableauDeBordClientProps) {
   const t = useTranslations("tableauDeBord");
   const [donnees, setDonnees] = useState<TableauDeBord>(donneesInitiales);
-  const [modalCreationOuverte, setModalCreationOuverte] = useState(false);
+  const [tiroirCreationOuvert, setTiroirCreationOuvert] = useState(false);
   const [chantierPourBudget, setChantierPourBudget] = useState<LigneChantier | null>(null);
 
   const handleBonSigne = (bon: BonAPayer) =>
@@ -78,7 +78,7 @@ export function TableauDeBordClient({ donneesInitiales }: TableauDeBordClientPro
           <Bouton
             variante="primaire"
             iconeGauche={<Plus size={16} weight="bold" />}
-            onClick={() => setModalCreationOuverte(true)}
+            onClick={() => setTiroirCreationOuvert(true)}
           >
             {t("actionNouveauProjet")}
           </Bouton>
@@ -102,7 +102,7 @@ export function TableauDeBordClient({ donneesInitiales }: TableauDeBordClientPro
             variante="primaire"
             taille="lg"
             iconeGauche={<Plus size={20} weight="bold" />}
-            onClick={() => setModalCreationOuverte(true)}
+            onClick={() => setTiroirCreationOuvert(true)}
           >
             {t("emptyState.actionCreer")}
           </Bouton>
@@ -130,9 +130,9 @@ export function TableauDeBordClient({ donneesInitiales }: TableauDeBordClientPro
         </div>
       </div>
 
-      <ModalCreationProjet
-        ouverte={modalCreationOuverte}
-        onFermer={() => setModalCreationOuverte(false)}
+      <TiroirCreationProjet
+        ouverte={tiroirCreationOuvert}
+        onFermer={() => setTiroirCreationOuvert(false)}
         onProjetCree={handleProjetCree}
       />
       <ModalDefinirBudget

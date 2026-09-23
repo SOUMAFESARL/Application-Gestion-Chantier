@@ -142,7 +142,7 @@ export function DataTable<T extends RowData>({
   const lignes = tailleDePage ? table.getPaginatedRowModel().rows : table.getRowModel().rows;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col">
       <Table className={className}>
         <TableHeader>
           {table.getHeaderGroups().map((groupe) => (
@@ -186,17 +186,24 @@ export function DataTable<T extends RowData>({
         </TableBody>
       </Table>
 
-      {tailleDePage && (
-        <Pagination
-          pageIndex={table.state.pagination.pageIndex}
-          nombrePages={table.getPageCount()}
-          peutPagePrecedente={table.getCanPreviousPage()}
-          peutPageSuivante={table.getCanNextPage()}
-          allerPremierePage={table.firstPage}
-          allerPagePrecedente={table.previousPage}
-          allerPageSuivante={table.nextPage}
-          allerDernierePage={table.lastPage}
-        />
+      {/* La pagination a son propre pied, aligné sur celui de `Tableau` : sans
+          gouttière ni filet, elle se collait à la dernière ligne et débordait
+          jusqu'aux bords de la carte. La condition reprend celle de
+          `Pagination` (rien à paginer sur une seule page) — la laisser au
+          composant laisserait ici une bande vide, filet compris. */}
+      {tailleDePage && table.getPageCount() > 1 && (
+        <div className="border-t border-neutral-200 px-4 py-3 sm:px-6">
+          <Pagination
+            pageIndex={table.state.pagination.pageIndex}
+            nombrePages={table.getPageCount()}
+            peutPagePrecedente={table.getCanPreviousPage()}
+            peutPageSuivante={table.getCanNextPage()}
+            allerPremierePage={table.firstPage}
+            allerPagePrecedente={table.previousPage}
+            allerPageSuivante={table.nextPage}
+            allerDernierePage={table.lastPage}
+          />
+        </div>
       )}
     </div>
   );
