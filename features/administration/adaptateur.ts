@@ -25,10 +25,12 @@ import {
   ecrireJetonAcces,
   ecrireJetonRenouvellement,
   effacerJetons,
+  ErreurApi,
   lireJetonRenouvellement,
 } from "@/lib/api";
 import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
 import { ADMIN_DEMO, simulationAdministration } from "@/lib/api/simulationAdministration";
+import { texte } from "@/i18n/horsReact";
 
 import { indicateurs } from "./regles";
 import type {
@@ -85,10 +87,26 @@ interface ChargeClient {
   abonnement: ChargeAbonnement;
 }
 
+interface ChargeUtilisateurSuperAdmin {
+  id: string;
+  email: string;
+  nom: string;
+  prenom: string;
+  role_global?: string;
+  role_libelle?: string;
+  is_superuser?: boolean;
+  is_staff?: boolean;
+  langue?: string;
+  schema?: string;
+  role?: RoleAdministrateur;
+}
+
 interface ChargeConnexion {
   access: string;
   refresh: string;
-  administrateur: ChargeAdministrateur;
+  expire_dans?: number;
+  utilisateur?: ChargeUtilisateurSuperAdmin;
+  administrateur?: ChargeAdministrateur;
 }
 
 interface ChargeIndicateurs {
@@ -137,15 +155,19 @@ const CLES_INDICATEURS: Record<CleIndicateurCharge, CleIndicateur> = {
  * Traduction
  * ------------------------------------------------------------------ */
 
-function versProfil(charge: ChargeAdministrateur): ProfilAdministrateur {
+function versProfil(
+  charge: ChargeAdministrateur | ChargeUtilisateurSuperAdmin,
+): ProfilAdministrateur {
   const nomComplet = `${charge.prenom} ${charge.nom}`.trim();
+  const role: RoleAdministrateur =
+    "role" in charge && charge.role ? charge.role : "SUPERVISEUR";
   return {
     id: charge.id,
     email: charge.email,
     nom: charge.nom,
     prenom: charge.prenom,
     nomComplet: nomComplet || charge.email,
-    role: charge.role,
+    role,
   };
 }
 
@@ -228,16 +250,25 @@ export async function seConnecter(identifiants: {
   email: string;
   motDePasse: string;
 }): Promise<ProfilAdministrateur> {
-  const corps = { email: identifiants.email, mot_de_passe: identifiants.motDePasse };
+  const corps = {
+    email: identifiants.email,
+    mot_de_passe: identifiants.motDePasse,
+    origine: "WEB",
+  };
 
   const reponse: ChargeConnexion = SIMULATION_ACTIVE
     ? await simulationAdministration.seConnecter(corps)
-    : await apiAdministration.creer<ChargeConnexion>("/auth/token/", corps);
+    : await apiAdministration.creer<ChargeConnexion>("/admins/connexion/", corps);
 
   ecrireJetonAcces(reponse.access, "administration");
   ecrireJetonRenouvellement(reponse.refresh, "administration");
 
-  const profil = versProfil(reponse.administrateur);
+  const cible = reponse.utilisateur ?? reponse.administrateur;
+  if (!cible) {
+    throw new ErreurApi("reponse_invalide", texte("administration.erreurs.action"), 500);
+  }
+
+  const profil = versProfil(cible);
   ecrireProfilLocal(profil);
   return profil;
 }
@@ -281,7 +312,7 @@ export async function seDeconnecter(): Promise<void> {
   const refresh = lireJetonRenouvellement("administration");
   if (refresh && !SIMULATION_ACTIVE) {
     try {
-      await apiAdministration.creer<void>("/auth/deconnexion/", { refresh });
+      await apiAdministration.creer<void>("/admins/deconnexion/", { refresh });
     } catch {
       // Tolerance reseau : la session doit disparaitre en local quoi qu'il arrive.
     }
@@ -301,10 +332,14 @@ export async function seDeconnecter(): Promise<void> {
  */
 export async function obtenirProfil(): Promise<ProfilAdministrateur> {
   try {
-    const charge: ChargeAdministrateur = SIMULATION_ACTIVE
-      ? await simulationAdministration.moi()
-      : await apiAdministration.lire<ChargeAdministrateur>("/moi/");
+    if (SIMULATION_ACTIVE) {
+      const charge = await simulationAdministration.moi();
+      const profil = versProfil(charge);
+      ecrireProfilLocal(profil);
+      return profil;
+    }
 
+    const charge = await apiAdministration.lire<ChargeUtilisateurSuperAdmin>("/utilisateurs/moi/");
     const profil = versProfil(charge);
     ecrireProfilLocal(profil);
     return profil;

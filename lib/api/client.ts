@@ -31,16 +31,6 @@ import type { EspaceSession } from "./jetons";
 const PREFIXE = "/api/v1";
 
 /**
- * Le segment sous lequel vit **tout** le back-office de la plateforme.
- *
- * Il est ajoute par `apiAdministration`, jamais ecrit dans un adaptateur :
- * une route du back-office oubliee sans ce prefixe partirait vers le schema
- * public sur une route qui n'existe pas, et un `404` n'accuse pas la bonne
- * cause.
- */
-const PREFIXE_ADMINISTRATION = "/administration";
-
-/**
  * Surcharge explicite de l'adresse de l'API — **à n'employer qu'en dernier
  * recours.**
  *
@@ -162,7 +152,7 @@ const renouvellementsEnCours = new Map<EspaceSession, Promise<boolean>>();
  */
 function urlRenouvellement(espace: EspaceSession): string {
   return espace === "administration"
-    ? `${basePlateforme()}${PREFIXE}${PREFIXE_ADMINISTRATION}/auth/token/refresh/`
+    ? `${basePlateforme()}${PREFIXE}/admins/token/refresh/`
     : `${baseApi()}${PREFIXE}/auth/token/refresh/`;
 }
 
@@ -485,7 +475,7 @@ export const apiPlateforme = {
  */
 export const apiAdministration = {
   lire: <T>(chemin: string, parametres?: Options["parametres"], signal?: AbortSignal) =>
-    appeler<T>(`${PREFIXE_ADMINISTRATION}${chemin}`, {
+    appeler<T>(chemin, {
       methode: "GET",
       parametres,
       signal,
@@ -494,7 +484,7 @@ export const apiAdministration = {
     }),
 
   creer: <T>(chemin: string, corps: unknown) =>
-    appeler<T>(`${PREFIXE_ADMINISTRATION}${chemin}`, {
+    appeler<T>(chemin, {
       methode: "POST",
       corps,
       base: basePlateforme(),
@@ -502,7 +492,7 @@ export const apiAdministration = {
     }),
 
   modifier: <T>(chemin: string, corps: unknown) =>
-    appeler<T>(`${PREFIXE_ADMINISTRATION}${chemin}`, {
+    appeler<T>(chemin, {
       methode: "PATCH",
       corps,
       base: basePlateforme(),
@@ -510,7 +500,7 @@ export const apiAdministration = {
     }),
 
   supprimer: (chemin: string) =>
-    appeler<void>(`${PREFIXE_ADMINISTRATION}${chemin}`, {
+    appeler<void>(chemin, {
       methode: "DELETE",
       base: basePlateforme(),
       espace: "administration",
