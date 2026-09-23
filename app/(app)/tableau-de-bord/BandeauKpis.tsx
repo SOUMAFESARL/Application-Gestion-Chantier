@@ -46,7 +46,7 @@ export function BandeauKpis({ metriques, chantiers }: Props) {
       <Carte className="text-left">
         <div className={KPI_ETIQUETTE}>
           <span>{t("chantiersActifs")}</span>
-          <BuildingOffice size={18} style={{ color: "var(--color-primary-500, #D4652A)" }} />
+          <BuildingOffice size={18} style={{ color: "var(--color-primary-500)" }} />
         </div>
         <div className={KPI_VALEUR}>{metriques.chantiersActifs}</div>
         <div className={KPI_SOUS}>

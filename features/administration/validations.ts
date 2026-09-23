@@ -70,7 +70,7 @@ export type ValeursSuspension = z.output<typeof schemaSuspension>;
 
 /** Le changement de plan d'un client. */
 export const schemaChangementPlan = z.object({
-  plan: z.enum(["DECOUVERTE", "PRO", "ENTREPRISE"], {
+  plan: z.enum(["BATISSEUR", "MAITRE_OEUVRE", "PROMOTEUR"], {
     message: texte("administration.abonnement.erreurPlanRequis"),
   }),
 });

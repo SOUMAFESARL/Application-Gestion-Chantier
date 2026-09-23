@@ -3,9 +3,9 @@
 /**
  * Remplacements Tailwind/shadcn du vieux kit `@/components/ui` (CSS
  * Modules), **réservés à cet assistant** — même signature de props que
- * `Champ`, `Bouton`, `Alerte`, `Modale`, `EtatChargement`, `EtatErreur`,
- * `EtatVide`, pour que `Wizard.tsx` et les trois étapes n'aient à changer
- * que leur import, pas leur logique.
+ * `Champ`, `Bouton`, `Alerte`, `EtatChargement`, pour que
+ * `ConfigurationEntreprise.tsx` n'ait à changer que son import, pas sa
+ * logique.
  *
  * Ce n'est pas une nouvelle couche du design system : le reste de
  * l'application garde le vieux kit tant qu'il n'a pas été repris (plan de
@@ -13,31 +13,13 @@
  * dans le dossier de l'écran, pas dans `components/ui`.
  */
 
-import {
-  AlertCircle,
-  CheckCircle2,
-  FileQuestion,
-  Info,
-  LoaderCircle,
-  RefreshCw,
-  TriangleAlert,
-  WifiOff,
-  X,
-} from "lucide-react";
+import { AlertCircle, CheckCircle2, Info, LoaderCircle, TriangleAlert } from "lucide-react";
 import { forwardRef, useId } from "react";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -205,48 +187,7 @@ export function Alerte({
 }
 
 // ---------------------------------------------------------------------------
-// Modale
-// ---------------------------------------------------------------------------
-
-export function Modale({
-  ouverte,
-  titre,
-  onFermer,
-  actions,
-  children,
-}: {
-  ouverte: boolean;
-  titre: string;
-  taille?: "defaut" | "large";
-  libelleFermeture?: string;
-  onFermer?: () => void;
-  actions?: ReactNode;
-  children: ReactNode;
-}) {
-  const t = useTranslations("uiGenerique");
-
-  return (
-    <Dialog open={ouverte} onOpenChange={(ouvert) => !ouvert && onFermer?.()}>
-      <DialogContent showCloseButton={false}>
-        <DialogHeader className="flex-row items-center justify-between space-y-0">
-          <DialogTitle>{titre}</DialogTitle>
-          {onFermer && (
-            <DialogClose asChild>
-              <Button variant="ghost" size="icon-sm" aria-label={t("fermer")}>
-                <X />
-              </Button>
-            </DialogClose>
-          )}
-        </DialogHeader>
-        <div>{children}</div>
-        {actions && <DialogFooter>{actions}</DialogFooter>}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// États — chargement, vide, erreur
+// État — chargement
 // ---------------------------------------------------------------------------
 
 export function EtatChargement({ message }: { message?: string }) {
@@ -256,60 +197,6 @@ export function EtatChargement({ message }: { message?: string }) {
     <div className="flex flex-col items-center gap-3 py-12 text-center" role="status" aria-live="polite">
       <LoaderCircle className="size-8 animate-spin text-primary" aria-hidden="true" />
       <p className="text-sm text-muted-foreground">{message ?? t("chargement")}</p>
-    </div>
-  );
-}
-
-export function EtatVide({
-  titre,
-  description,
-  action,
-  icone,
-}: {
-  titre: string;
-  description?: string;
-  action?: ReactNode;
-  icone?: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-10 text-center">
-      <span className="text-muted-foreground" aria-hidden="true">
-        {icone ?? <FileQuestion className="size-9" />}
-      </span>
-      <p className="text-sm font-semibold text-foreground">{titre}</p>
-      {description && <p className="max-w-xs text-sm text-muted-foreground">{description}</p>}
-      {action && <div className="mt-2">{action}</div>}
-    </div>
-  );
-}
-
-export function EtatErreur({
-  message,
-  onReessayer,
-  reference,
-}: {
-  message?: string;
-  onReessayer?: () => void;
-  reference?: string | null;
-}) {
-  const t = useTranslations("etats");
-
-  return (
-    <div className="flex flex-col items-center gap-2 py-10 text-center" role="alert">
-      <WifiOff className="size-9 text-erreur" aria-hidden="true" />
-      <p className="text-sm font-semibold text-foreground">{t("erreurTitre")}</p>
-      <p className="max-w-xs text-sm text-muted-foreground">{message ?? t("erreurMessage")}</p>
-      {onReessayer && (
-        <Button variant="outline" size="sm" className="mt-1" onClick={onReessayer}>
-          <RefreshCw />
-          {t("reessayer")}
-        </Button>
-      )}
-      {reference && (
-        <p className="mt-1 text-xs text-muted-foreground">
-          {t("reference")} <code className="font-mono">{reference}</code>
-        </p>
-      )}
     </div>
   );
 }

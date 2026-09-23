@@ -1,5 +1,7 @@
 import { useTranslations } from "next-intl";
 
+import { EnTetePage } from "@/components/layout/EnTetePage";
+
 /**
  * Écran « Documents »
  *
@@ -12,9 +14,6 @@ export default function Page() {
   const t = useTranslations("squelettes");
 
   return (
-    <main className="p-8">
-      <h1 className="text-h1">{t("documents.titre")}</h1>
-      <p className="text-body mt-2">{t("aConstruire", { motif: t("documents.motif") })}</p>
-    </main>
+    <EnTetePage titre={t("documents.titre")} description={t("aConstruire", { motif: t("documents.motif") })} />
   );
 }

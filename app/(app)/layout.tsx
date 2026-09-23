@@ -13,6 +13,7 @@ import {
   FileText,
   Handshake,
   HardHat,
+  History,
   LayoutDashboard,
   LogOut,
   Package,
@@ -20,6 +21,7 @@ import {
   ShieldCheck,
   ShoppingCart,
   Sun,
+  Tag,
   Truck,
   Users,
 } from "lucide-react";
@@ -67,7 +69,6 @@ import { EVENEMENT_ENTREPRISE_MODIFIEE, lireEntreprise } from "@/features/config
 import type { DonneesEntreprise } from "@/features/configuration/api";
 import { obtenirMeteo } from "@/features/projets/adaptateur";
 import type { MeteoProjet } from "@/features/projets/types";
-import { appliquerCouleurPrimaire } from "@/styles/theme";
 
 interface LayoutAppProps {
   children: React.ReactNode;
@@ -177,14 +178,6 @@ export default function LayoutApp({ children }: LayoutAppProps) {
   const [profil, setProfil] = useState<ProfilUtilisateur | null>(null);
   const [entreprise, setEntreprise] = useState<DonneesEntreprise | null>(null);
   const [meteo, setMeteo] = useState<MeteoProjet | null>(null);
-  const [urlLogoEnEchec, setUrlLogoEnEchec] = useState<string | null>(null);
-
-  // Application dynamique de la couleur de marque (White-Label)
-  useEffect(() => {
-    if (entreprise?.couleur_primaire) {
-      appliquerCouleurPrimaire(entreprise.couleur_primaire);
-    }
-  }, [entreprise?.couleur_primaire]);
 
   // Garde de session : redirection immédiate vers la connexion si aucune session
   useEffect(() => {
@@ -276,7 +269,9 @@ export default function LayoutApp({ children }: LayoutAppProps) {
   const estSurContrats = pathname.startsWith("/contrats");
   const estSurDocuments = pathname.startsWith("/documents");
   const estSurTiers = pathname.startsWith("/tiers");
-  const estSurCollaborateurs = pathname.startsWith("/parametres/utilisateurs");
+  const estSurAbonnementTarifs = pathname.startsWith("/abonnement/tarifs");
+  const estSurAbonnementHistorique = pathname.startsWith("/abonnement/historique");
+  const estSurCollaborateurs = pathname.startsWith("/parametres/collaborateurs");
   const estSurRoles = pathname.startsWith("/parametres/roles");
   const estSurConfigurationEntreprise = pathname.startsWith("/parametres/configuration");
   const estSurParametres =
@@ -292,10 +287,7 @@ export default function LayoutApp({ children }: LayoutAppProps) {
     : "";
 
   const { texteMeteo, bulleMeteo } = (() => {
-    if (!meteo) {
-      const msg = t("meteo.chargement");
-      return { texteMeteo: msg, bulleMeteo: msg };
-    }
+    if (!meteo) return { texteMeteo: "", bulleMeteo: "" };
 
     if (!meteo.disponible || meteo.temperature === null) {
       const raisonBrute = meteo.raison || "SERVICE_INDISPONIBLE";
@@ -532,6 +524,34 @@ export default function LayoutApp({ children }: LayoutAppProps) {
           </SidebarGroup>
 
           <SidebarGroup className="mt-auto">
+            <SidebarGroupLabel>{t("abonnement")}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={estSurAbonnementTarifs} tooltip={t("tarifs")}>
+                    <Link href="/abonnement/tarifs">
+                      <Tag />
+                      <span>{t("tarifs")}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={estSurAbonnementHistorique}
+                    tooltip={t("historique")}
+                  >
+                    <Link href="/abonnement/historique">
+                      <History />
+                      <span>{t("historique")}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          <SidebarGroup>
             <SidebarGroupLabel>{t("parametres")}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -545,7 +565,7 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={estSurCollaborateurs} tooltip={t("collaborateurs")}>
-                    <Link href="/parametres/utilisateurs">
+                    <Link href="/parametres/collaborateurs">
                       <Users />
                       <span>{t("collaborateurs")}</span>
                     </Link>
@@ -646,44 +666,32 @@ export default function LayoutApp({ children }: LayoutAppProps) {
               />
             </span>
 
-            {/* Météo locale dynamique issue de l'API temps réel */}
-            <div
-              className="hidden items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground sm:flex"
-              title={bulleMeteo}
-              aria-label={bulleMeteo}
-            >
-              <IconeMeteo
-                condition={meteo?.condition}
-                description={meteo?.description}
-                disponible={meteo?.disponible}
-              />
-              <span>{texteMeteo}</span>
-            </div>
+            {/* Météo locale dynamique issue de l'API temps réel — affichée
+                seulement une fois un relevé obtenu. Montrée pendant le
+                chargement, elle apparaissait puis disparaissait à chaque
+                actualisation quand le relevé s'avérait indisponible. */}
+            {meteo?.disponible && meteo.temperature !== null && (
+              <div
+                className="hidden items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground sm:flex"
+                title={bulleMeteo}
+                aria-label={bulleMeteo}
+              >
+                <IconeMeteo
+                  condition={meteo?.condition}
+                  description={meteo?.description}
+                  disponible={meteo?.disponible}
+                />
+                <span>{texteMeteo}</span>
+              </div>
+            )}
 
-            {/* Le logo et le nom de l'entreprise connectée */}
+            {/* Le nom de l'entreprise connectée */}
             {entreprise ? (
               <Link
                 href="/parametres"
-                className="hidden items-center gap-2 rounded-full px-2 py-1 text-sm font-medium text-foreground hover:bg-accent md:flex"
+                className="hidden items-center rounded-full px-2 py-1 text-sm font-medium text-foreground hover:bg-accent md:flex"
                 title={entreprise.nom_commercial || entreprise.raison_sociale}
               >
-                {entreprise.logo && urlLogoEnEchec !== entreprise.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={entreprise.logo_1x || entreprise.logo}
-                    srcSet={
-                      entreprise.logo_1x
-                        ? `${entreprise.logo_1x} 1x, ${entreprise.logo} 2x`
-                        : undefined
-                    }
-                    alt=""
-                    decoding="async"
-                    className="size-5 rounded-sm object-contain"
-                    onError={() => setUrlLogoEnEchec(entreprise.logo ?? null)}
-                  />
-                ) : (
-                  <Building2 size={16} className="text-muted-foreground" />
-                )}
                 <span className="max-w-32 truncate">
                   {entreprise.nom_commercial || entreprise.raison_sociale}
                 </span>
@@ -703,7 +711,10 @@ export default function LayoutApp({ children }: LayoutAppProps) {
         {/* Sur téléphone la gouttière tombe à 8 px : l'écran fait 390 px de
             large, et chaque pixel rendu à la marge est un pixel pris au
             contenu — un tableau ou une carte y tient déjà son propre
-            `padding`. À partir de 640 px, la marge de confort revient. */}
+            `padding`. À partir de 640 px, la marge de confort revient.
+            C'est la **seule** marge entre la barre latérale et le contenu :
+            un écran n'ajoute ni `padding` ni largeur centrée (`mx-auto`),
+            et pose son titre avec `EnTetePage`. */}
         <main className="flex-1 px-2 py-3 sm:p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>

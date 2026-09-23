@@ -74,7 +74,7 @@ Pour garder l'ancien sous la main le temps d'un arbitrage, capturer dans
 | 14 | `/projets` | oui |
 | 15 | `/projets/[id]` | oui |
 | 16 | `/parametres/roles` | oui |
-| 17 | `/parametres/utilisateurs` | oui |
+| 17 | `/parametres/collaborateurs` | oui |
 
 Chacun en 1440, 768 et 390 px.
 

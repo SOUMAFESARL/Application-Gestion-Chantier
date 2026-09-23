@@ -57,6 +57,8 @@ export interface CreerInvitationPayload {
   email: string;
   role_propose: string;
   nom?: string;
+  /** Numéro international E.164 (`+2250700000000`). */
+  telephone?: string;
 }
 
 /**

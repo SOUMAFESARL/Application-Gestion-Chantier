@@ -3,11 +3,13 @@
 import { Plus } from "@phosphor-icons/react/dist/ssr";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
+import { EnTetePage } from "@/components/layout/EnTetePage";
 import { Alerte, Bouton, EtatChargement, EtatErreur } from "@/components/ui";
 import {
   creerRole,
   listerRoles,
   MatricePermissionsTable,
+  ModalModificationRole,
   ModalNouveauRole,
   ModalReassignationRole,
   modifierRole,
@@ -27,6 +29,7 @@ export default function ParametresRolesPage() {
   const [profil, setProfil] = useState<ProfilUtilisateur | null>(null);
 
   const [modalNouveauOuverte, setModalNouveauOuverte] = useState(false);
+  const [roleAEditer, setRoleAEditer] = useState<RoleItem | null>(null);
   const [roleASupprimer, setRoleASupprimer] = useState<RoleItem | null>(null);
   const [actionEnCours, setActionEnCours] = useState(false);
 
@@ -115,6 +118,23 @@ export default function ParametresRolesPage() {
     }
   }
 
+  async function handleModificationRole(
+    roleId: string,
+    payload: { libelle: string; description: string },
+  ) {
+    setActionEnCours(true);
+    try {
+      await modifierRole(roleId, payload);
+      setRoleAEditer(null);
+      setSuccesMessage(t("succesModification", { role: payload.libelle }));
+      await chargerDonnees();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "");
+    } finally {
+      setActionEnCours(false);
+    }
+  }
+
   function handleDemandeSuppression(role: RoleItem) {
     if (role.est_systeme) return;
     setRoleASupprimer(role);
@@ -146,40 +166,39 @@ export default function ParametresRolesPage() {
 
   if (chargement) {
     return (
-      <main className="mx-auto flex max-w-[1400px] flex-col gap-6 p-8">
+      <div className="flex flex-col gap-6">
         <EtatChargement message={t("chargement")} />
-      </main>
+      </div>
     );
   }
 
   if (erreur) {
     return (
-      <main className="mx-auto flex max-w-[1400px] flex-col gap-6 p-8">
+      <div className="flex flex-col gap-6">
         <EtatErreur message={erreur} onReessayer={chargerDonnees} />
-      </main>
+      </div>
     );
   }
 
   const estDG = Boolean(profil?.is_dg || profil?.role_global === "DG");
 
   return (
-    <main className="mx-auto flex max-w-[1400px] flex-col gap-6 p-8">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold text-neutral-900">{t("titre")}</h1>
-          <p className="max-w-[800px] text-sm text-neutral-600">{t("sousTitre")}</p>
-        </div>
-
-        {estDG && (
-          <Bouton
-            variante="primaire"
-            iconeGauche={<Plus size={16} weight="bold" />}
-            onClick={() => setModalNouveauOuverte(true)}
-          >
-            {t("nouveauRole")}
-          </Bouton>
-        )}
-      </div>
+    <div className="flex flex-col gap-6">
+      <EnTetePage
+        titre={t("titre")}
+        description={t("sousTitre")}
+        actions={
+          estDG && (
+            <Bouton
+              variante="primaire"
+              iconeGauche={<Plus size={16} weight="bold" />}
+              onClick={() => setModalNouveauOuverte(true)}
+            >
+              {t("nouveauRole")}
+            </Bouton>
+          )
+        }
+      />
 
       {!estDG && (
         <Alerte type="avertissement">
@@ -205,6 +224,7 @@ export default function ParametresRolesPage() {
       <MatricePermissionsTable
         roles={roles}
         onChangeNiveau={estDG ? handleChangementNiveau : undefined}
+        onEditerRole={estDG ? setRoleAEditer : undefined}
         onSupprimerRole={estDG ? handleDemandeSuppression : undefined}
       />
 
@@ -216,6 +236,16 @@ export default function ParametresRolesPage() {
         onFermer={() => setModalNouveauOuverte(false)}
       />
 
+      <ModalModificationRole
+        key={roleAEditer?.id ?? "vide"}
+        ouverte={Boolean(roleAEditer)}
+        role={roleAEditer}
+        rolesExistant={roles}
+        enCours={actionEnCours}
+        onEnregistrer={handleModificationRole}
+        onFermer={() => setRoleAEditer(null)}
+      />
+
       <ModalReassignationRole
         ouverte={Boolean(roleASupprimer)}
         roleASupprimer={roleASupprimer}
@@ -224,6 +254,6 @@ export default function ParametresRolesPage() {
         onConfirmer={handleConfirmationSuppression}
         onFermer={() => setRoleASupprimer(null)}
       />
-    </main>
+    </div>
   );
 }

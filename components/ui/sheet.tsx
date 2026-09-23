@@ -2,15 +2,22 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { XIcon } from "lucide-react"
+import { X } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Dialog as SheetPrimitive } from "radix-ui"
+
+import { Button } from "@/components/ui/button"
 
 /**
  * Primitive `sheet` de shadcn, posée par `npx shadcn@latest add sheet`.
  *
- * Écart au fichier généré (même raison que `popover.tsx`) : l'import de `cn`
- * pointe vers `@/lib/utils`.
+ * Deux écarts au fichier généré :
+ *
+ * 1. L'import de `cn` pointe vers `@/lib/utils` (même raison que
+ *    `popover.tsx`).
+ * 2. **La croix de fermeture est un `Button` `ghost`**, et non un `<button>`
+ *    nu : sans le preflight de Tailwind, ce dernier gardait le fond gris et
+ *    la bordure du navigateur autour de l'icône (règle 2 du plan).
  */
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -79,9 +86,15 @@ function SheetContent({
         {...props}
       >
         {children}
-        <SheetPrimitive.Close className="absolute top-4 right-4 rounded-xs opacity-70 outline-none transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
-          <XIcon className="size-4" />
-          <span className="sr-only">{t("fermer")}</span>
+        <SheetPrimitive.Close asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="absolute top-4 right-4 text-neutral-500 hover:text-neutral-900"
+            aria-label={t("fermer")}
+          >
+            <X className="size-5" />
+          </Button>
         </SheetPrimitive.Close>
       </SheetPrimitive.Content>
     </SheetPortal>

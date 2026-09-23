@@ -68,7 +68,7 @@ export function ListeBonsAPayer({ bons, compteur, onBonSigne }: Props) {
     <Carte>
       <div className={CARTE_ENTETE}>
         <div className={CARTE_TITRE}>
-          <CurrencyCircleDollar size={18} style={{ color: "var(--color-primary-500, #D4652A)" }} />
+          <CurrencyCircleDollar size={18} style={{ color: "var(--color-primary-500)" }} />
           <span>{t("titre")}</span>
         </div>
         <Badge variante="avertissement">{t("compteur", { n: compteur || restants })}</Badge>

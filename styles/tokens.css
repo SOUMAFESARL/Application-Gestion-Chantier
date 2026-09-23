@@ -624,59 +624,13 @@
 }
 
 /* --------------------------------------------
-   12. WHITE-LABEL — THEMES CLIENTS
-   Surcharge injectée dynamiquement par Next.js
+   12. WHITE-LABEL — retiré
+
+   Chaque entreprise pouvait choisir sa teinte de marque (six thèmes
+   `[data-theme="primary-*"]`, échelle injectée par `styles/theme.ts`).
+   La fonctionnalité est supprimée : les deux espaces, entreprise et
+   administration, affichent la même primaire orange de la §1.
    -------------------------------------------- */
-
-/* Ardoise */
-[data-theme="primary-slate"] {
-  --color-primary-500: #475569;
-  --color-primary-600: #3D4B50;
-  --color-primary-700: #333E42;
-  --color-primary-50: #F4F6F7;
-  --color-primary-100: #E3E8EA;
-  --shadow-focus: 0 0 0 3px rgb(71 85 105 / 0.25);
-}
-
-/* Forêt */
-[data-theme="primary-forest"] {
-  --color-primary-500: #2D6A4F;
-  --color-primary-600: #245A40;
-  --color-primary-700: #1C4A33;
-  --color-primary-50: #E8F5E9;
-  --color-primary-100: #C8E6C9;
-  --shadow-focus: 0 0 0 3px rgb(45 106 79 / 0.25);
-}
-
-/* Océan */
-[data-theme="primary-ocean"] {
-  --color-primary-500: #1E6091;
-  --color-primary-600: #1A5078;
-  --color-primary-700: #164060;
-  --color-primary-50: #E3F2FD;
-  --color-primary-100: #BBDEFB;
-  --shadow-focus: 0 0 0 3px rgb(30 96 145 / 0.25);
-}
-
-/* Bordeaux */
-[data-theme="primary-burgundy"] {
-  --color-primary-500: #7C2D41;
-  --color-primary-600: #682537;
-  --color-primary-700: #541D2D;
-  --color-primary-50: #FCE4EC;
-  --color-primary-100: #F8BBD0;
-  --shadow-focus: 0 0 0 3px rgb(124 45 65 / 0.25);
-}
-
-/* Or brut */
-[data-theme="primary-gold"] {
-  --color-primary-500: #B48A3E;
-  --color-primary-600: #967534;
-  --color-primary-700: #78602A;
-  --color-primary-50: #FFF8E1;
-  --color-primary-100: #FFECB3;
-  --shadow-focus: 0 0 0 3px rgb(180 138 62 / 0.25);
-}
 
 /* --------------------------------------------
    13. MODE SOMBRE — retiré (arbitrage A3, CLAUDE.md)

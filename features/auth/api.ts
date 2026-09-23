@@ -77,8 +77,8 @@ export function ecrireProfilLocal(profil: ProfilUtilisateur | null): void {
  * `is_owner: true` — dès que l'appel ratait, et l'écrivait dans
  * `localStorage` par-dessus le marché. Une coupure réseau accordait donc une
  * identité de DG, que les écrans relisaient ensuite comme si elle venait du
- * serveur : `EtapeProjet` en tire `estDG`, la barre latérale en tire la portée
- * de la météo, `roles` en tire ce qu'elle laisse modifier.
+ * serveur : la barre latérale en tire la portée de la météo, `roles` en tire
+ * ce qu'elle laisse modifier.
  *
  * Il reste un repli, et un seul : **le profil déjà obtenu du serveur**, gardé
  * en local pour qu'un rafraîchissement hors ligne n'efface pas le nom affiché.

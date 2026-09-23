@@ -21,8 +21,8 @@ import { useOutilsTest } from "./garde";
  * mais à cause de l'état laissé dans le navigateur par l'essai précédent :
  *
  *   · `ccd.simulation.onboarding`    la demande, son jeton, son statut ;
- *   · `ccd.simulation.configuration` le wizard. Une fois `terminee_le` posé,
- *     `franchir()` refuse toute étape en `409 configuration_terminee` ;
+ *   · `ccd.simulation.entreprise`    la fiche entreprise de l'écran de
+ *     configuration, enregistrée par le compte précédent ;
  *   · `ccd.jeton_renouvellement`     la session ouverte par l'essai précédent.
  *
  * Le jeton **d'accès** vit en mémoire (`lib/api/jetons.ts`) : le rechargement

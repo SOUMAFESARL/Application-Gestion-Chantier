@@ -17,6 +17,7 @@ import {
   suspensionPossible,
 } from "@/features/administration";
 import type { ClientPlateforme, CodePlan } from "@/features/administration";
+import { PLANS_DISPONIBLES } from "@/features/abonnement/types";
 import {
   changerPlan,
   lireClient,
@@ -42,7 +43,8 @@ import {
   TON_STATUT_CLIENT,
 } from "../../tons";
 
-const PLANS: CodePlan[] = ["DECOUVERTE", "PRO", "ENTREPRISE"];
+/** Le catalogue de la page de tarifs de l'espace entreprise, dans son ordre. */
+const PLANS: CodePlan[] = PLANS_DISPONIBLES.map((definition) => definition.code);
 
 /**
  * L'identifiant qui relie le bouton du pied de modale au formulaire.
@@ -84,7 +86,7 @@ export function FicheClient({ id }: { id: string }) {
 
   const [action, setAction] = useState<Action>(null);
   const [erreurAction, setErreurAction] = useState<string | null>(null);
-  const [plan, setPlan] = useState<CodePlan>("PRO");
+  const [plan, setPlan] = useState<CodePlan>("MAITRE_OEUVRE");
 
   const requete = useQuery({
     queryKey: CLES_ADMINISTRATION.client(id),

@@ -107,7 +107,7 @@ const ECRANS = [
   { nom: "14-projets", url: "/projets", session: true },
   { nom: "15-projet-detail", url: "/projets", session: true, prepare: ouvrirPremierProjet },
   { nom: "16-parametres-roles", url: "/parametres/roles", session: true },
-  { nom: "17-parametres-utilisateurs", url: "/parametres/utilisateurs", session: true },
+  { nom: "17-parametres-utilisateurs", url: "/parametres/collaborateurs", session: true },
 ];
 
 // --- Pilotage ----------------------------------------------------------------

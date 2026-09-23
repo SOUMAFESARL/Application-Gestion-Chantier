@@ -324,6 +324,11 @@ const eslintConfig = defineConfig([
       // Le portefeuille de chantiers de démonstration, en attendant
       // « GET /projets/ » : des noms de chantiers, de clients et de personnes.
       "features/projets/simulationProjets.ts",
+      // La matrice de rôles de démonstration, en attendant « GET /roles/ » :
+      // des libellés et descriptions de rôles, et les messages du serveur.
+      "features/roles/simulationRoles.ts",
+      // L'équipe de démonstration, en attendant « GET /collaborateurs/ ».
+      "features/invitations/simulationCollaborateurs.ts",
       // `[id]` ne s'écrit pas tel quel : pour le filtre de fichiers, les
       // crochets d'une route dynamique sont une classe de caractères — ils y
       // désignent « i ou d ». Un seul niveau de segment suffit à la désigner.

@@ -16,6 +16,8 @@
  * le produit : c'est l'unité dans laquelle on additionne sans perdre un franc.
  */
 
+import type { CodePlan as CodePlanCatalogue } from "@/features/abonnement/types";
+
 /**
  * Ce qu'un agent de la plateforme a le droit de faire.
  *
@@ -51,8 +53,12 @@ export type StatutClient = "EN_ATTENTE" | "ACTIF" | "SUSPENDU" | "RESILIE";
 /** L'état de l'abonnement, indépendant de celui du client. */
 export type StatutAbonnement = "ESSAI" | "ACTIF" | "IMPAYE" | "SUSPENDU" | "RESILIE";
 
-/** Les trois plans commercialisés. */
-export type CodePlan = "DECOUVERTE" | "PRO" | "ENTREPRISE";
+/**
+ * Les trois plans commercialisés — **ceux du catalogue de vente de l'espace
+ * entreprise**, pas une liste à part : le back-office change le plan qu'un
+ * client a souscrit sur la page de tarifs, il n'en invente pas d'autres.
+ */
+export type CodePlan = CodePlanCatalogue;
 
 export interface AbonnementClient {
   statut: StatutAbonnement;

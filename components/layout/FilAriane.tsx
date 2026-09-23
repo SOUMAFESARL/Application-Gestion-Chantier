@@ -28,6 +28,9 @@ import { Button } from "@/components/ui/button";
  */
 const CARTE_SEGMENTS: Record<string, string> = {
   "/tableau-de-bord": "accueil",
+  "/abonnement": "abonnement",
+  "/abonnement/tarifs": "tarifs",
+  "/abonnement/historique": "historique",
   "/projets": "projets",
   "/rapports": "chantier",
   "/planning": "planning",
@@ -42,7 +45,7 @@ const CARTE_SEGMENTS: Record<string, string> = {
   "/tiers": "tiers",
   "/notifications": "notifications",
   "/parametres": "parametres",
-  "/parametres/utilisateurs": "collaborateurs",
+  "/parametres/collaborateurs": "collaborateurs",
   "/parametres/roles": "roles",
   "/parametres/configuration": "configuration",
 };

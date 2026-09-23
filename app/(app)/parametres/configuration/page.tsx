@@ -1,35 +1,26 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
-import { Wizard } from "./Wizard";
+import { ConfigurationEntreprise } from "./ConfigurationEntreprise";
 
 /**
- * Écran « Configuration initiale » — maquette M9.
+ * Écran « Configuration de l'entreprise ».
  *
- * Motif d'interface : assistant en trois étapes.
+ * **Le wizard en trois étapes a été retiré.** Il enchaînait l'entreprise, un
+ * premier projet et une invitation d'équipe, forcé à la première connexion.
+ * Ce n'est plus le produit : cet écran ne porte plus que l'entreprise, et se
+ * consulte à tout moment depuis Paramètres — pas seulement au premier
+ * lancement. Le premier projet se crée depuis Projets, l'équipe s'invite
+ * depuis Paramètres → Collaborateurs.
  *
- * Parcours : `parcours_wizard_onboarding_CCD_Digital.md` (T-022).
- * Persistance : `contrat_wizard_CCD_Digital.md` (T-024).
- *
- * **La configuration appartient à l'entreprise, pas à la personne** : un
- * second administrateur qui se connecte après le premier ne la recommence
- * pas, il la reprend là où elle en est. C'est un état unique par schéma.
+ * **La configuration appartient à l'entreprise, pas à la personne** : elle
+ * est relue depuis le serveur à chaque visite, pas depuis un brouillon local
+ * — un second administrateur qui l'ouvre voit ce qui a été enregistré, pas
+ * une saisie oubliée par le premier.
  *
  * Réservé à `AD`. La garde de route reste un **confort** : le serveur vérifie
  * les droits à chaque requête, et une route cachée n'est pas une route
  * protégée.
- *
- * **Déplacé sous `/parametres/configuration`** (plan de refonte) : l'écran
- * vit désormais dans la coquille applicative, sidebar comprise, au lieu
- * d'un mode plein écran séparé — `FormulaireConnexion` n'y redirige plus
- * que lorsque la configuration n'est pas terminée (`lireProgression().terminee_le`).
- *
- * **`BandeauSimulation` retiré à la demande du propriétaire du produit.** Le
- * guide frontend §8 impose ce bandeau sur tout écran non branché sur de vraies
- * données, et c'était le dernier écran à le porter : le composant n'a donc plus
- * d'appelant, mais il reste en place — le §8 exige le mécanisme, pas la
- * présence du bandeau sur cet écran-ci. À remettre si l'assistant est montré à
- * un prospect avant que ses endpoints de saisie n'existent.
  */
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("configuration");
@@ -37,12 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function Page() {
-  return (
-    // `max-w-3xl` et non `5xl` : sans le rail latéral d'étapes, une colonne
-    // unique de 1024 px étirerait les champs sur toute la largeur de l'écran
-    // au lieu de les centrer.
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-      <Wizard />
-    </div>
-  );
+  // Centré, contrairement aux écrans de liste : c'est une fiche qu'on remplit,
+  // pas un tableau de bord — `ConfigurationEntreprise` porte sa largeur.
+  return <ConfigurationEntreprise />;
 }

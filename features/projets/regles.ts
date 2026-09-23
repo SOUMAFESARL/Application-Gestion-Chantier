@@ -177,6 +177,19 @@ export function datesParDefaut(maintenant: Date = new Date()): {
 }
 
 /**
+ * Les dates prévues d'un chantier se suivent-elles.
+ *
+ * Un chantier peut commencer et finir le même jour (une intervention
+ * ponctuelle) ; il ne peut pas finir avant d'avoir commencé. Les dates sont en
+ * ISO court, dont l'ordre alphabétique est l'ordre chronologique : pas besoin
+ * de passer par `Date`, et donc pas de décalage de fuseau possible.
+ */
+export function datesChantierCoherentes(debut: string, fin: string): boolean {
+  if (!debut || !fin) return true;
+  return fin >= debut;
+}
+
+/**
  * Un chantier qui vient d'être créé n'a encore ni avancement ni consommation.
  *
  * Cet état initial était recopié dans le tableau de bord, au retour de la

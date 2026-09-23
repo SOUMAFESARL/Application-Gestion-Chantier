@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
+import { EnTetePage } from "@/components/layout/EnTetePage";
 import { Badge } from "@/components/ui/Badge";
 import { Bouton } from "@/components/ui/Bouton";
 import { Carte } from "@/components/ui/Carte";
@@ -57,33 +58,34 @@ export function TableauDeBordClient({ donneesInitiales }: TableauDeBordClientPro
   const alerte = donnees.alerteIntemperies ?? meteo?.alerteIntemperies ?? null;
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] p-8 max-[640px]:p-4">
+    <div className="w-full">
       {/* En-tête de pilotage & Actions rapides */}
-      <header className="mb-4 flex flex-wrap items-start justify-between gap-4 max-[640px]:flex-col">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">{t("titre")}</h1>
-          <p className="mt-0.5 text-[13px] text-neutral-600">{t("sousTitre")}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3 max-[640px]:w-full">
-          <Link href="/rapports" style={{ textDecoration: "none" }}>
-            <Bouton variante="secondaire" iconeGauche={<FileText size={16} weight="bold" />}>
-              {t("actionRapport")}
+      <EnTetePage
+        className="mb-4"
+        titre={t("titre")}
+        description={t("sousTitre")}
+        actions={
+          <>
+            <Link href="/rapports" style={{ textDecoration: "none" }}>
+              <Bouton variante="secondaire" iconeGauche={<FileText size={16} weight="bold" />}>
+                {t("actionRapport")}
+              </Bouton>
+            </Link>
+            <Link href="/finance/bons-paiement" style={{ textDecoration: "none" }}>
+              <Bouton variante="secondaire" iconeGauche={<CheckCircle size={16} weight="bold" />}>
+                {t("actionMetres")}
+              </Bouton>
+            </Link>
+            <Bouton
+              variante="primaire"
+              iconeGauche={<Plus size={16} weight="bold" />}
+              onClick={() => setTiroirCreationOuvert(true)}
+            >
+              {t("actionNouveauProjet")}
             </Bouton>
-          </Link>
-          <Link href="/finance/bons-paiement" style={{ textDecoration: "none" }}>
-            <Bouton variante="secondaire" iconeGauche={<CheckCircle size={16} weight="bold" />}>
-              {t("actionMetres")}
-            </Bouton>
-          </Link>
-          <Bouton
-            variante="primaire"
-            iconeGauche={<Plus size={16} weight="bold" />}
-            onClick={() => setTiroirCreationOuvert(true)}
-          >
-            {t("actionNouveauProjet")}
-          </Bouton>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {/* Empty State valorisant — T-S1-04 */}
       {donnees.aucunChantier && (
@@ -92,7 +94,7 @@ export function TableauDeBordClient({ donneesInitiales }: TableauDeBordClientPro
             <BuildingOffice
               size={40}
               weight="duotone"
-              style={{ color: "var(--color-primary-500, #D4652A)" }}
+              style={{ color: "var(--color-primary-500)" }}
             />
           </div>
           <Badge variante="neutre">{t("emptyState.badgeSansChantier")}</Badge>

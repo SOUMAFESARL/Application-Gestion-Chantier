@@ -40,32 +40,11 @@ import {
 import type { EtatConnexion } from "@/features/auth/etats";
 import { schemaConnexion } from "@/features/auth/validations";
 import type { SaisieConnexion, ValeursConnexion } from "@/features/auth/validations";
-import { lireProgression } from "@/features/configuration/api";
 import { effacerJetons } from "@/lib/api";
 import { lireRouteRetour, purgerRouteRetour } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 
 const DESTINATION_TABLEAU_DE_BORD = "/tableau-de-bord";
-const DESTINATION_CONFIGURATION = "/parametres/configuration";
-
-/**
- * La configuration initiale n'est proposée qu'une fois — celle où les champs
- * obligatoires de l'entreprise sont encore vides. Une fois `terminee_le`
- * posé par le serveur (assistant complété lors d'une connexion précédente),
- * il n'y a plus de raison d'y repasser : direction le tableau de bord.
- *
- * Un échec de lecture (réseau, 403) retombe sur la configuration — mieux
- * vaut la proposer à tort qu'un écran blanc juste après une connexion
- * réussie.
- */
-async function destinationParDefaut(): Promise<string> {
-  try {
-    const progression = await lireProgression();
-    return progression.terminee_le ? DESTINATION_TABLEAU_DE_BORD : DESTINATION_CONFIGURATION;
-  } catch {
-    return DESTINATION_CONFIGURATION;
-  }
-}
 
 /** Le rayon de la maquette, commun aux champs et aux boutons de cet écran. */
 const RAYON = "rounded-lg";
@@ -150,7 +129,7 @@ export function FormulaireConnexion() {
       const destination =
         cible && cible.startsWith("/") && !cible.startsWith("//")
           ? cible
-          : await destinationParDefaut();
+          : DESTINATION_TABLEAU_DE_BORD;
       router.replace(destination);
     } catch (cause) {
       // Une panne réseau et un 429 ne sont pas des mots de passe ratés.

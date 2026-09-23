@@ -16,9 +16,16 @@
  * Il ne se cache pas : les écrans qu'il alimente portent `BandeauSimulation`.
  */
 
+import { PLANS_DISPONIBLES } from "@/features/abonnement/types";
+
 import { attendre, refuser } from "./simulation";
 
-const CLE_ADMIN = "ccd.simulation.administration";
+/**
+ * Versionnée : un onglet ouvert avant le passage au catalogue Bâtisseur /
+ * Maître d'Œuvre / Promoteur garde en mémoire des clients sur des plans qui
+ * n'existent plus, et leur libellé ne se traduirait pas.
+ */
+const CLE_ADMIN = "ccd.simulation.administration.v2";
 
 /**
  * Le compte de démonstration du back-office.
@@ -36,7 +43,7 @@ export const ADMIN_DEMO = {
 
 export interface ChargeAbonnementClient {
   statut: "ESSAI" | "ACTIF" | "IMPAYE" | "SUSPENDU" | "RESILIE";
-  plan_code: "DECOUVERTE" | "PRO" | "ENTREPRISE";
+  plan_code: "BATISSEUR" | "MAITRE_OEUVRE" | "PROMOTEUR";
   reference_transaction: string;
   montant_mensuel_centimes: number;
   date_debut: string;
@@ -122,9 +129,9 @@ function clientsInitiaux(): ChargeClientPlateforme[] {
       nb_projets: 12,
       abonnement: {
         statut: "ACTIF",
-        plan_code: "ENTREPRISE",
+        plan_code: "PROMOTEUR",
         reference_transaction: "TXN-2025-10042",
-        montant_mensuel_centimes: 7_500_000,
+        montant_mensuel_centimes: 18_900_000,
         date_debut: jour(-419),
         date_fin: jour(311),
         fin_essai: null,
@@ -147,9 +154,9 @@ function clientsInitiaux(): ChargeClientPlateforme[] {
       nb_projets: 2,
       abonnement: {
         statut: "ESSAI",
-        plan_code: "PRO",
+        plan_code: "MAITRE_OEUVRE",
         reference_transaction: "TXN-2026-00871",
-        montant_mensuel_centimes: 3_500_000,
+        montant_mensuel_centimes: 7_900_000,
         date_debut: jour(-12),
         date_fin: jour(2),
         fin_essai: jour(2),
@@ -172,9 +179,9 @@ function clientsInitiaux(): ChargeClientPlateforme[] {
       nb_projets: 7,
       abonnement: {
         statut: "IMPAYE",
-        plan_code: "PRO",
+        plan_code: "MAITRE_OEUVRE",
         reference_transaction: "TXN-2025-09456",
-        montant_mensuel_centimes: 3_500_000,
+        montant_mensuel_centimes: 7_900_000,
         date_debut: jour(-199),
         date_fin: jour(-9),
         fin_essai: null,
@@ -197,9 +204,9 @@ function clientsInitiaux(): ChargeClientPlateforme[] {
       nb_projets: 4,
       abonnement: {
         statut: "SUSPENDU",
-        plan_code: "DECOUVERTE",
+        plan_code: "BATISSEUR",
         reference_transaction: "TXN-2025-08213",
-        montant_mensuel_centimes: 1_500_000,
+        montant_mensuel_centimes: 2_900_000,
         date_debut: jour(-330),
         date_fin: jour(-45),
         fin_essai: null,
@@ -222,9 +229,9 @@ function clientsInitiaux(): ChargeClientPlateforme[] {
       nb_projets: 0,
       abonnement: {
         statut: "ESSAI",
-        plan_code: "DECOUVERTE",
+        plan_code: "BATISSEUR",
         reference_transaction: "TXN-2026-00919",
-        montant_mensuel_centimes: 1_500_000,
+        montant_mensuel_centimes: 2_900_000,
         date_debut: jour(-3),
         date_fin: jour(11),
         fin_essai: jour(11),
@@ -405,11 +412,14 @@ const ADMINISTRATEUR_DEMO: ChargeAdministrateur = {
   role: "SUPERVISEUR",
 };
 
-const TARIFS_MENSUELS: Record<string, number> = {
-  DECOUVERTE: 1_500_000,
-  PRO: 3_500_000,
-  ENTREPRISE: 7_500_000,
-};
+/**
+ * Le tarif mensuel de chaque plan, **lu dans le catalogue de vente** de
+ * l'espace entreprise : un changement de plan au back-office facture le prix
+ * affiché sur la page de tarifs, jamais une grille parallèle.
+ */
+const TARIFS_MENSUELS: Record<string, number> = Object.fromEntries(
+  PLANS_DISPONIBLES.map((plan) => [plan.code, plan.prix_mensuel_centimes]),
+);
 
 export const simulationAdministration = {
   /** `POST /administration/auth/token/` */

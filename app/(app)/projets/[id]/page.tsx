@@ -15,6 +15,7 @@ import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
+import { EnTetePage } from "@/components/layout/EnTetePage";
 import { Badge } from "@/components/ui/Badge";
 import { Carte } from "@/components/ui/Carte";
 import { lireProjet } from "@/features/projets/adaptateur";
@@ -121,7 +122,7 @@ export default function Page() {
   const lienWhatsApp = construireLienWhatsApp(lead?.lienWhatsApp, lead?.telephone);
 
   return (
-    <main className="mx-auto flex w-full max-w-[1300px] flex-col gap-8 p-8">
+    <div className="flex w-full flex-col gap-8">
       {/* Navigation retour */}
       <nav className="-mb-2">
         <Link href="/tableau-de-bord" className="inline-flex items-center gap-2 text-sm font-medium text-neutral-600 no-underline transition-colors hover:text-primary-600 hover:underline">
@@ -131,27 +132,25 @@ export default function Page() {
       </nav>
 
       {/* En-tête principal de la fiche chantier */}
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-200 pb-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-[26px] font-bold text-neutral-900">{t("titre", { nom: projet.nom })}</h1>
-          <p className="text-sm text-neutral-500">
-            {t("sousTitre", {
-              reference: projet.reference,
-              client: projet.client.raisonSociale,
-              ville: projet.ville,
-            })}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Badge variante={estRetard ? "avertissement" : "succes"}>
-            {estRetard
-              ? t("badgeRetard", { ecart: Math.abs(ecart) })
-              : t("badgeConforme", { ecart: Math.abs(ecart) })}
-          </Badge>
-          <Badge variante="neutre">{projet.statut}</Badge>
-        </div>
-      </header>
+      <EnTetePage
+        className="border-b border-neutral-200 pb-4"
+        titre={t("titre", { nom: projet.nom })}
+        description={t("sousTitre", {
+          reference: projet.reference,
+          client: projet.client.raisonSociale,
+          ville: projet.ville,
+        })}
+        actions={
+          <>
+            <Badge variante={estRetard ? "avertissement" : "succes"}>
+              {estRetard
+                ? t("badgeRetard", { ecart: Math.abs(ecart) })
+                : t("badgeConforme", { ecart: Math.abs(ecart) })}
+            </Badge>
+            <Badge variante="neutre">{projet.statut}</Badge>
+          </>
+        }
+      />
 
       {/* Grille principale */}
       <div className="grid grid-cols-[2fr_1fr] items-start gap-8 max-[900px]:grid-cols-1">
@@ -196,7 +195,7 @@ export default function Page() {
           <Carte>
             <div className={CARTE_ENTETE}>
               <div className={CARTE_TITRE}>
-                <CurrencyCircleDollar size={18} style={{ color: "var(--color-primary-500, #D4652A)" }} />
+                <CurrencyCircleDollar size={18} style={{ color: "var(--color-primary-500)" }} />
                 <span>{t("budgetTitre")}</span>
               </div>
             </div>
@@ -315,6 +314,6 @@ export default function Page() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

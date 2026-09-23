@@ -173,7 +173,7 @@ errors, not warnings:
 2. A custom `no-restricted-syntax` rule banning **any accented French
    character or French sentence shape in a literal, anywhere in `.ts`/`.tsx`**
    — this is what catches validation messages built in plain JS
-   (`"La ville est requise."`), label arrays (`MODULES_CCD`, `PALETTE_OFFICIELLE`),
+   (`"La ville est requise."`), label arrays (`MODULES_CCD`, `MOIS`),
    and static `metadata` exports (must use `generateMetadata()` +
    `getTranslations` instead).
 

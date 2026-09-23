@@ -94,8 +94,14 @@ export function MatricePermissionsTable({
                           variante="secondaire"
                           taille="sm"
                           iconeGauche={<Pencil size={14} />}
+                          disabled={role.est_systeme}
                           onClick={() => onEditerRole(role)}
                           aria-label={`${t("editer")} ${role.libelle}`}
+                          title={
+                            role.est_systeme
+                              ? t("systeme")
+                              : `${t("editer")} ${role.libelle}`
+                          }
                         >
                           {t("editer")}
                         </Bouton>

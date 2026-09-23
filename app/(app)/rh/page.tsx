@@ -1,12 +1,11 @@
 import { useTranslations } from "next-intl";
 
+import { EnTetePage } from "@/components/layout/EnTetePage";
+
 export default function RhPage() {
   const t = useTranslations("squelettes");
 
   return (
-    <main style={{ padding: "var(--space-6)" }}>
-      <h1>{t("rh.titre")}</h1>
-      <p>{t("aConstruire", { motif: t("rh.motif") })}</p>
-    </main>
+    <EnTetePage titre={t("rh.titre")} description={t("aConstruire", { motif: t("rh.motif") })} />
   );
 }

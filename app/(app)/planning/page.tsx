@@ -1,12 +1,11 @@
 import { useTranslations } from "next-intl";
 
+import { EnTetePage } from "@/components/layout/EnTetePage";
+
 export default function PlanningPage() {
   const t = useTranslations("squelettes");
 
   return (
-    <main style={{ padding: "var(--space-6)" }}>
-      <h1>{t("planning.titre")}</h1>
-      <p>{t("aConstruire", { motif: t("planning.motif") })}</p>
-    </main>
+    <EnTetePage titre={t("planning.titre")} description={t("aConstruire", { motif: t("planning.motif") })} />
   );
 }

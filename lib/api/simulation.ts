@@ -238,177 +238,56 @@ export const simulation = {
 };
 
 // ---------------------------------------------------------------------------
-// Les endpoints de T-024 — progression de la configuration
+// L'entreprise — écran de configuration (plus de wizard ni de progression)
 // ---------------------------------------------------------------------------
-type CodeEtapeSim = "ENTREPRISE" | "PROJET" | "EQUIPE";
-const ORDRE: CodeEtapeSim[] = ["ENTREPRISE", "PROJET", "EQUIPE"];
+const CLE_ENTREPRISE = "ccd.simulation.entreprise";
 
-const CLE_CONFIG = "ccd.simulation.configuration";
+const ENTREPRISE_DEMO: Record<string, unknown> = {
+  raison_sociale: "Ivoire BTP",
+  pays: "CI",
+  adresse: "",
+  ville: "",
+  rccm: "",
+  nif: "",
+  telephone_contact: "",
+  email_contact: "",
+};
 
-interface EtatConfiguration {
-  demarre_le: string;
-  terminee_le: string | null;
-  etapes: Partial<Record<CodeEtapeSim, { mode: "VALIDEE" | "PASSEE"; franchie_le: string }>>;
-  projet_reference: string | null;
-  /** Ce que les étapes ont écrit — le récapitulatif de M9 le relit. */
-  entreprise: Record<string, unknown> | null;
-  projet: Record<string, unknown> | null;
-  invitations: number;
-}
-
-function lireConfig(): EtatConfiguration {
-  const vide: EtatConfiguration = {
-    demarre_le: new Date().toISOString(),
-    terminee_le: null,
-    etapes: {},
-    projet_reference: null,
-    entreprise: null,
-    projet: null,
-    invitations: 0,
-  };
-  if (typeof window === "undefined") return vide;
+function lireEntrepriseSimulee(): Record<string, unknown> {
+  if (typeof window === "undefined") return ENTREPRISE_DEMO;
   try {
-    const brut = window.sessionStorage.getItem(CLE_CONFIG);
-    return brut ? (JSON.parse(brut) as EtatConfiguration) : vide;
+    const brut = window.sessionStorage.getItem(CLE_ENTREPRISE);
+    return brut ? (JSON.parse(brut) as Record<string, unknown>) : ENTREPRISE_DEMO;
   } catch {
-    return vide;
+    return ENTREPRISE_DEMO;
   }
 }
 
-function ecrireConfig(etat: EtatConfiguration): void {
+function ecrireEntrepriseSimulee(donnees: Record<string, unknown>): void {
   if (typeof window === "undefined") return;
   try {
-    window.sessionStorage.setItem(CLE_CONFIG, JSON.stringify(etat));
+    window.sessionStorage.setItem(CLE_ENTREPRISE, JSON.stringify(donnees));
   } catch {
     // Sans mémoire, la simulation repart de zéro — sans conséquence.
   }
 }
 
-/** Le pourcentage se **calcule**, il ne se stocke pas — R-90. */
-function projeter(etat: EtatConfiguration) {
-  const franchies = ORDRE.filter((code) => etat.etapes[code]);
-  const courante = ORDRE.find((code) => !etat.etapes[code]) ?? ORDRE[ORDRE.length - 1];
-
-  return {
-    statut: (etat.terminee_le ? "TERMINEE" : "EN_COURS") as "EN_COURS" | "TERMINEE",
-    etape_courante: courante,
-    pourcentage: etat.terminee_le
-      ? 100
-      : Math.round((100 * franchies.length) / ORDRE.length),
-    demarre_le: etat.demarre_le,
-    terminee_le: etat.terminee_le,
-    etapes: ORDRE.map((code) => ({
-      code,
-      mode: etat.etapes[code]?.mode ?? null,
-      franchie_le: etat.etapes[code]?.franchie_le ?? null,
-    })),
-  };
-}
-
 export const simulationConfiguration = {
-  async lire() {
-    return attendre(projeter(lireConfig()), 200);
-  },
-
-  async franchir(code: CodeEtapeSim, mode: "VALIDEE" | "PASSEE") {
-    const etat = lireConfig();
-
-    if (etat.terminee_le) {
-      refuser("configuration_terminee", "La configuration est déjà terminée.", 409);
-    }
-    if (mode === "PASSEE" && code !== "EQUIPE") {
-      refuser("etape_non_facultative", "Cette étape ne peut pas être passée.", 422);
-    }
-
-    // On ne saute pas une étape **en avant** — R-94.
-    const rang = ORDRE.indexOf(code);
-    const precedentesFranchies = ORDRE.slice(0, rang).every((c) => etat.etapes[c]);
-    if (!precedentesFranchies) {
-      refuser(
-        "etape_precedente_non_franchie",
-        "Une étape précédente n’a pas été franchie.",
-        422,
-      );
-    }
-
-    // Rejeu : `franchie_le` ne bouge pas — R-96. Le remettre à jour ferait
-    // passer une configuration de dix minutes à trois semaines parce que
-    // quelqu'un a corrigé une faute de frappe.
-    if (!etat.etapes[code]) {
-      etat.etapes[code] = { mode, franchie_le: new Date().toISOString() };
-    }
-
-    if (ORDRE.every((c) => etat.etapes[c]) && !etat.terminee_le) {
-      etat.terminee_le = new Date().toISOString();
-    }
-
-    ecrireConfig(etat);
-    return attendre(projeter(etat), 300);
-  },
-
-  async terminer() {
-    const etat = lireConfig();
-    const manquantes = ORDRE.filter((c) => !etat.etapes[c]);
-    if (manquantes.length > 0) {
-      refuser("etapes_manquantes", "Certaines étapes ne sont pas franchies.", 422, {
-        etapes: manquantes,
-      });
-    }
-    if (!etat.terminee_le) etat.terminee_le = new Date().toISOString();
-    ecrireConfig(etat);
-    return attendre(projeter(etat), 200);
+  /**
+   * **Persiste réellement**, contrairement à l'ancienne version — celle d'un
+   * wizard — qui rejouait toujours la même fiche démo sans jamais relire ce
+   * qui avait été enregistré. L'écran de configuration se consulte
+   * maintenant à tout moment, pas seulement à la première connexion : ce
+   * qu'on y enregistre doit s'y retrouver à la visite suivante.
+   */
+  async lireEntreprise() {
+    return attendre({ ...lireEntrepriseSimulee() }, 200);
   },
 
   async enregistrerEntreprise(donnees: Record<string, unknown>) {
-    const etat = lireConfig();
-    etat.entreprise = donnees;
-    ecrireConfig(etat);
+    const fusion = { ...lireEntrepriseSimulee(), ...donnees };
+    ecrireEntrepriseSimulee(fusion);
     return attendre(undefined, 400);
-  },
-
-  async creerProjet(donnees: Record<string, unknown>) {
-    const etat = lireConfig();
-    const cpInvite = donnees.chef_projet_invite as
-      | { nom?: string; prenom?: string; email?: string; telephone?: string }
-      | undefined;
-    const cp = cpInvite
-      ? {
-          nom: cpInvite.nom,
-          prenom: cpInvite.prenom,
-          nom_complet: `${cpInvite.prenom ?? ""} ${cpInvite.nom ?? ""}`.trim() || cpInvite.email,
-          email: cpInvite.email,
-          telephone: cpInvite.telephone,
-        }
-      : undefined;
-    etat.projet = {
-      ...donnees,
-      chef_projet: cp,
-    };
-    // `PRJ-{AAAA}-{n}`, séquentiel par schéma : jamais saisi, toujours engendré.
-    etat.projet_reference ??= `PRJ-${new Date().getFullYear()}-001`;
-    ecrireConfig(etat);
-    return attendre({ reference: etat.projet_reference }, 500);
-  },
-
-  async inviter(liste: unknown[]) {
-    const etat = lireConfig();
-    etat.invitations = liste.length;
-    ecrireConfig(etat);
-    return attendre(undefined, 200 + liste.length * 150);
-  },
-
-  /** Ce que l'écran de confirmation relit — M9, récapitulatif. */
-  async recapitulatif() {
-    const etat = lireConfig();
-    return attendre(
-      {
-        entreprise: etat.entreprise,
-        projet: etat.projet,
-        reference: etat.projet_reference,
-        invitations: etat.invitations,
-      },
-      150,
-    );
   },
 };
 
@@ -427,7 +306,7 @@ export interface AbonnementSimule {
 function debutEssai(): AbonnementSimule {
   const fin = new Date();
   fin.setDate(fin.getDate() + 14);
-  return { statut: "ESSAI", plan: "PRO", fin_essai: fin.toISOString().slice(0, 10) };
+  return { statut: "ESSAI", plan: "MAITRE_OEUVRE", fin_essai: fin.toISOString().slice(0, 10) };
 }
 
 export const simulationAbonnement = {
@@ -454,7 +333,7 @@ export const simulationAbonnement = {
     fin.setDate(fin.getDate() + joursRestants);
     const etat: AbonnementSimule = {
       statut: joursRestants < 0 ? "SUSPENDU" : "ESSAI",
-      plan: "PRO",
+      plan: "MAITRE_OEUVRE",
       fin_essai: fin.toISOString().slice(0, 10),
     };
     try {

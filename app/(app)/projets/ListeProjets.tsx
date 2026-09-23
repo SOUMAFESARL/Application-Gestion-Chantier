@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 
+import { EnTetePage } from "@/components/layout/EnTetePage";
 import { Badge, Bouton, Carte, EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import type { VarianteBadge } from "@/components/ui";
 import { aideColonnes, DataTable } from "@/components/ui/data-table";
@@ -238,19 +239,11 @@ export function ListeProjets() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* L'action principale reste à droite à **toutes** les largeurs : ni
-          `flex-wrap` ni bascule en colonne sous 640 px, qui la renvoyaient
-          sous le titre sur téléphone. Le titre se resserre (`min-w-0`), le
-          bouton garde sa taille (`shrink-0`). */}
-      <header className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-h2 font-bold text-neutral-900">{t("titre")}</h1>
-          <p className="mt-1 text-sm text-neutral-600">
-            {t("sousTitre", { nombre: projets.length })}
-          </p>
-        </div>
-        <div className="shrink-0">{boutonNouveauCompact}</div>
-      </header>
+      <EnTetePage
+        titre={t("titre")}
+        description={t("sousTitre", { nombre: projets.length })}
+        actions={boutonNouveauCompact}
+      />
 
       {requete.isPending && <EtatChargement />}
 

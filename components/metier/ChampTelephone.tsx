@@ -145,7 +145,13 @@ export function ChampTelephone({
             aria-label={t("choisirPays")}
           >
             {PAYS_TELEPHONE.map((option) => (
-              <option key={option.code} value={option.code}>
+              // Les options héritent du `text-transparent` du select : sous
+              // Windows, la liste native s'ouvrait donc sur des lignes blanches.
+              <option
+                key={option.code}
+                value={option.code}
+                className="bg-neutral-0 text-neutral-900"
+              >
                 {`${nomDePays(option.code)} (${option.indicatif})`}
               </option>
             ))}
