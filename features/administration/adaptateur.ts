@@ -38,6 +38,7 @@ import type {
   CleIndicateur,
   ClientPlateforme,
   CodePlan,
+  ContenuJetonAdmin,
   IndicateursPlateforme,
   PointEvolutionAbonnements,
   ProfilAdministrateur,
@@ -136,6 +137,13 @@ interface ChargeTendance {
   variation_pourcent: number;
 }
 
+interface ChargeContenuJetonAdmin {
+  email: string;
+  motif: string;
+  expire_dans: number;
+  url_connexion: string;
+}
+
 /**
  * Le nom serveur d'un indicateur, vers son nom de domaine.
  *
@@ -200,6 +208,15 @@ function versClient(charge: ChargeClient): ClientPlateforme {
     nbUtilisateurs: charge.nb_utilisateurs,
     nbProjets: charge.nb_projets,
     abonnement: versAbonnement(charge.abonnement),
+  };
+}
+
+function versContenuJetonAdmin(charge: ChargeContenuJetonAdmin): ContenuJetonAdmin {
+  return {
+    email: charge.email,
+    motif: charge.motif,
+    expireDans: charge.expire_dans,
+    urlConnexion: charge.url_connexion,
   };
 }
 
@@ -304,7 +321,45 @@ export async function demanderReinitialisation(email: string): Promise<void> {
     return;
   }
 
-  await apiAdministration.creer<void>("/auth/mot-de-passe/oublie/", corps);
+  await apiAdministration.creer<void>("/admins/mot-de-passe/demande/", corps);
+}
+
+/**
+ * Vérifie la validité d'un jeton de réinitialisation Super Admin sans le consommer.
+ */
+export async function verifierJetonReinitialisationAdmin(
+  jeton: string,
+): Promise<ContenuJetonAdmin> {
+  if (SIMULATION_ACTIVE) {
+    const charge = await simulationAdministration.verifierJetonReinitialisation(jeton);
+    return versContenuJetonAdmin(charge);
+  }
+
+  const charge = await apiAdministration.creer<ChargeContenuJetonAdmin>(
+    "/admins/mot-de-passe/verifier/",
+    { jeton },
+  );
+  return versContenuJetonAdmin(charge);
+}
+
+/**
+ * Réinitialise le mot de passe d'un Super Administrateur avec son jeton validé.
+ */
+export async function reinitialiserMotDePasseAdmin(
+  jeton: string,
+  motDePasse: string,
+): Promise<void> {
+  const corps = {
+    jeton,
+    mot_de_passe: motDePasse,
+  };
+
+  if (SIMULATION_ACTIVE) {
+    await simulationAdministration.reinitialiserMotDePasse(corps);
+    return;
+  }
+
+  await apiAdministration.creer<void>("/admins/mot-de-passe/reinitialiser/", corps);
 }
 
 /** Déconnexion volontaire — révoque le jeton côté serveur, puis efface. */
@@ -359,7 +414,7 @@ export async function obtenirProfil(): Promise<ProfilAdministrateur> {
 export async function listerClients(signal?: AbortSignal): Promise<ClientPlateforme[]> {
   const charges: ChargeClient[] = SIMULATION_ACTIVE
     ? await simulationAdministration.listerClients()
-    : await apiAdministration.lire<ChargeClient[]>("/clients/", undefined, signal);
+    : await apiAdministration.lire<ChargeClient[]>("/admins/clients/", undefined, signal);
 
   return charges.map(versClient);
 }
@@ -367,7 +422,7 @@ export async function listerClients(signal?: AbortSignal): Promise<ClientPlatefo
 export async function lireClient(id: string): Promise<ClientPlateforme> {
   const charge: ChargeClient = SIMULATION_ACTIVE
     ? await simulationAdministration.lireClient(id)
-    : await apiAdministration.lire<ChargeClient>(`/clients/${id}/`);
+    : await apiAdministration.lire<ChargeClient>(`/admins/clients/${id}/`);
 
   return versClient(charge);
 }
@@ -378,7 +433,7 @@ export async function suspendreClient(
 ): Promise<ClientPlateforme> {
   const charge: ChargeClient = SIMULATION_ACTIVE
     ? await simulationAdministration.suspendreClient(id, motif)
-    : await apiAdministration.creer<ChargeClient>(`/clients/${id}/suspendre/`, { motif });
+    : await apiAdministration.creer<ChargeClient>(`/admins/clients/${id}/suspendre/`, { motif });
 
   return versClient(charge);
 }
@@ -386,7 +441,7 @@ export async function suspendreClient(
 export async function reactiverClient(id: string): Promise<ClientPlateforme> {
   const charge: ChargeClient = SIMULATION_ACTIVE
     ? await simulationAdministration.reactiverClient(id)
-    : await apiAdministration.creer<ChargeClient>(`/clients/${id}/reactiver/`, {});
+    : await apiAdministration.creer<ChargeClient>(`/admins/clients/${id}/reactiver/`, {});
 
   return versClient(charge);
 }
@@ -394,7 +449,7 @@ export async function reactiverClient(id: string): Promise<ClientPlateforme> {
 export async function changerPlan(id: string, plan: CodePlan): Promise<ClientPlateforme> {
   const charge: ChargeClient = SIMULATION_ACTIVE
     ? await simulationAdministration.changerPlan(id, plan)
-    : await apiAdministration.modifier<ChargeClient>(`/clients/${id}/abonnement/`, {
+    : await apiAdministration.modifier<ChargeClient>(`/admins/clients/${id}/abonnement/`, {
         plan_code: plan,
       });
 
@@ -420,7 +475,7 @@ export async function lireIndicateurs(): Promise<IndicateursPlateforme> {
     return indicateurs(await listerClients());
   }
 
-  const charge = await apiAdministration.lire<ChargeIndicateurs>("/indicateurs/");
+  const charge = await apiAdministration.lire<ChargeIndicateurs>("/admins/indicateurs/");
   return {
     nbClients: charge.nb_clients,
     nbClientsActifs: charge.nb_clients_actifs,
@@ -448,7 +503,7 @@ export async function lireEvolutionAbonnements(
   const charges: ChargePointEvolution[] = SIMULATION_ACTIVE
     ? await simulationAdministration.evolutionAbonnements()
     : await apiAdministration.lire<ChargePointEvolution[]>(
-        "/indicateurs/evolution/",
+        "/admins/indicateurs/evolution/",
         undefined,
         signal,
       );
@@ -474,7 +529,7 @@ export async function lireTendancesIndicateurs(
   const charges: ChargeTendance[] = SIMULATION_ACTIVE
     ? await simulationAdministration.tendancesIndicateurs()
     : await apiAdministration.lire<ChargeTendance[]>(
-        "/indicateurs/tendances/",
+        "/admins/indicateurs/tendances/",
         undefined,
         signal,
       );
