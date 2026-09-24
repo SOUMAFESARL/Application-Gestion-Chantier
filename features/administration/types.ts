@@ -55,13 +55,10 @@ export type StatutAbonnement = "ESSAI" | "ACTIF" | "IMPAYE" | "SUSPENDU" | "RESI
 
 /**
  * Les trois plans commercialisés — **ceux du catalogue de vente de l'espace
- * entreprise**, complétés des alias de compatibilité.
+ * entreprise**, pas une liste à part : le back-office change le plan qu'un
+ * client a souscrit sur la page de tarifs, il n'en invente pas d'autres.
  */
-export type CodePlan =
-  | CodePlanCatalogue
-  | "DECOUVERTE"
-  | "PRO"
-  | "ENTREPRISE";
+export type CodePlan = CodePlanCatalogue;
 
 export interface AbonnementClient {
   statut: StatutAbonnement;
@@ -196,14 +193,4 @@ export interface PointEvolutionAbonnements {
   date: Date;
   renouveles: number;
   nonRenouveles: number;
-}
-
-/**
- * Les informations associées à un jeton de réinitialisation Super Admin vérifié.
- */
-export interface ContenuJetonAdmin {
-  email: string;
-  motif: string;
-  expireDans: number;
-  urlConnexion: string;
 }

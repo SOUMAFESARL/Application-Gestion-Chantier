@@ -97,13 +97,6 @@ export interface ChargeTendanceIndicateur {
   variation_pourcent: number;
 }
 
-export interface ChargeContenuJetonAdmin {
-  email: string;
-  motif: string;
-  expire_dans: number;
-  url_connexion: string;
-}
-
 function jour(decalage: number): string {
   const d = new Date();
   d.setDate(d.getDate() + decalage);
@@ -452,7 +445,7 @@ export const simulationAdministration = {
   },
 
   /**
-   * `POST /admins/mot-de-passe/demande/`
+   * `POST /administration/auth/mot-de-passe/oublie/`
    *
    * **`202` quelle que soit l'adresse**, comme côté entreprise : répondre
    * « adresse inconnue » dirait quelles adresses ouvrent ce back-office, à
@@ -462,32 +455,6 @@ export const simulationAdministration = {
   async demanderReinitialisation(corps: { email: string }): Promise<void> {
     void corps;
     await attendre(null, 600);
-  },
-
-  /** `POST /admins/mot-de-passe/verifier/` */
-  async verifierJetonReinitialisation(jeton: string): Promise<ChargeContenuJetonAdmin> {
-    if (!jeton || jeton === "invalide") {
-      await attendre(null, 300);
-      refuser("jeton_expire", "Ce lien n'est plus valable. Demandez-en un nouveau.", 410);
-    }
-    return attendre(
-      {
-        email: ADMIN_DEMO.email,
-        motif: "OUBLI",
-        expire_dans: 3600,
-        url_connexion: "/admin/connexion",
-      },
-      300,
-    );
-  },
-
-  /** `POST /admins/mot-de-passe/reinitialiser/` */
-  async reinitialiserMotDePasse(corps: { jeton: string; mot_de_passe: string }): Promise<void> {
-    if (!corps.jeton || corps.jeton === "invalide") {
-      await attendre(null, 300);
-      refuser("jeton_expire", "Ce lien n'est plus valable. Demandez-en un nouveau.", 410);
-    }
-    await attendre(null, 500);
   },
 
   /** `GET /administration/moi/` */
