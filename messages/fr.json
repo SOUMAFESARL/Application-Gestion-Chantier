@@ -346,8 +346,11 @@
     },
     "plan": {
       "BATISSEUR": "Bâtisseur",
-      "MAITRE_OEUVRE": "Maître d'Œuvre",
-      "PROMOTEUR": "Promoteur"
+      "MAITRE_OEUVRE": "Maître d’Œuvre",
+      "PROMOTEUR": "Promoteur",
+      "DECOUVERTE": "Découverte",
+      "PRO": "Pro",
+      "ENTREPRISE": "Entreprise"
     },
     "reactivation": {
       "annuler": "Annuler",
