@@ -1,39 +1,50 @@
 "use client";
 
-import { CheckCircle, Timer, UserCheck } from "@phosphor-icons/react";
+import { CircleCheck, LoaderCircle, Timer, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
-import { AccrocheAuth, BlocCentre, TitreAuth } from "@/components/layout/CarteAuth";
+import { BlocEtatAuth, CadreAuthDouble, PanneauMarqueDegrade } from "@/components/layout/CadreAuthDouble";
 import { ChampsMotDePasse } from "@/components/metier/ChampsMotDePasse";
-import { Alerte, Bouton, Champ, EtatChargement } from "@/components/ui";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useReglesMotDePasse } from "@/features/auth/reglesMotDePasse";
-import { ecrireProfilLocal } from "@/features/auth/api";
 import {
   accepterInvitation,
   verifierInvitation,
 } from "@/features/invitations/api";
 import type { ContenuInvitation } from "@/features/invitations/api";
-import { ErreurApi, ecrireJetonAcces, ecrireJetonRenouvellement } from "@/lib/api";
+import { ErreurApi } from "@/lib/api";
 
+/**
+ * Écran « Invitation d'un collaborateur ».
+ *
+ * L'admin/DG a déjà saisi le nom du collaborateur en créant l'invitation
+ * (`gestionCollaborateurs`) — cet écran ne redemande donc que le mot de
+ * passe. Contrairement à l'activation d'entreprise (`/activation`), il ne
+ * connecte pas automatiquement : le compte rejoint un espace qui existe déjà,
+ * et la connexion normale reste le seul chemin qui pose une session.
+ *
+ * La mise en page reprend celle de l'activation d'entreprise : cadre double,
+ * panneau en dégradé de marque qui nomme l'entreprise une fois le jeton
+ * vérifié, carte à en-tête `neutral-100`.
+ */
 
 type Etat =
   | { nom: "verification" }
   | { nom: "saisie"; contenu: ContenuInvitation }
   | { nom: "expire" }
-  | { nom: "succes"; utilisateurNom: string; entreprise: string }
-  | { nom: "echec"; message: string; reference: string | null };
+  | { nom: "succes" };
 
 export function EcranInvitation() {
   const t = useTranslations("invitation");
   const router = useRouter();
 
   const [etat, setEtat] = useState<Etat>({ nom: "verification" });
-  const [nom, setNom] = useState("");
-  const [prenom, setPrenom] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [enCours, setEnCours] = useState(false);
@@ -41,11 +52,20 @@ export function EcranInvitation() {
 
   const jeton = useRef<string>("");
 
-  const { regles, complet: motDePasseValide } = useReglesMotDePasse(
-    motDePasse,
-    confirmation,
+  const { regles, complet } = useReglesMotDePasse(motDePasse, confirmation);
+
+  // Le nom de l'entreprise n'est connu qu'après vérification du jeton — le
+  // panneau de gauche affiche donc un message générique jusque-là.
+  const panneau = (
+    <PanneauMarqueDegrade>
+      {etat.nom === "saisie"
+        ? t.rich("panneauBienvenue", {
+            entreprise: etat.contenu.entreprise,
+            fort: (morceaux) => <strong>{morceaux}</strong>,
+          })
+        : t("panneauBienvenueDefaut")}
+    </PanneauMarqueDegrade>
   );
-  const complet = motDePasseValide && nom.trim().length > 0;
 
   // Lecture du jeton depuis le fragment de l'URL (#jeton=...)
   useEffect(() => {
@@ -62,19 +82,10 @@ export function EcranInvitation() {
 
     verification
       .then((contenu) => {
-        if (vivant) {
-          setEtat({ nom: "saisie", contenu });
-          if (contenu.nom) {
-            const parts = contenu.nom.split(" ");
-            setNom(parts[0] || "");
-            setPrenom(parts.slice(1).join(" ") || "");
-          }
-        }
+        if (vivant) setEtat({ nom: "saisie", contenu });
       })
       .catch(() => {
-        if (vivant) {
-          setEtat({ nom: "expire" });
-        }
+        if (vivant) setEtat({ nom: "expire" });
       });
 
     return () => {
@@ -90,31 +101,11 @@ export function EcranInvitation() {
     setErreurSaisie(null);
 
     try {
-      const reponse = await accepterInvitation({
+      await accepterInvitation({
         jeton: jeton.current,
-        nom: nom.trim(),
-        prenom: prenom.trim(),
         mot_de_passe: motDePasse,
       });
-
-      // Stockage de la session
-      ecrireJetonAcces(reponse.access);
-      ecrireJetonRenouvellement(reponse.refresh);
-      ecrireProfilLocal(reponse.utilisateur);
-
-      const nomEntreprise =
-        etat.nom === "saisie" ? etat.contenu.entreprise : "votre espace";
-
-      setEtat({
-        nom: "succes",
-        utilisateurNom: `${prenom} ${nom}`.trim(),
-        entreprise: nomEntreprise,
-      });
-
-      // Redirection vers le tableau de bord
-      setTimeout(() => {
-        router.push("/tableau-de-bord");
-      }, 1000);
+      setEtat({ nom: "succes" });
     } catch (cause) {
       const erreur = cause as ErreurApi;
       if (erreur.code === "jeton_expire") {
@@ -127,106 +118,123 @@ export function EcranInvitation() {
     }
   }
 
-  // 1. Écran de chargement
+  // 1. Chargement — vérification du jeton
   if (etat.nom === "verification") {
-    return <EtatChargement message={t("chargement")} />;
+    return (
+      <CadreAuthDouble panneau={panneau}>
+        <Card className="overflow-hidden shadow-md">
+          <CardContent
+            className="flex flex-col items-center gap-3 px-6 py-16 text-center sm:px-8"
+            role="status"
+            aria-live="polite"
+          >
+            <LoaderCircle className="size-8 animate-spin text-primary-500" aria-hidden="true" />
+            <p className="text-base text-neutral-600">{t("chargement")}</p>
+          </CardContent>
+        </Card>
+      </CadreAuthDouble>
+    );
   }
 
-  // 2. Écran lien expiré ou invalide
+  // 2. Lien expiré ou invalide
   if (etat.nom === "expire") {
     return (
-      <BlocCentre ton="avertissement" pastille={<Timer size={32} />}>
-        <TitreAuth>{t("expireTitre")}</TitreAuth>
-        <AccrocheAuth>{t("expireAccroche")}</AccrocheAuth>
-        <div className="mt-3 flex flex-col items-center gap-3">
-          <Bouton pleineLargeur onClick={() => router.push("/connexion")}>
-            {t("expireAction")}
-          </Bouton>
-        </div>
-      </BlocCentre>
+      <CadreAuthDouble panneau={panneau}>
+        <Card className="overflow-hidden shadow-md">
+          <BlocEtatAuth ton="avertissement" icone={<Timer className="size-7" />} titre={t("expireTitre")}>
+            <p>{t("expireAccroche")}</p>
+            <Button size="lg" className="w-full" onClick={() => router.push("/connexion")}>
+              {t("expireAction")}
+            </Button>
+          </BlocEtatAuth>
+        </Card>
+      </CadreAuthDouble>
     );
   }
 
-  // 3. Écran de confirmation de succès
+  // 3. Succès — vers la connexion, pas d'auto-connexion
   if (etat.nom === "succes") {
     return (
-      <BlocCentre ton="succes" pastille={<CheckCircle size={32} weight="fill" />}>
-        <TitreAuth>{t("succesTitre")}</TitreAuth>
-        <AccrocheAuth>{t("succesAccroche")}</AccrocheAuth>
-      </BlocCentre>
+      <CadreAuthDouble panneau={panneau}>
+        <Card className="overflow-hidden shadow-md">
+          <BlocEtatAuth ton="succes" icone={<CircleCheck className="size-7" />} titre={t("succesTitre")}>
+            <p>{t("succesAccroche")}</p>
+            <Button size="lg" className="w-full" onClick={() => router.push("/connexion")}>
+              {t("seConnecter")}
+            </Button>
+          </BlocEtatAuth>
+        </Card>
+      </CadreAuthDouble>
     );
   }
 
-  // 4. Formulaire d'activation et de définition du mot de passe
-  if (etat.nom !== "saisie") {
-    return null;
-  }
-
+  // 4. Définition du mot de passe
   const contenu = etat.contenu;
 
   return (
-    <>
-      <TitreAuth>{t("titre", { entreprise: contenu.entreprise })}</TitreAuth>
-      <AccrocheAuth>
-        {t.rich("accroche", {
-          role: () => contenu.role_libelle,
-          rolePropose: contenu.role_libelle,
-        })}
-      </AccrocheAuth>
+    <CadreAuthDouble panneau={panneau}>
+      <Card className="gap-0 overflow-hidden py-0 shadow-md">
+        {/* Même bande `neutral-100` + filet que l'activation d'entreprise. */}
+        <CardHeader className="gap-1.5 border-b border-border bg-neutral-100 px-6 pt-8 pb-6 text-center sm:px-8">
+          <h1 className="text-2xl leading-tight font-bold tracking-tight text-neutral-900 sm:text-3xl">
+            {t("titre", { entreprise: contenu.entreprise })}
+          </h1>
+          <p className="text-base leading-relaxed text-neutral-600">
+            {t.rich("accroche", {
+              role: contenu.role_libelle,
+              fort: (morceaux) => <strong className="font-semibold text-neutral-800">{morceaux}</strong>,
+            })}
+          </p>
+        </CardHeader>
 
-      <div className="mb-3 flex flex-col gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs tracking-[0.05em] text-neutral-500 uppercase">{t("champEmail")}</span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700">
-            <UserCheck size={14} weight="bold" />
-            {contenu.role_libelle}
-          </span>
-        </div>
-        <div className="text-sm font-semibold break-all text-neutral-900">{contenu.email}</div>
-      </div>
+        <CardContent className="flex flex-col gap-5 px-6 pt-8 pb-8 sm:px-8">
+          <div className="flex flex-col gap-0.5 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3">
+            <span className="text-xs font-medium text-primary-700">{t("champEmail")}</span>
+            <span className="text-sm font-semibold break-all text-neutral-900">{contenu.email}</span>
+          </div>
 
-      {erreurSaisie && <Alerte type="erreur">{erreurSaisie}</Alerte>}
+          {erreurSaisie && (
+            <Alert variant="erreur">
+              <TriangleAlert />
+              <AlertDescription>{erreurSaisie}</AlertDescription>
+            </Alert>
+          )}
 
-      <form onSubmit={soumettre} className="flex flex-col gap-3">
-        <div className="grid gap-2 sm:grid-cols-2 sm:gap-3">
-          <Champ
-            libelle={t("champNom")}
-            required
-            value={nom}
-            onChange={(e) => setNom(e.target.value)}
-            autoComplete="family-name"
-          />
-          <Champ
-            libelle={t("champPrenom")}
-            value={prenom}
-            onChange={(e) => setPrenom(e.target.value)}
-            autoComplete="given-name"
-          />
-        </div>
-
-        <ChampsMotDePasse
-          motDePasse={motDePasse}
-          confirmation={confirmation}
-          regles={regles}
-          onMotDePasse={setMotDePasse}
-          onConfirmation={setConfirmation}
-        />
-
-        <div className="mt-3 flex flex-col items-center gap-3">
-          <Bouton
-            variante="primaire"
-            pleineLargeur
-            type="submit"
-            disabled={!complet || enCours}
+          {/* `--input-height` réduite localement (48px → 44px), comme sur
+              l'activation d'entreprise. */}
+          <form
+            className="flex flex-col gap-5"
+            style={{ "--input-height": "44px" } as React.CSSProperties}
+            onSubmit={soumettre}
+            noValidate
           >
-            {enCours ? t("chargement") : t("boutonActiver")}
-          </Bouton>
+            <ChampsMotDePasse
+              motDePasse={motDePasse}
+              confirmation={confirmation}
+              regles={regles}
+              onMotDePasse={setMotDePasse}
+              onConfirmation={setConfirmation}
+              disabled={enCours}
+            />
 
-          <Link className="text-sm text-neutral-600 underline transition-colors hover:text-neutral-900" href="/connexion">
-            {t("retourConnexion")}
-          </Link>
-        </div>
-      </form>
-    </>
+            <div className="flex flex-col items-center gap-3">
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full text-base font-semibold"
+                aria-busy={enCours}
+                disabled={!complet || enCours}
+              >
+                {enCours && <LoaderCircle className="animate-spin" />}
+                {t("boutonActiver")}
+              </Button>
+              <Link href="/connexion" className="text-sm text-neutral-600 hover:text-neutral-800 hover:underline">
+                {t("retourConnexion")}
+              </Link>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </CadreAuthDouble>
   );
 }

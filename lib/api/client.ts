@@ -344,6 +344,21 @@ function construireUrl(chemin: string, parametres?: Options["parametres"], base?
   return url.toString();
 }
 
+/**
+ * Journal des appels, en développement seulement.
+ *
+ * Les requêtes partent du navigateur : elles n'apparaissent dans le terminal
+ * de `next dev` que parce que `logging.browserToTerminal` y renvoie la console
+ * (`next.config.ts`). En production, rien n'est écrit.
+ */
+const JOURNALISER = process.env.NODE_ENV === "development";
+
+function journaliser(methode: Methode, url: string, statut: number | string, debut: number): void {
+  if (!JOURNALISER) return;
+  const duree = Math.round(performance.now() - debut);
+  console.info(`[api] ${methode} ${url} -> ${statut} (${duree} ms)`);
+}
+
 async function executer(chemin: string, options: Options): Promise<Response> {
   const { methode = "GET", corps, parametres, signal, base, espace = "entreprise" } = options;
 
@@ -354,12 +369,21 @@ async function executer(chemin: string, options: Options): Promise<Response> {
   const jeton = lireJetonAcces(espace);
   if (jeton) entetes.Authorization = `Bearer ${jeton}`;
 
-  return fetch(construireUrl(chemin, parametres, base), {
-    method: methode,
-    headers: entetes,
-    body: corps === undefined ? undefined : estFormData ? corps : JSON.stringify(corps),
-    signal,
-  });
+  const url = construireUrl(chemin, parametres, base);
+  const debut = performance.now();
+  try {
+    const reponse = await fetch(url, {
+      method: methode,
+      headers: entetes,
+      body: corps === undefined ? undefined : estFormData ? corps : JSON.stringify(corps),
+      signal,
+    });
+    journaliser(methode, url, reponse.status, debut);
+    return reponse;
+  } catch (cause) {
+    journaliser(methode, url, "echec reseau", debut);
+    throw cause;
+  }
 }
 
 /**

@@ -12,9 +12,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import type { FormEvent } from "react";
 
-import { CadreAuthDouble, PanneauMarqueDegrade } from "@/components/layout/CadreAuthDouble";
+import { BlocEtatAuth, CadreAuthDouble, PanneauMarqueDegrade } from "@/components/layout/CadreAuthDouble";
 import { ChampsMotDePasse } from "@/components/metier/ChampsMotDePasse";
 import { useReglesMotDePasse } from "@/features/auth/reglesMotDePasse";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -23,7 +23,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ErreurApi } from "@/lib/api";
-import { cn } from "@/lib/utils";
 import {
   activer,
   lireEtatProvisionnement,
@@ -233,7 +232,7 @@ export function EcranActivation() {
     return (
       <CadreAuthDouble panneau={panneau}>
         <Card className="overflow-hidden shadow-md">
-          <BlocEtat ton="avertissement" icone={<TriangleAlert className="size-7" />} titre={t("incompletTitre")}>
+          <BlocEtatAuth ton="avertissement" icone={<TriangleAlert className="size-7" />} titre={t("incompletTitre")}>
             <p>{t("incompletAccroche")}</p>
             <Alert variant="avertissement" className="text-left">
               <TriangleAlert />
@@ -249,7 +248,7 @@ export function EcranActivation() {
                 {t("retourConnexion")}
               </Link>
             </div>
-          </BlocEtat>
+          </BlocEtatAuth>
         </Card>
       </CadreAuthDouble>
     );
@@ -262,7 +261,7 @@ export function EcranActivation() {
     return (
       <CadreAuthDouble panneau={panneau}>
         <Card className="overflow-hidden shadow-md">
-          <BlocEtat ton="avertissement" icone={<Timer className="size-7" />} titre={t("expireTitre")}>
+          <BlocEtatAuth ton="avertissement" icone={<Timer className="size-7" />} titre={t("expireTitre")}>
             <p>
               {t.rich("expireAccroche", { fort: (morceaux) => <strong>{morceaux}</strong> })}
             </p>
@@ -280,7 +279,7 @@ export function EcranActivation() {
                 {t("retourConnexion")}
               </Link>
             </div>
-          </BlocEtat>
+          </BlocEtatAuth>
         </Card>
       </CadreAuthDouble>
     );
@@ -293,12 +292,12 @@ export function EcranActivation() {
     return (
       <CadreAuthDouble panneau={panneau}>
         <Card className="overflow-hidden shadow-md">
-          <BlocEtat icone={<LoaderCircle className="size-7 animate-spin" />} titre={t("creationTitre")}>
+          <BlocEtatAuth icone={<LoaderCircle className="size-7 animate-spin" />} titre={t("creationTitre")}>
             <p>{t("creationAccroche")}</p>
             <p className="text-sm text-neutral-500" role="status">
               {t("creationPatience")}
             </p>
-          </BlocEtat>
+          </BlocEtatAuth>
         </Card>
       </CadreAuthDouble>
     );
@@ -308,12 +307,12 @@ export function EcranActivation() {
     return (
       <CadreAuthDouble panneau={panneau}>
         <Card className="overflow-hidden shadow-md">
-          <BlocEtat ton="succes" icone={<CircleCheck className="size-7" />} titre={t("pretTitre")}>
+          <BlocEtatAuth ton="succes" icone={<CircleCheck className="size-7" />} titre={t("pretTitre")}>
             <p>{t("pretAccroche")}</p>
             <Button size="lg" className="w-full" onClick={() => window.location.assign(etat.url)}>
               {t("pretAction")}
             </Button>
-          </BlocEtat>
+          </BlocEtatAuth>
         </Card>
       </CadreAuthDouble>
     );
@@ -335,7 +334,7 @@ export function EcranActivation() {
     return (
       <CadreAuthDouble panneau={panneau}>
         <Card className="overflow-hidden shadow-md">
-          <BlocEtat ton="avertissement" icone={<TriangleAlert className="size-7" />} titre={t("echecTitre")}>
+          <BlocEtatAuth ton="avertissement" icone={<TriangleAlert className="size-7" />} titre={t("echecTitre")}>
             <Alert variant="erreur" className="text-left">
               <TriangleAlert />
               <AlertTitle>{t("echecAlerte")}</AlertTitle>
@@ -370,7 +369,7 @@ export function EcranActivation() {
                 {t("retourConnexion")}
               </Link>
             </div>
-          </BlocEtat>
+          </BlocEtatAuth>
         </Card>
       </CadreAuthDouble>
     );
@@ -462,45 +461,5 @@ export function EcranActivation() {
         </CardContent>
       </Card>
     </CadreAuthDouble>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-/**
- * Bloc centré des écrans de confirmation — M8 écrans 2, 4 et 6.
- * La pastille porte l'icône ; le texte reste lisible seul (charte §8.4).
- */
-function BlocEtat({
-  ton = "primaire",
-  icone,
-  titre,
-  children,
-}: {
-  ton?: "primaire" | "succes" | "avertissement";
-  icone: ReactNode;
-  titre: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <CardContent className="flex flex-col items-center gap-1.5 px-6 py-10 text-center sm:px-8">
-      <span
-        aria-hidden="true"
-        className={cn(
-          "mb-3 flex size-14 items-center justify-center rounded-full",
-          ton === "succes" && "bg-succes-fond text-succes",
-          ton === "avertissement" && "bg-avertissement-fond text-avertissement",
-          ton === "primaire" && "bg-primary-50 text-primary-500",
-        )}
-      >
-        {icone}
-      </span>
-      <h1 className="text-2xl leading-tight font-bold tracking-tight text-neutral-900">
-        {titre}
-      </h1>
-      <div className="mt-1 flex w-full flex-col items-center gap-4 text-base leading-relaxed text-neutral-600">
-        {children}
-      </div>
-    </CardContent>
   );
 }

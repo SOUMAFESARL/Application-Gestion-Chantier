@@ -583,6 +583,7 @@
       "ST": "Sous-traitant",
       "VI": "Visiteur / Consultation"
     },
+    "simulationLienInvitation": "Essayer l’écran d’activation du collaborateur (démo)",
     "sousTitre": "Gérez les membres de votre entreprise et invitez de nouveaux collaborateurs.",
     "statut": {
       "ACTIF": "Actif",
@@ -629,20 +630,19 @@
     "titre": "Créer votre compte"
   },
   "invitation": {
-    "accroche": "Vous avez été invité à rejoindre l’espace de travail en tant que <role>{role}</role>.",
-    "boutonActiver": "Activer mon compte et accéder",
-    "champConfirmation": "Confirmer le mot de passe",
+    "accroche": "Vous avez été invité à rejoindre l’espace de travail en tant que <fort>{role}</fort>.",
+    "boutonActiver": "Définir mon mot de passe",
     "champEmail": "Adresse email",
-    "champMotDePasse": "Mot de passe",
-    "champNom": "Nom",
-    "champPrenom": "Prénom",
     "chargement": "Vérification de votre invitation…",
     "erreurTitre": "Activation impossible",
     "expireAccroche": "Ce lien d’invitation n’est plus valable (délai de 72 heures dépassé) ou a déjà été utilisé.",
     "expireAction": "Retour à la connexion",
     "expireTitre": "Invitation invalide ou expirée",
+    "panneauBienvenue": "<fort>{entreprise}</fort> vous invite à rejoindre son espace de gestion de chantier.",
+    "panneauBienvenueDefaut": "Rejoignez l’espace de votre entreprise pour suivre vos chantiers, de la préparation à la livraison.",
     "retourConnexion": "Retour à la connexion",
-    "succesAccroche": "Connexion en cours à votre espace de travail…",
+    "seConnecter": "Se connecter",
+    "succesAccroche": "Vous pouvez maintenant vous connecter avec votre adresse email et votre nouveau mot de passe.",
     "succesTitre": "Compte activé avec succès !",
     "titre": "Rejoindre {entreprise}",
     "validite": "Invitation valable 72 h"

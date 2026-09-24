@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, CircleX, Clock, LoaderCircle, Search, UserPlus } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -38,6 +39,7 @@ import {
   creerInvitation,
   listerInvitations,
 } from "@/features/invitations/api";
+import type { InvitationDetail } from "@/features/invitations/api";
 import {
   collaborateurDepuisInvitation,
   collaborateurDepuisProfil,
@@ -108,6 +110,11 @@ export default function PageCollaborateurs() {
   const [pays, setPays] = useState("");
   const [succesMsg, setSuccesMsg] = useState<string | null>(null);
   const [erreurAjout, setErreurAjout] = useState<string | null>(null);
+  // Tant que `POST /invitations/` n'existe pas, la simulation renvoie le
+  // jeton créé (un vrai serveur ne le ferait jamais — il ne voyage que par
+  // email) : ce lien permet de dérouler l'écran du collaborateur sans y avoir
+  // accès autrement.
+  const [lienDemo, setLienDemo] = useState<string | null>(null);
 
   const form = useForm<SaisieAjoutCollaborateur, unknown, ValeursAjoutCollaborateur>({
     resolver: zodResolver(schemaAjoutCollaborateur),
@@ -138,6 +145,7 @@ export default function PageCollaborateurs() {
 
   function ouvrirModale() {
     setErreurAjout(null);
+    setLienDemo(null);
     setModaleOuverte(true);
   }
 
@@ -155,6 +163,8 @@ export default function PageCollaborateurs() {
         ...prev,
       ]);
       setSuccesMsg(t("succesAjout", { nom: valeurs.nomComplet, email: valeurs.email }));
+      const jetonDemo = (nouvelle as InvitationDetail & { jeton?: string }).jeton;
+      setLienDemo(jetonDemo ? `/invitation#jeton=${jetonDemo}` : null);
       form.reset(saisieAjoutVide());
       setModaleOuverte(false);
     } catch (err) {
@@ -270,7 +280,16 @@ export default function PageCollaborateurs() {
       />
 
       {succesMsg && (
-        <Alerte type="succes">
+        <Alerte
+          type="succes"
+          action={
+            lienDemo ? (
+              <Link href={lienDemo} className="font-semibold underline">
+                {t("simulationLienInvitation")}
+              </Link>
+            ) : undefined
+          }
+        >
           <CheckCircle2 size={20} />
           {succesMsg}
         </Alerte>

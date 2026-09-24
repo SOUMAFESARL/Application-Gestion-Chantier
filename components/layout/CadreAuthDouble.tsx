@@ -2,6 +2,7 @@ import { useTranslations } from "next-intl";
 import Image from "next/image";
 import type { ReactNode } from "react";
 
+import { CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 import { LogoCCD } from "./MarqueCCD";
@@ -175,6 +176,45 @@ export function PanneauMarqueDegrade({ children }: { children: ReactNode }) {
         {children}
       </div>
     </aside>
+  );
+}
+
+/**
+ * Bloc centré des écrans de confirmation posés dans une `Card` du cadre
+ * double (activation d'entreprise, invitation d'un collaborateur).
+ * La pastille porte l'icône ; le texte reste lisible seul (charte §8.4).
+ */
+export function BlocEtatAuth({
+  ton = "primaire",
+  icone,
+  titre,
+  children,
+}: {
+  ton?: "primaire" | "succes" | "avertissement";
+  icone: ReactNode;
+  titre: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <CardContent className="flex flex-col items-center gap-1.5 px-6 py-10 text-center sm:px-8">
+      <span
+        aria-hidden="true"
+        className={cn(
+          "mb-3 flex size-14 items-center justify-center rounded-full",
+          ton === "succes" && "bg-succes-fond text-succes",
+          ton === "avertissement" && "bg-avertissement-fond text-avertissement",
+          ton === "primaire" && "bg-primary-50 text-primary-500",
+        )}
+      >
+        {icone}
+      </span>
+      <h1 className="text-2xl leading-tight font-bold tracking-tight text-neutral-900">
+        {titre}
+      </h1>
+      <div className="mt-1 flex w-full flex-col items-center gap-4 text-base leading-relaxed text-neutral-600">
+        {children}
+      </div>
+    </CardContent>
   );
 }
 

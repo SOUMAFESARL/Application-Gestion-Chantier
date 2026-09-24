@@ -5,6 +5,9 @@
  */
 
 import { api } from "@/lib/api";
+import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
+
+import { simulationInvitations } from "./simulationInvitations";
 
 export interface ContenuInvitation {
   email: string;
@@ -65,15 +68,17 @@ export interface CreerInvitationPayload {
  * Vérifie un jeton d'invitation sans le consommer (MLD §5.2).
  */
 export async function verifierInvitation(jeton: string): Promise<ContenuInvitation> {
+  if (SIMULATION_ACTIVE) return simulationInvitations.verifier(jeton);
   return api.creer<ContenuInvitation>("/invitations/verifier/", { jeton });
 }
 
 /**
- * Valide le mot de passe, active le compte utilisateur et renvoie les jetons de session.
+ * Valide le mot de passe et active le compte utilisateur.
  */
 export async function accepterInvitation(
   payload: AccepterInvitationPayload,
 ): Promise<ReponseAccepterInvitation> {
+  if (SIMULATION_ACTIVE) return simulationInvitations.accepter(payload);
   return api.creer<ReponseAccepterInvitation>("/invitations/accepter/", payload);
 }
 
@@ -81,6 +86,7 @@ export async function accepterInvitation(
  * Liste les invitations du tenant.
  */
 export async function listerInvitations(): Promise<InvitationDetail[]> {
+  if (SIMULATION_ACTIVE) return simulationInvitations.lister();
   return api.lire<InvitationDetail[]>("/invitations/");
 }
 
@@ -90,5 +96,6 @@ export async function listerInvitations(): Promise<InvitationDetail[]> {
 export async function creerInvitation(
   payload: CreerInvitationPayload,
 ): Promise<InvitationDetail> {
+  if (SIMULATION_ACTIVE) return simulationInvitations.creer(payload);
   return api.creer<InvitationDetail>("/invitations/", payload);
 }
