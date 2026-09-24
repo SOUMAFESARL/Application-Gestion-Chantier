@@ -12,11 +12,14 @@ import type {
   AlerteClient,
   CleIndicateur,
   ClientPlateforme,
+  CodePlan,
   EtatCommercial,
   IndicateursPlateforme,
   PartParcClient,
   PointEvolutionAbonnements,
   ProfilAdministrateur,
+  StatutAbonnement,
+  StatutClient,
   TendanceIndicateur,
   TonVariation,
 } from "./types";
@@ -117,6 +120,107 @@ export function trierParUrgence(
     if (poidsA !== poidsB) return poidsB - poidsA;
     return a.raisonSociale.localeCompare(b.raisonSociale);
   });
+}
+
+/**
+ * Les critères des listes du back-office — clients et abonnements.
+ *
+ * Les deux écrans lisent la même liste d'entreprises, mais ne filtrent pas
+ * sur le même statut : « Clients » demande où en est le compte, « Abonnements »
+ * où en est la facturation. D'où un seul type, et deux champs de statut.
+ */
+export interface CriteresClients {
+  /** Recherche libre : raison sociale, nom commercial, ville ou sous-domaine. */
+  recherche: string;
+  /** Vide : tous les statuts de compte. */
+  statutClient: StatutClient | "";
+  /** Vide : tous les statuts d'abonnement. */
+  statutAbonnement: StatutAbonnement | "";
+  /** Vide : tous les plans. */
+  plan: CodePlan | "";
+}
+
+export const CRITERES_CLIENTS_VIDES: CriteresClients = {
+  recherche: "",
+  statutClient: "",
+  statutAbonnement: "",
+  plan: "",
+};
+
+/** Un critère est-il actif — de quoi proposer une remise à zéro à propos. */
+export function criteresClientsActifs(criteres: CriteresClients): boolean {
+  return (
+    criteres.recherche.trim() !== "" ||
+    criteres.statutClient !== "" ||
+    criteres.statutAbonnement !== "" ||
+    criteres.plan !== ""
+  );
+}
+
+/** Minuscules, sans accents : « Bâtiment » se trouve en tapant « batiment ». */
+function normaliser(valeur: string): string {
+  return valeur
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Les entreprises, restreintes aux critères de l'écran.
+ *
+ * Le sous-domaine fait partie de la recherche : c'est souvent la seule chose
+ * qu'un client sait citer au téléphone — il la lit dans sa barre d'adresse.
+ * L'ordre d'entrée est conservé : le tri est l'affaire de l'écran.
+ */
+export function filtrerClients(
+  clients: ClientPlateforme[],
+  criteres: CriteresClients,
+): ClientPlateforme[] {
+  const recherche = normaliser(criteres.recherche);
+
+  return clients.filter((client) => {
+    if (criteres.statutClient && client.statut !== criteres.statutClient) return false;
+    if (criteres.statutAbonnement && client.abonnement.statut !== criteres.statutAbonnement) {
+      return false;
+    }
+    if (criteres.plan && client.abonnement.plan !== criteres.plan) return false;
+    if (!recherche) return true;
+
+    return [client.raisonSociale, client.nomCommercial, client.ville, client.slug].some(
+      (champ) => normaliser(champ).includes(recherche),
+    );
+  });
+}
+
+const ORDRE_STATUTS_CLIENT: StatutClient[] = ["ACTIF", "EN_ATTENTE", "SUSPENDU", "RESILIE"];
+const ORDRE_STATUTS_ABONNEMENT: StatutAbonnement[] = [
+  "ACTIF",
+  "ESSAI",
+  "IMPAYE",
+  "SUSPENDU",
+  "RESILIE",
+];
+const ORDRE_PLANS: CodePlan[] = ["BATISSEUR", "MAITRE_OEUVRE", "PROMOTEUR"];
+
+/**
+ * Les valeurs à proposer aux filtres : seulement celles que le parc porte
+ * réellement. Un statut qu'aucune entreprise n'a ne donnerait qu'un tableau
+ * vide.
+ */
+export function statutsClientPresents(clients: ClientPlateforme[]): StatutClient[] {
+  const presents = new Set(clients.map((client) => client.statut));
+  return ORDRE_STATUTS_CLIENT.filter((statut) => presents.has(statut));
+}
+
+export function statutsAbonnementPresents(clients: ClientPlateforme[]): StatutAbonnement[] {
+  const presents = new Set(clients.map((client) => client.abonnement.statut));
+  return ORDRE_STATUTS_ABONNEMENT.filter((statut) => presents.has(statut));
+}
+
+export function plansPresents(clients: ClientPlateforme[]): CodePlan[] {
+  const presents = new Set(clients.map((client) => client.abonnement.plan));
+  return ORDRE_PLANS.filter((plan) => presents.has(plan));
 }
 
 /**

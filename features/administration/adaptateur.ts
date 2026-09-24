@@ -11,10 +11,13 @@
  * client — où aucune de ces routes n'existe, et où le `404` obtenu n'aurait
  * pas accusé la bonne cause.
  *
- * **Tout ce domaine est simulé aujourd'hui** (`NEXT_PUBLIC_API_SIMULE=1`) :
- * aucun endpoint `/administration/*` n'est écrit côté Django. Les appels
- * réels sont néanmoins présents, à leur place définitive — c'est ce qui rend
- * la bascule du drapeau sans effet sur les écrans.
+ * **La session et la lecture des clients sont réelles** : connexion,
+ * déconnexion, liste et fiche client appellent `/api/v1/admins/`, quel que soit
+ * `NEXT_PUBLIC_API_SIMULE`. **Le reste du domaine est encore simulé**
+ * (actions sur un client, abonnements, indicateurs) : ces
+ * endpoints ne sont pas écrits côté Django. Leurs appels réels sont néanmoins
+ * présents, à leur place définitive — c'est ce qui rend la bascule du drapeau
+ * sans effet sur les écrans.
  *
  * Les charges utiles (`Charge*`) sont **privées** : elles décrivent un
  * transport, et les exporter rouvrirait la brèche que cette couche ferme.
@@ -29,7 +32,7 @@ import {
   lireJetonRenouvellement,
 } from "@/lib/api";
 import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
-import { ADMIN_DEMO, simulationAdministration } from "@/lib/api/simulationAdministration";
+import { simulationAdministration } from "@/lib/api/simulationAdministration";
 import { texte } from "@/i18n/horsReact";
 
 import { indicateurs } from "./regles";
@@ -50,14 +53,6 @@ import type {
 /* ------------------------------------------------------------------ *
  * Les charges utiles du serveur — la seule zone en `snake_case`.
  * ------------------------------------------------------------------ */
-
-interface ChargeAdministrateur {
-  id: string;
-  email: string;
-  nom: string;
-  prenom: string;
-  role: RoleAdministrateur;
-}
 
 interface ChargeAbonnement {
   statut: StatutAbonnement;
@@ -87,26 +82,26 @@ interface ChargeClient {
   abonnement: ChargeAbonnement;
 }
 
+/** L'utilisateur renvoyé par `POST /admins/connexion/`. */
 interface ChargeUtilisateurSuperAdmin {
   id: string;
   email: string;
   nom: string;
   prenom: string;
-  role_global?: string;
-  role_libelle?: string;
-  is_superuser?: boolean;
-  is_staff?: boolean;
-  langue?: string;
-  schema?: string;
-  role?: RoleAdministrateur;
+  /** `AD` pour un administrateur de la plateforme. */
+  role_global: string;
+  role_libelle: string;
+  is_superuser: boolean;
+  is_staff: boolean;
+  langue: string;
+  schema: string;
 }
 
 interface ChargeConnexion {
   access: string;
   refresh: string;
-  expire_dans?: number;
-  utilisateur?: ChargeUtilisateurSuperAdmin;
-  administrateur?: ChargeAdministrateur;
+  expire_dans: number;
+  utilisateur: ChargeUtilisateurSuperAdmin;
 }
 
 interface ChargeIndicateurs {
@@ -155,19 +150,27 @@ const CLES_INDICATEURS: Record<CleIndicateurCharge, CleIndicateur> = {
  * Traduction
  * ------------------------------------------------------------------ */
 
-function versProfil(
-  charge: ChargeAdministrateur | ChargeUtilisateurSuperAdmin,
-): ProfilAdministrateur {
+/**
+ * Le rôle de back-office porté par un compte.
+ *
+ * Seul `AD` (administrateur, super-utilisateur) ouvre la supervision. Tout
+ * autre rôle global retombe sur `SUPPORT`, le moins privilégié des deux :
+ * un code que ce frontend ne connaît pas encore n'accorde pas plus de droits
+ * qu'il n'en faut — et le serveur reste seul juge de toute façon.
+ */
+function versRole(charge: ChargeUtilisateurSuperAdmin): RoleAdministrateur {
+  return charge.role_global === "AD" ? "SUPERVISEUR" : "SUPPORT";
+}
+
+function versProfil(charge: ChargeUtilisateurSuperAdmin): ProfilAdministrateur {
   const nomComplet = `${charge.prenom} ${charge.nom}`.trim();
-  const role: RoleAdministrateur =
-    "role" in charge && charge.role ? charge.role : "SUPERVISEUR";
   return {
     id: charge.id,
     email: charge.email,
     nom: charge.nom,
     prenom: charge.prenom,
     nomComplet: nomComplet || charge.email,
-    role,
+    role: versRole(charge),
   };
 }
 
@@ -256,38 +259,21 @@ export async function seConnecter(identifiants: {
     origine: "WEB",
   };
 
-  const reponse: ChargeConnexion = SIMULATION_ACTIVE
-    ? await simulationAdministration.seConnecter(corps)
-    : await apiAdministration.creer<ChargeConnexion>("/admins/connexion/", corps);
+  const reponse = await apiAdministration.creer<ChargeConnexion>("/admins/connexion/", corps);
+
+  // Vérifié **avant** d'écrire les jetons : une réponse sans utilisateur ne
+  // doit pas laisser derrière elle une session sans profil.
+  if (!reponse.access || !reponse.refresh || !reponse.utilisateur) {
+    throw new ErreurApi("reponse_invalide", texte("administration.erreurs.action"), 500);
+  }
 
   ecrireJetonAcces(reponse.access, "administration");
   ecrireJetonRenouvellement(reponse.refresh, "administration");
 
-  const cible = reponse.utilisateur ?? reponse.administrateur;
-  if (!cible) {
-    throw new ErreurApi("reponse_invalide", texte("administration.erreurs.action"), 500);
-  }
-
-  const profil = versProfil(cible);
+  const profil = versProfil(reponse.utilisateur);
   ecrireProfilLocal(profil);
   return profil;
 }
-
-/**
- * Les identifiants à pré-remplir dans le formulaire de connexion, ou `null`.
- *
- * **`null` dès que la simulation est coupée**, et c'est toute la garantie :
- * ces identifiants n'existent que dans `simulationAdministration.ts`, jamais
- * dans une base. Un back-office branché sur le vrai serveur n'a donc rien à
- * pré-remplir — l'écran n'a pas de variante à écrire pour ce cas, il lit un
- * `null`.
- *
- * L'écran passe par cette constante plutôt que par le module de simulation :
- * `app/**` n'importe pas `@/lib/api` directement (arbitrage A1), et le
- * domaine reste le seul à savoir d'où viennent ses données.
- */
-export const IDENTIFIANTS_DEMO: { email: string; motDePasse: string } | null =
-  SIMULATION_ACTIVE ? ADMIN_DEMO : null;
 
 /**
  * Demande un lien de réinitialisation du mot de passe d'administration.
@@ -310,7 +296,7 @@ export async function demanderReinitialisation(email: string): Promise<void> {
 /** Déconnexion volontaire — révoque le jeton côté serveur, puis efface. */
 export async function seDeconnecter(): Promise<void> {
   const refresh = lireJetonRenouvellement("administration");
-  if (refresh && !SIMULATION_ACTIVE) {
+  if (refresh) {
     try {
       await apiAdministration.creer<void>("/admins/deconnexion/", { refresh });
     } catch {
@@ -324,50 +310,52 @@ export async function seDeconnecter(): Promise<void> {
 /**
  * Qui est connecté.
  *
- * **Cette fonction échoue quand le serveur refuse**, et c'est délibéré. Son
- * équivalent côté entreprise fabriquait un profil de directeur général en dur
- * lorsque l'appel ratait : une panne réseau accordait une identité. Ici, un
- * échec est un échec — le cache local sert de repli d'affichage, et s'il est
- * vide l'écran renvoie à la connexion.
+ * **Aucune route « moi » n'existe encore côté Django** pour un administrateur
+ * de la plateforme (`/utilisateurs/moi/` n'est pas livrée) : le profil est
+ * celui que `/admins/connexion/` a renvoyé, gardé en local. Le jour où la
+ * route arrive, c'est ici qu'on l'appelle — les écrans ne changent pas.
+ *
+ * **Cette fonction échoue quand il n'y a pas de profil**, et c'est délibéré.
+ * Son équivalent côté entreprise fabriquait un profil de directeur général en
+ * dur lorsque l'appel ratait : une panne réseau accordait une identité. Ici,
+ * le repli **se souvient**, il n'invente pas — sans profil reçu du serveur,
+ * l'écran renvoie à la connexion.
  */
 export async function obtenirProfil(): Promise<ProfilAdministrateur> {
-  try {
-    if (SIMULATION_ACTIVE) {
-      const charge = await simulationAdministration.moi();
-      const profil = versProfil(charge);
-      ecrireProfilLocal(profil);
-      return profil;
-    }
-
-    const charge = await apiAdministration.lire<ChargeUtilisateurSuperAdmin>("/utilisateurs/moi/");
-    const profil = versProfil(charge);
-    ecrireProfilLocal(profil);
-    return profil;
-  } catch (cause) {
-    // Le repli **se souvient**, il n'invente pas : c'est un profil que le
-    // serveur a deja renvoye. Sans lui, l'erreur remonte.
-    const local = lireProfilLocal();
-    if (local) return local;
-    throw cause;
-  }
+  const local = lireProfilLocal();
+  if (local) return local;
+  throw new ErreurApi("non_authentifie", texte("administration.erreurs.action"), 401);
 }
 
 /* ------------------------------------------------------------------ *
  * Clients
  * ------------------------------------------------------------------ */
 
+/**
+ * Les entreprises clientes de la plateforme — `GET /admins/clients/`.
+ *
+ * **Réel, quel que soit `NEXT_PUBLIC_API_SIMULE`**, comme la session : la
+ * route est livrée. Le serveur renvoie un tableau nu, non paginé.
+ */
 export async function listerClients(signal?: AbortSignal): Promise<ClientPlateforme[]> {
-  const charges: ChargeClient[] = SIMULATION_ACTIVE
-    ? await simulationAdministration.listerClients()
-    : await apiAdministration.lire<ChargeClient[]>("/clients/", undefined, signal);
+  const charges = await apiAdministration.lire<ChargeClient[]>(
+    "/admins/clients/",
+    undefined,
+    signal,
+  );
 
   return charges.map(versClient);
 }
 
+/**
+ * Une entreprise cliente — `GET /admins/clients/<id>/`.
+ *
+ * Réelle elle aussi, et forcément en même temps que la liste : les
+ * identifiants de la liste sont ceux du serveur, qu'une simulation ne
+ * connaîtrait pas — la fiche ouverte depuis la liste tomberait sur un `404`.
+ */
 export async function lireClient(id: string): Promise<ClientPlateforme> {
-  const charge: ChargeClient = SIMULATION_ACTIVE
-    ? await simulationAdministration.lireClient(id)
-    : await apiAdministration.lire<ChargeClient>(`/clients/${id}/`);
+  const charge = await apiAdministration.lire<ChargeClient>(`/admins/clients/${id}/`);
 
   return versClient(charge);
 }

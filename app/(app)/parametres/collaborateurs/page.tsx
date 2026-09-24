@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, CircleX, Clock, LoaderCircle, Search, UserPlus } from "lucide-react";
+import { CheckCircle2, CircleX, Clock, LoaderCircle, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
@@ -9,12 +9,12 @@ import { useForm } from "react-hook-form";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { ChampTelephone } from "@/components/metier/ChampTelephone";
-import { Alerte, Badge, Bouton, Carte, EtatChargement } from "@/components/ui";
+import { Alerte, Badge, Bouton, EtatChargement } from "@/components/ui";
 import type { VarianteBadge } from "@/components/ui";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
-import { aideColonnes, DataTable } from "@/components/ui/data-table";
+import { aideColonnes } from "@/components/ui/data-table";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +32,12 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  BORD_DROIT_TABLEAU,
+  FiltreTableau,
+  RechercheTableau,
+  TableauListe,
+} from "@/components/ui/tableau-liste";
 import { obtenirProfilMoi } from "@/features/auth/api";
 import type { ProfilUtilisateur } from "@/features/auth/api";
 import { paysEntreprise } from "@/features/configuration/api";
@@ -62,7 +68,6 @@ import { afficherTelephone } from "@/features/referentiels/telephone";
 import type { ErreurApi } from "@/lib/api";
 import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
 import { formaterDate } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 const FORM_AJOUT_ID = "form-ajout-collaborateur";
 
@@ -74,18 +79,6 @@ function Requis() {
     </span>
   );
 }
-
-/** Dix lignes : la hauteur d'un écran de bureau sans défilement du tableau. */
-const TAILLE_DE_PAGE = 10;
-
-/** La carte colle le tableau à ses bords : les colonnes extrêmes portent la gouttière. */
-const BORD_GAUCHE = "pl-4 sm:pl-6";
-const BORD_DROIT = "pr-4 text-right sm:pr-6";
-
-const BOUTON_FILTRE =
-  "h-[var(--button-height-sm)] cursor-pointer rounded-md border border-neutral-200 bg-neutral-50 px-3.5 text-sm text-neutral-700 transition-all hover:bg-neutral-100";
-const BOUTON_FILTRE_ACTIF =
-  "border-primary-600 bg-primary-600 text-neutral-0 hover:bg-primary-700";
 
 const TON_STATUT: Record<StatutCollaborateur, VarianteBadge> = {
   ACTIF: "succes",
@@ -236,7 +229,7 @@ export default function PageCollaborateurs() {
         }),
         colonne.accessor("creeLe", {
           header: t("colonneDate"),
-          meta: { classe: `${BORD_DROIT} tabular-nums whitespace-nowrap text-neutral-600` },
+          meta: { classe: `${BORD_DROIT_TABLEAU} tabular-nums whitespace-nowrap text-neutral-600` },
           cell: ({ getValue }) => {
             const date = getValue();
             return date ? formaterDate(date) : t("comptePrincipal");
@@ -257,8 +250,12 @@ export default function PageCollaborateurs() {
   const compte = (statut: StatutCollaborateur) =>
     collaborateurs.filter((c) => c.statut === statut).length;
 
-  const filtres: { valeur: FiltreCollaborateurs; libelle: string; nombre: number }[] = [
-    { valeur: "TOUS", libelle: t("filtreTous"), nombre: collaborateurs.length },
+  // « Tous » n'est pas une option : c'est l'entrée de tête du `FiltreTableau`.
+  const filtres: {
+    valeur: Exclude<FiltreCollaborateurs, "TOUS">;
+    libelle: string;
+    nombre: number;
+  }[] = [
     { valeur: "ACTIFS", libelle: t("filtreActifs"), nombre: compte("ACTIF") },
     { valeur: "INVITES", libelle: t("filtreInvites"), nombre: compte("INVITE") },
   ];
@@ -295,55 +292,41 @@ export default function PageCollaborateurs() {
         </Alerte>
       )}
 
-      {/* `p-0` aux deux ruptures : le tableau va d'un bord à l'autre de la carte. */}
-      <Carte className="overflow-hidden p-0 md:p-0">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 px-4 py-3 sm:px-6 sm:py-4">
-          <div className="flex flex-wrap gap-2">
-            {filtres.map((f) => (
-              <button
-                key={f.valeur}
-                type="button"
-                aria-pressed={filtre === f.valeur}
-                className={cn(BOUTON_FILTRE, filtre === f.valeur && BOUTON_FILTRE_ACTIF)}
-                onClick={() => setFiltre(f.valeur)}
-              >
-                {t("filtreAvecNombre", { libelle: f.libelle, nombre: f.nombre })}
-              </button>
-            ))}
-          </div>
-
-          <div className="relative flex w-full items-center sm:w-64">
-            <Search
-              size={16}
-              className="pointer-events-none absolute left-3 text-neutral-500"
-              aria-hidden="true"
-            />
-            <Input
-              type="search"
-              value={recherche}
-              onChange={(e) => setRecherche(e.target.value)}
+      <TableauListe
+        colonnes={colonnes}
+        donnees={collaborateursFiltres}
+        cleLigne={(c) => c.id}
+        messageVide={t("aucunResultat")}
+        filtresActifs={filtre !== "TOUS" || recherche.trim() !== ""}
+        onReinitialiser={() => {
+          setFiltre("TOUS");
+          setRecherche("");
+        }}
+        cleCriteres={`${filtre}|${recherche}`}
+        outils={
+          <>
+            <RechercheTableau
+              valeur={recherche}
+              onChangement={setRecherche}
+              libelle={t("recherchePlaceholder")}
               placeholder={t("recherchePlaceholder")}
-              aria-label={t("recherchePlaceholder")}
-              className="h-[var(--button-height-sm)] pl-9 text-sm"
             />
-          </div>
-        </div>
-
-        {/* La `key` remet la pagination à la première page quand le filtre
-            change : sinon un filtre qui ramène trois lignes alors qu'on
-            lisait la page 2 affiche un tableau vide. */}
-        <DataTable
-          key={`${filtre}|${recherche}`}
-          colonnes={colonnes}
-          donnees={collaborateursFiltres}
-          cleLigne={(c) => c.id}
-          messageVide={t("aucunResultat")}
-          selectionnable
-          classeSelection={BORD_GAUCHE}
-          tailleDePage={TAILLE_DE_PAGE}
-          className="[&_td]:py-3"
-        />
-      </Carte>
+            <FiltreTableau
+              valeur={filtre === "TOUS" ? "" : filtre}
+              onChangement={(valeur) => setFiltre(valeur || "TOUS")}
+              libelle={t("filtreStatut")}
+              libelleTous={t("filtreAvecNombre", {
+                libelle: t("filtreTous"),
+                nombre: collaborateurs.length,
+              })}
+              options={filtres.map((f) => ({
+                valeur: f.valeur,
+                libelle: t("filtreAvecNombre", { libelle: f.libelle, nombre: f.nombre }),
+              }))}
+            />
+          </>
+        }
+      />
 
       {/* Modale d'ajout */}
       <Dialog

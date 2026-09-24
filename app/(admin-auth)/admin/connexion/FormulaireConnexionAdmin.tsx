@@ -19,7 +19,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { IDENTIFIANTS_DEMO, seConnecter } from "@/features/administration/adaptateur";
+import { seConnecter } from "@/features/administration/adaptateur";
 import { schemaConnexionAdministrateur } from "@/features/administration/validations";
 import type {
   SaisieConnexionAdministrateur,
@@ -83,12 +83,9 @@ export function FormulaireConnexionAdmin() {
     ValeursConnexionAdministrateur
   >({
     resolver: zodResolver(schemaConnexionAdministrateur),
-    // Pre-rempli tant que le back-office est simule ; `null` — donc deux
-    // champs vides — des que `NEXT_PUBLIC_API_SIMULE` retombe a `0`.
-    defaultValues: {
-      email: IDENTIFIANTS_DEMO?.email ?? "",
-      motDePasse: IDENTIFIANTS_DEMO?.motDePasse ?? "",
-    },
+    // Jamais pre-rempli : la connexion part sur le vrai serveur, aucun
+    // compte de demonstration n'y existe.
+    defaultValues: { email: "", motDePasse: "" },
   });
 
   async function soumettre(valeurs: ValeursConnexionAdministrateur) {

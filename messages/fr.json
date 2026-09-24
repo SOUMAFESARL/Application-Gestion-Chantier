@@ -205,7 +205,8 @@
       "SUSPENDU": "Suspendu"
     },
     "clients": {
-      "aucun": "Aucune entreprise ne correspond à cette recherche.",
+      "aucun": "Aucune entreprise ne correspond à ces critères.",
+      "aucunDescription": "Les entreprises apparaîtront ici dès leur inscription.",
       "aucunTitre": "Aucun client",
       "colonneAlerte": "À traiter",
       "colonneClient": "Entreprise",
@@ -214,6 +215,12 @@
       "colonneProjets": "Chantiers",
       "colonneStatut": "Statut",
       "colonneUtilisateurs": "Utilisateurs",
+      "filtrePlan": "Filtrer par plan",
+      "filtrePlanTous": "Tous les plans",
+      "filtreStatut": "Filtrer par statut",
+      "filtreStatutAbonnement": "Filtrer par statut d’abonnement",
+      "filtreStatutAbonnementTous": "Tous les abonnements",
+      "filtreStatutTous": "Tous les statuts",
       "recherche": "Rechercher une entreprise",
       "rechercheePlaceholder": "Raison sociale, ville, sous-domaine…",
       "sousTitre": "{nombre, plural, =0 {Aucune entreprise cliente} one {# entreprise cliente} other {# entreprises clientes}}",
@@ -487,6 +494,7 @@
     "tropDeRequetesTitre": "Trop de tentatives"
   },
   "dataTable": {
+    "reinitialiserFiltres": "Tout afficher",
     "selectionnerLigne": "Sélectionner cette ligne",
     "selectionnerTout": "Sélectionner toutes les lignes de la page"
   },
@@ -564,6 +572,7 @@
     "filtreActifs": "Actifs",
     "filtreAvecNombre": "{libelle} ({nombre})",
     "filtreInvites": "Invitations en attente",
+    "filtreStatut": "Filtrer par statut",
     "filtreTous": "Tous",
     "placeholderEmail": "collaborateur@entreprise.ci",
     "placeholderNom": "Ex : Kouassi Yves",
@@ -747,7 +756,6 @@
     "filtreStatutTous": "Tous les statuts",
     "recherche": "Rechercher un chantier",
     "recherchePlaceholder": "Référence, chantier, client, ville…",
-    "reinitialiserFiltres": "Tout afficher",
     "sansChefProjet": "Non désigné",
     "sousTitre": "{nombre, plural, one {# chantier suivi} other {# chantiers suivis}}",
     "statut": {

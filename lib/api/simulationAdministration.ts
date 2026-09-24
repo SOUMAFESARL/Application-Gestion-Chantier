@@ -3,8 +3,9 @@
  *
  * **Rien de ce domaine n'existe côté Django aujourd'hui.** Contrairement au
  * configurateur, où seules les saisies sont simulées, ici l'espace entier
- * l'est : la connexion, le profil, les clients, les abonnements et les
- * indicateurs. Ce module rejoue les contrats qu'on attend du serveur,
+ * l'est : les clients, les abonnements et les indicateurs. La connexion et
+ * la déconnexion, elles, sont branchées sur `/api/v1/admins/` et ne passent
+ * plus par ce module. Ce module rejoue les contrats qu'on attend du serveur,
  * réponses d'erreur comprises, pour que les écrans du back-office soient
  * parcourables — donc vérifiables — avant que l'API n'existe.
  *
@@ -26,20 +27,6 @@ import { attendre, refuser } from "./simulation";
  * n'existent plus, et leur libellé ne se traduirait pas.
  */
 const CLE_ADMIN = "ccd.simulation.administration.v2";
-
-/**
- * Le compte de démonstration du back-office.
- *
- * **Exporté, et c'est le but** : l'écran de connexion le pré-remplit tant que
- * `NEXT_PUBLIC_API_SIMULE` vaut `1`. Le seul serveur qui accepte ces
- * identifiants est celui de ce fichier — le jour où `/administration/auth/`
- * existera pour de vrai, le drapeau retombera et le formulaire s'ouvrira
- * vide, sans qu'une ligne de l'écran ne change.
- */
-export const ADMIN_DEMO = {
-  email: "admin@ccd-digital.ci",
-  motDePasse: "Admin1234!",
-};
 
 export interface ChargeAbonnementClient {
   statut: "ESSAI" | "ACTIF" | "IMPAYE" | "SUSPENDU" | "RESILIE";
@@ -67,14 +54,6 @@ export interface ChargeClientPlateforme {
   nb_utilisateurs: number;
   nb_projets: number;
   abonnement: ChargeAbonnementClient;
-}
-
-export interface ChargeAdministrateur {
-  id: string;
-  email: string;
-  nom: string;
-  prenom: string;
-  role: "SUPERVISEUR" | "SUPPORT";
 }
 
 export interface ChargePointEvolution {
@@ -378,41 +357,6 @@ function lireClients(): ChargeClientPlateforme[] {
 }
 
 /**
- * Un jeton qui **ressemble** à un JWT, pour que le renouvellement proactif ait
- * une échéance à lire.
- *
- * Il n'est pas signé et n'ouvre rien : son seul consommateur est
- * `expirationJetonAcces()`, qui lit `exp` dans la charge utile. Sans `exp`, le
- * planificateur retomberait sur son repli de cinq minutes, et le comportement
- * simulé s'écarterait de celui qu'on aura en vrai.
- */
-function jetonSimule(dureeSecondes: number): string {
-  const encoder = (valeur: object) =>
-    btoa(JSON.stringify(valeur))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
-
-  return [
-    encoder({ alg: "none", typ: "JWT" }),
-    encoder({
-      user_id: "adm-001",
-      type_compte: "PLATEFORME",
-      exp: Math.floor(Date.now() / 1000) + dureeSecondes,
-    }),
-    "simulation",
-  ].join(".");
-}
-
-const ADMINISTRATEUR_DEMO: ChargeAdministrateur = {
-  id: "adm-001",
-  email: ADMIN_DEMO.email,
-  nom: "MARTIAL",
-  prenom: "Seka",
-  role: "SUPERVISEUR",
-};
-
-/**
  * Le tarif mensuel de chaque plan, **lu dans le catalogue de vente** de
  * l'espace entreprise : un changement de plan au back-office facture le prix
  * affiché sur la page de tarifs, jamais une grille parallèle.
@@ -422,28 +366,6 @@ const TARIFS_MENSUELS: Record<string, number> = Object.fromEntries(
 );
 
 export const simulationAdministration = {
-  /** `POST /administration/auth/token/` */
-  async seConnecter(corps: { email: string; mot_de_passe: string }) {
-    if (
-      corps.email.trim().toLowerCase() !== ADMIN_DEMO.email ||
-      corps.mot_de_passe !== ADMIN_DEMO.motDePasse
-    ) {
-      // Réponse indistincte, comme côté tenant (contrat §6.1) : le back-office
-      // n'a pas plus de raison de dire quelles adresses existent.
-      await attendre(null, 400);
-      refuser("identifiants_invalides", "Identifiants invalides.", 401);
-    }
-
-    return attendre(
-      {
-        access: jetonSimule(15 * 60),
-        refresh: jetonSimule(8 * 60 * 60),
-        administrateur: ADMINISTRATEUR_DEMO,
-      },
-      500,
-    );
-  },
-
   /**
    * `POST /administration/auth/mot-de-passe/oublie/`
    *
@@ -455,11 +377,6 @@ export const simulationAdministration = {
   async demanderReinitialisation(corps: { email: string }): Promise<void> {
     void corps;
     await attendre(null, 600);
-  },
-
-  /** `GET /administration/moi/` */
-  async moi(): Promise<ChargeAdministrateur> {
-    return attendre(ADMINISTRATEUR_DEMO, 200);
   },
 
   /** `GET /administration/clients/` */

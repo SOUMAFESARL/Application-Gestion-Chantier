@@ -1,22 +1,21 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
-import { Badge, Bouton, Carte, EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
+import { Badge, Bouton, EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import type { VarianteBadge } from "@/components/ui";
-import { aideColonnes, DataTable } from "@/components/ui/data-table";
+import { aideColonnes } from "@/components/ui/data-table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  BORD_DROIT_TABLEAU,
+  FiltreTableau,
+  RechercheTableau,
+  TableauListe,
+} from "@/components/ui/tableau-liste";
 import { listerProjets } from "@/features/projets/adaptateur";
 import { TiroirCreationProjet } from "@/features/projets/components/TiroirCreationProjet";
 import {
@@ -38,10 +37,12 @@ import { formaterDate, formaterMontantCourt } from "@/lib/format";
 /**
  * La liste des chantiers de l'entreprise.
  *
- * Le tableau est un `DataTable` — cases à cocher et pagination — et non le
- * `Tableau` du tableau de bord : celui-ci montre les chantiers *actifs* du
- * jour, en pleine largeur et sans pagination ; celui-là est le portefeuille
- * complet, qui dépasse l'écran dès la première année d'exploitation.
+ * Le tableau est le `TableauListe` commun — recherche, filtres, cases à cocher
+ * et pagination — et non le `Tableau` du tableau de bord : celui-ci montre les
+ * chantiers *actifs* du jour, en pleine largeur et sans pagination ; celui-là
+ * est le portefeuille complet, qui dépasse l'écran dès la première année
+ * d'exploitation. Cet écran a servi de modèle au gabarit : toutes les listes
+ * de la plateforme, back-office compris, en reprennent désormais l'allure.
  *
  * **Aucun calcul ici.** Le retard, le ratio de consommation et son niveau
  * d'alerte viennent de `features/projets/regles` : ce sont les mêmes seuils
@@ -63,9 +64,6 @@ import { formaterDate, formaterMontantCourt } from "@/lib/format";
 /** La clé de cache est partagée : un autre écran qui liste les chantiers lira celui-ci. */
 const CLE_LISTE_PROJETS = ["projets", "liste"] as const;
 
-/** Dix lignes : la hauteur d'un écran de bureau sans défilement du tableau. */
-const TAILLE_DE_PAGE = 10;
-
 /** Le ton d'un statut. C'est de l'affichage — il ne descend pas dans `regles`. */
 const TON_STATUT: Record<StatutProjet, VarianteBadge> = {
   EN_ATTENTE: "neutre",
@@ -82,19 +80,6 @@ const TON_BUDGET: Record<NiveauBudget, VarianteBadge> = {
   alerte: "avertissement",
   depassement: "erreur",
 };
-
-/**
- * La carte colle le tableau à ses bords : les colonnes extrêmes portent la
- * gouttière — resserrée sous 640 px, comme celle de la page.
- */
-const BORD_GAUCHE = "pl-4 sm:pl-6";
-const BORD_DROIT = "pr-4 text-right sm:pr-6";
-
-/**
- * Radix réserve la valeur vide au placeholder : « aucun filtre » a donc
- * besoin d'une valeur à lui, traduite en `""` à l'aller comme au retour.
- */
-const TOUS = "tous";
 
 const colonne = aideColonnes<Projet>();
 
@@ -230,7 +215,7 @@ export function ListeProjets() {
         }),
         colonne.accessor("dateFinPrevue", {
           header: t("colonneEcheance"),
-          meta: { classe: `${BORD_DROIT} tabular-nums text-neutral-600` },
+          meta: { classe: `${BORD_DROIT_TABLEAU} tabular-nums text-neutral-600` },
           cell: ({ getValue }) => formaterDate(getValue()),
         }),
       ]),
@@ -254,31 +239,42 @@ export function ListeProjets() {
           // Un écran vide sans issue est un cul-de-sac : l'action y est reprise.
           <EtatVide titre={t("aucunTitre")} description={t("aucun")} action={boutonNouveau} />
         ) : (
-          // `p-0` aux deux ruptures : le tableau va d'un bord à l'autre de la carte.
-          <Carte className="overflow-hidden p-0 md:p-0">
-            <BarreOutils
-              criteres={criteres}
-              onChangement={setCriteres}
-              statuts={statuts}
-              chefs={chefs}
-              filtresActifs={filtresActifs}
-            />
-
-            {/* La `key` remet la pagination à la première page quand le
-                filtre change : sans elle, un filtre qui ramène trois lignes
-                alors qu'on lisait la page 3 affiche un tableau vide. */}
-            <DataTable
-              key={`${criteres.recherche}|${criteres.statut}|${criteres.chefProjetId}`}
-              colonnes={colonnes}
-              donnees={projetsFiltres}
-              cleLigne={(projet) => projet.id}
-              messageVide={filtresActifs ? t("aucunResultat") : t("aucuneLigne")}
-              selectionnable
-              classeSelection={BORD_GAUCHE}
-              tailleDePage={TAILLE_DE_PAGE}
-              className="[&_td]:py-3"
-            />
-          </Carte>
+          <TableauListe
+            colonnes={colonnes}
+            donnees={projetsFiltres}
+            cleLigne={(projet) => projet.id}
+            messageVide={filtresActifs ? t("aucunResultat") : t("aucuneLigne")}
+            filtresActifs={filtresActifs}
+            onReinitialiser={() => setCriteres(CRITERES_VIDES)}
+            cleCriteres={`${criteres.recherche}|${criteres.statut}|${criteres.chefProjetId}`}
+            outils={
+              <>
+                <RechercheTableau
+                  valeur={criteres.recherche}
+                  onChangement={(recherche) => setCriteres({ ...criteres, recherche })}
+                  libelle={t("recherche")}
+                  placeholder={t("recherchePlaceholder")}
+                />
+                <FiltreTableau
+                  valeur={criteres.statut}
+                  onChangement={(statut) => setCriteres({ ...criteres, statut })}
+                  libelle={t("filtreStatut")}
+                  libelleTous={t("filtreStatutTous")}
+                  options={statuts.map((statut) => ({
+                    valeur: statut,
+                    libelle: t(`statut.${statut}`),
+                  }))}
+                />
+                <FiltreTableau
+                  valeur={criteres.chefProjetId}
+                  onChangement={(chefProjetId) => setCriteres({ ...criteres, chefProjetId })}
+                  libelle={t("filtreChefProjet")}
+                  libelleTous={t("filtreChefProjetTous")}
+                  options={chefs.map((chef) => ({ valeur: chef.id, libelle: chef.nomComplet }))}
+                />
+              </>
+            }
+          />
         ))}
 
       <TiroirCreationProjet
@@ -286,120 +282,6 @@ export function ListeProjets() {
         onFermer={() => setTiroirOuvert(false)}
         onProjetCree={surProjetCree}
       />
-    </div>
-  );
-}
-
-interface PropsBarreOutils {
-  criteres: CriteresProjets;
-  onChangement: (criteres: CriteresProjets) => void;
-  statuts: StatutProjet[];
-  chefs: { id: string; nomComplet: string }[];
-  filtresActifs: boolean;
-}
-
-/**
- * La barre d'outils du tableau : une recherche et deux filtres.
- *
- * Les deux listes ne proposent que ce que le portefeuille contient
- * réellement — un statut qu'aucun chantier ne porte, ou un chef de projet
- * qui n'en suit aucun, ne donnerait qu'un tableau vide. Et parce qu'un filtre
- * actif explique un tableau presque vide, la remise à zéro s'affiche juste à
- * côté : c'est la sortie de secours de quelqu'un qui ne comprend pas
- * pourquoi « son » chantier a disparu.
- */
-function BarreOutils({
-  criteres,
-  onChangement,
-  statuts,
-  chefs,
-  filtresActifs,
-}: PropsBarreOutils) {
-  const t = useTranslations("projets");
-
-  return (
-    <div className="flex flex-wrap items-center gap-3 border-b border-neutral-200 px-4 py-3 sm:px-6 sm:py-4">
-      {/* La recherche ne s'étire plus (`flex-1`) : une barre de 600 px pour
-          une référence de douze caractères, et les deux filtres repoussés
-          contre le bord droit de la carte. Elle prend la ligne sous 640 px,
-          une largeur fixe au-delà. */}
-      <div className="relative flex w-full items-center sm:w-60">
-        <Search
-          size={16}
-          className="pointer-events-none absolute left-3 text-neutral-500"
-          aria-hidden="true"
-        />
-        <input
-          type="search"
-          className={[
-            "h-[var(--button-height-sm)] w-full rounded-md border border-neutral-300 bg-neutral-0",
-            "pr-3 pl-9 text-sm text-neutral-800 placeholder:text-neutral-500",
-            "focus:border-primary-500 focus:shadow-[var(--shadow-focus)] focus:outline-none",
-          ].join(" ")}
-          placeholder={t("recherchePlaceholder")}
-          aria-label={t("recherche")}
-          value={criteres.recherche}
-          onChange={(evenement) =>
-            onChangement({ ...criteres, recherche: evenement.target.value })
-          }
-        />
-      </div>
-
-      {/* `Select` de shadcn plutôt que le `<select>` natif : la liste native
-          est dessinée par le système, donc ni la charte ni la largeur du
-          champ ne l'atteignent — sur Android elle s'ouvre en plein écran,
-          et le chevron y est celui du navigateur. */}
-      <Select
-        value={criteres.statut || TOUS}
-        onValueChange={(valeur) =>
-          onChangement({ ...criteres, statut: valeur === TOUS ? "" : (valeur as StatutProjet) })
-        }
-      >
-                <SelectTrigger
-          size="sm"
-          aria-label={t("filtreStatut")}
-          className="min-w-0 flex-1 sm:min-w-40 sm:flex-none"
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={TOUS}>{t("filtreStatutTous")}</SelectItem>
-          {statuts.map((statut) => (
-            <SelectItem key={statut} value={statut}>
-              {t(`statut.${statut}`)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select
-        value={criteres.chefProjetId || TOUS}
-        onValueChange={(valeur) =>
-          onChangement({ ...criteres, chefProjetId: valeur === TOUS ? "" : valeur })
-        }
-      >
-        <SelectTrigger
-          size="sm"
-          aria-label={t("filtreChefProjet")}
-          className="min-w-0 flex-1 sm:min-w-44 sm:flex-none"
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={TOUS}>{t("filtreChefProjetTous")}</SelectItem>
-          {chefs.map((chef) => (
-            <SelectItem key={chef.id} value={chef.id}>
-              {chef.nomComplet}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {filtresActifs && (
-        <Bouton variante="ghost" taille="sm" onClick={() => onChangement(CRITERES_VIDES)}>
-          {t("reinitialiserFiltres")}
-        </Bouton>
-      )}
     </div>
   );
 }

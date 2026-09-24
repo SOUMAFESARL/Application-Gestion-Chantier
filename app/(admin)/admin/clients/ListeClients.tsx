@@ -1,33 +1,36 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
-import { EtatChargement, EtatErreur, EtatVide, Tableau } from "@/components/ui";
-import type { Colonne } from "@/components/ui";
-import { Input } from "@/components/ui/input";
-import { alerteClient, trierParUrgence } from "@/features/administration";
-import type { ClientPlateforme } from "@/features/administration";
+import { EnTetePage } from "@/components/layout/EnTetePage";
+import { EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
+import { aideColonnes } from "@/components/ui/data-table";
+import {
+  BORD_DROIT_TABLEAU,
+  FiltreTableau,
+  RechercheTableau,
+  TableauListe,
+} from "@/components/ui/tableau-liste";
+import {
+  alerteClient,
+  CRITERES_CLIENTS_VIDES,
+  criteresClientsActifs,
+  filtrerClients,
+  plansPresents,
+  statutsClientPresents,
+  trierParUrgence,
+} from "@/features/administration";
+import type { ClientPlateforme, CriteresClients } from "@/features/administration";
 import { listerClients } from "@/features/administration/adaptateur";
 import { nomDePays } from "@/lib/format";
 
 import { CLES_ADMINISTRATION } from "../cles";
 import { BADGE, TON_ALERTE, TON_STATUT_ABONNEMENT, TON_STATUT_CLIENT } from "../tons";
 
-/**
- * Le texte sur lequel porte la recherche.
- *
- * Le sous-domaine en fait partie : c'est souvent la seule chose qu'un client
- * sait citer au telephone — il la lit dans la barre d'adresse.
- */
-function texteRecherchable(client: ClientPlateforme): string {
-  return [client.raisonSociale, client.nomCommercial, client.ville, client.slug]
-    .join(" ")
-    .toLowerCase();
-}
+const colonne = aideColonnes<ClientPlateforme>();
 
 /**
  * La liste des entreprises clientes.
@@ -36,125 +39,110 @@ function texteRecherchable(client: ClientPlateforme): string {
  * d'abord a voir ce qui ne va pas. Le tri alphabetique n'intervient qu'entre
  * deux clients de meme gravite, pour que l'ordre reste stable d'un
  * rafraichissement a l'autre.
+ *
+ * Le tableau est le `TableauListe` commun — celui de la liste des chantiers :
+ * recherche, filtres, case a cocher et pagination y sont les memes que dans
+ * l'espace entreprise. Le filtrage vit dans `features/administration/regles`.
  */
 export function ListeClients() {
   const t = useTranslations("administration");
-  const router = useRouter();
-  const [recherche, setRecherche] = useState("");
+  const [criteres, setCriteres] = useState<CriteresClients>(CRITERES_CLIENTS_VIDES);
 
   const requete = useQuery({
     queryKey: CLES_ADMINISTRATION.clients(),
     queryFn: ({ signal }) => listerClients(signal),
   });
 
-  const clients = useMemo(() => {
-    if (!requete.data) return [];
-    const terme = recherche.trim().toLowerCase();
-    const filtres = terme
-      ? requete.data.filter((client) => texteRecherchable(client).includes(terme))
-      : requete.data;
-    return trierParUrgence(filtres);
-  }, [requete.data, recherche]);
+  const tous = useMemo(() => requete.data ?? [], [requete.data]);
+  const clients = useMemo(
+    () => trierParUrgence(filtrerClients(tous, criteres)),
+    [tous, criteres],
+  );
+  const statuts = useMemo(() => statutsClientPresents(tous), [tous]);
+  const plans = useMemo(() => plansPresents(tous), [tous]);
 
-  const colonnes: Colonne<ClientPlateforme>[] = [
-    {
-      cle: "client",
-      entete: t("clients.colonneClient"),
-      figee: true,
-      largeurMinimale: "220px",
-      rendu: (client) => (
-        <span className="flex flex-col">
-          <span className="font-medium text-neutral-900">{client.nomCommercial}</span>
-          <span className="text-xs text-neutral-500">{client.slug}</span>
-        </span>
-      ),
-    },
-    {
-      cle: "pays",
-      entete: t("clients.colonnePays"),
-      secondaire: true,
-      rendu: (client) =>
-        t("clients.villePays", { ville: client.ville, pays: nomDePays(client.pays) }),
-    },
-    {
-      cle: "statut",
-      entete: t("clients.colonneStatut"),
-      rendu: (client) => (
-        <span className={`${BADGE} ${TON_STATUT_CLIENT[client.statut]}`}>
-          {t(`statutClient.${client.statut}`)}
-        </span>
-      ),
-    },
-    {
-      cle: "plan",
-      entete: t("clients.colonnePlan"),
-      secondaire: true,
-      rendu: (client) => (
-        <span className="flex flex-col gap-1">
-          <span>{t(`plan.${client.abonnement.plan}`)}</span>
-          <span
-            className={`${BADGE} ${TON_STATUT_ABONNEMENT[client.abonnement.statut]} self-start`}
-          >
-            {t(`statutAbonnement.${client.abonnement.statut}`)}
-          </span>
-        </span>
-      ),
-    },
-    {
-      cle: "utilisateurs",
-      entete: t("clients.colonneUtilisateurs"),
-      aligneADroite: true,
-      secondaire: true,
-      rendu: (client) => String(client.nbUtilisateurs),
-    },
-    {
-      cle: "projets",
-      entete: t("clients.colonneProjets"),
-      aligneADroite: true,
-      secondaire: true,
-      rendu: (client) => String(client.nbProjets),
-    },
-    {
-      cle: "alerte",
-      entete: t("clients.colonneAlerte"),
-      rendu: (client) => {
-        const alerte = alerteClient(client);
-        if (!alerte) {
-          return <span className="text-neutral-400">{t("alerte.aucune")}</span>;
-        }
-        return (
-          <span className={`${BADGE} ${TON_ALERTE[alerte]}`}>{t(`alerte.${alerte}`)}</span>
-        );
-      },
-    },
-  ];
+  const colonnes = useMemo(
+    () =>
+      colonne.columns([
+        colonne.accessor("nomCommercial", {
+          id: "client",
+          header: t("clients.colonneClient"),
+          cell: ({ row }) => (
+            <Link
+              href={`/admin/clients/${row.original.id}`}
+              className="flex flex-col no-underline"
+            >
+              <span className="font-semibold text-neutral-900 hover:text-primary-600 hover:underline">
+                {row.original.nomCommercial}
+              </span>
+              <span className="text-xs text-neutral-600">{row.original.slug}</span>
+            </Link>
+          ),
+        }),
+        colonne.accessor("ville", {
+          id: "pays",
+          header: t("clients.colonnePays"),
+          meta: { classe: "text-neutral-700" },
+          cell: ({ row }) =>
+            t("clients.villePays", {
+              ville: row.original.ville,
+              pays: nomDePays(row.original.pays),
+            }),
+        }),
+        colonne.accessor("statut", {
+          header: t("clients.colonneStatut"),
+          cell: ({ getValue }) => (
+            <span className={`${BADGE} ${TON_STATUT_CLIENT[getValue()]}`}>
+              {t(`statutClient.${getValue()}`)}
+            </span>
+          ),
+        }),
+        colonne.accessor((client) => client.abonnement.plan, {
+          id: "plan",
+          header: t("clients.colonnePlan"),
+          cell: ({ row }) => (
+            <span className="flex flex-col gap-1">
+              <span className="text-neutral-700">{t(`plan.${row.original.abonnement.plan}`)}</span>
+              <span
+                className={`${BADGE} ${TON_STATUT_ABONNEMENT[row.original.abonnement.statut]} self-start`}
+              >
+                {t(`statutAbonnement.${row.original.abonnement.statut}`)}
+              </span>
+            </span>
+          ),
+        }),
+        colonne.accessor("nbUtilisateurs", {
+          header: t("clients.colonneUtilisateurs"),
+          meta: { classe: "text-right tabular-nums text-neutral-700" },
+        }),
+        colonne.accessor("nbProjets", {
+          header: t("clients.colonneProjets"),
+          meta: { classe: "text-right tabular-nums text-neutral-700" },
+        }),
+        colonne.display({
+          id: "alerte",
+          header: t("clients.colonneAlerte"),
+          meta: { classe: BORD_DROIT_TABLEAU },
+          cell: ({ row }) => {
+            const alerte = alerteClient(row.original);
+            if (!alerte) {
+              return <span className="text-neutral-400">{t("alerte.aucune")}</span>;
+            }
+            return (
+              <span className={`${BADGE} ${TON_ALERTE[alerte]}`}>{t(`alerte.${alerte}`)}</span>
+            );
+          },
+        }),
+      ]),
+    [t],
+  );
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-h2 font-bold text-neutral-900">{t("clients.titre")}</h1>
-          <p className="mt-1 text-sm text-neutral-600">
-            {t("clients.sousTitre", { nombre: requete.data?.length ?? 0 })}
-          </p>
-        </div>
-
-        <div className="relative sm:w-80">
-          <Search
-            size={16}
-            aria-hidden="true"
-            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-neutral-500"
-          />
-          <Input
-            type="search"
-            value={recherche}
-            onChange={(e) => setRecherche(e.target.value)}
-            aria-label={t("clients.recherche")}
-            placeholder={t("clients.rechercheePlaceholder")}
-            className="pl-9"
-          />
-        </div>
-      </div>
+      <EnTetePage
+        titre={t("clients.titre")}
+        description={t("clients.sousTitre", { nombre: tous.length })}
+      />
 
       {requete.isPending && <EtatChargement />}
 
@@ -166,16 +154,44 @@ export function ListeClients() {
       )}
 
       {requete.isSuccess &&
-        (clients.length === 0 ? (
-          <EtatVide titre={t("clients.aucunTitre")} description={t("clients.aucun")} />
+        (tous.length === 0 ? (
+          <EtatVide titre={t("clients.aucunTitre")} description={t("clients.aucunDescription")} />
         ) : (
-          <Tableau
+          <TableauListe
             colonnes={colonnes}
-            lignes={clients}
+            donnees={clients}
             cleLigne={(client) => client.id}
-            onLigneCliquee={(client) => router.push(`/admin/clients/${client.id}`)}
-            legende={t("clients.titre")}
-            tailleDePage={10}
+            messageVide={t("clients.aucun")}
+            filtresActifs={criteresClientsActifs(criteres)}
+            onReinitialiser={() => setCriteres(CRITERES_CLIENTS_VIDES)}
+            cleCriteres={`${criteres.recherche}|${criteres.statutClient}|${criteres.plan}`}
+            outils={
+              <>
+                <RechercheTableau
+                  valeur={criteres.recherche}
+                  onChangement={(recherche) => setCriteres({ ...criteres, recherche })}
+                  libelle={t("clients.recherche")}
+                  placeholder={t("clients.rechercheePlaceholder")}
+                />
+                <FiltreTableau
+                  valeur={criteres.statutClient}
+                  onChangement={(statutClient) => setCriteres({ ...criteres, statutClient })}
+                  libelle={t("clients.filtreStatut")}
+                  libelleTous={t("clients.filtreStatutTous")}
+                  options={statuts.map((statut) => ({
+                    valeur: statut,
+                    libelle: t(`statutClient.${statut}`),
+                  }))}
+                />
+                <FiltreTableau
+                  valeur={criteres.plan}
+                  onChangement={(plan) => setCriteres({ ...criteres, plan })}
+                  libelle={t("clients.filtrePlan")}
+                  libelleTous={t("clients.filtrePlanTous")}
+                  options={plans.map((plan) => ({ valeur: plan, libelle: t(`plan.${plan}`) }))}
+                />
+              </>
+            }
           />
         ))}
     </div>

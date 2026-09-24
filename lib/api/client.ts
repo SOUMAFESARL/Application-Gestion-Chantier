@@ -30,6 +30,9 @@ import type { EspaceSession } from "./jetons";
 
 const PREFIXE = "/api/v1";
 
+/** La connexion du back-office : un 401 y est un refus d'identifiants, pas un jeton périmé. */
+const CHEMIN_CONNEXION_ADMIN = "/admins/connexion/";
+
 /**
  * Surcharge explicite de l'adresse de l'API — **à n'employer qu'en dernier
  * recours.**
@@ -402,7 +405,14 @@ export async function appeler<T>(chemin: string, options: Options = {}): Promise
   }
 
   // 401 : le jeton d'accès a expiré. On renouvelle une fois, puis on rejoue.
-  if (reponse.status === 401 && !options.sansRenouvellement) {
+  // Sauf sur la connexion du back-office, où un 401 veut dire « identifiants
+  // invalides » : renouveler y rejouerait un mot de passe refusé avec le
+  // jeton d'une session précédente.
+  if (
+    reponse.status === 401 &&
+    !options.sansRenouvellement &&
+    chemin !== CHEMIN_CONNEXION_ADMIN
+  ) {
     const renouvele = await renouvellementPartage(options.espace ?? "entreprise");
     if (renouvele) {
       reponse = await executer(chemin, { ...options, sansRenouvellement: true });
@@ -421,6 +431,7 @@ export async function appeler<T>(chemin: string, options: Options = {}): Promise
     if (
       erreur.statut === 401 &&
       !chemin.startsWith("/auth/") &&
+      chemin !== CHEMIN_CONNEXION_ADMIN &&
       !lireJetonRenouvellement(espace)
     ) {
       effacerJetons(espace);
@@ -492,7 +503,8 @@ export const apiPlateforme = {
  *   sert l'inscription, qui est **anonyme** : lui faire porter un jeton
  *   d'administrateur enverrait une identite privilegiee a un endpoint public,
  *   sans raison et sans que personne ne s'en apercoive.
- * · **Il prefixe `/administration`**, donc un adaptateur ecrit `"/clients/"`.
+ * · **Il ne prefixe rien de plus que `/api/v1`** : les routes du back-office
+ *   vivent sous `/admins/`, et l'adaptateur l'ecrit (`"/admins/clients/"`).
  *
  * Il expose les quatre verbes, la ou `apiPlateforme` n'en a que deux : un
  * back-office suspend un client, corrige un abonnement, revoque un acces.
