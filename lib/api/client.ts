@@ -137,6 +137,10 @@ interface Options {
    * cas de tous les appels métier, et le seul défaut qui ne surprend personne.
    */
   espace?: EspaceSession;
+  /**
+   * Si vrai, n'envoie aucun en-tête Authorization (pour endpoints publics/anonymes comme l'inscription).
+   */
+  sansJeton?: boolean;
 }
 
 // --------------------------------------------------------------------------
@@ -369,7 +373,7 @@ async function executer(chemin: string, options: Options): Promise<Response> {
   const entetes: Record<string, string> = { Accept: "application/json" };
   if (corps !== undefined && !estFormData) entetes["Content-Type"] = "application/json";
 
-  const jeton = lireJetonAcces(espace);
+  const jeton = options.sansJeton ? null : lireJetonAcces(espace);
   if (jeton) entetes.Authorization = `Bearer ${jeton}`;
 
   const url = construireUrl(chemin, parametres, base);
@@ -487,10 +491,21 @@ export const api = {
  */
 export const apiPlateforme = {
   lire: <T>(chemin: string, parametres?: Options["parametres"], signal?: AbortSignal) =>
-    appeler<T>(chemin, { methode: "GET", parametres, signal, base: basePlateforme() }),
+    appeler<T>(chemin, {
+      methode: "GET",
+      parametres,
+      signal,
+      base: basePlateforme(),
+      sansJeton: true,
+    }),
 
   creer: <T>(chemin: string, corps: unknown) =>
-    appeler<T>(chemin, { methode: "POST", corps, base: basePlateforme() }),
+    appeler<T>(chemin, {
+      methode: "POST",
+      corps,
+      base: basePlateforme(),
+      sansJeton: true,
+    }),
 };
 
 /**
