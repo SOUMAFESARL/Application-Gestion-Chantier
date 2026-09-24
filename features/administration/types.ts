@@ -51,8 +51,14 @@ export type StatutClient = "EN_ATTENTE" | "ACTIF" | "SUSPENDU" | "RESILIE";
 /** L'état de l'abonnement, indépendant de celui du client. */
 export type StatutAbonnement = "ESSAI" | "ACTIF" | "IMPAYE" | "SUSPENDU" | "RESILIE";
 
-/** Les trois plans commercialisés. */
-export type CodePlan = "DECOUVERTE" | "PRO" | "ENTREPRISE";
+/** Les forfaits BTP et plans commercialisés. */
+export type CodePlan =
+  | "BATISSEUR"
+  | "MAITRE_OEUVRE"
+  | "PROMOTEUR"
+  | "DECOUVERTE"
+  | "PRO"
+  | "ENTREPRISE";
 
 export interface AbonnementClient {
   statut: StatutAbonnement;
@@ -187,4 +193,14 @@ export interface PointEvolutionAbonnements {
   date: Date;
   renouveles: number;
   nonRenouveles: number;
+}
+
+/**
+ * Les informations associées à un jeton de réinitialisation Super Admin vérifié.
+ */
+export interface ContenuJetonAdmin {
+  email: string;
+  motif: string;
+  expireDans: number;
+  urlConnexion: string;
 }
