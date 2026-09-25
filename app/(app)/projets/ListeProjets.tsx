@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, Plus, TrendingUp } from "lucide-react";
+import { ChevronDown, Download, Eye, FileSpreadsheet, FileText, Plus, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
@@ -12,6 +12,12 @@ import type { VarianteBadge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { aideColonnes } from "@/components/ui/data-table";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   BORD_DROIT_TABLEAU,
   FiltreTableau,
   RechercheTableau,
@@ -21,6 +27,7 @@ import { listerProjets } from "@/features/projets/adaptateur";
 import { TiroirCreationProjet } from "@/features/projets/components/TiroirCreationProjet";
 import {
   chefsDeProjet,
+  COLONNES_EXPORT_PROJETS,
   criteresActifs,
   CRITERES_VIDES,
   echeanceDepassee,
@@ -29,9 +36,12 @@ import {
   niveauAvancement,
   nomAbrege,
   statutsPresents,
+  valeursExportProjet,
 } from "@/features/projets/regles";
 import type { CriteresProjets, NiveauAvancement } from "@/features/projets/regles";
 import type { Projet, StatutProjet } from "@/features/projets/types";
+import { telechargerCsv, versCsv } from "@/lib/export/csv";
+import { telechargerPdf } from "@/lib/export/pdf";
 import { ABSENT, couleurIndiceSante, formaterDate, formaterMillions } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -77,11 +87,11 @@ const TON_STATUT: Record<StatutProjet, VarianteBadge> = {
   ARCHIVE: "neutre",
 };
 
-/** Le ton de l'avancement réel : le chiffre et la jauge de progression. */
-const TON_AVANCEMENT: Record<NiveauAvancement, { texte: string; jauge: string }> = {
-  conforme: { texte: "text-succes", jauge: "bg-succes" },
-  retard: { texte: "text-avertissement", jauge: "bg-avertissement" },
-  critique: { texte: "text-erreur", jauge: "bg-erreur" },
+/** Le ton du chiffre d'avancement réel. */
+const TON_AVANCEMENT: Record<NiveauAvancement, string> = {
+  conforme: "text-succes",
+  retard: "text-avertissement",
+  critique: "text-erreur",
 };
 
 const TON_SANTE: Record<ReturnType<typeof couleurIndiceSante>, string> = {
@@ -161,6 +171,73 @@ export function ListeProjets() {
     </Bouton>
   );
 
+  /**
+   * L'export porte sur **les lignes filtrées**, toutes pages confondues : ce
+   * que l'utilisateur a sous les yeux après sa recherche, pas seulement les
+   * dix lignes de la page courante.
+   */
+  function lignesExport() {
+    const libelles = {
+      statut: (statut: StatutProjet) => t(`statut.${statut}`),
+      typeProjet: (type: NonNullable<Projet["typeProjet"]>) =>
+        t(`tiroirCreation.typeProjet.${type}`),
+      formaterDate,
+    };
+    return {
+      entetes: COLONNES_EXPORT_PROJETS.map((colonne) => t(`export.colonnes.${colonne}`)),
+      lignes: projetsFiltres.map((projet) => valeursExportProjet(projet, libelles)),
+      nomFichier: t("export.nomFichier", { date: new Date().toISOString().slice(0, 10) }),
+    };
+  }
+
+  function exporterCsv() {
+    const { entetes, lignes, nomFichier } = lignesExport();
+    telechargerCsv(versCsv([entetes, ...lignes]), `${nomFichier}.csv`);
+  }
+
+  function exporterPdf() {
+    const { entetes, lignes, nomFichier } = lignesExport();
+    void telechargerPdf({
+      titre: t("export.titrePdf"),
+      sousTitre: t("export.sousTitrePdf", {
+        date: formaterDate(new Date()),
+        nombre: lignes.length,
+      }),
+      entetes,
+      lignes,
+      nomFichier: `${nomFichier}.pdf`,
+    });
+  }
+
+  /** Même gabarit compact que « Nouveau projet » : réduit à son icône sous 640 px. */
+  const menuExport = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Bouton
+          variante="secondaire"
+          taille="sm"
+          aria-label={t("export.action")}
+          disabled={projetsFiltres.length === 0}
+          iconeGauche={<Download size={16} aria-hidden="true" />}
+          iconeDroite={<ChevronDown size={16} aria-hidden="true" className="max-sm:hidden" />}
+          className="max-sm:gap-0 max-sm:px-3"
+        >
+          <span className="max-sm:hidden">{t("export.action")}</span>
+        </Bouton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={exporterCsv}>
+          <FileSpreadsheet className="size-4" aria-hidden="true" />
+          {t("export.csv")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={exporterPdf}>
+          <FileText className="size-4" aria-hidden="true" />
+          {t("export.pdf")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   const colonnes = useMemo(
     () =>
       colonne.columns([
@@ -184,10 +261,6 @@ export function ListeProjets() {
             </Link>
           ),
         }),
-        colonne.accessor("reference", {
-          header: t("colonneReference"),
-          meta: { classe: "font-mono text-xs text-neutral-600" },
-        }),
         colonne.accessor("typeProjet", {
           header: t("colonneType"),
           cell: ({ getValue }) => {
@@ -210,32 +283,10 @@ export function ListeProjets() {
             <span
               className={cn(
                 "font-semibold tabular-nums",
-                TON_AVANCEMENT[niveauAvancement(row.original)].texte,
+                TON_AVANCEMENT[niveauAvancement(row.original)],
               )}
             >
               {t("pourcentage", { valeur: row.original.avancementReel })}
-            </span>
-          ),
-        }),
-        colonne.display({
-          id: "progression",
-          header: t("colonneProgression"),
-          cell: ({ row }) => (
-            <span
-              className="block h-1.5 w-24 overflow-hidden rounded-full bg-neutral-200"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={row.original.avancementReel}
-              aria-label={t("colonneProgression")}
-            >
-              <span
-                className={cn(
-                  "block h-full rounded-full",
-                  TON_AVANCEMENT[niveauAvancement(row.original)].jauge,
-                )}
-                style={{ width: `${largeurJauge(row.original.avancementReel)}%` }}
-              />
             </span>
           ),
         }),
@@ -311,7 +362,12 @@ export function ListeProjets() {
       <EnTetePage
         titre={t("titre")}
         description={t("sousTitre", { nombre: projets.length })}
-        actions={boutonNouveauCompact}
+        actions={
+          <>
+            {requete.isSuccess && projets.length > 0 && menuExport}
+            {boutonNouveauCompact}
+          </>
+        }
       />
 
       {requete.isPending && <EtatChargement />}

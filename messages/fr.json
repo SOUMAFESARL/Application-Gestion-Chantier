@@ -752,6 +752,27 @@
     "colonneSante": "Santé",
     "colonneStatut": "Statut",
     "colonneType": "Type",
+    "export": {
+      "action": "Exporter",
+      "csv": "Liste (CSV)",
+      "pdf": "Liste (PDF)",
+      "nomFichier": "projets-{date}",
+      "titrePdf": "Liste des projets",
+      "sousTitrePdf": "Édité le {date} — {nombre, plural, one {# projet} other {# projets}}",
+      "colonnes": {
+        "reference": "Référence",
+        "nom": "Nom du projet",
+        "client": "Client",
+        "ville": "Ville",
+        "typeProjet": "Type",
+        "chefProjet": "Chef de projet",
+        "avancementReel": "Avancement réel (%)",
+        "indiceSante": "Indice de santé",
+        "dateFinPrevue": "Date de fin prévue",
+        "budgetInitial": "Budget initial (FCFA)",
+        "statut": "Statut"
+      }
+    },
     "filtreChefProjet": "Filtrer par chef de projet",
     "filtreChefProjetTous": "Tous les chefs de projet",
     "filtreStatut": "Filtrer par statut",

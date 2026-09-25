@@ -407,3 +407,57 @@ export function chefsDeProjet(projets: Projet[]): { id: string; nomComplet: stri
     .map(([id, nomComplet]) => ({ id, nomComplet }))
     .sort((a, b) => a.nomComplet.localeCompare(b.nomComplet));
 }
+
+/**
+ * Les colonnes de l'export de la liste (CSV et PDF), dans l'ordre de
+ * `valeursExportProjet`.
+ *
+ * L'export garde la référence et le client, que l'écran ne montre plus : un
+ * fichier sorti de l'application se relit sans elle, et la référence est ce
+ * qui permet d'y retrouver un chantier.
+ */
+export const COLONNES_EXPORT_PROJETS = [
+  "reference",
+  "nom",
+  "client",
+  "ville",
+  "typeProjet",
+  "chefProjet",
+  "avancementReel",
+  "indiceSante",
+  "dateFinPrevue",
+  "budgetInitial",
+  "statut",
+] as const;
+
+/** Ce que l'export ne sait pas nommer seul : les libellés viennent de l'écran. */
+export interface LibellesExportProjet {
+  statut: (statut: StatutProjet) => string;
+  typeProjet: (type: TypeProjet) => string;
+  formaterDate: (date: string) => string;
+}
+
+/**
+ * Une ligne d'export. Le budget sort **en francs entiers**, pas en millions
+ * arrondis comme à l'écran : un fichier se recalcule, un arrondi s'y cumule.
+ * Une valeur absente sort vide, pas « — » : une cellule vide se trie et se
+ * somme, un tiret non.
+ */
+export function valeursExportProjet(
+  projet: Projet,
+  libelles: LibellesExportProjet,
+): (string | number)[] {
+  return [
+    projet.reference,
+    projet.nom,
+    projet.client.raisonSociale,
+    projet.ville,
+    projet.typeProjet ? libelles.typeProjet(projet.typeProjet) : "",
+    projet.chefProjet?.nomComplet ?? "",
+    projet.avancementReel,
+    projet.indiceSante ?? "",
+    projet.dateFinPrevue ? libelles.formaterDate(projet.dateFinPrevue) : "",
+    projet.budgetInitial === null ? "" : Math.round(projet.budgetInitial / 100),
+    libelles.statut(projet.statut),
+  ];
+}
