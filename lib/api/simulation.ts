@@ -21,15 +21,15 @@
 import { ErreurApi } from "./erreurs";
 
 /**
- * **Ce drapeau couvre trois domaines** : le configurateur (T-024),
- * l'abonnement (T-025) et le **back-office de la plateforme**
- * (`/administration/*`), dont les endpoints ne sont pas écrits.
+ * **Ce drapeau couvre deux domaines** : l'abonnement (T-025) et le
+ * **back-office de la plateforme** (`/administration/*`), dont les endpoints
+ * ne sont pas écrits.
  *
- * L'inscription et le mot de passe en sont **sortis** — leurs endpoints
- * existent et le client les appelle. Un drapeau unique pour trois domaines a
- * coûté un bandeau menteur sur quatre écrans : le jour où l'un d'eux cesse
- * d'être simulé, c'est ici qu'il faut regarder, et sur les écrans qui portent
- * le bandeau.
+ * L'inscription, le mot de passe et la configuration de l'entreprise en sont
+ * **sortis** — leurs endpoints existent et le client les appelle. Un drapeau
+ * unique pour plusieurs domaines a coûté un bandeau menteur sur plusieurs
+ * écrans : le jour où l'un d'eux cesse d'être simulé, c'est ici qu'il faut
+ * regarder, et sur les écrans qui portent le bandeau.
  *
  * *Le back-office est le cas le plus net des trois : **rien** de
  * `/administration/*` n'existe côté Django aujourd'hui. L'espace entier est
@@ -234,60 +234,6 @@ export const simulation = {
       },
       200,
     );
-  },
-};
-
-// ---------------------------------------------------------------------------
-// L'entreprise — écran de configuration (plus de wizard ni de progression)
-// ---------------------------------------------------------------------------
-const CLE_ENTREPRISE = "ccd.simulation.entreprise";
-
-const ENTREPRISE_DEMO: Record<string, unknown> = {
-  raison_sociale: "Ivoire BTP",
-  pays: "CI",
-  adresse: "",
-  ville: "",
-  rccm: "",
-  nif: "",
-  telephone_contact: "",
-  email_contact: "",
-};
-
-function lireEntrepriseSimulee(): Record<string, unknown> {
-  if (typeof window === "undefined") return ENTREPRISE_DEMO;
-  try {
-    const brut = window.sessionStorage.getItem(CLE_ENTREPRISE);
-    return brut ? (JSON.parse(brut) as Record<string, unknown>) : ENTREPRISE_DEMO;
-  } catch {
-    return ENTREPRISE_DEMO;
-  }
-}
-
-function ecrireEntrepriseSimulee(donnees: Record<string, unknown>): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(CLE_ENTREPRISE, JSON.stringify(donnees));
-  } catch {
-    // Sans mémoire, la simulation repart de zéro — sans conséquence.
-  }
-}
-
-export const simulationConfiguration = {
-  /**
-   * **Persiste réellement**, contrairement à l'ancienne version — celle d'un
-   * wizard — qui rejouait toujours la même fiche démo sans jamais relire ce
-   * qui avait été enregistré. L'écran de configuration se consulte
-   * maintenant à tout moment, pas seulement à la première connexion : ce
-   * qu'on y enregistre doit s'y retrouver à la visite suivante.
-   */
-  async lireEntreprise() {
-    return attendre({ ...lireEntrepriseSimulee() }, 200);
-  },
-
-  async enregistrerEntreprise(donnees: Record<string, unknown>) {
-    const fusion = { ...lireEntrepriseSimulee(), ...donnees };
-    ecrireEntrepriseSimulee(fusion);
-    return attendre(undefined, 400);
   },
 };
 

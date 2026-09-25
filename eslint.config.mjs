@@ -318,9 +318,9 @@ const eslintConfig = defineConfig([
       "lib/api/simulationAdministration.ts",
       "features/auth/api.ts",
       "features/configuration/api.ts",
-      // Jeux de démonstration en attente des endpoints — noms de chantiers,
-      // de clients et de personnes. À supprimer avec le branchement de l'API.
-      "app/(app)/tableau-de-bord/page.tsx",
+      // Le tableau de bord DG de démonstration, en attendant sa route :
+      // noms de fournisseurs, d'articles et d'échéances de chantier.
+      "features/tableauDeBord/simulationTableauDeBord.ts",
       // Le portefeuille de chantiers de démonstration, en attendant
       // « GET /projets/ » : des noms de chantiers, de clients et de personnes.
       "features/projets/simulationProjets.ts",

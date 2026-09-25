@@ -1040,92 +1040,105 @@
     }
   },
   "tableauDeBord": {
-    "actionMetres": "Valider métrés & BDP",
-    "actionNouveauProjet": "Nouveau projet",
-    "actionRapport": "Saisir rapport journalier",
+    "actions": {
+      "exporter": "Exporter le rapport",
+      "exporterExcel": "Portefeuille (Excel)",
+      "imprimer": "Imprimer ou enregistrer en PDF",
+      "nomFichier": "portefeuille-chantiers-{date}.csv",
+      "nouveauProjet": "Nouveau projet"
+    },
     "alertes": {
-      "intemperiesCorps": "{condition} à {ville}. Les travaux extérieurs de {projet} peuvent être ralentis ou interrompus : à consigner au rapport journalier.",
-      "intemperiesTitre": "Intempéries sur {projet}",
-      "voirRapport": "Voir le rapport intempéries"
+      "aucune": "Aucune alerte en cours.",
+      "contexte": "{chantier} · {date}",
+      "gravite": {
+        "ATTENTION": "Attention",
+        "CRITIQUE": "Critique"
+      },
+      "sousTitre": "Remontées automatiquement des chantiers",
+      "titre": "Alertes",
+      "types": {
+        "DEPENSE_INHABITUELLE": "Dépense inhabituelle : {sujet} ({montant})",
+        "DEPENSE_SEUIL": "Dépense au-delà du seuil autorisé : {sujet} ({montant})",
+        "ECHEANCE_CONTRAT": "{sujet} applicables dans {jours} j",
+        "INCIDENT_SECURITE": "Incident de sécurité : {sujet}",
+        "INTEMPERIES": "Intempéries à {sujet} : travaux extérieurs ralentis",
+        "PAIEMENT_RETARD": "Paiement de {sujet} en retard de {jours} j ({montant})",
+        "RUPTURE_STOCK": "Rupture de {sujet} prévue dans {jours} j"
+      }
     },
-    "bdp": {
-      "actionSigner": "Signer",
-      "compteur": "{n} à signer",
-      "detailLot": "{lot} · {ref}",
-      "erreurSignature": "Échec de la signature : {erreur}",
-      "signatureEnCours": "Signature en cours...",
-      "signe": "Signé",
-      "sousTitre": "Quantités produites vérifiées par le Conducteur de Travaux (RG-08)",
-      "succesSignature": "Bon signé avec succès.",
-      "titre": "Bons de paiement à valider"
+    "attention": {
+      "aucun": "Tous les chantiers sont sous contrôle.",
+      "motifs": {
+        "BUDGET_ALERTE": "Budget consommé à {valeur} %",
+        "BUDGET_DEPASSE": "Budget dépassé ({valeur} %)",
+        "BUDGET_NON_DEFINI": "Budget non défini",
+        "MARGE_NEGATIVE": "Marge {valeur} %",
+        "RETARD": "Retard de {valeur} pts",
+        "SANTE_CRITIQUE": "Santé {valeur}/100",
+        "SUSPENDU": "Chantier suspendu"
+      },
+      "ouvrir": "Ouvrir {nom}",
+      "sousTitre": "Ce qui justifie votre intervention",
+      "titre": "Chantiers à surveiller"
     },
-    "chantiers": {
-      "budgetInvalide": "Veuillez saisir un montant supérieur à zéro.",
-      "budgetNonDefini": "Budget non défini",
-      "champBudgetMontant": "Montant du budget (FCFA)",
-      "colAvancement": "Avancement Réel vs Prévu",
-      "colBudget": "Budget (Consommé / Prévu)",
-      "colProjet": "Projet / Client MOA",
-      "colRapport": "Rapport du jour",
-      "colSante": "Santé",
-      "colStatut": "Statut",
-      "compteur": "{n, plural, one {# projet actif} other {# projets actifs}}",
-      "consulterChantier": "Consulter le chantier",
-      "definirBudget": "+ Définir",
-      "demarrage": "Démarrage : {date}",
-      "detailProjet": "{client} · {ville} ({quartier})",
-      "enCours": "En cours",
-      "enregistrerBudget": "Enregistrer le budget",
-      "labelAvancement": "Avancement",
-      "labelBudget": "Budget",
-      "labelRapport": "Rapport journalier",
-      "labelSante": "Santé globale",
-      "modalBudgetDescription": "Indiquez le budget prévisionnel alloué à ce chantier (en FCFA).",
-      "modalBudgetTitre": "Définir le budget initial",
-      "placeholderBudgetMontant": "ex: 45000000",
-      "prevu": "Prévu : {taux}% ({ecart}%)",
-      "rapportEnAttente": "En attente",
-      "rapportSansLot": "— Pas de lot",
-      "rapportSoumis": "Soumis ({heure})",
-      "ratioConsommation": "{taux}% engagé",
-      "ratioDepassement": "{taux}% (Dépassement)",
-      "reel": "Réel : {taux}%",
-      "sansIndice": "N/A",
-      "sousTitre": "Comparatif avancement physique réel vs théorique planifié",
-      "titre": "Suivi d'avancement des chantiers",
-      "villeDefaut": "Abidjan",
-      "vueCartes": "Cartes",
-      "vueTableau": "Tableau"
+    "echeances": {
+      "aucune": "Aucune échéance dans les 30 prochains jours.",
+      "dans": "{jours, plural, =0 {Aujourd'hui} one {Demain} other {Dans # j}}",
+      "sousTitre": "30 prochains jours",
+      "titre": "Échéances à venir",
+      "types": {
+        "CAUTION": "Caution",
+        "FIN_CONTRAT": "Contrat",
+        "LIVRAISON_CHANTIER": "Démarrage",
+        "RECEPTION_TRAVAUX": "Réception",
+        "SITUATION_TRAVAUX": "Situation"
+      }
     },
     "emptyState": {
       "actionCreer": "Créer mon premier chantier",
       "badgeSansChantier": "0 chantier actif",
-      "description": "Votre entreprise est configurée et prête pour le suivi opérationnel. Créez votre premier chantier de construction pour commencer le pilotage, affecter un conducteur de travaux et suivre les avancements.",
+      "description": "Votre entreprise est configurée. Créez votre premier chantier pour suivre sa santé, son budget et sa rentabilité depuis cet écran.",
       "titre": "Bienvenue sur votre espace CCD Digital"
     },
-    "kpis": {
-      "bonsASignerAlerte": "{n} bons de paiement à signer ({montant})",
-      "budget": "Budget {taux}%",
-      "budgetEngage": "Engagé / Budget global",
-      "chantiersActifs": "Chantiers en cours",
-      "conforme": "{n} conforme",
-      "delais": "Délais {taux}%",
-      "effectifs": "Effectifs sur chantiers",
-      "indicateursCles": "Indicateurs clés",
-      "ouvriers": "ouvriers",
-      "rapportsTransmis": "{soumis}/{attendus} Rapports reçus",
-      "repartitionEffectifs": "{regie} régie · {tacherons} tâcherons",
-      "retard": "{n} retard ({jours} j)",
-      "santeMoyenne": "Santé moyenne portefeuille",
-      "securite": "Sécurité {taux}%",
-      "surCent": "/ 100"
+    "erreurChargement": "Le tableau de bord n'a pas pu être chargé.",
+    "export": {
+      "avancementReel": "Avancement réel (%)",
+      "avancementTheorique": "Avancement prévu (%)",
+      "budgetConsomme": "Dépensé (FCFA)",
+      "budgetInitial": "Budget (FCFA)",
+      "chefProjet": "Chef de projet",
+      "client": "Maître d'ouvrage",
+      "dateFin": "Fin prévue",
+      "indiceSante": "Indice de santé",
+      "marge": "Marge prévisionnelle (%)",
+      "montantMarche": "Marché (FCFA)",
+      "nom": "Chantier",
+      "reference": "Référence",
+      "statut": "Statut",
+      "ville": "Ville"
     },
-    "materiaux": {
-      "titre": "Réceptions de matériaux du jour"
+    "graphique": {
+      "aucun": "Aucun chantier suivi n'a encore de budget défini.",
+      "consomme": "Dépensé",
+      "prevu": "Budget prévu",
+      "sousTitre": "Par chantier suivi, en FCFA",
+      "titre": "Budget prévu et dépensé"
     },
-    "meteo": {
-      "arret": "1 arrêt déclaré",
-      "praticable": "Chantier praticable"
+    "indicateurs": {
+      "actifs": "Chantiers actifs",
+      "aria": "Indicateurs de direction",
+      "budget": "Budget consommé",
+      "depassements": "{n, plural, =0 {Aucun dépassement} one {# chantier en dépassement} other {# chantiers en dépassement}}",
+      "detailActifs": "Carnet {montant} · {enAttente} en attente · {suspendus, plural, =0 {aucun suspendu} one {# suspendu} other {# suspendus}}",
+      "detailBudget": "{consomme} sur {total}",
+      "detailMarge": "{montant} sur les marchés en cours",
+      "marge": "Marge prévisionnelle",
+      "margesNegatives": "{n, plural, =0 {Aucune marge négative} one {# chantier à marge négative} other {# chantiers à marge négative}}",
+      "pourcent": "{valeur} %",
+      "repartition": "{bon} sous contrôle · {vigilance} vigilance · {critique} critique",
+      "sansDonnee": "—",
+      "sante": "Santé moyenne",
+      "surCent": "/100"
     },
     "navigation": {
       "abonnement": "Abonnement",
@@ -1213,8 +1226,71 @@
       "tarifs": "Tarifs",
       "tiers": "Tiers"
     },
-    "sousTitre": "Situation d'exploitation consolidée — Semaine 36",
-    "titre": "Tableau de bord de pilotage"
+    "portefeuille": {
+      "budgetNonDefini": "Non défini",
+      "colAvancement": "Avancement réel / prévu",
+      "colBudget": "Budget",
+      "colChef": "Chef de projet",
+      "colFin": "Fin prévue",
+      "colMarge": "Marge",
+      "colProjet": "Chantier",
+      "colSante": "Santé",
+      "compteur": "{n, plural, one {# chantier suivi} other {# chantiers suivis}}",
+      "consulter": "Consulter le chantier",
+      "detailProjet": "{client} · {ville}",
+      "finDans": "{jours, plural, =0 {aujourd'hui} one {dans # jour} other {dans # jours}}",
+      "finDepassee": "{jours, plural, one {dépassée de # jour} other {dépassée de # jours}}",
+      "inconnue": "—",
+      "labelAvancement": "Avancement",
+      "labelBudget": "Budget",
+      "labelFin": "Fin prévue",
+      "labelMarge": "Marge",
+      "pourcent": "{valeur} %",
+      "prevu": "Prévu {taux} % ({ecart})",
+      "ratioConsommation": "{taux} % consommé",
+      "ratioDepassement": "{taux} % · dépassement",
+      "reel": "Réel {taux} %",
+      "sansChef": "Non désigné",
+      "sansDate": "Non planifiée",
+      "sousTitre": "Du plus critique au plus sain",
+      "titre": "Portefeuille de chantiers",
+      "vueCartes": "Cartes",
+      "vueTableau": "Tableau"
+    },
+    "qhse": {
+      "accidents": "Accidents",
+      "joursSansAccident": "Jours sans accident",
+      "ncEnRetard": "{n, plural, =0 {Toutes traitées dans les délais} one {# action corrective en retard} other {# actions correctives en retard}}",
+      "ncOuvertes": "Non-conformités ouvertes",
+      "presqueAccidents": "Presque-accidents",
+      "sousTitre": "Mois en cours, tous chantiers",
+      "titre": "Sécurité & qualité",
+      "voir": "Voir le registre QHSE"
+    },
+    "salutation": "Bonjour {prenom}",
+    "salutationAnonyme": "Bonjour",
+    "sante": {
+      "BON": "Sous contrôle",
+      "CRITIQUE": "Critique",
+      "VIGILANCE": "Vigilance"
+    },
+    "synthese": "{actifs, plural, =0 {Aucun chantier actif} one {# chantier actif} other {# chantiers actifs}} · {critiques, plural, =0 {aucun en situation critique} one {# en situation critique} other {# en situation critique}} · {aValider, plural, =0 {rien à valider} one {# validation vous attend} other {# validations vous attendent}}",
+    "titre": "Tableau de bord",
+    "validations": {
+      "aucune": "Rien n'attend votre signature.",
+      "demande": "Demandé par {demandeur} le {date}",
+      "detail": "{reference} · {chantier}",
+      "erreur": "La validation de {reference} a échoué. Réessayez.",
+      "succes": "{reference} validé.",
+      "titre": "Validations en attente",
+      "total": "{montant} à engager",
+      "types": {
+        "AVENANT": "Avenant",
+        "BON_PAIEMENT": "Bon de paiement",
+        "DEMANDE_ACHAT": "Demande d'achat"
+      },
+      "valider": "Valider"
+    }
   },
   "telephone": {
     "aide": "Numéro mobile, sans l'indicatif — il est choisi à gauche.",
