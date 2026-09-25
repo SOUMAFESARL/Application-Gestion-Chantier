@@ -88,6 +88,17 @@ export function formaterMontantCourt(centimes: number | null | undefined): strin
 }
 
 /**
+ * Montant en millions de FCFA, sans unité — pour une colonne dont l'en-tête
+ * porte déjà « M FCFA ». `120000000000` → « 1 200 » · `48550000000` → « 485,5 »
+ */
+export function formaterMillions(centimes: number | null | undefined): string {
+  if (centimes === null || centimes === undefined) return ABSENT;
+  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 })
+    .format(centimesEnFrancs(centimes) / 1_000_000)
+    .replace(/\s/g, INSECABLE);
+}
+
+/**
  * Saisie utilisateur → centimes. L'utilisateur tape « 875 000 000 ».
  * Renvoie `null` si la saisie ne contient aucun chiffre.
  */

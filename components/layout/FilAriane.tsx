@@ -32,6 +32,8 @@ const CARTE_SEGMENTS: Record<string, string> = {
   "/abonnement/tarifs": "tarifs",
   "/abonnement/historique": "historique",
   "/projets": "projets",
+  "/projets/lots-activites": "projetsLots",
+  "/projets/equipe-affectations": "projetsEquipe",
   "/rapports": "chantier",
   "/planning": "planning",
   "/finance": "finance",

@@ -8,6 +8,7 @@ import { ChevronRight, PanelLeftIcon } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { Button } from "@/components/ui/button"
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import {
   Sheet,
   SheetContent,
@@ -491,6 +492,131 @@ function SidebarMenuButton({
   )
 }
 
+/** Le délai avant fermeture : de quoi traverser l'espace entre l'entrée et le panneau. */
+const DELAI_FERMETURE_SOUS_MENU = 150
+
+/**
+ * Le sous-menu d'une entrée de nav, en **panneau volant** à droite de la
+ * barre — comme le sous-menu d'un `DropdownMenu` : il s'ouvre au survol de
+ * l'entrée, reste ouvert tant que le pointeur est sur l'entrée ou sur le
+ * panneau, et se referme en le quittant.
+ *
+ * Il fonctionne aussi replié en icônes : c'est même là qu'il sert le plus,
+ * puisque les libellés n'y sont plus. Sur téléphone (barre en tiroir), il
+ * n'y a pas de survol : les entrées s'affichent alors en liste sous l'entrée
+ * parente, toujours atteignables.
+ *
+ * `declencheur` est le `SidebarMenuButton` de l'entrée ; `children`, des
+ * `SidebarMenuSousMenuLien`.
+ */
+function SidebarMenuSousMenu({
+  declencheur,
+  libelle,
+  children,
+}: {
+  declencheur: React.ReactNode
+  /** Le nom du panneau, pour les lecteurs d'écran. */
+  libelle: string
+  children: React.ReactNode
+}) {
+  const { isMobile } = useSidebar()
+  const [ouvert, setOuvert] = React.useState(false)
+  const minuterie = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const annulerFermeture = React.useCallback(() => {
+    if (minuterie.current) clearTimeout(minuterie.current)
+    minuterie.current = null
+  }, [])
+
+  const ouvrir = React.useCallback(() => {
+    annulerFermeture()
+    setOuvert(true)
+  }, [annulerFermeture])
+
+  const fermerBientot = React.useCallback(() => {
+    annulerFermeture()
+    minuterie.current = setTimeout(() => setOuvert(false), DELAI_FERMETURE_SOUS_MENU)
+  }, [annulerFermeture])
+
+  React.useEffect(() => annulerFermeture, [annulerFermeture])
+
+  if (isMobile) {
+    return (
+      <SidebarMenuItem>
+        {declencheur}
+        <ul
+          aria-label={libelle}
+          className="mx-3.5 mt-1 flex min-w-0 list-none flex-col gap-1 border-0 border-l border-solid border-sidebar-border py-0.5 pl-2.5"
+        >
+          {children}
+        </ul>
+      </SidebarMenuItem>
+    )
+  }
+
+  return (
+    <Popover open={ouvert} onOpenChange={setOuvert}>
+      <PopoverAnchor asChild>
+        <SidebarMenuItem
+          onMouseEnter={ouvrir}
+          onMouseLeave={fermerBientot}
+          // Au clavier : la flèche droite ouvre le panneau, comme dans un menu.
+          onKeyDown={(evenement) => {
+            if (evenement.key === "ArrowRight") {
+              evenement.preventDefault()
+              ouvrir()
+            }
+          }}
+        >
+          {declencheur}
+        </SidebarMenuItem>
+      </PopoverAnchor>
+      <PopoverContent
+        side="right"
+        align="start"
+        sideOffset={8}
+        onMouseEnter={annulerFermeture}
+        onMouseLeave={fermerBientot}
+        // Le survol ne doit pas voler le focus à la page.
+        onOpenAutoFocus={(evenement) => evenement.preventDefault()}
+        className="w-auto min-w-48 p-1"
+      >
+        <ul aria-label={libelle} className="m-0 flex list-none flex-col gap-0.5 p-0">
+          {children}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** Une entrée du sous-menu — un lien (`asChild` + `Link`). */
+function SidebarMenuSousMenuLien({
+  isActive = false,
+  className,
+  children,
+}: {
+  isActive?: boolean
+  className?: string
+  children: React.ReactElement
+}) {
+  return (
+    <li>
+      <Slot.Root
+        data-active={isActive}
+        aria-current={isActive ? "page" : undefined}
+        className={cn(
+          "flex h-8 items-center gap-2 rounded-sm px-2 text-sm text-foreground no-underline outline-hidden select-none",
+          "hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground",
+          "data-[active=true]:font-semibold data-[active=true]:text-primary",
+          className
+        )}
+      >
+        {children}
+      </Slot.Root>
+    </li>
+  )
+}
+
 export {
   Sidebar,
   SidebarContent,
@@ -503,6 +629,8 @@ export {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSousMenu,
+  SidebarMenuSousMenuLien,
   SidebarProvider,
   SidebarTrigger,
   useSidebar,

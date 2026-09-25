@@ -62,6 +62,8 @@ export interface Projet {
   reference: string;
   nom: string;
   description: string;
+  /** `null` pour un projet ouvert avant que le type ne soit demandé. */
+  typeProjet: TypeProjet | null;
   client: ClientProjet;
   ville: string;
   quartier: string;
@@ -70,6 +72,8 @@ export interface Projet {
   avancementReel: number;
   /** Un pourcentage, de 0 à 100. */
   avancementTheorique: number;
+  /** L'indice de santé calculé par le serveur, de 0 à 100. `null` : pas encore calculé. */
+  indiceSante: number | null;
   /** En centimes. `null` tant que le budget n'est pas défini. */
   budgetInitial: number | null;
   /** En centimes. */
@@ -82,34 +86,64 @@ export interface Projet {
   conducteurTravaux: Intervenant | null;
 }
 
-/** Ce qu'il faut fournir pour ouvrir un chantier. */
-export interface CreationProjet {
+/** La nature d'un projet, choisie à sa création. */
+export type TypeProjet =
+  | "BATIMENT_RESIDENTIEL"
+  | "BATIMENT_TERTIAIRE"
+  | "INDUSTRIEL"
+  | "GENIE_CIVIL"
+  | "VRD"
+  | "REHABILITATION"
+  | "AUTRE";
+
+/** Qui exécute un lot : l'entreprise elle-même, ou un sous-traitant. */
+export type ModeExecutionLot =
+  | "REGIE_DIRECTE"
+  | "SOUS_TRAITANCE_STRUCTUREE"
+  | "SOUS_TRAITANCE_INFORMELLE";
+
+/** Comment le lot est rémunéré. */
+export type TypeBordereau = "FORFAIT_GLOBAL" | "PRIX_UNITAIRE";
+
+/** Un lot déclaré à la création du projet — ses activités viennent après. */
+export interface CreationLot {
+  /** `L-01`, `L-02`… : l'ordre de saisie. */
+  numero: string;
   nom: string;
-  /** L'identifiant du tiers maître d'ouvrage. */
-  clientId: string;
-  ville: string;
-  quartier?: string;
-  dateDebutPrevue: string;
-  dateFinPrevue: string;
-  /** En centimes. Absent quand le budget sera défini plus tard. */
-  budgetInitial?: number | null;
-  description?: string;
-  /**
-   * Le responsable est soit une personne déjà enregistrée, soit une personne
-   * à inviter — jamais les deux. La règle est dans `regles.ts`.
-   */
-  chefProjetId?: string;
-  chefProjetInvite?: InvitationIntervenant;
-  conducteurTravauxId?: string;
-  conducteurTravauxInvite?: InvitationIntervenant;
+  modeExecution: ModeExecutionLot;
+  typeBordereau: TypeBordereau;
+  dateDebut?: string;
+  dateFin?: string;
 }
 
-/** Les quatre champs nécessaires pour inviter un intervenant inconnu. */
-export interface InvitationIntervenant {
+/** Les affectations de l'équipe projet, par identifiant de collaborateur. */
+export interface EquipeProjet {
+  chefProjetId: string;
+  conducteurTravauxId: string;
+  /** Au moins un. */
+  chefsChantierIds: string[];
+  directeurFinancierId?: string;
+  visiteursIds: string[];
+  bailleursIds: string[];
+}
+
+/** Ce qu'il faut fournir pour ouvrir un projet — les trois étapes du tiroir. */
+export interface CreationProjet {
   nom: string;
-  prenom: string;
-  email: string;
-  telephone: string;
+  /** Absente : le serveur engendre la référence. */
+  reference?: string;
+  typeProjet: TypeProjet;
+  ville: string;
+  /** Le maître d'ouvrage, en clair : entreprise ou particulier. */
+  maitreOuvrage: string;
+  maitreOeuvre?: string;
+  dateDebutPrevue: string;
+  dateFinPrevue: string;
+  /** En centimes. */
+  budgetInitial: number;
+  description?: string;
+  lots: CreationLot[];
+  equipe: EquipeProjet;
 }
 
 /** La portée d'un relevé météo : l'entreprise, ou un chantier précis. */

@@ -11,7 +11,13 @@
  * s'était produit — voir `SEUIL_RETARD_POINTS` plus bas.
  */
 
-import type { Projet, StatutProjet } from "./types";
+import type {
+  ModeExecutionLot,
+  Projet,
+  StatutProjet,
+  TypeBordereau,
+  TypeProjet,
+} from "./types";
 
 /**
  * À partir de combien de points de retard un chantier est-il « en retard ».
@@ -116,6 +122,37 @@ export function largeurJauge(taux: number): number {
   return Math.min(Math.max(taux, 0), 100);
 }
 
+/** Comment se lit l'avancement réel d'un projet dans la liste. */
+export type NiveauAvancement = "conforme" | "retard" | "critique";
+
+/**
+ * Le niveau d'avancement : critique si le projet l'est, en retard au-delà de
+ * `SEUIL_RETARD_POINTS`, conforme sinon. Même seuil que partout ailleurs.
+ */
+export function niveauAvancement(projet: Projet): NiveauAvancement {
+  if (projet.statut === "CRITIQUE") return "critique";
+  const ecart = ecartAvancement(projet.avancementReel, projet.avancementTheorique);
+  return estEnRetard(ecart) ? "retard" : "conforme";
+}
+
+/**
+ * L'échéance est-elle dépassée : date de fin prévue passée, projet non
+ * terminé. Comparaison en ISO court, comme `datesChantierCoherentes`.
+ */
+export function echeanceDepassee(projet: Projet, maintenant: Date = new Date()): boolean {
+  if (projet.statut === "TERMINE" || projet.statut === "ARCHIVE") return false;
+  return projet.dateFinPrevue < maintenant.toISOString().split("T")[0];
+}
+
+/** « Koffi Kouamé » → « K. Kouamé » : ce qui tient dans une colonne étroite. */
+export function nomAbrege(intervenant: { prenom: string; nom: string } | null): string | null {
+  if (!intervenant) return null;
+  const prenom = intervenant.prenom.trim();
+  const nom = intervenant.nom.trim();
+  if (!prenom) return nom || null;
+  return nom ? `${prenom[0].toUpperCase()}. ${nom}` : prenom;
+}
+
 /**
  * Les initiales d'un intervenant, pour sa pastille d'avatar.
  *
@@ -197,6 +234,68 @@ export function datesChantierCoherentes(debut: string, fin: string): boolean {
  * à retoucher à chaque champ ajouté au domaine.
  */
 export const INDICE_SANTE_INITIAL = 100;
+
+/* ------------------------------------------------------------------ *
+ * La création d'un projet.
+ * ------------------------------------------------------------------ */
+
+/** Les natures de projet, dans l'ordre du sélecteur. */
+export const TYPES_PROJET: TypeProjet[] = [
+  "BATIMENT_RESIDENTIEL",
+  "BATIMENT_TERTIAIRE",
+  "INDUSTRIEL",
+  "GENIE_CIVIL",
+  "VRD",
+  "REHABILITATION",
+  "AUTRE",
+];
+
+/** De la régie à la sous-traitance la moins encadrée. */
+export const MODES_EXECUTION_LOT: ModeExecutionLot[] = [
+  "REGIE_DIRECTE",
+  "SOUS_TRAITANCE_STRUCTUREE",
+  "SOUS_TRAITANCE_INFORMELLE",
+];
+
+export const TYPES_BORDEREAU: TypeBordereau[] = ["FORFAIT_GLOBAL", "PRIX_UNITAIRE"];
+
+/**
+ * Le numéro d'un lot à partir de son rang (0 pour le premier) : `L-01`.
+ *
+ * Il suit l'ordre des lignes, et se renumérote quand un lot est retiré —
+ * un trou dans la séquence se lirait comme un lot supprimé après coup.
+ */
+export function numeroLot(rang: number): string {
+  return `L-${String(rang + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Le nombre de jours ouvrés (lundi à vendredi) entre deux dates ISO courtes,
+ * bornes comprises. `null` tant qu'une des deux dates manque ou qu'elles ne
+ * se suivent pas : une durée négative n'a pas de sens.
+ *
+ * Le calcul se fait en UTC : `new Date("2026-03-29")` est minuit UTC, et
+ * `getDay()` en heure locale décalerait le jour de la semaine à l'ouest de
+ * Greenwich.
+ */
+export function joursOuvres(debut: string, fin: string): number | null {
+  if (!debut || !fin || !datesChantierCoherentes(debut, fin)) return null;
+  const depart = Date.parse(debut);
+  const arrivee = Date.parse(fin);
+  if (Number.isNaN(depart) || Number.isNaN(arrivee)) return null;
+
+  const jour = 24 * 3600 * 1000;
+  const total = Math.round((arrivee - depart) / jour) + 1;
+  const semaines = Math.floor(total / 7);
+  let ouvres = semaines * 5;
+  // Les jours restants, après les semaines pleines.
+  const premierJour = new Date(depart).getUTCDay();
+  for (let i = 0; i < total % 7; i += 1) {
+    const jourSemaine = (premierJour + i) % 7;
+    if (jourSemaine !== 0 && jourSemaine !== 6) ouvres += 1;
+  }
+  return ouvres;
+}
 
 
 /* ------------------------------------------------------------------ *

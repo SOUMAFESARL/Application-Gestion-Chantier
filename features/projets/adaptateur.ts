@@ -25,11 +25,11 @@ import type {
   AlerteIntemperies,
   ClientProjet,
   CreationProjet,
-  InvitationIntervenant,
   Intervenant,
   MeteoProjet,
   Projet,
   StatutProjet,
+  TypeProjet,
 } from "./types";
 
 /* ------------------------------------------------------------------ *
@@ -60,12 +60,14 @@ interface ChargeProjet {
   reference: string;
   nom: string;
   description?: string;
+  type_projet?: TypeProjet | null;
   client: ChargeClient;
   ville: string;
   quartier?: string;
   statut: StatutProjet;
   avancement_reel: number;
   avancement_theorique: number;
+  indice_sante?: number | null;
   budget_initial_montant: number | null;
   budget_consomme_montant?: number;
   date_debut_prevue: string;
@@ -103,26 +105,38 @@ interface ChargeAlerteIntemperies {
   condition?: string;
 }
 
+/**
+ * La charge de `POST /projets/`. Le contrat n'est pas encore livré côté
+ * Django (voir `simulationProjets.ts`) : cette forme est la proposition du
+ * frontend, à aligner ici — et seulement ici — quand la route arrivera.
+ */
 interface ChargeCreationProjet {
   nom: string;
-  client: string;
+  reference?: string;
+  type_projet: string;
   ville: string;
-  quartier?: string;
+  maitre_ouvrage: string;
+  maitre_oeuvre?: string;
   date_debut_prevue: string;
   date_fin_prevue: string;
-  budget_initial_montant?: number | null;
+  budget_initial_montant: number;
   description?: string;
-  chef_projet_id?: string;
-  chef_projet_invite?: ChargeInvitation;
-  conducteur_travaux_id?: string;
-  conducteur_travaux_invite?: ChargeInvitation;
+  lots: ChargeCreationLot[];
+  chef_projet_id: string;
+  conducteur_travaux_id: string;
+  chefs_chantier_ids: string[];
+  directeur_financier_id?: string;
+  visiteurs_ids: string[];
+  bailleurs_ids: string[];
 }
 
-interface ChargeInvitation {
+interface ChargeCreationLot {
+  numero: string;
   nom: string;
-  prenom: string;
-  email: string;
-  telephone: string;
+  mode_execution: string;
+  type_bordereau: string;
+  date_debut?: string;
+  date_fin?: string;
 }
 
 /* ------------------------------------------------------------------ *
@@ -171,12 +185,14 @@ export function versProjet(charge: ChargeProjet): Projet {
     reference: charge.reference,
     nom: charge.nom,
     description: charge.description ?? "",
+    typeProjet: charge.type_projet ?? null,
     client: versClient(charge.client),
     ville: charge.ville,
     quartier: charge.quartier ?? "",
     statut: charge.statut,
     avancementReel: charge.avancement_reel ?? 0,
     avancementTheorique: charge.avancement_theorique ?? 0,
+    indiceSante: charge.indice_sante ?? null,
     budgetInitial: charge.budget_initial_montant ?? null,
     budgetConsomme: charge.budget_consomme_montant ?? 0,
     dateDebutPrevue: charge.date_debut_prevue,
@@ -224,34 +240,34 @@ function versMeteo(charge: ChargeMeteo): MeteoProjet {
   };
 }
 
-function versInvitation(invitation: InvitationIntervenant): ChargeInvitation {
-  return {
-    nom: invitation.nom,
-    prenom: invitation.prenom,
-    email: invitation.email,
-    telephone: invitation.telephone,
-  };
-}
-
 /** Traduction domaine vers serveur — le seul sens où l'on écrit du `snake_case`. */
 function versChargeCreation(creation: CreationProjet): ChargeCreationProjet {
+  const { equipe } = creation;
   return {
     nom: creation.nom,
-    client: creation.clientId,
+    reference: creation.reference,
+    type_projet: creation.typeProjet,
     ville: creation.ville,
-    quartier: creation.quartier,
+    maitre_ouvrage: creation.maitreOuvrage,
+    maitre_oeuvre: creation.maitreOeuvre,
     date_debut_prevue: creation.dateDebutPrevue,
     date_fin_prevue: creation.dateFinPrevue,
     budget_initial_montant: creation.budgetInitial,
     description: creation.description,
-    chef_projet_id: creation.chefProjetId,
-    chef_projet_invite: creation.chefProjetInvite
-      ? versInvitation(creation.chefProjetInvite)
-      : undefined,
-    conducteur_travaux_id: creation.conducteurTravauxId,
-    conducteur_travaux_invite: creation.conducteurTravauxInvite
-      ? versInvitation(creation.conducteurTravauxInvite)
-      : undefined,
+    lots: creation.lots.map((lot) => ({
+      numero: lot.numero,
+      nom: lot.nom,
+      mode_execution: lot.modeExecution,
+      type_bordereau: lot.typeBordereau,
+      date_debut: lot.dateDebut,
+      date_fin: lot.dateFin,
+    })),
+    chef_projet_id: equipe.chefProjetId,
+    conducteur_travaux_id: equipe.conducteurTravauxId,
+    chefs_chantier_ids: equipe.chefsChantierIds,
+    directeur_financier_id: equipe.directeurFinancierId,
+    visiteurs_ids: equipe.visiteursIds,
+    bailleurs_ids: equipe.bailleursIds,
   };
 }
 
@@ -292,6 +308,19 @@ export async function lireProjet(id: string): Promise<Projet> {
 export async function creerProjet(creation: CreationProjet): Promise<Projet> {
   if (SIMULATION_ACTIVE) return simulationProjets.creer(creation);
   return versProjet(await api.creer<ChargeProjet>("/projets/", versChargeCreation(creation)));
+}
+
+/**
+ * La référence que prendra le prochain projet, proposée dans le formulaire
+ * (et modifiable).
+ *
+ * Hors simulation, aucune route ne la fournit encore : on renvoie une chaîne
+ * vide, le champ reste vierge et **le serveur engendre la référence** à la
+ * création, comme il l'a toujours fait. On n'invente pas une route pour ça.
+ */
+export async function proposerReferenceProjet(): Promise<string> {
+  if (SIMULATION_ACTIVE) return simulationProjets.referenceSuivante();
+  return "";
 }
 
 /** `budgetInitial` est en **centimes**, comme partout dans le domaine. */

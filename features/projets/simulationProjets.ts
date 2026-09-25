@@ -29,6 +29,7 @@
 import type { TiersOption } from "@/features/tiers/types";
 import { attendre, refuser } from "@/lib/api/simulation";
 
+import { INDICE_SANTE_INITIAL } from "./regles";
 import type { ClientProjet, CreationProjet, Intervenant, Projet } from "./types";
 
 const CLE_ETAT = "ccd.simulation.projets";
@@ -127,12 +128,14 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     reference: "PRJ-2026-001",
     nom: "Résidence Les Merveilles",
     description: "Programme immobilier R+4 de 16 logements avec sous-sol parking.",
+    typeProjet: "BATIMENT_RESIDENTIEL",
     client: CLIENTS_DEMONSTRATION[0],
     ville: "Abidjan",
     quartier: "Cocody Angré",
     statut: "EN_COURS",
     avancementReel: 22.5,
     avancementTheorique: 25,
+    indiceSante: 82,
     budgetInitial: 650_000_000_00,
     budgetConsomme: 146_250_000_00,
     dateDebutPrevue: "2026-01-12",
@@ -147,12 +150,14 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     reference: "PRJ-2026-002",
     nom: "Siège Banque Atlantique",
     description: "Réhabilitation lourde du siège social, façade et lots techniques.",
+    typeProjet: "BATIMENT_TERTIAIRE",
     client: CLIENTS_DEMONSTRATION[1],
     ville: "Abidjan",
     quartier: "Plateau",
     statut: "EN_RETARD",
     avancementReel: 41,
     avancementTheorique: 58,
+    indiceSante: 54,
     budgetInitial: 1_200_000_000_00,
     budgetConsomme: 612_000_000_00,
     dateDebutPrevue: "2025-09-01",
@@ -167,12 +172,14 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     reference: "PRJ-2026-003",
     nom: "Entrepôt logistique Sifca",
     description: "Construction d'un entrepôt de 4 200 m² et de ses voiries.",
+    typeProjet: "INDUSTRIEL",
     client: CLIENTS_DEMONSTRATION[2],
     ville: "Yamoussoukro",
     quartier: "Zone industrielle",
     statut: "CRITIQUE",
     avancementReel: 12,
     avancementTheorique: 34,
+    indiceSante: 28,
     budgetInitial: 480_000_000_00,
     budgetConsomme: 511_000_000_00,
     dateDebutPrevue: "2026-02-03",
@@ -187,12 +194,14 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     reference: "PRJ-2026-004",
     nom: "École primaire de Bingerville",
     description: "Six classes, bloc administratif et bloc sanitaire.",
+    typeProjet: "BATIMENT_TERTIAIRE",
     client: CLIENTS_DEMONSTRATION[0],
     ville: "Bingerville",
     quartier: "Centre",
     statut: "EN_ATTENTE",
     avancementReel: 0,
     avancementTheorique: 0,
+    indiceSante: null,
     budgetInitial: null,
     budgetConsomme: 0,
     dateDebutPrevue: "2026-10-05",
@@ -207,12 +216,14 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     reference: "PRJ-2025-018",
     nom: "Villa duplex Riviera Golf",
     description: "Villa individuelle R+1 avec piscine et local technique.",
+    typeProjet: "BATIMENT_RESIDENTIEL",
     client: CLIENTS_DEMONSTRATION[0],
     ville: "Abidjan",
     quartier: "Riviera Golf",
     statut: "TERMINE",
     avancementReel: 100,
     avancementTheorique: 100,
+    indiceSante: 96,
     budgetInitial: 185_000_000_00,
     budgetConsomme: 179_400_000_00,
     dateDebutPrevue: "2025-01-08",
@@ -227,12 +238,14 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     reference: "PRJ-2026-005",
     nom: "Extension clinique Sainte-Anne",
     description: "Extension d'un niveau sur bâtiment existant, en site occupé.",
+    typeProjet: "REHABILITATION",
     client: CLIENTS_DEMONSTRATION[1],
     ville: "Bouaké",
     quartier: "Air France",
     statut: "SUSPENDU",
     avancementReel: 31,
     avancementTheorique: 33,
+    indiceSante: 61,
     budgetInitial: 320_000_000_00,
     budgetConsomme: 264_000_000_00,
     dateDebutPrevue: "2026-03-16",
@@ -296,41 +309,30 @@ function identifiant(): string {
   return `sim-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
 
-/** Le client du formulaire, ou le premier de la liste si l'identifiant est inconnu. */
-function resoudreClient(clientId: string): ClientProjet {
+/**
+ * Le maître d'ouvrage saisi en clair. Un nom déjà connu du jeu de
+ * démonstration retrouve sa fiche ; sinon, une fiche minimale est créée —
+ * le serveur fera de même avec un tiers inconnu.
+ */
+function resoudreClient(maitreOuvrage: string): ClientProjet {
+  const connu = CLIENTS_DEMONSTRATION.find(
+    (client) => client.raisonSociale.toLowerCase() === maitreOuvrage.toLowerCase(),
+  );
   return (
-    CLIENTS_DEMONSTRATION.find((client) => client.id === clientId) ?? CLIENTS_DEMONSTRATION[0]
+    connu ?? { id: identifiant(), raisonSociale: maitreOuvrage, telephone: null, email: null, ville: null }
   );
 }
 
-/**
- * Le responsable désigné : un collaborateur existant, ou la personne invitée.
- *
- * L'invitée ressort en `INVITE`, comme côté serveur — c'est ce statut que la
- * fiche chantier peint différemment, et l'ignorer ici ferait mentir l'écran.
- */
-function resoudreResponsable(creation: CreationProjet): Intervenant | null {
-  if (creation.conducteurTravauxId || creation.chefProjetId) {
-    const id = creation.conducteurTravauxId ?? creation.chefProjetId;
-    return COLLABORATEURS_DEMONSTRATION.find((personne) => personne.id === id) ?? null;
-  }
-
-  const invitation = creation.conducteurTravauxInvite ?? creation.chefProjetInvite;
-  if (!invitation) return null;
-
-  return {
-    id: identifiant(),
-    nom: invitation.nom,
-    prenom: invitation.prenom,
-    nomComplet: `${invitation.prenom} ${invitation.nom}`.trim() || invitation.email,
-    email: invitation.email,
-    telephone: invitation.telephone,
-    statut: "INVITE",
-    lienWhatsApp: null,
-  };
+function resoudreCollaborateur(id: string | undefined): Intervenant | null {
+  if (!id) return null;
+  return COLLABORATEURS_DEMONSTRATION.find((personne) => personne.id === id) ?? null;
 }
 
 export const simulationProjets = {
+  async referenceSuivante(): Promise<string> {
+    return referenceSuivante(lireEtat());
+  },
+
   /** Le portefeuille, le plus récemment créé en tête. */
   async lister(): Promise<Projet[]> {
     return attendre(lireEtat(), LATENCE_LECTURE);
@@ -352,27 +354,33 @@ export const simulationProjets = {
    */
   async creer(creation: CreationProjet): Promise<Projet> {
     const projets = lireEtat();
-    const responsable = resoudreResponsable(creation);
+    const reference = creation.reference || referenceSuivante(projets);
+    // Même garde que le serveur : une référence est unique dans l'entreprise.
+    if (projets.some((projet) => projet.reference === reference)) {
+      refuser("reference_existante", "Cette référence est déjà utilisée par un autre projet.", 400);
+    }
 
     const projet: Projet = {
       id: identifiant(),
-      reference: referenceSuivante(projets),
+      reference,
       nom: creation.nom,
       description: creation.description ?? "",
-      client: resoudreClient(creation.clientId),
+      typeProjet: creation.typeProjet,
+      client: resoudreClient(creation.maitreOuvrage),
       ville: creation.ville,
-      quartier: creation.quartier ?? "",
+      quartier: "",
       statut: "EN_ATTENTE",
       avancementReel: 0,
       avancementTheorique: 0,
-      budgetInitial: creation.budgetInitial ?? null,
+      indiceSante: INDICE_SANTE_INITIAL,
+      budgetInitial: creation.budgetInitial,
       budgetConsomme: 0,
       dateDebutPrevue: creation.dateDebutPrevue,
       dateFinPrevue: creation.dateFinPrevue,
       dateDebutReelle: null,
       dateFinReelle: null,
-      chefProjet: responsable,
-      conducteurTravaux: responsable,
+      chefProjet: resoudreCollaborateur(creation.equipe.chefProjetId),
+      conducteurTravaux: resoudreCollaborateur(creation.equipe.conducteurTravauxId),
     };
 
     ecrireEtat([projet, ...projets]);

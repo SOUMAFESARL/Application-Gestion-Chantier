@@ -38,6 +38,7 @@ const PROJET_DEFAUT: Projet = {
   reference: "PRJ-2026-004",
   nom: "Résidence Les Merveilles",
   description: "Programme immobilier R+4 de 16 logements avec sous-sol parking.",
+  typeProjet: "BATIMENT_RESIDENTIEL",
   client: {
     id: "4a180182-e35b-4c4f-9e73-b5419b165b4c",
     raisonSociale: "SCI Les Lagunes",
@@ -50,6 +51,7 @@ const PROJET_DEFAUT: Projet = {
   statut: "EN_COURS",
   avancementReel: 22.5,
   avancementTheorique: 25.0,
+  indiceSante: 82,
   budgetInitial: 650_000_000_00,
   budgetConsomme: 146_250_000_00,
   dateDebutPrevue: "2026-10-01",
