@@ -1,23 +1,21 @@
-import { useTranslations } from "next-intl";
-
-import { EnTetePage } from "@/components/layout/EnTetePage";
+import { EquipesAffectations } from "./EquipesAffectations";
 
 /**
- * Écran « Équipe & affectations »
+ * Écran « Équipes et affectations »
  *
  * Motif d'interface : Liste filtrable
  *
- * Les affectations saisies à l'étape 3 de la création d'un projet (chef de
- * projet, conducteur de travaux, chefs de chantier…). Squelette en attendant
- * l'écran.
+ * Les équipes constituées sur un chantier, et les activités auxquelles
+ * chacune est affectée. La page ne porte que le gabarit : tout ce qui dépend
+ * des données vit dans `EquipesAffectations`, lu côté navigateur.
  */
-export default function EquipeAffectationsPage() {
-  const t = useTranslations("squelettes");
-
-  return (
-    <EnTetePage
-      titre={t("equipeAffectations.titre")}
-      description={t("aConstruire", { motif: t("equipeAffectations.motif") })}
-    />
-  );
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ [cle: string]: string | string[] | undefined }>;
+}) {
+  // `?projet=` : le chantier d'où l'on revient (la fiche d'une équipe), pour
+  // ne pas retomber sur celui qui s'ouvre d'office.
+  const { projet } = await searchParams;
+  return <EquipesAffectations projetInitial={typeof projet === "string" ? projet : undefined} />;
 }

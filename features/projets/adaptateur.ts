@@ -19,17 +19,33 @@
 import { api } from "@/lib/api";
 import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
 
+import { ROLE_MEMBRE_PAR_DEFAUT } from "./regles";
+import { simulationLots } from "./simulationLots";
 import { simulationProjets } from "./simulationProjets";
 
 import type {
+  Activite,
   AlerteIntemperies,
   ClientProjet,
+  CreationEquipe,
+  CreationLotProjet,
   CreationProjet,
+  Equipe,
+  EquipeChantier,
   Intervenant,
+  Lot,
+  MembreEquipe,
   MeteoProjet,
+  ModeExecutionLot,
+  NatureEquipe,
   Projet,
+  RoleMembreEquipe,
+  SaisieActiviteDomaine,
+  SaisieMembreEquipe,
   StatutProjet,
+  TypeBordereau,
   TypeProjet,
+  UniteActivite,
 } from "./types";
 
 /* ------------------------------------------------------------------ *
@@ -343,4 +359,290 @@ export async function obtenirMeteo(params?: {
   if (params?.pays) requete.set("pays", params.pays);
   const chaine = requete.toString();
   return versMeteo(await api.lire<ChargeMeteo>(`/projets/meteo/${chaine ? `?${chaine}` : ""}`));
+}
+
+/* ------------------------------------------------------------------ *
+ * Lots et activités.
+ *
+ * Aucune de ces routes n'est encore livrée côté Django : sous
+ * `NEXT_PUBLIC_API_SIMULE`, elles passent par `simulationLots.ts`. Les formes
+ * ci-dessous sont la proposition du frontend, à aligner ici — et seulement
+ * ici — quand les routes arriveront.
+ * ------------------------------------------------------------------ */
+
+interface ChargeEquipe {
+  id: string;
+  nom: string;
+  effectif?: number;
+}
+
+interface ChargeActivite {
+  id: string;
+  lot_id: string;
+  code: string;
+  libelle: string;
+  quantite_prevue?: number | null;
+  unite?: UniteActivite | null;
+  date_debut_prevue: string;
+  date_fin_prevue: string;
+  budget_montant?: number | null;
+  avancement?: number;
+  sur_chemin_critique?: boolean;
+  dependance_id?: string | null;
+  equipe?: ChargeEquipe | null;
+}
+
+interface ChargeLot {
+  id: string;
+  projet_id: string;
+  code: string;
+  nom: string;
+  mode_execution: ModeExecutionLot;
+  type_bordereau: TypeBordereau;
+  date_debut?: string | null;
+  date_fin?: string | null;
+  activites?: ChargeActivite[];
+}
+
+function versEquipe(charge: ChargeEquipe): EquipeChantier {
+  return { id: charge.id, nom: charge.nom, effectif: charge.effectif ?? 0 };
+}
+
+function versActivite(charge: ChargeActivite): Activite {
+  return {
+    id: charge.id,
+    lotId: charge.lot_id,
+    code: charge.code,
+    libelle: charge.libelle,
+    quantitePrevue: charge.quantite_prevue ?? null,
+    unite: charge.unite ?? null,
+    dateDebutPrevue: charge.date_debut_prevue,
+    dateFinPrevue: charge.date_fin_prevue,
+    budget: charge.budget_montant ?? null,
+    avancement: charge.avancement ?? 0,
+    surCheminCritique: charge.sur_chemin_critique ?? false,
+    dependanceId: charge.dependance_id ?? null,
+    equipe: charge.equipe ? versEquipe(charge.equipe) : null,
+  };
+}
+
+function versLot(charge: ChargeLot): Lot {
+  return {
+    id: charge.id,
+    projetId: charge.projet_id,
+    code: charge.code,
+    nom: charge.nom,
+    modeExecution: charge.mode_execution,
+    typeBordereau: charge.type_bordereau,
+    dateDebut: charge.date_debut ?? null,
+    dateFin: charge.date_fin ?? null,
+    activites: (charge.activites ?? []).map(versActivite),
+  };
+}
+
+function versChargeActivite(saisie: SaisieActiviteDomaine) {
+  return {
+    lot_id: saisie.lotId,
+    libelle: saisie.libelle,
+    quantite_prevue: saisie.quantitePrevue,
+    unite: saisie.unite,
+    date_debut_prevue: saisie.dateDebutPrevue,
+    date_fin_prevue: saisie.dateFinPrevue,
+    budget_montant: saisie.budget,
+    dependance_id: saisie.dependanceId,
+    equipe_id: saisie.equipeId,
+  };
+}
+
+/** Les lots d'un chantier, chacun avec ses activités, dans l'ordre des codes. */
+export async function listerLots(projetId: string, signal?: AbortSignal): Promise<Lot[]> {
+  if (SIMULATION_ACTIVE) return simulationLots.lister(projetId);
+  const charge = await api.lire<ChargeLot[] | ChargeListe<ChargeLot>>(
+    `/projets/${projetId}/lots/`,
+    undefined,
+    signal,
+  );
+  const charges = Array.isArray(charge) ? charge : (charge?.results ?? []);
+  return charges.map(versLot);
+}
+
+export async function creerLot(projetId: string, creation: CreationLotProjet): Promise<Lot> {
+  if (SIMULATION_ACTIVE) return simulationLots.creerLot(projetId, creation);
+  return versLot(
+    await api.creer<ChargeLot>(`/projets/${projetId}/lots/`, {
+      nom: creation.nom,
+      mode_execution: creation.modeExecution,
+      type_bordereau: creation.typeBordereau,
+      date_debut: creation.dateDebut,
+      date_fin: creation.dateFin,
+    }),
+  );
+}
+
+export async function creerActivite(
+  projetId: string,
+  saisie: SaisieActiviteDomaine,
+): Promise<Activite> {
+  if (SIMULATION_ACTIVE) return simulationLots.creerActivite(projetId, saisie);
+  return versActivite(
+    await api.creer<ChargeActivite>(`/projets/${projetId}/activites/`, versChargeActivite(saisie)),
+  );
+}
+
+export async function modifierActivite(
+  projetId: string,
+  activiteId: string,
+  saisie: SaisieActiviteDomaine,
+): Promise<Activite> {
+  if (SIMULATION_ACTIVE) return simulationLots.modifierActivite(projetId, activiteId, saisie);
+  return versActivite(
+    await api.modifier<ChargeActivite>(
+      `/projets/${projetId}/activites/${activiteId}/`,
+      versChargeActivite(saisie),
+    ),
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Équipes et affectations — même statut que les lots : routes proposées,
+ * servies par `simulationLots.ts` en attendant Django.
+ * ------------------------------------------------------------------ */
+
+interface ChargeMembre {
+  id: string;
+  prenom: string;
+  nom: string;
+  role?: RoleMembreEquipe;
+  collaborateur_id?: string | null;
+}
+
+interface ChargeEquipeDetail extends ChargeEquipe {
+  projet_id: string;
+  nature: NatureEquipe;
+  specialite?: string;
+  chef?: ChargeMembre | null;
+  membres?: ChargeMembre[];
+}
+
+function versMembre(charge: ChargeMembre, chef = false): MembreEquipe {
+  return {
+    id: charge.id,
+    prenom: charge.prenom,
+    nom: charge.nom,
+    // Un serveur qui ne renverrait pas encore le rôle : la place dans l'équipe le dit.
+    role: charge.role ?? (chef ? "CHEF_EQUIPE" : ROLE_MEMBRE_PAR_DEFAUT),
+    collaborateurId: charge.collaborateur_id ?? null,
+  };
+}
+
+function versChargeMembre(membre: SaisieMembreEquipe): Omit<ChargeMembre, "id"> {
+  return {
+    prenom: membre.prenom,
+    nom: membre.nom,
+    role: membre.role,
+    collaborateur_id: membre.collaborateurId,
+  };
+}
+
+function versEquipeDetail(charge: ChargeEquipeDetail): Equipe {
+  return {
+    ...versEquipe(charge),
+    projetId: charge.projet_id,
+    nature: charge.nature,
+    specialite: charge.specialite ?? "",
+    chef: charge.chef ? versMembre(charge.chef, true) : null,
+    membres: (charge.membres ?? []).map((membre) => versMembre(membre)),
+  };
+}
+
+/** Les équipes constituées sur un chantier — celles qu'on peut y affecter. */
+export async function listerEquipes(projetId: string, signal?: AbortSignal): Promise<Equipe[]> {
+  if (SIMULATION_ACTIVE) return simulationLots.listerEquipes(projetId);
+  const charge = await api.lire<ChargeEquipeDetail[] | ChargeListe<ChargeEquipeDetail>>(
+    `/projets/${projetId}/equipes/`,
+    undefined,
+    signal,
+  );
+  const charges = Array.isArray(charge) ? charge : (charge?.results ?? []);
+  return charges.map(versEquipeDetail);
+}
+
+export async function creerEquipe(projetId: string, creation: CreationEquipe): Promise<Equipe> {
+  if (SIMULATION_ACTIVE) return simulationLots.creerEquipe(projetId, creation);
+  return versEquipeDetail(
+    await api.creer<ChargeEquipeDetail>(`/projets/${projetId}/equipes/`, {
+      nom: creation.nom,
+      nature: creation.nature,
+      specialite: creation.specialite,
+      chef: versChargeMembre(creation.chef),
+      membres: creation.membres.map(versChargeMembre),
+    }),
+  );
+}
+
+/*
+ * Les membres d'une équipe constituée. Chaque écriture renvoie **l'équipe
+ * entière** : nommer un chef en fait redescendre un autre, retirer quelqu'un
+ * change l'effectif — l'écran repart de ce que le serveur a retenu plutôt que
+ * de refaire le calcul de son côté.
+ */
+
+export async function ajouterMembreEquipe(
+  projetId: string,
+  equipeId: string,
+  membre: SaisieMembreEquipe,
+): Promise<Equipe> {
+  if (SIMULATION_ACTIVE) return simulationLots.ajouterMembre(projetId, equipeId, membre);
+  return versEquipeDetail(
+    await api.creer<ChargeEquipeDetail>(
+      `/projets/${projetId}/equipes/${equipeId}/membres/`,
+      versChargeMembre(membre),
+    ),
+  );
+}
+
+export async function changerRoleMembreEquipe(
+  projetId: string,
+  equipeId: string,
+  membreId: string,
+  role: RoleMembreEquipe,
+): Promise<Equipe> {
+  if (SIMULATION_ACTIVE) return simulationLots.changerRoleMembre(projetId, equipeId, membreId, role);
+  return versEquipeDetail(
+    await api.modifier<ChargeEquipeDetail>(
+      `/projets/${projetId}/equipes/${equipeId}/membres/${membreId}/`,
+      { role },
+    ),
+  );
+}
+
+/** Le retrait ne renvoie rien (204) : l'équipe est relue derrière. */
+export async function retirerMembreEquipe(
+  projetId: string,
+  equipeId: string,
+  membreId: string,
+): Promise<Equipe> {
+  if (SIMULATION_ACTIVE) return simulationLots.retirerMembre(projetId, equipeId, membreId);
+  await api.supprimer(`/projets/${projetId}/equipes/${equipeId}/membres/${membreId}/`);
+  return versEquipeDetail(
+    await api.lire<ChargeEquipeDetail>(`/projets/${projetId}/equipes/${equipeId}/`),
+  );
+}
+
+/**
+ * L'équipe d'une activité — `null` la retire. Une écriture à part plutôt que
+ * `modifierActivite` : affecter ne doit pas renvoyer (et risquer d'écraser)
+ * les dates ou le budget qu'un autre aurait changés entre-temps.
+ */
+export async function affecterEquipe(
+  projetId: string,
+  activiteId: string,
+  equipeId: string | null,
+): Promise<Activite> {
+  if (SIMULATION_ACTIVE) return simulationLots.affecterEquipe(projetId, activiteId, equipeId);
+  return versActivite(
+    await api.modifier<ChargeActivite>(`/projets/${projetId}/activites/${activiteId}/`, {
+      equipe_id: equipeId,
+    }),
+  );
 }

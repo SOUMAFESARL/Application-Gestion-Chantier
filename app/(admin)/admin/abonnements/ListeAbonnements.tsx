@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import { aideColonnes } from "@/components/ui/data-table";
+import type { ExportTableau } from "@/components/ui/export-tableau";
 import {
   BORD_DROIT_TABLEAU,
   FiltreTableau,
@@ -136,6 +137,38 @@ export function ListeAbonnements() {
     [t],
   );
 
+  /** Le montant sort en francs entiers : un fichier se somme, un « 25 000 FCFA » non. */
+  const exporter = useMemo<ExportTableau<ClientPlateforme>>(
+    () => ({
+      titre: t("abonnement.export.titre"),
+      nomFichier: t("abonnement.export.nomFichier"),
+      colonnes: [
+        { entete: t("clients.colonneClient"), valeur: (c) => c.nomCommercial },
+        { entete: t("fiche.slug"), valeur: (c) => c.slug },
+        { entete: t("clients.colonnePlan"), valeur: (c) => t(`plan.${c.abonnement.plan}`) },
+        {
+          entete: t("clients.colonneStatut"),
+          valeur: (c) => t(`statutAbonnement.${c.abonnement.statut}`),
+        },
+        {
+          entete: t("abonnement.export.montantMensuel"),
+          valeur: (c) => Math.round(c.abonnement.montantMensuelCentimes / 100),
+        },
+        {
+          entete: t("fiche.renouvellementAuto"),
+          valeur: (c) => (c.abonnement.renouvellementAuto ? t("fiche.oui") : t("fiche.non")),
+        },
+        { entete: t("abonnement.export.dateDebut"), valeur: (c) => formaterDate(c.abonnement.dateDebut) },
+        { entete: t("fiche.dateFin"), valeur: (c) => formaterDate(c.abonnement.dateFin) },
+        {
+          entete: t("abonnement.export.reference"),
+          valeur: (c) => c.abonnement.referenceTransaction,
+        },
+      ],
+    }),
+    [t],
+  );
+
   return (
     <div className="flex flex-col gap-5">
       <EnTetePage titre={t("navigation.abonnements")} />
@@ -180,6 +213,7 @@ export function ListeAbonnements() {
               filtresActifs={criteresClientsActifs(criteres)}
               onReinitialiser={() => setCriteres(CRITERES_CLIENTS_VIDES)}
               cleCriteres={`${criteres.recherche}|${criteres.statutAbonnement}|${criteres.plan}`}
+              exporter={exporter}
               outils={
                 <>
                   <RechercheTableau

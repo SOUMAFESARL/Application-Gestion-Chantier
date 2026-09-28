@@ -324,6 +324,9 @@ const eslintConfig = defineConfig([
       // Le portefeuille de chantiers de démonstration, en attendant
       // « GET /projets/ » : des noms de chantiers, de clients et de personnes.
       "features/projets/simulationProjets.ts",
+      // Les lots et activités de démonstration, en attendant leurs routes :
+      // des libellés d'ouvrages et des noms d'équipes de chantier.
+      "features/projets/simulationLots.ts",
       // La matrice de rôles de démonstration, en attendant « GET /roles/ » :
       // des libellés et descriptions de rôles, et les messages du serveur.
       "features/roles/simulationRoles.ts",

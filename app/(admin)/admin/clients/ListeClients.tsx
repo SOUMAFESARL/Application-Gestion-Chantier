@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import { aideColonnes } from "@/components/ui/data-table";
+import type { ExportTableau } from "@/components/ui/export-tableau";
 import {
   BORD_DROIT_TABLEAU,
   FiltreTableau,
@@ -25,7 +26,7 @@ import {
 } from "@/features/administration";
 import type { ClientPlateforme, CriteresClients } from "@/features/administration";
 import { listerClients } from "@/features/administration/adaptateur";
-import { nomDePays } from "@/lib/format";
+import { formaterDate, nomDePays } from "@/lib/format";
 
 import { CLES_ADMINISTRATION } from "../cles";
 import { BADGE, TON_ALERTE, TON_STATUT_ABONNEMENT, TON_STATUT_CLIENT } from "../tons";
@@ -137,6 +138,40 @@ export function ListeClients() {
     [t],
   );
 
+  /** Les coordonnées de contact en plus de l'écran : c'est ce qu'on cherche dans le fichier. */
+  const exporter = useMemo<ExportTableau<ClientPlateforme>>(
+    () => ({
+      titre: t("clients.export.titre"),
+      nomFichier: t("clients.export.nomFichier"),
+      colonnes: [
+        { entete: t("clients.colonneClient"), valeur: (c) => c.nomCommercial },
+        { entete: t("clients.export.raisonSociale"), valeur: (c) => c.raisonSociale },
+        { entete: t("fiche.slug"), valeur: (c) => c.slug },
+        { entete: t("fiche.ville"), valeur: (c) => c.ville },
+        { entete: t("fiche.pays"), valeur: (c) => nomDePays(c.pays) },
+        { entete: t("fiche.emailContact"), valeur: (c) => c.emailContact },
+        { entete: t("fiche.telephoneContact"), valeur: (c) => c.telephoneContact },
+        { entete: t("clients.colonneStatut"), valeur: (c) => t(`statutClient.${c.statut}`) },
+        { entete: t("clients.colonnePlan"), valeur: (c) => t(`plan.${c.abonnement.plan}`) },
+        {
+          entete: t("fiche.abonnement"),
+          valeur: (c) => t(`statutAbonnement.${c.abonnement.statut}`),
+        },
+        { entete: t("clients.colonneUtilisateurs"), valeur: (c) => c.nbUtilisateurs },
+        { entete: t("clients.colonneProjets"), valeur: (c) => c.nbProjets },
+        {
+          entete: t("clients.colonneAlerte"),
+          valeur: (c) => {
+            const alerte = alerteClient(c);
+            return alerte ? t(`alerte.${alerte}`) : null;
+          },
+        },
+        { entete: t("fiche.creeLe"), valeur: (c) => formaterDate(c.creeLe) },
+      ],
+    }),
+    [t],
+  );
+
   return (
     <div className="flex flex-col gap-5">
       <EnTetePage
@@ -165,6 +200,7 @@ export function ListeClients() {
             filtresActifs={criteresClientsActifs(criteres)}
             onReinitialiser={() => setCriteres(CRITERES_CLIENTS_VIDES)}
             cleCriteres={`${criteres.recherche}|${criteres.statutClient}|${criteres.plan}`}
+            exporter={exporter}
             outils={
               <>
                 <RechercheTableau

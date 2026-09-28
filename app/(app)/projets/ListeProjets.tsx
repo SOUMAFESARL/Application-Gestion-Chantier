@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Download, Eye, FileSpreadsheet, FileText, Plus, TrendingUp } from "lucide-react";
+import { Eye, Plus, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
@@ -11,12 +11,7 @@ import { Badge, Bouton, EtatChargement, EtatErreur, EtatVide } from "@/component
 import type { VarianteBadge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { aideColonnes } from "@/components/ui/data-table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import type { ExportTableau } from "@/components/ui/export-tableau";
 import {
   BORD_DROIT_TABLEAU,
   FiltreTableau,
@@ -40,8 +35,6 @@ import {
 } from "@/features/projets/regles";
 import type { CriteresProjets, NiveauAvancement } from "@/features/projets/regles";
 import type { Projet, StatutProjet } from "@/features/projets/types";
-import { telechargerCsv, versCsv } from "@/lib/export/csv";
-import { telechargerPdf } from "@/lib/export/pdf";
 import { ABSENT, couleurIndiceSante, formaterDate, formaterMillions } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -152,7 +145,7 @@ export function ListeProjets() {
   );
 
   /**
-   * La même action dans l'en-tête, en version compacte : taille `sm`, et
+   * La même action dans la barre du tableau, juste après « Exporter », en version compacte : taille `sm`, et
    * sous 640 px réduite à son icône. Le libellé y coûtait le tiers de la
    * largeur de la barre, pour un bouton que son `+` suffit à désigner —
    * `aria-label` le nomme pour qui ne voit pas l'icône, et la règle terrain
@@ -172,11 +165,11 @@ export function ListeProjets() {
   );
 
   /**
-   * L'export porte sur **les lignes filtrées**, toutes pages confondues : ce
-   * que l'utilisateur a sous les yeux après sa recherche, pas seulement les
-   * dix lignes de la page courante.
+   * L'export garde les colonnes de `COLONNES_EXPORT_PROJETS`, plus larges que
+   * l'écran (référence, client) : un fichier sorti de l'application se relit
+   * sans elle.
    */
-  function lignesExport() {
+  const exporter = useMemo<ExportTableau<Projet>>(() => {
     const libelles = {
       statut: (statut: StatutProjet) => t(`statut.${statut}`),
       typeProjet: (type: NonNullable<Projet["typeProjet"]>) =>
@@ -184,59 +177,14 @@ export function ListeProjets() {
       formaterDate,
     };
     return {
-      entetes: COLONNES_EXPORT_PROJETS.map((colonne) => t(`export.colonnes.${colonne}`)),
-      lignes: projetsFiltres.map((projet) => valeursExportProjet(projet, libelles)),
-      nomFichier: t("export.nomFichier", { date: new Date().toISOString().slice(0, 10) }),
-    };
-  }
-
-  function exporterCsv() {
-    const { entetes, lignes, nomFichier } = lignesExport();
-    telechargerCsv(versCsv([entetes, ...lignes]), `${nomFichier}.csv`);
-  }
-
-  function exporterPdf() {
-    const { entetes, lignes, nomFichier } = lignesExport();
-    void telechargerPdf({
       titre: t("export.titrePdf"),
-      sousTitre: t("export.sousTitrePdf", {
-        date: formaterDate(new Date()),
-        nombre: lignes.length,
-      }),
-      entetes,
-      lignes,
-      nomFichier: `${nomFichier}.pdf`,
-    });
-  }
-
-  /** Même gabarit compact que « Nouveau projet » : réduit à son icône sous 640 px. */
-  const menuExport = (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Bouton
-          variante="secondaire"
-          taille="sm"
-          aria-label={t("export.action")}
-          disabled={projetsFiltres.length === 0}
-          iconeGauche={<Download size={16} aria-hidden="true" />}
-          iconeDroite={<ChevronDown size={16} aria-hidden="true" className="max-sm:hidden" />}
-          className="max-sm:gap-0 max-sm:px-3"
-        >
-          <span className="max-sm:hidden">{t("export.action")}</span>
-        </Bouton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={exporterCsv}>
-          <FileSpreadsheet className="size-4" aria-hidden="true" />
-          {t("export.csv")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={exporterPdf}>
-          <FileText className="size-4" aria-hidden="true" />
-          {t("export.pdf")}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+      nomFichier: t("export.nomFichier"),
+      colonnes: COLONNES_EXPORT_PROJETS.map((cle, rang) => ({
+        entete: t(`export.colonnes.${cle}`),
+        valeur: (projet: Projet) => valeursExportProjet(projet, libelles)[rang],
+      })),
+    };
+  }, [t]);
 
   const colonnes = useMemo(
     () =>
@@ -362,12 +310,6 @@ export function ListeProjets() {
       <EnTetePage
         titre={t("titre")}
         description={t("sousTitre", { nombre: projets.length })}
-        actions={
-          <>
-            {requete.isSuccess && projets.length > 0 && menuExport}
-            {boutonNouveauCompact}
-          </>
-        }
       />
 
       {requete.isPending && <EtatChargement />}
@@ -387,6 +329,8 @@ export function ListeProjets() {
             filtresActifs={filtresActifs}
             onReinitialiser={() => setCriteres(CRITERES_VIDES)}
             cleCriteres={`${criteres.recherche}|${criteres.statut}|${criteres.chefProjetId}`}
+            exporter={exporter}
+            actions={boutonNouveauCompact}
             outils={
               <>
                 <RechercheTableau

@@ -11,6 +11,8 @@ import { Bouton } from "./Bouton";
 import { Carte } from "./Carte";
 import { DataTable } from "./data-table";
 import type { ColonneDonnees } from "./data-table";
+import { MenuExport } from "./export-tableau";
+import type { ExportTableau } from "./export-tableau";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
 
 /**
@@ -19,8 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
  *
  * Il est né de la liste des chantiers (`app/(app)/projets/ListeProjets.tsx`),
  * qui en est la référence visuelle : une carte collée au tableau, une barre
- * d'outils (recherche, filtres, remise à zéro), une case à cocher par ligne et
- * une pagination de dix lignes. Chaque liste recopiait ce montage à la main,
+ * d'outils (recherche, filtres, remise à zéro, export), une case à cocher par
+ * ligne et une pagination de dix lignes. Chaque liste recopiait ce montage à la main,
  * et chacune finissait par avoir sa largeur de recherche, sa hauteur de
  * champ, ses filtres en boutons ou en listes : **un tableau de liste passe
  * désormais par ici**, dans l'espace entreprise comme dans le back-office.
@@ -61,6 +63,13 @@ interface PropsTableauListe<T extends RowData> {
   /** Les contrôles de la barre : `RechercheTableau`, puis les `FiltreTableau`. */
   outils?: ReactNode;
   /**
+   * L'export CSV / PDF des lignes filtrées. **Obligatoire** : tout tableau du
+   * produit s'exporte — c'est une exigence produit, pas une option d'écran.
+   */
+  exporter: ExportTableau<T>;
+  /** Les actions de l'écran (« Nouvelle affectation »), au bout de la barre, après l'export. */
+  actions?: ReactNode;
+  /**
    * Remet les critères à zéro. Le bouton « Tout afficher » n'apparaît que si
    * `filtresActifs` : un filtre actif explique un tableau presque vide, et
    * c'est la sortie de secours de qui ne comprend pas pourquoi sa ligne a
@@ -84,6 +93,8 @@ export function TableauListe<T extends RowData>({
   cleLigne,
   messageVide,
   outils,
+  exporter,
+  actions,
   onReinitialiser,
   filtresActifs = false,
   cleCriteres,
@@ -94,16 +105,18 @@ export function TableauListe<T extends RowData>({
   return (
     // `p-0` aux deux ruptures : le tableau va d'un bord à l'autre de la carte.
     <Carte className="overflow-hidden p-0 md:p-0">
-      {outils && (
-        <div className="flex flex-wrap items-center gap-3 border-b border-neutral-200 px-4 py-3 sm:px-6 sm:py-4">
-          {outils}
-          {onReinitialiser && filtresActifs && (
-            <Bouton variante="ghost" taille="sm" onClick={onReinitialiser}>
-              {t("reinitialiserFiltres")}
-            </Bouton>
-          )}
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-3 border-b border-neutral-200 px-4 py-3 sm:px-6 sm:py-4">
+        {outils}
+        {onReinitialiser && filtresActifs && (
+          <Bouton variante="ghost" taille="sm" onClick={onReinitialiser}>
+            {t("reinitialiserFiltres")}
+          </Bouton>
+        )}
+        <span className="ml-auto flex items-center gap-3">
+          <MenuExport exporter={exporter} lignes={donnees} />
+          {actions}
+        </span>
+      </div>
 
       <DataTable
         key={cleCriteres}

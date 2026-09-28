@@ -30,7 +30,9 @@
       "statutEchoue": "Échoué",
       "statutReussi": "Payé",
       "telechargerFacture": "Facture",
-      "titre": "Historique des paiements"
+      "titre": "Historique des paiements",
+      "exportNomFichier": "paiements",
+      "exportMontant": "Montant (FCFA)"
     },
     "joursRestants": "{jours, plural, one {# jour restant} other {# jours restants}}",
     "joursRestantsAlerte": "{jours, plural, one {# jour restant (Renouveler)} other {# jours restants (Renouveler)}}",
@@ -195,7 +197,14 @@
       "enCours": "Enregistrement en cours…",
       "erreurPlanRequis": "Choisissez un plan.",
       "plan": "Plan",
-      "titre": "Changer le plan de {client}"
+      "titre": "Changer le plan de {client}",
+      "export": {
+        "titre": "Abonnements",
+        "nomFichier": "abonnements",
+        "montantMensuel": "Montant mensuel (FCFA)",
+        "dateDebut": "Début",
+        "reference": "Référence de transaction"
+      }
     },
     "alerte": {
       "aucune": "—",
@@ -226,7 +235,12 @@
       "sousTitre": "{nombre, plural, =0 {Aucune entreprise cliente} one {# entreprise cliente} other {# entreprises clientes}}",
       "titre": "Clients",
       "villePays": "{ville} · {pays}",
-      "voir": "Ouvrir la fiche"
+      "voir": "Ouvrir la fiche",
+      "export": {
+        "titre": "Clients de la plateforme",
+        "nomFichier": "clients",
+        "raisonSociale": "Raison sociale"
+      }
     },
     "connexion": {
       "afficher": "Afficher le mot de passe",
@@ -496,7 +510,14 @@
   "dataTable": {
     "reinitialiserFiltres": "Tout afficher",
     "selectionnerLigne": "Sélectionner cette ligne",
-    "selectionnerTout": "Sélectionner toutes les lignes de la page"
+    "selectionnerTout": "Sélectionner toutes les lignes de la page",
+    "export": {
+      "action": "Exporter",
+      "csv": "Tableur (CSV)",
+      "pdf": "Document (PDF)",
+      "nomFichier": "{base}-{date}",
+      "sousTitrePdf": "Édité le {date} — {nombre, plural, one {# ligne} other {# lignes}}"
+    }
   },
   "erreurs": {
     "code404": "Erreur 404",
@@ -602,7 +623,12 @@
     "statutDesactive": "Désactivé",
     "succesAjout": "{nom} a été ajouté. Un email d’activation a été envoyé à {email}.",
     "telephoneInconnu": "—",
-    "titre": "Collaborateurs & Invitations"
+    "titre": "Collaborateurs & Invitations",
+    "export": {
+      "titre": "Collaborateurs",
+      "nomFichier": "collaborateurs",
+      "email": "Adresse email"
+    }
   },
   "inscription": {
     "cgu": "J’accepte les <lienCgu>Conditions Générales d’Utilisation</lienCgu> et la <lienConfidentialite>Politique de Confidentialité</lienConfidentialite>.",
@@ -753,12 +779,8 @@
     "colonneStatut": "Statut",
     "colonneType": "Type",
     "export": {
-      "action": "Exporter",
-      "csv": "Liste (CSV)",
-      "pdf": "Liste (PDF)",
-      "nomFichier": "projets-{date}",
+      "nomFichier": "projets",
       "titrePdf": "Liste des projets",
-      "sousTitrePdf": "Édité le {date} — {nombre, plural, one {# projet} other {# projets}}",
       "colonnes": {
         "reference": "Référence",
         "nom": "Nom du projet",
@@ -894,7 +916,351 @@
         "VRD": "TP — Route / VRD"
       }
     },
-    "titre": "Projets"
+    "titre": "Projets",
+    "lotsActivites": {
+      "titre": "Lots et activités",
+      "description": "La structure du chantier : ses lots, leurs activités et leur avancement.",
+      "choixProjet": "Projets",
+      "indicateurs": {
+        "lots": "Lots",
+        "activites": "Activités",
+        "avancement": "Avancement pondéré",
+        "avancementDetail": "Pondéré par le budget des activités",
+        "enRetard": "Activités en retard"
+      },
+      "pourcentage": "{valeur} %",
+      "onglets": {
+        "libelle": "Vues du chantier",
+        "structure": "Structure",
+        "planning": "Planning"
+      },
+      "recherche": "Rechercher une activité",
+      "recherchePlaceholder": "Rechercher une activité…",
+      "filtreStatut": "Filtrer par statut",
+      "tousStatuts": "Tous les statuts",
+      "actionLot": "Lot",
+      "actionLotLibelle": "Ajouter un lot",
+      "actionActivite": "Activité",
+      "actionActiviteLibelle": "Ajouter une activité",
+      "colonnes": {
+        "lotActivite": "Lot / activité",
+        "quantite": "Qté",
+        "dates": "Dates",
+        "budget": "Budget (FCFA)",
+        "avancement": "Avancement",
+        "statut": "Statut"
+      },
+      "periode": "{debut} → {fin}",
+      "nombreActivites": "({nombre})",
+      "deplier": "Déplier le lot {nom}",
+      "replier": "Replier le lot {nom}",
+      "critique": "critique",
+      "critiqueTitre": "Sur le chemin critique : tout retard décale la fin du chantier.",
+      "statutActivite": {
+        "A_VENIR": "À venir",
+        "EN_COURS": "En cours",
+        "EN_RETARD": "En retard",
+        "TERMINE": "Terminé"
+      },
+      "lotSansActivite": "Aucune activité dans ce lot.",
+      "ajouterDansLot": "Ajouter une activité",
+      "aucunResultat": "Aucune activité ne correspond à ces critères.",
+      "aucunLotTitre": "Aucun lot sur ce chantier",
+      "aucunLot": "Déclarez d'abord les lots du chantier, puis les activités de chacun.",
+      "aucunProjetTitre": "Aucun chantier",
+      "aucunProjet": "Créez un projet pour structurer ses lots et ses activités.",
+      "libelleLot": "{code} · {nom}",
+      "libelleActivite": "{code} {libelle}",
+      "libelleEquipe": "{nom} ({effectif} pers.)",
+      "quantiteAvecUnite": "{quantite} {unite}",
+      "unites": {
+        "M": "m",
+        "ML": "ml",
+        "M2": "m²",
+        "M3": "m³",
+        "KG": "kg",
+        "T": "t",
+        "U": "u",
+        "ENS": "ens",
+        "FFT": "fft"
+      },
+      "panneau": {
+        "enTete": "Lot {code} · {nom}",
+        "quantitePrevue": "Quantité prévue",
+        "realise": "Réalisé",
+        "realiseValeur": "{quantite} ({pourcentage} %)",
+        "avancement": "Avancement",
+        "periode": "Période",
+        "budget": "Budget",
+        "equipe": "Équipe",
+        "equipeAAffecter": "À affecter",
+        "dependDe": "Dépend de",
+        "aucuneDependance": "Aucune",
+        "nonDefini": "Non défini",
+        "modifier": "Modifier",
+        "liensTitre": "Liens avec les autres modules :",
+        "liensTexte": "le chef de chantier saisit l'avancement de cette activité dans le journal (Suivi technique) ; les dépenses et les achats y sont imputés (Finances, Achats) ; les heures de l'équipe alimentent les Ressources humaines.",
+        "aucuneSelection": "Sélectionnez une activité pour afficher son détail."
+      },
+      "planning": {
+        "aujourdhui": "Aujourd'hui",
+        "aucuneDate": "Aucune date n'est encore planifiée sur ce chantier.",
+        "barre": "{libelle} : du {debut} au {fin}, {avancement} %"
+      },
+      "formActivite": {
+        "titre": "Nouvelle activité",
+        "titreModification": "Modifier l'activité {code}",
+        "sousTitre": "Une activité = une tâche mesurable du chantier.",
+        "champLot": "Lot",
+        "champLibelle": "Libellé",
+        "champLibellePlaceholder": "ex. Enduit façade nord",
+        "champQuantite": "Quantité prévue",
+        "champQuantitePlaceholder": "ex. 100",
+        "champUnite": "Unité",
+        "champDebut": "Début prévu",
+        "champFin": "Fin prévue",
+        "champDateChoisir": "jj/mm/aaaa",
+        "champBudget": "Budget (FCFA)",
+        "champBudgetPlaceholder": "ex. 2 500 000",
+        "champDependance": "Commence après (dépendance)",
+        "aucuneDependance": "— aucune —",
+        "champEquipe": "Équipe (facultatif, peut se faire plus tard)",
+        "equipeAAffecter": "— À affecter —",
+        "selectionner": "Sélectionner…",
+        "annuler": "Annuler",
+        "ajouter": "Ajouter",
+        "enregistrer": "Enregistrer",
+        "erreurGenerique": "L'activité n'a pas pu être enregistrée. Réessayez.",
+        "erreurLotRequis": "Choisissez le lot de l'activité.",
+        "erreurLibelleRequis": "Le libellé est requis.",
+        "erreurLibelleTropLong": "Le libellé ne doit pas dépasser 150 caractères.",
+        "erreurQuantiteInvalide": "Saisissez une quantité positive, par exemple 14 500 ou 12,5.",
+        "erreurUniteRequise": "Choisissez l'unité de la quantité.",
+        "erreurDateDebutRequise": "La date de début est requise.",
+        "erreurDateFinRequise": "La date de fin est requise.",
+        "erreurBudgetInvalide": "Saisissez un montant en francs, par exemple 2 500 000."
+      },
+      "formLot": {
+        "titre": "Nouveau lot",
+        "code": "Lot {code}",
+        "sousTitre": "Un lot regroupe les activités d'un même corps d'état.",
+        "champNom": "Nom du lot",
+        "annuler": "Annuler",
+        "ajouter": "Ajouter le lot",
+        "erreurGenerique": "Le lot n'a pas pu être ajouté. Réessayez."
+      },
+      "export": {
+        "nomFichier": "lots-activites",
+        "lot": "Lot",
+        "code": "Code",
+        "activite": "Activité",
+        "quantite": "Quantité prévue",
+        "unite": "Unité",
+        "debut": "Début prévu",
+        "fin": "Fin prévue",
+        "avancement": "Avancement (%)",
+        "critique": "Chemin critique",
+        "oui": "Oui",
+        "non": "Non"
+      }
+    },
+    "equipesAffectations": {
+      "titre": "Équipes et affectations",
+      "description": "Les équipes constituées sur le chantier, et les activités que chacune tient.",
+      "aucunProjetTitre": "Aucun chantier",
+      "aucunProjet": "Créez un projet pour y constituer des équipes et leur affecter des activités.",
+      "indicateurs": {
+        "equipes": "Équipes",
+        "effectif": "Effectif mobilisé",
+        "effectifDetail": "Chefs d'équipe compris",
+        "affectees": "Activités affectées",
+        "aAffecter": "Activités à affecter",
+        "aAffecterDetail": "Hors activités terminées"
+      },
+      "onglets": {
+        "libelle": "Vues des équipes",
+        "equipes": "Équipes du projet",
+        "affectations": "Affectations"
+      },
+      "nature": {
+        "INTERNE": "Interne",
+        "SOUS_TRAITANT": "Sous-traitant"
+      },
+      "role": {
+        "CHEF_EQUIPE": "Chef d'équipe",
+        "OUVRIER_QUALIFIE": "Ouvrier qualifié",
+        "CONDUCTEUR_ENGIN": "Conducteur d'engins",
+        "OUVRIER": "Ouvrier",
+        "MANOEUVRE": "Manœuvre",
+        "APPRENTI": "Apprenti"
+      },
+      "filtreNatureLibelle": "Filtrer par nature d'équipe",
+      "filtreToutes": "Toutes ({nombre})",
+      "filtreNature": {
+        "INTERNE": "Internes ({nombre})",
+        "SOUS_TRAITANT": "Sous-traitants ({nombre})"
+      },
+      "actionConstituer": "Constituer une équipe",
+      "aucuneEquipeTitre": "Aucune équipe sur ce chantier",
+      "aucuneEquipe": "Constituez les équipes du chantier, puis affectez-les à ses activités.",
+      "chefTitre": "Chef d'équipe",
+      "avatarsCaches": "+{nombre}",
+      "chefEtEffectif": "Chef d'équipe : <fort>{chef}</fort> · {nombre, plural, one {# personne} other {# personnes}}",
+      "chefNonDesigne": "non désigné",
+      "personnes": "{nombre, plural, one {# personne} other {# personnes}}",
+      "actuellementSur": "Actuellement sur : {codes}",
+      "aucuneActiviteEnCours": "Aucune activité en cours",
+      "actionMembres": "Membres",
+      "actionMembresLibelle": "Voir les membres de {nom}",
+      "actionFicheLibelle": "Ouvrir la fiche de {nom}",
+      "actionAffecter": "Affecter",
+      "actionAffecterLibelle": "Affecter {nom} à une activité",
+      "aAffecter": "À affecter",
+      "colonnes": {
+        "activite": "Activité",
+        "equipe": "Équipe / ressource",
+        "periode": "Période",
+        "effectif": "Effectif",
+        "statut": "Statut",
+        "actions": "Actions"
+      },
+      "recherche": "Rechercher une affectation",
+      "recherchePlaceholder": "Activité ou équipe…",
+      "filtreLot": "Filtrer par lot",
+      "tousLots": "Tous les lots",
+      "filtreEquipe": "Filtrer par équipe",
+      "toutesEquipes": "Toutes les équipes",
+      "actionNouvelleAffectation": "Nouvelle affectation",
+      "actionAffecterActivite": "Affecter une équipe à l'activité {code}",
+      "actionReaffecter": "Changer l'équipe de l'activité {code}",
+      "aucunResultat": "Aucune affectation ne correspond à ces critères.",
+      "aucuneActivite": "Aucune activité sur ce chantier : déclarez-les dans Lots et activités.",
+      "membresSousTitre": "{specialite} · {nombre, plural, one {# personne} other {# personnes}}",
+      "nomComplet": "{prenom} {nom}",
+      "chefDEquipe": "Chef d'équipe",
+      "origineCollaborateur": "Collaborateur",
+      "voirFiche": "Voir la fiche de l'équipe",
+      "fermer": "Fermer",
+      "formEquipe": {
+        "titre": "Constituer une équipe",
+        "sousTitre": "Un chef et ses membres, internes ou sous-traitants, sur un même corps d'état.",
+        "champNom": "Nom de l'équipe",
+        "champNomPlaceholder": "ex. Équipe Maçonnerie B",
+        "champNature": "Nature",
+        "champSpecialite": "Corps d'état",
+        "champSpecialitePlaceholder": "ex. Maçonnerie / coffrage",
+        "chef": "Chef d'équipe",
+        "champPersonneRang": "Membre {rang}",
+        "champRoleRang": "Rôle du membre {rang}",
+        "personnePlaceholder": "Choisir un collaborateur ou saisir un nom",
+        "personneRecherche": "Rechercher un collaborateur, ou taper un nom…",
+        "personneAucun": "Aucun collaborateur ne correspond.",
+        "personneNouvelle": "Ajouter « {nom} » comme nouvelle personne",
+        "groupeCollaborateurs": "Collaborateurs",
+        "nouvellePersonne": "<fort>Nouvelle personne</fort> · sans compte collaborateur, ajoutée à l'équipe seulement.",
+        "champPrenomDe": "Prénom — {personne}",
+        "champNomDe": "Nom — {personne}",
+        "champPrenom": "Prénom",
+        "champNomMembre": "Nom",
+        "membres": "Membres ({nombre})",
+        "aucunMembre": "Aucun membre pour l'instant : le chef d'équipe seul.",
+        "ajouterMembre": "Ajouter un membre",
+        "retirerMembre": "Retirer le membre {rang}",
+        "annuler": "Annuler",
+        "constituer": "Constituer l'équipe",
+        "erreurGenerique": "L'équipe n'a pas pu être constituée. Réessayez.",
+        "erreurNomRequis": "Le nom de l'équipe est requis.",
+        "erreurNomTropLong": "Le nom ne doit pas dépasser 80 caractères.",
+        "erreurNatureRequise": "Choisissez la nature de l'équipe.",
+        "erreurSpecialiteRequise": "Le corps d'état est requis.",
+        "erreurPrenomRequis": "Le prénom est requis.",
+        "erreurNomMembreRequis": "Le nom est requis.",
+        "erreurPersonneRequise": "Choisissez un collaborateur ou saisissez un nom.",
+        "erreurPersonneEnDouble": "Cette personne figure déjà dans l'équipe.",
+        "erreurRoleRequis": "Choisissez le rôle dans l'équipe."
+      },
+      "formAffectation": {
+        "titre": "Nouvelle affectation",
+        "titreModification": "Modifier l'affectation",
+        "sousTitre": "L'équipe choisie tient l'activité sur toute sa période.",
+        "champActivite": "Activité",
+        "champEquipe": "Équipe",
+        "selectionner": "Sélectionner…",
+        "periode": "Période",
+        "equipeActuelle": "Équipe actuelle",
+        "chevauchement": "Cette équipe est déjà affectée sur la même période : {activites}. Vérifiez qu'elle peut tenir les deux fronts.",
+        "retirer": "Retirer l'affectation",
+        "annuler": "Annuler",
+        "affecter": "Affecter",
+        "erreurGenerique": "L'affectation n'a pas pu être enregistrée. Réessayez.",
+        "erreurActiviteRequise": "Choisissez l'activité à affecter.",
+        "erreurEquipeRequise": "Choisissez l'équipe."
+      },
+      "export": {
+        "titre": "Affectations des équipes",
+        "nomFichier": "affectations",
+        "lot": "Lot",
+        "code": "Code",
+        "debut": "Début prévu",
+        "fin": "Fin prévue"
+      },
+      "fiche": {
+        "retour": "Équipes et affectations",
+        "projet": "Projet",
+        "sousTitre": "{specialite} · {nombre, plural, one {# personne} other {# personnes}}",
+        "introuvableTitre": "Équipe introuvable",
+        "introuvable": "Cette équipe n'existe pas sur ce chantier, ou elle a été dissoute.",
+        "sansChef": "Aucun chef d'équipe désigné : donnez ce rôle à l'un des membres.",
+        "colonnes": {
+          "membre": "Membre",
+          "role": "Rôle",
+          "actions": "Actions"
+        },
+        "recherche": "Rechercher un membre",
+        "recherchePlaceholder": "Nom ou prénom…",
+        "filtreRole": "Filtrer par rôle",
+        "tousRoles": "Tous les rôles",
+        "aucunResultat": "Aucun membre ne correspond à ces critères.",
+        "aucunMembre": "Personne dans cette équipe pour l'instant.",
+        "actionAjouter": "Ajouter un membre",
+        "actionChangerRole": "Changer le rôle de {nom}",
+        "actionRetirer": "Retirer {nom} de l'équipe",
+        "export": {
+          "titre": "Membres de l'équipe {nom}",
+          "nomFichier": "membres-equipe",
+          "prenom": "Prénom",
+          "nom": "Nom"
+        },
+        "ajout": {
+          "titre": "Ajouter un membre",
+          "sousTitre": "Un collaborateur de l'entreprise, ou une personne saisie sur le chantier.",
+          "champPersonne": "Personne",
+          "champRole": "Rôle dans l'équipe",
+          "annuler": "Annuler",
+          "ajouter": "Ajouter à l'équipe",
+          "erreurGenerique": "La personne n'a pas pu être ajoutée. Réessayez."
+        },
+        "changementRole": {
+          "titre": "Changer le rôle",
+          "sousTitre": "{nom} · aujourd'hui {role}",
+          "champ": "Nouveau rôle",
+          "nouveauChef": "{nom} deviendra chef de l'équipe ; {ancien} passera au rôle « {role} ».",
+          "premierChef": "{nom} deviendra chef de l'équipe.",
+          "sansChef": "L'équipe n'aura plus de chef désigné tant que vous n'en nommerez pas un autre.",
+          "annuler": "Annuler",
+          "enregistrer": "Enregistrer",
+          "erreurGenerique": "Le rôle n'a pas pu être changé. Réessayez."
+        },
+        "retrait": {
+          "titre": "Retirer {nom} de l'équipe ?",
+          "description": "{nom} ne fera plus partie de {equipe}. Son compte collaborateur, s'il en a un, n'est pas touché.",
+          "chef": "C'est le chef de l'équipe : elle n'aura plus de chef désigné.",
+          "annuler": "Annuler",
+          "retirer": "Retirer",
+          "erreurGenerique": "La personne n'a pas pu être retirée. Réessayez."
+        }
+      }
+    }
   },
   "referentielVilles": {
     "aidePersonnalisee": "Localité absente de la liste : elle sera enregistrée telle quelle.",
@@ -1051,10 +1417,6 @@
     "documents": {
       "motif": "Liste filtrable",
       "titre": "Documents"
-    },
-    "equipeAffectations": {
-      "motif": "Liste filtrable",
-      "titre": "Équipe & affectations"
     },
     "equipements": {
       "motif": "Liste filtrable",
@@ -1293,7 +1655,7 @@
       "plus": "Plus",
       "plusDeModules": "Autres modules",
       "projets": "Projets",
-      "projetsEquipe": "Équipe & affectations",
+      "projetsEquipe": "Équipes & affectations",
       "projetsListe": "Liste projets",
       "projetsLots": "Lots & activités",
       "qhse": "QHSE",

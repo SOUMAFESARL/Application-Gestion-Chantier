@@ -66,8 +66,13 @@ export function formaterMontant(
  * Montant abrégé, pour un tableau ou une tuile d'indicateur.
  * `87500000000` → « 875 M FCFA » · `120000000000` → « 1,2 Md FCFA »
  */
-export function formaterMontantCourt(centimes: number | null | undefined): string {
+export function formaterMontantCourt(
+  centimes: number | null | undefined,
+  options: { avecDevise?: boolean } = {},
+): string {
   if (centimes === null || centimes === undefined) return ABSENT;
+
+  const { avecDevise = true } = options;
 
   const francs = centimesEnFrancs(centimes);
   const absolu = Math.abs(francs);
@@ -78,13 +83,17 @@ export function formaterMontantCourt(centimes: number | null | undefined): strin
     const texte = Number.isInteger(arrondi)
       ? String(arrondi)
       : String(arrondi).replace(".", ",");
-    return `${signe}${texte}${INSECABLE}${unite}${INSECABLE}FCFA`;
+    // Sans devise, l'unité colle au nombre (« 10M ») : c'est la forme d'une
+    // colonne dont l'en-tête porte déjà « FCFA ».
+    return avecDevise
+      ? `${signe}${texte}${INSECABLE}${unite}${INSECABLE}FCFA`
+      : `${signe}${texte}${unite}`;
   };
 
   if (absolu >= 1_000_000_000) return abreger(absolu / 1_000_000_000, "Md");
   if (absolu >= 1_000_000) return abreger(absolu / 1_000_000, "M");
   if (absolu >= 1_000) return abreger(absolu / 1_000, "k");
-  return formaterMontant(centimes);
+  return formaterMontant(centimes, { avecDevise });
 }
 
 /**
@@ -125,6 +134,48 @@ export function formaterDate(valeur: string | Date | null | undefined): string {
   const jour = String(date.getDate()).padStart(2, "0");
   const mois = String(date.getMonth() + 1).padStart(2, "0");
   return `${jour}/${mois}/${date.getFullYear()}`;
+}
+
+const FORMAT_JOUR_MOIS = new Intl.DateTimeFormat("fr-FR", {
+  day: "2-digit",
+  month: "short",
+  // Une date ISO courte est minuit UTC : lue en heure locale, elle reculerait
+  // d'un jour à l'ouest de Greenwich.
+  timeZone: "UTC",
+});
+
+/** `2026-07-01` → « 01 juil. » — pour une période dont l'année va de soi. */
+export function formaterJourMois(valeur: string | null | undefined): string {
+  const date = versDate(valeur);
+  if (!date) return ABSENT;
+  return FORMAT_JOUR_MOIS.format(date);
+}
+
+/** `2026-07-01` → « 01/07 » — une période serrée dans une colonne de tableau. */
+export function formaterJourMoisNumerique(valeur: string | null | undefined): string {
+  const date = versDate(valeur);
+  if (!date) return ABSENT;
+  // Lue en UTC, pour la même raison que `FORMAT_JOUR_MOIS`.
+  const jour = String(date.getUTCDate()).padStart(2, "0");
+  const mois = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${jour}/${mois}`;
+}
+
+const FORMAT_MOIS_COURT = new Intl.DateTimeFormat("fr-FR", { month: "short", timeZone: "UTC" });
+
+/** `2026-07-01` → « juil. » — une graduation de planning. */
+export function formaterMoisCourt(valeur: string | null | undefined): string {
+  const date = versDate(valeur);
+  if (!date) return ABSENT;
+  return FORMAT_MOIS_COURT.format(date);
+}
+
+/** `14500` → « 14 500 », `12.5` → « 12,5 » — une quantité, sans unité. */
+export function formaterQuantite(valeur: number | null | undefined): string {
+  if (valeur === null || valeur === undefined) return ABSENT;
+  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 })
+    .format(valeur)
+    .replace(/\s/g, INSECABLE);
 }
 
 /** `2026-08-25T07:12:04Z` → « 07:12 » (heure locale de l'utilisateur) */

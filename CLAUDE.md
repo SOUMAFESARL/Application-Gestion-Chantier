@@ -316,6 +316,15 @@ Two things that migration surfaced, worth knowing before reading old code:
    itself lives in the domain's `regles.ts` (`filtrerProjets`,
    `filtrerClients`). Only dashboard blocks keep `Tableau` or a bare
    `DataTable`.
+10. **Every data table can be exported (CSV + PDF)** — a product requirement.
+    `TableauListe` makes `exporter` a *required* prop, so a new list cannot
+    compile without one; a table that doesn't go through it (the lots tree,
+    the payment history) puts `MenuExport` (`components/ui/export-tableau.tsx`)
+    in its own toolbar. The export takes the *filtered* rows, all pages, and
+    raw values (francs as integers, full dates, empty cell rather than `—`).
+    **The export button sits immediately left of the table's add button**:
+    in `TableauListe`, pass that button as `actions`, never in the page
+    header. Dashboard summary blocks and form grids are not data tables.
 
 ### What lot 0 established
 

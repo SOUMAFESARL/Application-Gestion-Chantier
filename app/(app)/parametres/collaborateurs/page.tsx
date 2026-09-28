@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { aideColonnes } from "@/components/ui/data-table";
+import type { ExportTableau } from "@/components/ui/export-tableau";
 import {
   Dialog,
   DialogContent,
@@ -260,20 +261,30 @@ export default function PageCollaborateurs() {
     { valeur: "INVITES", libelle: t("filtreInvites"), nombre: compte("INVITE") },
   ];
 
+  const exporter: ExportTableau<Collaborateur> = {
+    titre: t("export.titre"),
+    nomFichier: t("export.nomFichier"),
+    colonnes: [
+      { entete: t("colonneNom"), valeur: (c) => c.nomComplet || t("collaborateurInvite") },
+      { entete: t("export.email"), valeur: (c) => c.email },
+      { entete: t("colonneTelephone"), valeur: (c) => afficherTelephone(c.telephone) },
+      {
+        entete: t("colonneRole"),
+        valeur: (c) => (t.has(`roleOptions.${c.role}`) ? t(`roleOptions.${c.role}`) : c.role),
+      },
+      { entete: t("colonneStatut"), valeur: (c) => t(`statut.${c.statut}`) },
+      {
+        entete: t("colonneDate"),
+        valeur: (c) => (c.creeLe ? formaterDate(c.creeLe) : t("comptePrincipal")),
+      },
+    ],
+  };
+
   return (
     <div className="flex flex-col gap-5">
       <EnTetePage
         titre={t("titre")}
         description={t("sousTitre")}
-        actions={
-          <Bouton
-            variante="primaire"
-            iconeGauche={<UserPlus size={18} />}
-            onClick={ouvrirModale}
-          >
-            {t("boutonAjouter")}
-          </Bouton>
-        }
       />
 
       {succesMsg && (
@@ -303,6 +314,17 @@ export default function PageCollaborateurs() {
           setRecherche("");
         }}
         cleCriteres={`${filtre}|${recherche}`}
+        exporter={exporter}
+        actions={
+          <Bouton
+            variante="primaire"
+            taille="sm"
+            iconeGauche={<UserPlus size={16} aria-hidden="true" />}
+            onClick={ouvrirModale}
+          >
+            {t("boutonAjouter")}
+          </Bouton>
+        }
         outils={
           <>
             <RechercheTableau

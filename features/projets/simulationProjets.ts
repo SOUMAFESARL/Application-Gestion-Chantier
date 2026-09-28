@@ -30,6 +30,7 @@ import type { TiersOption } from "@/features/tiers/types";
 import { attendre, refuser } from "@/lib/api/simulation";
 
 import { INDICE_SANTE_INITIAL } from "./regles";
+import { simulationLots } from "./simulationLots";
 import type { ClientProjet, CreationProjet, Intervenant, Projet } from "./types";
 
 const CLE_ETAT = "ccd.simulation.projets";
@@ -384,6 +385,7 @@ export const simulationProjets = {
     };
 
     ecrireEtat([projet, ...projets]);
+    simulationLots.enregistrerLotsCreation(projet.id, creation.lots);
     return attendre(projet, LATENCE_ECRITURE);
   },
 };
