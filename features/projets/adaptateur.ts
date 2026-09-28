@@ -37,6 +37,7 @@ import type {
   MembreEquipe,
   MeteoProjet,
   ModeExecutionLot,
+  ModificationProjet,
   NatureEquipe,
   Projet,
   RoleMembreEquipe,
@@ -92,6 +93,9 @@ interface ChargeProjet {
   date_fin_reelle?: string | null;
   chef_projet?: ChargeIntervenant | null;
   conducteur_travaux?: ChargeIntervenant | null;
+  maitre_oeuvre?: string | null;
+  chefs_chantier?: ChargeIntervenant[];
+  directeur_financier?: ChargeIntervenant | null;
 }
 
 /** L'enveloppe de pagination de DRF, quand elle est activée sur la ressource. */
@@ -217,6 +221,11 @@ export function versProjet(charge: ChargeProjet): Projet {
     dateFinReelle: charge.date_fin_reelle ?? null,
     chefProjet: versIntervenant(charge.chef_projet),
     conducteurTravaux: versIntervenant(charge.conducteur_travaux),
+    maitreOeuvre: charge.maitre_oeuvre || null,
+    chefsChantier: (charge.chefs_chantier ?? [])
+      .map(versIntervenant)
+      .filter((intervenant): intervenant is Intervenant => intervenant !== null),
+    directeurFinancier: versIntervenant(charge.directeur_financier),
   };
 }
 
@@ -287,6 +296,26 @@ function versChargeCreation(creation: CreationProjet): ChargeCreationProjet {
   };
 }
 
+/** La charge de `PATCH /projets/{id}/` — même proposition que la création. */
+function versChargeModification(modification: ModificationProjet) {
+  const { equipe } = modification;
+  return {
+    nom: modification.nom,
+    type_projet: modification.typeProjet,
+    ville: modification.ville,
+    maitre_ouvrage: modification.maitreOuvrage,
+    maitre_oeuvre: modification.maitreOeuvre,
+    date_debut_prevue: modification.dateDebutPrevue,
+    date_fin_prevue: modification.dateFinPrevue,
+    budget_initial_montant: modification.budgetInitial,
+    description: modification.description,
+    chef_projet_id: equipe.chefProjetId,
+    conducteur_travaux_id: equipe.conducteurTravauxId,
+    chefs_chantier_ids: equipe.chefsChantierIds,
+    directeur_financier_id: equipe.directeurFinancierId,
+  };
+}
+
 /* ------------------------------------------------------------------ *
  * Lectures et écritures.
  * ------------------------------------------------------------------ */
@@ -324,6 +353,32 @@ export async function lireProjet(id: string): Promise<Projet> {
 export async function creerProjet(creation: CreationProjet): Promise<Projet> {
   if (SIMULATION_ACTIVE) return simulationProjets.creer(creation);
   return versProjet(await api.creer<ChargeProjet>("/projets/", versChargeCreation(creation)));
+}
+
+export async function modifierProjet(
+  id: string,
+  modification: ModificationProjet,
+): Promise<Projet> {
+  if (SIMULATION_ACTIVE) return simulationProjets.modifier(id, modification);
+  return versProjet(
+    await api.modifier<ChargeProjet>(`/projets/${id}/`, versChargeModification(modification)),
+  );
+}
+
+/**
+ * La suspension et la reprise sont des **actions**, pas une écriture du
+ * statut : c'est le serveur qui décide du statut qu'un projet retrouve à sa
+ * reprise (en cours, en retard…), à partir de son planning. Un `PATCH
+ * statut` laisserait l'écran l'inventer.
+ */
+export async function suspendreProjet(id: string): Promise<Projet> {
+  if (SIMULATION_ACTIVE) return simulationProjets.suspendre(id);
+  return versProjet(await api.creer<ChargeProjet>(`/projets/${id}/suspendre/`, {}));
+}
+
+export async function reprendreProjet(id: string): Promise<Projet> {
+  if (SIMULATION_ACTIVE) return simulationProjets.reprendre(id);
+  return versProjet(await api.creer<ChargeProjet>(`/projets/${id}/reprendre/`, {}));
 }
 
 /**

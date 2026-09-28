@@ -154,6 +154,79 @@ export function echeanceDepassee(projet: Projet, maintenant: Date = new Date()):
   return projet.dateFinPrevue < maintenant.toISOString().split("T")[0];
 }
 
+/**
+ * Les statuts depuis lesquels un projet peut être suspendu : un projet qui
+ * n'est pas encore clos. Suspendre un projet terminé n'arrête rien.
+ */
+const STATUTS_SUSPENDABLES: StatutProjet[] = ["EN_ATTENTE", "EN_COURS", "EN_RETARD", "CRITIQUE"];
+
+export function peutSuspendre(projet: Pick<Projet, "statut">): boolean {
+  return STATUTS_SUSPENDABLES.includes(projet.statut);
+}
+
+export function peutReprendre(projet: Pick<Projet, "statut">): boolean {
+  return projet.statut === "SUSPENDU";
+}
+
+/** Un projet clos (terminé ou archivé) ne se modifie plus : il fait foi tel qu'il a fini. */
+export function projetModifiable(projet: Pick<Projet, "statut">): boolean {
+  return projet.statut !== "TERMINE" && projet.statut !== "ARCHIVE";
+}
+
+/** Un budget défini, moins ce qui en est déjà consommé. Négatif : budget dépassé. */
+export function budgetRestant(projet: Pick<Projet, "budgetInitial" | "budgetConsomme">): number | null {
+  if (projet.budgetInitial === null) return null;
+  return projet.budgetInitial - projet.budgetConsomme;
+}
+
+/** Les jours calendaires d'une date ISO courte à une autre ; négatif si `fin` précède `debut`. */
+function joursEntre(debut: string, fin: string): number | null {
+  const depart = Date.parse(debut);
+  const arrivee = Date.parse(fin);
+  if (Number.isNaN(depart) || Number.isNaN(arrivee)) return null;
+  return Math.round((arrivee - depart) / JOUR_MS);
+}
+
+/** Ce que les dates d'un projet disent de son délai. */
+export interface EcheancierProjet {
+  /** La durée prévue, en jours calendaires, bornes comprises. */
+  dureeJours: number | null;
+  /**
+   * La part du délai prévu déjà écoulée, de 0 à 100. C'est le **temps**, pas
+   * l'avancement théorique que le serveur calcule sur le planning : les deux
+   * se lisent côte à côte, ils ne se remplacent pas.
+   */
+  tempsEcoule: number | null;
+  /**
+   * Les jours avant la fin prévue, négatifs une fois l'échéance passée.
+   * `null` pour un projet clos : il n'a plus d'échéance.
+   */
+  joursRestants: number | null;
+}
+
+/**
+ * L'échéancier d'un projet, compté depuis son **début prévu** : c'est la
+ * référence contractuelle, et un démarrage tardif se lit justement comme du
+ * délai consommé. Un projet clos s'arrête à sa fin réelle.
+ */
+export function echeancierProjet(projet: Projet, maintenant: Date = new Date()): EcheancierProjet {
+  const aujourdhui = maintenant.toISOString().split("T")[0];
+  const clos = projet.statut === "TERMINE" || projet.statut === "ARCHIVE";
+  const duree = joursEntre(projet.dateDebutPrevue, projet.dateFinPrevue);
+  const ecoules = joursEntre(
+    projet.dateDebutPrevue,
+    clos ? (projet.dateFinReelle ?? projet.dateFinPrevue) : aujourdhui,
+  );
+  return {
+    dureeJours: duree === null || duree < 0 ? null : duree + 1,
+    tempsEcoule:
+      duree === null || duree <= 0 || ecoules === null
+        ? null
+        : largeurJauge(Math.round((ecoules / duree) * 100)),
+    joursRestants: clos ? null : joursEntre(aujourdhui, projet.dateFinPrevue),
+  };
+}
+
 /** « Koffi Kouamé » → « K. Kouamé » : ce qui tient dans une colonne étroite. */
 export function nomAbrege(intervenant: { prenom: string; nom: string } | null): string | null {
   if (!intervenant) return null;

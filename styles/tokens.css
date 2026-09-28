@@ -69,6 +69,12 @@
   --color-semantic-info: #1E40AF;
   --color-semantic-info-bg: #DBEAFE;
 
+  /* --- Marques tierces ---
+     Le vert de WhatsApp : un bouton « Contacter sur WhatsApp » se reconnaît
+     à sa couleur avant de se lire. Il n'appartient pas à la charte. */
+  --color-whatsapp: #25D366;
+  --color-whatsapp-survol: #1EBE5D;
+
   /* --- Terrain --- */
   --color-terrain-sun: #F59E0B;
   --color-terrain-dust: #D4A574;

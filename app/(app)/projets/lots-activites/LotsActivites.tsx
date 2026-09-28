@@ -13,7 +13,7 @@ import { TiroirLot } from "@/features/projets/components/TiroirLot";
 import {
   activiteAMontrer,
   activitesDuProjet,
-  projetParDefaut,
+  projetOuvert,
   syntheseLots,
 } from "@/features/projets/regles";
 import type { Activite, Lot, StatutActivite } from "@/features/projets/types";
@@ -38,7 +38,7 @@ const ONGLETS: readonly Onglet[] = ["structure", "planning"];
  * recherche : tout vient de `features/projets/regles`. Le composant ne garde
  * que ce que l'utilisateur a choisi — un chantier, un onglet, une activité.
  */
-export function LotsActivites() {
+export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
   const t = useTranslations("projets.lotsActivites");
   const clientRequetes = useQueryClient();
 
@@ -66,7 +66,7 @@ export function LotsActivites() {
     queryFn: ({ signal }) => listerProjets(signal),
   });
   const projets = useMemo(() => requeteProjets.data ?? [], [requeteProjets.data]);
-  const projetId = projetChoisi ?? projetParDefaut(projets)?.id ?? null;
+  const projetId = projetChoisi ?? projetOuvert(projets, projetInitial)?.id ?? null;
 
   const requeteLots = useQuery({
     queryKey: cleLots(projetId ?? ""),

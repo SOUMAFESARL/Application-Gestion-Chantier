@@ -29,9 +29,15 @@
 import type { TiersOption } from "@/features/tiers/types";
 import { attendre, refuser } from "@/lib/api/simulation";
 
-import { INDICE_SANTE_INITIAL } from "./regles";
+import { INDICE_SANTE_INITIAL, peutReprendre, peutSuspendre } from "./regles";
 import { simulationLots } from "./simulationLots";
-import type { ClientProjet, CreationProjet, Intervenant, Projet } from "./types";
+import type {
+  ClientProjet,
+  CreationProjet,
+  Intervenant,
+  ModificationProjet,
+  Projet,
+} from "./types";
 
 const CLE_ETAT = "ccd.simulation.projets";
 
@@ -145,6 +151,9 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateFinReelle: null,
     chefProjet: COLLABORATEURS_DEMONSTRATION[0],
     conducteurTravaux: COLLABORATEURS_DEMONSTRATION[0],
+    maitreOeuvre: "Cabinet Archi-Lagune",
+    chefsChantier: [COLLABORATEURS_DEMONSTRATION[1], COLLABORATEURS_DEMONSTRATION[2]],
+    directeurFinancier: COLLABORATEURS_DEMONSTRATION[2],
   },
   {
     id: "c2c83f62-5fb4-4a5c-932c-d02a12eeeb13",
@@ -167,6 +176,9 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateFinReelle: null,
     chefProjet: COLLABORATEURS_DEMONSTRATION[1],
     conducteurTravaux: COLLABORATEURS_DEMONSTRATION[1],
+    maitreOeuvre: "BNETD",
+    chefsChantier: [COLLABORATEURS_DEMONSTRATION[2]],
+    directeurFinancier: COLLABORATEURS_DEMONSTRATION[0],
   },
   {
     id: "d3d94073-6fc5-4b6d-a43d-e13b23fffc24",
@@ -189,6 +201,9 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateFinReelle: null,
     chefProjet: COLLABORATEURS_DEMONSTRATION[2],
     conducteurTravaux: COLLABORATEURS_DEMONSTRATION[2],
+    maitreOeuvre: null,
+    chefsChantier: [COLLABORATEURS_DEMONSTRATION[0]],
+    directeurFinancier: null,
   },
   {
     id: "e4ea5184-70d6-4c7e-b54e-f24c34000d35",
@@ -211,6 +226,9 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateFinReelle: null,
     chefProjet: null,
     conducteurTravaux: null,
+    maitreOeuvre: null,
+    chefsChantier: [],
+    directeurFinancier: null,
   },
   {
     id: "f5fb6295-81e7-4d8f-c65f-035d45111e46",
@@ -233,6 +251,9 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateFinReelle: "2025-12-02",
     chefProjet: COLLABORATEURS_DEMONSTRATION[0],
     conducteurTravaux: COLLABORATEURS_DEMONSTRATION[0],
+    maitreOeuvre: "Atelier Kouadio Architectes",
+    chefsChantier: [COLLABORATEURS_DEMONSTRATION[1]],
+    directeurFinancier: null,
   },
   {
     id: "a6ac73a6-92f8-4e90-d760-146e56222f57",
@@ -255,6 +276,9 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateFinReelle: null,
     chefProjet: COLLABORATEURS_DEMONSTRATION[1],
     conducteurTravaux: COLLABORATEURS_DEMONSTRATION[1],
+    maitreOeuvre: "Cabinet Archi-Lagune",
+    chefsChantier: [COLLABORATEURS_DEMONSTRATION[2]],
+    directeurFinancier: COLLABORATEURS_DEMONSTRATION[0],
   },
 ];
 
@@ -262,11 +286,26 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
  * L'état, conservé le temps de l'onglet.
  * ------------------------------------------------------------------ */
 
+/**
+ * Un chantier conservé par un onglet ouvert avant que la fiche ne porte le
+ * maître d'œuvre et l'équipe élargie : on complète avec les défauts de
+ * `versProjet`, pour que la simulation ne rende pas une forme que le serveur
+ * ne rendrait jamais.
+ */
+function completer(projet: Projet): Projet {
+  return {
+    ...projet,
+    maitreOeuvre: projet.maitreOeuvre ?? null,
+    chefsChantier: projet.chefsChantier ?? [],
+    directeurFinancier: projet.directeurFinancier ?? null,
+  };
+}
+
 function lireEtat(): Projet[] {
   if (typeof window === "undefined") return [...PORTEFEUILLE_INITIAL];
   try {
     const brut = window.sessionStorage.getItem(CLE_ETAT);
-    return brut ? (JSON.parse(brut) as Projet[]) : [...PORTEFEUILLE_INITIAL];
+    return brut ? (JSON.parse(brut) as Projet[]).map(completer) : [...PORTEFEUILLE_INITIAL];
   } catch {
     return [...PORTEFEUILLE_INITIAL];
   }
@@ -329,6 +368,18 @@ function resoudreCollaborateur(id: string | undefined): Intervenant | null {
   return COLLABORATEURS_DEMONSTRATION.find((personne) => personne.id === id) ?? null;
 }
 
+/** Remplace un projet dans l'état, ou refuse comme le serveur s'il n'existe pas. */
+function remplacer(id: string, transformer: (projet: Projet) => Projet): Projet {
+  const projets = lireEtat();
+  const rang = projets.findIndex((candidat) => candidat.id === id);
+  if (rang === -1) {
+    refuser("introuvable", "Ce chantier n'existe pas ou a été archivé.", 404);
+  }
+  const modifie = transformer(projets[rang]);
+  ecrireEtat(projets.map((projet, i) => (i === rang ? modifie : projet)));
+  return modifie;
+}
+
 export const simulationProjets = {
   async referenceSuivante(): Promise<string> {
     return referenceSuivante(lireEtat());
@@ -382,10 +433,64 @@ export const simulationProjets = {
       dateFinReelle: null,
       chefProjet: resoudreCollaborateur(creation.equipe.chefProjetId),
       conducteurTravaux: resoudreCollaborateur(creation.equipe.conducteurTravauxId),
+      maitreOeuvre: creation.maitreOeuvre || null,
+      chefsChantier: creation.equipe.chefsChantierIds
+        .map(resoudreCollaborateur)
+        .filter((personne): personne is Intervenant => personne !== null),
+      directeurFinancier: resoudreCollaborateur(creation.equipe.directeurFinancierId),
     };
 
     ecrireEtat([projet, ...projets]);
     simulationLots.enregistrerLotsCreation(projet.id, creation.lots);
     return attendre(projet, LATENCE_ECRITURE);
+  },
+
+  async modifier(id: string, modification: ModificationProjet): Promise<Projet> {
+    const modifie = remplacer(id, (projet) => ({
+      ...projet,
+      nom: modification.nom,
+      typeProjet: modification.typeProjet,
+      ville: modification.ville,
+      client:
+        projet.client.raisonSociale === modification.maitreOuvrage
+          ? projet.client
+          : resoudreClient(modification.maitreOuvrage),
+      maitreOeuvre: modification.maitreOeuvre || null,
+      dateDebutPrevue: modification.dateDebutPrevue,
+      dateFinPrevue: modification.dateFinPrevue,
+      budgetInitial: modification.budgetInitial,
+      description: modification.description ?? "",
+      chefProjet: resoudreCollaborateur(modification.equipe.chefProjetId),
+      conducteurTravaux: resoudreCollaborateur(modification.equipe.conducteurTravauxId),
+      chefsChantier: modification.equipe.chefsChantierIds
+        .map(resoudreCollaborateur)
+        .filter((personne): personne is Intervenant => personne !== null),
+      directeurFinancier: resoudreCollaborateur(modification.equipe.directeurFinancierId),
+    }));
+    return attendre(modifie, LATENCE_ECRITURE);
+  },
+
+  async suspendre(id: string): Promise<Projet> {
+    const modifie = remplacer(id, (projet) => {
+      if (!peutSuspendre(projet)) {
+        refuser("transition_invalide", "Ce projet ne peut pas être suspendu dans son état actuel.", 400);
+      }
+      return { ...projet, statut: "SUSPENDU" };
+    });
+    return attendre(modifie, LATENCE_ECRITURE);
+  },
+
+  /**
+   * Le serveur recalculera le statut depuis le planning ; la simulation s'en
+   * tient à la distinction qu'elle peut faire sans lui : démarré ou non.
+   */
+  async reprendre(id: string): Promise<Projet> {
+    const modifie = remplacer(id, (projet) => {
+      if (!peutReprendre(projet)) {
+        refuser("transition_invalide", "Ce projet n'est pas suspendu.", 400);
+      }
+      return { ...projet, statut: projet.dateDebutReelle ? "EN_COURS" : "EN_ATTENTE" };
+    });
+    return attendre(modifie, LATENCE_ECRITURE);
   },
 };

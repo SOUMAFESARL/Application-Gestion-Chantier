@@ -98,6 +98,8 @@
   --color-avertissement-fond: var(--color-semantic-warning-bg);
   --color-information: var(--color-semantic-info);
   --color-information-fond: var(--color-semantic-info-bg);
+  --color-whatsapp: var(--color-whatsapp);
+  --color-whatsapp-survol: var(--color-whatsapp-survol);
 
   /* --- Alias attendus par les composants shadcn --------------------- */
   /* Blanc, et non `neutral-50` : la zone de contenu de `docs/interface.jpg`

@@ -1,17 +1,17 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, Plus, TrendingUp } from "lucide-react";
+import { Eye, Pause, Pencil, Play, Plus } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { Badge, Bouton, EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
-import type { VarianteBadge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { aideColonnes } from "@/components/ui/data-table";
 import type { ExportTableau } from "@/components/ui/export-tableau";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   BORD_DROIT_TABLEAU,
   FiltreTableau,
@@ -19,6 +19,7 @@ import {
   TableauListe,
 } from "@/components/ui/tableau-liste";
 import { listerProjets } from "@/features/projets/adaptateur";
+import { useGestionProjet } from "@/features/projets/components/GestionProjet";
 import { TiroirCreationProjet } from "@/features/projets/components/TiroirCreationProjet";
 import {
   chefsDeProjet,
@@ -30,13 +31,18 @@ import {
   largeurJauge,
   niveauAvancement,
   nomAbrege,
+  peutReprendre,
+  peutSuspendre,
+  projetModifiable,
   statutsPresents,
   valeursExportProjet,
 } from "@/features/projets/regles";
 import type { CriteresProjets, NiveauAvancement } from "@/features/projets/regles";
 import type { Projet, StatutProjet } from "@/features/projets/types";
-import { ABSENT, couleurIndiceSante, formaterDate, formaterMillions } from "@/lib/format";
+import { ABSENT, couleurIndiceSante, formaterDate, formaterMillions, formaterMontant } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+import { TON_SANTE, TON_STATUT } from "./classes";
 
 /**
  * La liste des chantiers de l'entreprise.
@@ -69,29 +75,11 @@ import { cn } from "@/lib/utils";
 /** La clé de cache est partagée : un autre écran qui liste les chantiers lira celui-ci. */
 const CLE_LISTE_PROJETS = ["projets", "liste"] as const;
 
-/** Le ton d'un statut. C'est de l'affichage — il ne descend pas dans `regles`. */
-const TON_STATUT: Record<StatutProjet, VarianteBadge> = {
-  EN_ATTENTE: "neutre",
-  EN_COURS: "primaire",
-  EN_RETARD: "avertissement",
-  CRITIQUE: "erreur",
-  SUSPENDU: "avertissement",
-  TERMINE: "succes",
-  ARCHIVE: "neutre",
-};
-
 /** Le ton du chiffre d'avancement réel. */
 const TON_AVANCEMENT: Record<NiveauAvancement, string> = {
   conforme: "text-succes",
   retard: "text-avertissement",
   critique: "text-erreur",
-};
-
-const TON_SANTE: Record<ReturnType<typeof couleurIndiceSante>, string> = {
-  vert: "text-succes",
-  orange: "text-avertissement",
-  rouge: "text-erreur",
-  inconnu: "text-neutral-400",
 };
 
 const colonne = aideColonnes<Projet>();
@@ -101,6 +89,7 @@ export function ListeProjets() {
   const clientRequetes = useQueryClient();
   const [tiroirOuvert, setTiroirOuvert] = useState(false);
   const [criteres, setCriteres] = useState<CriteresProjets>(CRITERES_VIDES);
+  const { modifier, basculerSuspension, modaux } = useGestionProjet();
 
   const requete = useQuery({
     queryKey: CLE_LISTE_PROJETS,
@@ -262,9 +251,14 @@ export function ListeProjets() {
             return budget === null ? (
               <span className="text-xs text-neutral-500 italic">{t("budgetNonDefini")}</span>
             ) : (
-              <span className="font-semibold tabular-nums text-neutral-900">
-                {formaterMillions(budget)}
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span tabIndex={0} className="cursor-help font-semibold tabular-nums text-neutral-900">
+                    {formaterMillions(budget)}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="tabular-nums">{formaterMontant(budget)}</TooltipContent>
+              </Tooltip>
             );
           },
         }),
@@ -289,20 +283,45 @@ export function ListeProjets() {
                   <Eye />
                 </Link>
               </Button>
-              <Button variant="ghost" size="icon-sm" asChild>
-                <Link
-                  href={`/projets/${row.original.id}/avancement`}
-                  aria-label={t("actionAvancement", { nom: row.original.nom })}
-                  title={t("actionAvancement", { nom: row.original.nom })}
-                >
-                  <TrendingUp />
-                </Link>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => modifier(row.original)}
+                disabled={!projetModifiable(row.original)}
+                aria-label={t("actionModifier", { nom: row.original.nom })}
+                title={t("actionModifier", { nom: row.original.nom })}
+              >
+                <Pencil />
               </Button>
+              {peutSuspendre(row.original) && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => basculerSuspension(row.original)}
+                  aria-label={t("actionSuspendre", { nom: row.original.nom })}
+                  title={t("actionSuspendre", { nom: row.original.nom })}
+                  className="text-avertissement hover:text-avertissement"
+                >
+                  <Pause />
+                </Button>
+              )}
+              {peutReprendre(row.original) && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => basculerSuspension(row.original)}
+                  aria-label={t("actionReprendre", { nom: row.original.nom })}
+                  title={t("actionReprendre", { nom: row.original.nom })}
+                  className="text-succes hover:text-succes"
+                >
+                  <Play />
+                </Button>
+              )}
             </span>
           ),
         }),
       ]),
-    [t],
+    [t, modifier, basculerSuspension],
   );
 
   return (
@@ -360,6 +379,8 @@ export function ListeProjets() {
             }
           />
         ))}
+
+      {modaux}
 
       <TiroirCreationProjet
         ouverte={tiroirOuvert}

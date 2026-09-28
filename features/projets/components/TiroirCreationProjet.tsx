@@ -48,7 +48,11 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { paysEntreprise } from "@/features/configuration/api";
-import { creerProjet, proposerReferenceProjet } from "@/features/projets/adaptateur";
+import {
+  creerProjet,
+  modifierProjet,
+  proposerReferenceProjet,
+} from "@/features/projets/adaptateur";
 import {
   joursOuvres,
   MODES_EXECUTION_LOT,
@@ -64,11 +68,14 @@ import {
   LONGUEUR_MAX_NOM,
   lotVide,
   saisieCreationVide,
+  saisieDepuisProjet,
   schemaCreationProjet,
   schemaEtapeEquipe,
   schemaEtapeInformations,
   schemaEtapeLots,
+  schemaModificationProjet,
   versCreationProjet,
+  versModificationProjet,
   type SaisieCreationProjet,
   type ValeursCreationProjet,
 } from "@/features/projets/validations";
@@ -91,7 +98,14 @@ const ETAPES = [
   { cle: "etapeEquipe", schema: schemaEtapeEquipe },
 ] as const;
 
-const DERNIERE_ETAPE = ETAPES.length - 1;
+/**
+ * Les étapes parcourues, par leur rang dans `ETAPES` (et `CHAMPS_ETAPES`).
+ * La modification saute les lots : ils se gèrent dans « Lots & activités »,
+ * où l'on voit leurs activités — les retoucher ici, à l'aveugle, pourrait
+ * en supprimer un qui en porte.
+ */
+const ETAPES_CREATION = [0, 1, 2];
+const ETAPES_MODIFICATION = [0, 2];
 
 /** Deux champs côte à côte, empilés sous 640 px. */
 const RANGEE = "grid grid-cols-2 gap-x-4 gap-y-3 max-[640px]:grid-cols-1";
@@ -118,6 +132,13 @@ interface Props {
   ouverte: boolean;
   onFermer: () => void;
   onProjetCree?: (projet: Projet) => void;
+  /**
+   * Le projet à modifier. Absent : le tiroir crée un projet. Présent, il
+   * s'ouvre sur ses valeurs — le parent le remonte (`key`) à chaque
+   * ouverture pour qu'il reparte de l'état actuel du projet.
+   */
+  projet?: Projet;
+  onProjetModifie?: (projet: Projet) => void;
 }
 
 /** L'astérisque des champs obligatoires — décoratif, le schéma fait foi. */
@@ -156,18 +177,28 @@ function TitreSection({ children }: { children: ReactNode }) {
  * choisi à la place de l'utilisateur, finissait rattaché à des projets qui
  * n'étaient pas les siens.
  */
-export function TiroirCreationProjet({ ouverte, onFermer, onProjetCree }: Props) {
+export function TiroirCreationProjet({
+  ouverte,
+  onFermer,
+  onProjetCree,
+  projet,
+  onProjetModifie,
+}: Props) {
   const t = useTranslations("projets.tiroirCreation");
+  const modification = projet !== undefined;
+  const rangsEtapes = modification ? ETAPES_MODIFICATION : ETAPES_CREATION;
+  const derniereEtape = rangsEtapes.length - 1;
 
   const [etape, setEtape] = useState(0);
+  const etapeCourante = ETAPES[rangsEtapes[etape]];
   // Vide tant que le serveur ne l'a pas dit : la liste des villes en dépend,
   // et un pays deviné serait faux hors de Côte d'Ivoire.
   const [pays, setPays] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
 
   const form = useForm<SaisieCreationProjet, unknown, ValeursCreationProjet>({
-    resolver: zodResolver(schemaCreationProjet),
-    defaultValues: saisieCreationVide(),
+    resolver: zodResolver(modification ? schemaModificationProjet : schemaCreationProjet),
+    defaultValues: projet ? saisieDepuisProjet(projet) : saisieCreationVide(),
     mode: "onTouched",
   });
 
@@ -175,7 +206,7 @@ export function TiroirCreationProjet({ ouverte, onFermer, onProjetCree }: Props)
 
   const valeurs = useWatch({ control: form.control }) as SaisieCreationProjet;
   const enCours = form.formState.isSubmitting;
-  const etapeValide = ETAPES[etape].schema.safeParse(valeurs).success;
+  const etapeValide = etapeCourante.schema.safeParse(valeurs).success;
   const duree = joursOuvres(valeurs.dateDebut, valeurs.dateFin);
 
   useEffect(() => {
@@ -194,7 +225,8 @@ export function TiroirCreationProjet({ ouverte, onFermer, onProjetCree }: Props)
    * une référence retouchée à la main ne doit pas être écrasée.
    */
   useEffect(() => {
-    if (!ouverte) return;
+    // Un projet existant a déjà sa référence : elle ne se repropose pas.
+    if (!ouverte || modification) return;
     let vivant = true;
     proposerReferenceProjet()
       .then((reference) => {
@@ -208,7 +240,7 @@ export function TiroirCreationProjet({ ouverte, onFermer, onProjetCree }: Props)
     return () => {
       vivant = false;
     };
-  }, [ouverte, form]);
+  }, [ouverte, modification, form]);
 
   /**
    * La saisie repart à vide après une création réussie.
@@ -228,13 +260,18 @@ export function TiroirCreationProjet({ ouverte, onFermer, onProjetCree }: Props)
   async function suivant() {
     // Revérifie l'étape pour afficher ses messages — le bouton est déjà
     // désactivé tant qu'elle est incomplète, mais « Entrée » passe par ici.
-    const valide = await form.trigger(CHAMPS_ETAPES[etape]);
-    if (valide) setEtape((courante) => Math.min(courante + 1, DERNIERE_ETAPE));
+    const valide = await form.trigger(CHAMPS_ETAPES[rangsEtapes[etape]]);
+    if (valide) setEtape((courante) => Math.min(courante + 1, derniereEtape));
   }
 
   async function soumettre(saisie: ValeursCreationProjet) {
     setErreur(null);
     try {
+      if (projet) {
+        onProjetModifie?.(await modifierProjet(projet.id, versModificationProjet(saisie)));
+        onFermer();
+        return;
+      }
       const projetCree = await creerProjet(versCreationProjet(saisie));
       reinitialiser();
       onProjetCree?.(projetCree);
@@ -247,7 +284,7 @@ export function TiroirCreationProjet({ ouverte, onFermer, onProjetCree }: Props)
 
   /** « Entrée » dans un champ avance d'une étape ; seule la dernière crée le projet. */
   function surSoumission(evenement: FormEvent<HTMLFormElement>) {
-    if (etape < DERNIERE_ETAPE) {
+    if (etape < derniereEtape) {
       evenement.preventDefault();
       if (etapeValide) void suivant();
       return;
@@ -263,7 +300,7 @@ export function TiroirCreationProjet({ ouverte, onFermer, onProjetCree }: Props)
   // plutôt que de proposer une liste vide.
   const optionsBailleurs: typeof optionsCollaborateurs = [];
 
-  const libelleSuivant = etape === 0 ? t("suivantLots") : t("suivantEquipe");
+  const libelleSuivant = rangsEtapes[etape + 1] === 1 ? t("suivantLots") : t("suivantEquipe");
 
   return (
     <Sheet open={ouverte} onOpenChange={(ouvert) => !ouvert && onFermer()}>
@@ -272,8 +309,12 @@ export function TiroirCreationProjet({ ouverte, onFermer, onProjetCree }: Props)
           entièrement et le tableau défile horizontalement. */}
       <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-4xl">
         <SheetHeader className="border-b border-neutral-200 py-5 pr-14 pl-6">
-          <SheetTitle className="text-lg text-neutral-900">{t("titre")}</SheetTitle>
-          <SheetDescription>{t("sousTitre")}</SheetDescription>
+          <SheetTitle className="text-lg text-neutral-900">
+            {projet ? t("titreModification", { nom: projet.nom }) : t("titre")}
+          </SheetTitle>
+          <SheetDescription>
+            {modification ? t("sousTitreModification") : t("sousTitre")}
+          </SheetDescription>
         </SheetHeader>
 
         {/* Seul le corps défile : l'en-tête et la navigation entre étapes
@@ -292,7 +333,7 @@ export function TiroirCreationProjet({ ouverte, onFermer, onProjetCree }: Props)
               </Alert>
             )}
 
-            {etape === 0 && (
+            {etapeCourante.cle === "etapeInformations" && (
               <>
                 <TitreSection>{t("sectionIdentification")}</TitreSection>
 
@@ -327,10 +368,13 @@ export function TiroirCreationProjet({ ouverte, onFermer, onProjetCree }: Props)
                           {t("champReference")} <Badge variante="primaire">{t("badgeAuto")}</Badge>
                         </FormLabel>
                         <FormControl>
+                          {/* Unique dans l'entreprise, et citée par les documents
+                              déjà émis : elle ne change plus une fois le projet ouvert. */}
                           <Input
                             {...field}
                             className={cn(CHAMP, CHAMP_CALCULE)}
                             placeholder={t("champReferencePlaceholder")}
+                            readOnly={modification}
                             disabled={enCours}
                           />
                         </FormControl>
@@ -552,7 +596,7 @@ export function TiroirCreationProjet({ ouverte, onFermer, onProjetCree }: Props)
               </>
             )}
 
-            {etape === 1 && (
+            {etapeCourante.cle === "etapeLots" && (
               <>
                 <TitreSection>{t("sectionLots")}</TitreSection>
 
@@ -737,7 +781,7 @@ export function TiroirCreationProjet({ ouverte, onFermer, onProjetCree }: Props)
               </>
             )}
 
-            {etape === 2 && (
+            {etapeCourante.cle === "etapeEquipe" && (
               <>
                 <TitreSection>{t("sectionEquipe")}</TitreSection>
 
@@ -845,56 +889,60 @@ export function TiroirCreationProjet({ ouverte, onFermer, onProjetCree }: Props)
                   />
                 </div>
 
-                <div className={RANGEE}>
-                  <FormField
-                    control={form.control}
-                    name="visiteursIds"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t("champVisiteurs")}</FormLabel>
-                        <FormControl>
-                          <ComboboxMultiple
-                            options={optionsCollaborateurs}
-                            valeurs={field.value}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            className={CHAMP}
-                            placeholder={t("selectionner")}
-                            placeholderRecherche={t("rechercherCollaborateur")}
-                            aucunResultat={t("aucunCollaborateur")}
-                            disabled={enCours}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="bailleursIds"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t("champBailleurs")}</FormLabel>
-                        <FormControl>
-                          <ComboboxMultiple
-                            options={optionsBailleurs}
-                            valeurs={field.value}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            className={CHAMP}
-                            placeholder={
-                              optionsBailleurs.length === 0 ? t("aucunBailleur") : t("selectionner")
-                            }
-                            placeholderRecherche={t("rechercherBailleur")}
-                            aucunResultat={t("aucunBailleur")}
-                            disabled={enCours || optionsBailleurs.length === 0}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                {/* Ni visiteurs ni bailleurs en modification : la fiche ne
+                    les lit pas, et renvoyer une liste jamais reçue l'effacerait. */}
+                {!modification && (
+                  <div className={RANGEE}>
+                    <FormField
+                      control={form.control}
+                      name="visiteursIds"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t("champVisiteurs")}</FormLabel>
+                          <FormControl>
+                            <ComboboxMultiple
+                              options={optionsCollaborateurs}
+                              valeurs={field.value}
+                              onChange={field.onChange}
+                              onBlur={field.onBlur}
+                              className={CHAMP}
+                              placeholder={t("selectionner")}
+                              placeholderRecherche={t("rechercherCollaborateur")}
+                              aucunResultat={t("aucunCollaborateur")}
+                              disabled={enCours}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="bailleursIds"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t("champBailleurs")}</FormLabel>
+                          <FormControl>
+                            <ComboboxMultiple
+                              options={optionsBailleurs}
+                              valeurs={field.value}
+                              onChange={field.onChange}
+                              onBlur={field.onBlur}
+                              className={CHAMP}
+                              placeholder={
+                                optionsBailleurs.length === 0 ? t("aucunBailleur") : t("selectionner")
+                              }
+                              placeholderRecherche={t("rechercherBailleur")}
+                              aucunResultat={t("aucunBailleur")}
+                              disabled={enCours || optionsBailleurs.length === 0}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
                 {etapeValide && (
                   <Alert variant="succes">
@@ -931,14 +979,21 @@ export function TiroirCreationProjet({ ouverte, onFermer, onProjetCree }: Props)
           >
             {t("indicateurEtape", {
               numero: etape + 1,
-              total: ETAPES.length,
-              libelle: t(ETAPES[etape].cle),
+              total: rangsEtapes.length,
+              libelle: t(etapeCourante.cle),
             })}
           </p>
 
           <div className="flex justify-end max-[640px]:order-3">
-            {etape < DERNIERE_ETAPE ? (
+            {/* Clés distinctes : sans elles, React réutilise le même
+                <button> et ne fait que passer son `type` de "button" à
+                "submit". En modification, « Suivant » mène à la dernière
+                étape : le changement survient pendant le clic, avant son
+                action par défaut, et le navigateur soumet alors le
+                formulaire — le tiroir enregistre et se ferme. */}
+            {etape < derniereEtape ? (
               <Button
+                key="suivant"
                 type="button"
                 onClick={() => void suivant()}
                 disabled={enCours || !etapeValide}
@@ -947,13 +1002,15 @@ export function TiroirCreationProjet({ ouverte, onFermer, onProjetCree }: Props)
               </Button>
             ) : (
               <Button
+                key="soumettre"
                 type="submit"
                 form={FORM_ID}
                 disabled={enCours || !etapeValide}
                 aria-busy={enCours}
               >
                 {enCours ? <LoaderCircle className="animate-spin" /> : null}
-                {enCours ? t("creationEnCours") : t("creer")}
+                {enCours && (modification ? t("enregistrementEnCours") : t("creationEnCours"))}
+                {!enCours && (modification ? t("enregistrer") : t("creer"))}
                 {!enCours && <ArrowUpRight />}
               </Button>
             )}

@@ -539,22 +539,75 @@
   },
   "ficheProjet": {
     "actionWhatsApp": "Contacter sur WhatsApp",
-    "avancementTitre": "Avancement des travaux",
-    "badgeConforme": "Conforme (+{ecart}%)",
-    "badgeRetard": "En retard ({ecart}%)",
-    "budgetNonDefini": "Non défini",
-    "budgetTitre": "Budget prévisionnel",
-    "clientTitre": "Client / Maître d'ouvrage",
-    "dates": "Du {debut} au {fin}",
-    "email": "Email :",
-    "encartCpSousTitre": "Supervision opérationnelle sur le chantier",
-    "encartCpTitre": "Conducteur de Travaux responsable",
-    "metriquesTitre": "Informations & Métriques clés",
-    "planningTitre": "Calendrier prévisionnel",
-    "retourDashboard": "Retour au tableau de bord",
+    "retourProjets": "Retour aux projets",
+    "titre": "Fiche projet : {nom}",
     "sousTitre": "{reference} · {client} · {ville}",
-    "telephone": "Téléphone :",
-    "titre": "Fiche chantier : {nom}"
+    "points": "{valeur} pts",
+    "calendrier": {
+      "titre": "Calendrier",
+      "debutPrevu": "Début prévu",
+      "finPrevue": "Fin prévue",
+      "tempsEcoule": "{valeur} % du délai écoulé",
+      "duree": "Durée : {duree}",
+      "debutReel": "Démarré le {date}",
+      "nonDemarre": "Pas encore démarré",
+      "joursRestants": "{jours, plural, =0 {Échéance aujourd'hui} one {# jour restant} other {# jours restants}}",
+      "echeanceDepassee": "{jours, plural, one {Échéance dépassée de # jour} other {Échéance dépassée de # jours}}",
+      "termineLe": "Terminé le {date}",
+      "clos": "Projet clos"
+    },
+    "budget": {
+      "titre": "Budget",
+      "initial": "Budget prévisionnel",
+      "nonDefini": "Budget non défini",
+      "consomme": "Consommé",
+      "restant": "Reste à engager",
+      "depasse": "Dépassement",
+      "ratio": "{valeur} % consommé"
+    },
+    "avancement": {
+      "titre": "Avancement",
+      "reel": "Réel",
+      "theorique": "Théorique",
+      "ecart": "Écart",
+      "sante": "Indice de santé",
+      "santeInconnue": "Non calculé",
+      "enRetard": "En retard",
+      "conforme": "Dans les temps",
+      "repereTheorique": "Repère : avancement théorique"
+    },
+    "informations": {
+      "titre": "Informations générales",
+      "reference": "Référence",
+      "type": "Type de projet",
+      "localisation": "Localisation",
+      "maitreOuvrage": "Maître d'ouvrage",
+      "maitreOeuvre": "Maître d'œuvre",
+      "description": "Description",
+      "nonRenseigne": "Non renseigné"
+    },
+    "structure": {
+      "titre": "Structure du projet",
+      "lots": "Lots",
+      "activites": "Activités",
+      "avancementPondere": "Avancement pondéré",
+      "enRetard": "Activités en retard",
+      "voirLots": "Lots & activités",
+      "voirEquipes": "Équipes & affectations"
+    },
+    "equipe": {
+      "titre": "Équipe projet",
+      "conducteurTravaux": "Conducteur de travaux",
+      "chefProjet": "Chef de projet",
+      "chefChantier": "Chef de chantier",
+      "directeurFinancier": "Directeur financier",
+      "nonDesigne": "Non désigné",
+      "invite": "Invité",
+      "email": "Envoyer un email à {nom}"
+    },
+    "modifier": "Modifier",
+    "suspendre": "Suspendre",
+    "reprendre": "Reprendre"
   },
   "format": {
     "dateHeure": "{date} à {heure}"
@@ -759,7 +812,6 @@
     "premierePage": "Première page"
   },
   "projets": {
-    "actionAvancement": "Avancement de « {nom} »",
     "actionConsulter": "Consulter « {nom} »",
     "actionNouveau": "Nouveau projet",
     "aucun": "Les projets ouverts par votre entreprise apparaîtront dans ce tableau.",
@@ -914,7 +966,11 @@
         "INDUSTRIEL": "Industriel",
         "REHABILITATION": "Réhabilitation",
         "VRD": "TP — Route / VRD"
-      }
+      },
+      "titreModification": "Modifier « {nom} »",
+      "sousTitreModification": "Informations générales et équipe projet. Les lots se modifient dans « Lots & activités ».",
+      "enregistrer": "Enregistrer les modifications",
+      "enregistrementEnCours": "Enregistrement…"
     },
     "titre": "Projets",
     "lotsActivites": {
@@ -1260,6 +1316,19 @@
           "erreurGenerique": "La personne n'a pas pu être retirée. Réessayez."
         }
       }
+    },
+    "actionModifier": "Modifier le projet {nom}",
+    "actionSuspendre": "Suspendre le projet {nom}",
+    "actionReprendre": "Reprendre le projet {nom}",
+    "suspension": {
+      "titreSuspendre": "Suspendre « {nom} » ?",
+      "descriptionSuspendre": "Le projet passe au statut « Suspendu ». Ses lots, activités et équipes sont conservés ; vous pourrez le reprendre à tout moment.",
+      "confirmerSuspendre": "Suspendre le projet",
+      "titreReprendre": "Reprendre « {nom} » ?",
+      "descriptionReprendre": "Le projet reprend son cours : son statut sera recalculé à partir de son planning.",
+      "confirmerReprendre": "Reprendre le projet",
+      "annuler": "Annuler",
+      "erreurGenerique": "L'opération n'a pas pu aboutir. Réessayez."
     }
   },
   "referentielVilles": {

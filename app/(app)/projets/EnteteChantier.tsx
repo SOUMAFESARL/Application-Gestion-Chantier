@@ -68,14 +68,14 @@ export function BarreProjet({
   const colle = useEstColle(barre);
 
   return (
-    <div ref={setBarre} className={cn(BARRE_PROJET, colle && BARRE_PROJET_COLLEE, "flex flex-col gap-1.5")}>
-      <label htmlFor="choix-projet" className="text-sm font-medium text-neutral-700">
+    <div ref={setBarre} className={cn(BARRE_PROJET, colle && BARRE_PROJET_COLLEE, "flex items-center gap-3")}>
+      <label htmlFor="choix-projet" className="shrink-0 text-sm font-medium text-neutral-700">
         {t("choixProjet")}
       </label>
       <Select value={projetId} onValueChange={onChanger}>
         <SelectTrigger
           id="choix-projet"
-          className="h-[var(--input-height-md)] w-80 max-w-full bg-card max-sm:w-full"
+          className="h-[var(--input-height-md)] w-80 max-w-full bg-card max-sm:w-auto max-sm:min-w-0 max-sm:flex-1"
         >
           <SelectValue />
         </SelectTrigger>

@@ -14,7 +14,7 @@
 import { z } from "zod";
 
 import { texte } from "@/i18n/horsReact";
-import { saisieEnCentimes } from "@/lib/format";
+import { centimesEnFrancs, saisieEnCentimes } from "@/lib/format";
 import { chaineNonVide } from "@/lib/validations/champs";
 
 import {
@@ -35,7 +35,9 @@ import type {
   CreationLotProjet,
   CreationProjet,
   ModeExecutionLot,
+  ModificationProjet,
   NatureEquipe,
+  Projet,
   RoleMembreEquipe,
   SaisieActiviteDomaine,
   SaisieMembreEquipe,
@@ -147,6 +149,20 @@ export const schemaCreationProjet = z
     }
   });
 
+/**
+ * La modification d'un projet : les mêmes champs que la création, lots
+ * exceptés — ils se gèrent dans « Lots & activités ». Le tableau `lots` reste
+ * dans la forme, vide et sans minimum, pour que le même formulaire serve aux
+ * deux usages sans changer de type.
+ */
+export const schemaModificationProjet = z
+  .object({ ...champsInformations, lots: z.array(schemaLot), ...champsEquipe })
+  .superRefine((saisie, ctx) => {
+    if (!datesChantierCoherentes(saisie.dateDebut, saisie.dateFin)) {
+      ctx.addIssue({ code: "custom", path: ["dateFin"], message: texte("projets.tiroirCreation.erreurDatesIncoherentes") });
+    }
+  });
+
 export type SaisieCreationProjet = z.input<typeof schemaCreationProjet>;
 export type ValeursCreationProjet = z.output<typeof schemaCreationProjet>;
 export type SaisieLot = SaisieCreationProjet["lots"][number];
@@ -217,6 +233,50 @@ export function versCreationProjet(valeurs: ValeursCreationProjet): CreationProj
       directeurFinancierId: valeurs.directeurFinancierId || undefined,
       visiteursIds: valeurs.visiteursIds,
       bailleursIds: valeurs.bailleursIds,
+    },
+  };
+}
+
+/** Un projet existant, remis en saisie pour sa modification. */
+export function saisieDepuisProjet(projet: Projet): SaisieCreationProjet {
+  return {
+    nom: projet.nom,
+    reference: projet.reference,
+    typeProjet: projet.typeProjet ?? "",
+    ville: projet.ville,
+    maitreOuvrage: projet.client.raisonSociale,
+    maitreOeuvre: projet.maitreOeuvre ?? "",
+    dateDebut: projet.dateDebutPrevue,
+    dateFin: projet.dateFinPrevue,
+    budget: projet.budgetInitial === null ? "" : String(centimesEnFrancs(projet.budgetInitial)),
+    description: projet.description,
+    lots: [],
+    chefProjetId: projet.chefProjet?.id ?? "",
+    conducteurTravauxId: projet.conducteurTravaux?.id ?? "",
+    chefsChantierIds: projet.chefsChantier.map((chef) => chef.id),
+    directeurFinancierId: projet.directeurFinancier?.id ?? "",
+    visiteursIds: [],
+    bailleursIds: [],
+  };
+}
+
+/** La saisie validée d'une modification, traduite en objet du domaine. */
+export function versModificationProjet(valeurs: ValeursCreationProjet): ModificationProjet {
+  return {
+    nom: valeurs.nom,
+    typeProjet: valeurs.typeProjet as TypeProjet,
+    ville: valeurs.ville,
+    maitreOuvrage: valeurs.maitreOuvrage,
+    maitreOeuvre: valeurs.maitreOeuvre || undefined,
+    dateDebutPrevue: valeurs.dateDebut,
+    dateFinPrevue: valeurs.dateFin,
+    budgetInitial: saisieEnCentimes(valeurs.budget) ?? 0,
+    description: valeurs.description || undefined,
+    equipe: {
+      chefProjetId: valeurs.chefProjetId,
+      conducteurTravauxId: valeurs.conducteurTravauxId,
+      chefsChantierIds: valeurs.chefsChantierIds,
+      directeurFinancierId: valeurs.directeurFinancierId || undefined,
     },
   };
 }

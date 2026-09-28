@@ -84,6 +84,11 @@ export interface Projet {
   dateFinReelle: string | null;
   chefProjet: Intervenant | null;
   conducteurTravaux: Intervenant | null;
+  /** Le maître d'œuvre, en clair. `null` : pas de maîtrise d'œuvre désignée. */
+  maitreOeuvre: string | null;
+  /** Au moins un dès la création ; vide pour un projet ouvert avant l'étape « Équipe ». */
+  chefsChantier: Intervenant[];
+  directeurFinancier: Intervenant | null;
 }
 
 /** La nature d'un projet, choisie à sa création. */
@@ -144,6 +149,28 @@ export interface CreationProjet {
   description?: string;
   lots: CreationLot[];
   equipe: EquipeProjet;
+}
+
+/**
+ * Ce que la modification d'un projet peut changer.
+ *
+ * Ni la référence (unique, engendrée à la création), ni les lots (ils se
+ * gèrent dans « Lots & activités »), ni les visiteurs et bailleurs : la fiche
+ * ne les lit pas, et un formulaire qui renverrait une liste qu'il n'a jamais
+ * reçue l'effacerait côté serveur. La modification est un `PATCH`.
+ */
+export interface ModificationProjet {
+  nom: string;
+  typeProjet: TypeProjet;
+  ville: string;
+  maitreOuvrage: string;
+  maitreOeuvre?: string;
+  dateDebutPrevue: string;
+  dateFinPrevue: string;
+  /** En centimes. */
+  budgetInitial: number;
+  description?: string;
+  equipe: Omit<EquipeProjet, "visiteursIds" | "bailleursIds">;
 }
 
 /** La portée d'un relevé météo : l'entreprise, ou un chantier précis. */

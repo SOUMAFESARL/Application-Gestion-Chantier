@@ -7,6 +7,10 @@
  * chaque teinte passe par un jeton de la charte.
  */
 
+import type { VarianteBadge } from "@/components/ui";
+import type { StatutProjet } from "@/features/projets/types";
+import type { couleurIndiceSante } from "@/lib/format";
+
 /** La carte d'un bloc d'écran. */
 export const BLOC = "rounded-xl border border-neutral-200 bg-neutral-0 shadow-sm";
 
@@ -46,4 +50,26 @@ export type FondIndicateur = keyof typeof FOND_INDICATEUR;
 export const CHIFFRE_ALERTE: Partial<Record<FondIndicateur, string>> = {
   erreur: "text-erreur",
   avertissement: "text-avertissement",
+};
+
+/**
+ * Le ton d'un statut de projet — la liste et la fiche le peignent de la même
+ * façon. C'est de l'affichage : il ne descend pas dans `regles`.
+ */
+export const TON_STATUT: Record<StatutProjet, VarianteBadge> = {
+  EN_ATTENTE: "neutre",
+  EN_COURS: "primaire",
+  EN_RETARD: "avertissement",
+  CRITIQUE: "erreur",
+  SUSPENDU: "avertissement",
+  TERMINE: "succes",
+  ARCHIVE: "neutre",
+};
+
+/** La couleur d'un indice de santé. */
+export const TON_SANTE: Record<ReturnType<typeof couleurIndiceSante>, string> = {
+  vert: "text-succes",
+  orange: "text-avertissement",
+  rouge: "text-erreur",
+  inconnu: "text-neutral-400",
 };

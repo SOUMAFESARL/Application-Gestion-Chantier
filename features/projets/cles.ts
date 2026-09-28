@@ -19,3 +19,8 @@ export function cleLots(projetId: string) {
 export function cleEquipes(projetId: string) {
   return ["projets", projetId, "equipes"] as const;
 }
+
+/** Un chantier dans son détail, pour sa fiche. */
+export function cleProjet(projetId: string) {
+  return ["projets", projetId, "detail"] as const;
+}

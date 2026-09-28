@@ -127,7 +127,7 @@ export function TiroirEquipe({ ouverte, onFermer, projetId, onCreee }: Props) {
 
   return (
     <Sheet open={ouverte} onOpenChange={(ouvert) => !ouvert && onFermer()}>
-      <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-lg">
+      <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-2xl">
         <SheetHeader className="border-b border-neutral-200 py-5 pr-14 pl-6">
           <SheetTitle className="flex items-center gap-2 text-lg text-neutral-900">
             {t("titre")}
