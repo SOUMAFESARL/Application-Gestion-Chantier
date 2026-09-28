@@ -83,7 +83,7 @@ const LIGNES: LigneDemo[] = [
 ];
 
 const VARIANTE_STATUT = {
-  EN_COURS: "primaire",
+  EN_COURS: "information",
   EN_RETARD: "avertissement",
   TERMINE: "succes",
 } as const;
@@ -256,7 +256,8 @@ export default function Page() {
 
       <Carte titre="Badges">
         <div className="mb-4 flex flex-wrap items-center gap-3 last:mb-0">
-          <Badge variante="primaire">En cours</Badge>
+          <Badge variante="primaire">Marque</Badge>
+          <Badge variante="information">En cours</Badge>
           <Badge variante="succes">Approuvé</Badge>
           <Badge variante="avertissement">En retard</Badge>
           <Badge variante="erreur">Bloquant</Badge>

@@ -112,7 +112,7 @@ export function PanneauPortefeuille({ chantiers }: { chantiers: LigneChantier[] 
 
   return (
     <section className={cn(BLOC, "overflow-hidden")}>
-      <header className={cn(BLOC_ENTETE, "flex-wrap border-b border-neutral-200 pb-4")}>
+      <header className={cn(BLOC_ENTETE, "flex-wrap")}>
         <div>
           <h2 className={BLOC_TITRE}>{t("titre")}</h2>
           <p className={BLOC_SOUS_TITRE}>{t("sousTitre")}</p>

@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 
 import {
   Select,
@@ -100,8 +101,8 @@ export function Indicateur({
   alerte = false,
 }: {
   libelle: string;
-  valeur: string;
-  detail?: string;
+  valeur: ReactNode;
+  detail?: ReactNode;
   fond: FondIndicateur;
   /** Le chiffre prend la teinte de la tuile (`erreur`, `avertissement`). */
   alerte?: boolean;
@@ -122,7 +123,7 @@ export function Indicateur({
       >
         {valeur}
       </span>
-      {detail && <span className="text-xs text-neutral-500">{detail}</span>}
+      {detail && <div className="text-xs text-neutral-500">{detail}</div>}
     </div>
   );
 }
@@ -161,7 +162,7 @@ export function Onglets<C extends string>({
           aria-controls={`panneau-${cle}`}
           onClick={() => onChanger(cle)}
           className={cn(
-            "-mb-px cursor-pointer border-0 border-b-2 border-solid bg-transparent px-4 py-2.5 text-sm font-medium transition-colors",
+            "-mb-px shrink-0 cursor-pointer border-0 border-b-2 border-solid bg-transparent px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors",
             actif === cle
               ? "border-primary text-neutral-900"
               : "border-transparent text-neutral-500 hover:text-neutral-800",

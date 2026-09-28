@@ -75,7 +75,7 @@ export function AlertesPilotage({ alertes }: { alertes: AlertePilotage[] }) {
             {triees.map((alerte) => {
               const Icone = ICONE_TYPE[alerte.type];
               const contexte = t("contexte", {
-                chantier: alerte.chantierNom ?? "",
+                projet: alerte.chantierNom ?? "",
                 date: formaterDate(alerte.survenueLe),
               });
 

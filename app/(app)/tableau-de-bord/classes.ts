@@ -20,10 +20,12 @@ import type { GraviteAlerte, NiveauSante } from "@/features/tableauDeBord";
 
 /** Un bloc du tableau de bord : la carte claire de `docs/interface.jpg`. */
 export const BLOC = "flex flex-col rounded-xl border border-neutral-200 bg-neutral-0 shadow-sm";
-export const BLOC_ENTETE = "flex items-start justify-between gap-3 px-5 pt-5 pb-3";
+/** L'en-tête est séparé du contenu par un filet, dans tous les blocs. */
+export const BLOC_ENTETE =
+  "flex items-start justify-between gap-3 border-b border-neutral-200 px-5 pt-5 pb-4";
 export const BLOC_TITRE = "text-base font-semibold text-neutral-900";
 export const BLOC_SOUS_TITRE = "mt-0.5 text-xs text-neutral-500";
-export const BLOC_CORPS = "px-5 pb-5";
+export const BLOC_CORPS = "px-5 pt-2 pb-5";
 /** La phrase d'un bloc vide : il dit que tout va bien, il ne disparaît pas. */
 export const BLOC_VIDE = "py-6 text-center text-sm text-neutral-500";
 
@@ -74,14 +76,8 @@ export const ICONE_GRAVITE: Record<GraviteAlerte, string> = {
  * Les tuiles d'indicateurs.
  * ------------------------------------------------------------------ */
 
-export const TUILE =
-  "relative flex flex-col gap-1 overflow-hidden rounded-xl border border-neutral-200 bg-neutral-0 p-4 shadow-sm";
-export const TUILE_LIBELLE = "flex items-center gap-2 text-xs font-medium text-neutral-600";
-export const TUILE_VALEUR = "text-h3 font-bold tabular-nums text-neutral-900";
+/** La tuile elle-même est `Indicateur`, partagée avec la liste des projets. */
 export const TUILE_UNITE = "ml-1 text-sm font-medium text-neutral-500";
-export const TUILE_DETAIL = "text-xs text-neutral-500";
-/** Le filet du bas, qui donne son ton à la tuile sans la colorer entièrement. */
-export const TUILE_FILET = "absolute inset-x-0 bottom-0 h-1";
 
 /* ------------------------------------------------------------------ *
  * La jauge d'avancement.

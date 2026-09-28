@@ -294,3 +294,23 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* L'impression d'un document (rapport journalier, synthèse) : le navigateur
+   produit le PDF, comme pour la fiche projet. Le cadre de l'application — menu,
+   en-tête — n'a rien à faire sur le papier ; un écran marque ce qui ne s'imprime
+   pas avec `print:hidden`. */
+@media print {
+  [data-slot="sidebar"],
+  [data-slot="sidebar-gap"],
+  [data-slot="sidebar-inset"] > header {
+    display: none !important;
+  }
+
+  [data-slot="sidebar-inset"] > main {
+    padding: 0 !important;
+  }
+
+  @page {
+    margin: 12mm;
+  }
+}

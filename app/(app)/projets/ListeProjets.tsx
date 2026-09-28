@@ -24,6 +24,7 @@ import { TiroirCreationProjet } from "@/features/projets/components/TiroirCreati
 import {
   chefsDeProjet,
   COLONNES_EXPORT_PROJETS,
+  compterParStatut,
   criteresActifs,
   CRITERES_VIDES,
   echeanceDepassee,
@@ -31,6 +32,7 @@ import {
   largeurJauge,
   niveauAvancement,
   nomAbrege,
+  ORDRE_STATUTS,
   peutReprendre,
   peutSuspendre,
   projetModifiable,
@@ -42,7 +44,8 @@ import type { Projet, StatutProjet } from "@/features/projets/types";
 import { ABSENT, couleurIndiceSante, formaterDate, formaterMillions, formaterMontant } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-import { TON_SANTE, TON_STATUT } from "./classes";
+import { FOND_STATUT, TON_SANTE, TON_STATUT } from "./classes";
+import { Indicateur } from "./EnteteChantier";
 
 /**
  * La liste des chantiers de l'entreprise.
@@ -103,6 +106,7 @@ export function ListeProjets() {
   const projetsFiltres = useMemo(() => filtrerProjets(projets, criteres), [projets, criteres]);
   const statuts = useMemo(() => statutsPresents(projets), [projets]);
   const chefs = useMemo(() => chefsDeProjet(projets), [projets]);
+  const parStatut = useMemo(() => compterParStatut(projets), [projets]);
   const filtresActifs = criteresActifs(criteres);
 
   /**
@@ -340,44 +344,73 @@ export function ListeProjets() {
           // Un écran vide sans issue est un cul-de-sac : l'action y est reprise.
           <EtatVide titre={t("aucunTitre")} description={t("aucun")} action={boutonNouveau} />
         ) : (
-          <TableauListe
-            colonnes={colonnes}
-            donnees={projetsFiltres}
-            cleLigne={(projet) => projet.id}
-            messageVide={filtresActifs ? t("aucunResultat") : t("aucuneLigne")}
-            filtresActifs={filtresActifs}
-            onReinitialiser={() => setCriteres(CRITERES_VIDES)}
-            cleCriteres={`${criteres.recherche}|${criteres.statut}|${criteres.chefProjetId}`}
-            exporter={exporter}
-            actions={boutonNouveauCompact}
-            outils={
-              <>
-                <RechercheTableau
-                  valeur={criteres.recherche}
-                  onChangement={(recherche) => setCriteres({ ...criteres, recherche })}
-                  libelle={t("recherche")}
-                  placeholder={t("recherchePlaceholder")}
+          <>
+            {/*
+              Une tuile par statut, toujours les sept et dans l'ordre
+              d'urgence : un zéro garde sa place, sans quoi la rangée
+              changerait de forme d'un portefeuille à l'autre. Les tuiles
+              comptent tout le portefeuille, pas les lignes filtrées — elles
+              disent où l'on en est, le tableau dit ce qu'on cherche.
+            */}
+            <section
+              aria-label={t("indicateurs.libelle")}
+              className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8"
+            >
+              <Indicateur
+                libelle={t("indicateurs.total")}
+                valeur={String(projets.length)}
+                fond="secondaire"
+              />
+              {ORDRE_STATUTS.map((statut) => (
+                <Indicateur
+                  key={statut}
+                  libelle={t(`statut.${statut}`)}
+                  valeur={String(parStatut[statut])}
+                  fond={FOND_STATUT[statut]}
+                  alerte={parStatut[statut] > 0}
                 />
-                <FiltreTableau
-                  valeur={criteres.statut}
-                  onChangement={(statut) => setCriteres({ ...criteres, statut })}
-                  libelle={t("filtreStatut")}
-                  libelleTous={t("filtreStatutTous")}
-                  options={statuts.map((statut) => ({
-                    valeur: statut,
-                    libelle: t(`statut.${statut}`),
-                  }))}
-                />
-                <FiltreTableau
-                  valeur={criteres.chefProjetId}
-                  onChangement={(chefProjetId) => setCriteres({ ...criteres, chefProjetId })}
-                  libelle={t("filtreChefProjet")}
-                  libelleTous={t("filtreChefProjetTous")}
-                  options={chefs.map((chef) => ({ valeur: chef.id, libelle: chef.nomComplet }))}
-                />
-              </>
-            }
-          />
+              ))}
+            </section>
+
+            <TableauListe
+              colonnes={colonnes}
+              donnees={projetsFiltres}
+              cleLigne={(projet) => projet.id}
+              messageVide={filtresActifs ? t("aucunResultat") : t("aucuneLigne")}
+              filtresActifs={filtresActifs}
+              onReinitialiser={() => setCriteres(CRITERES_VIDES)}
+              cleCriteres={`${criteres.recherche}|${criteres.statut}|${criteres.chefProjetId}`}
+              exporter={exporter}
+              actions={boutonNouveauCompact}
+              outils={
+                <>
+                  <RechercheTableau
+                    valeur={criteres.recherche}
+                    onChangement={(recherche) => setCriteres({ ...criteres, recherche })}
+                    libelle={t("recherche")}
+                    placeholder={t("recherchePlaceholder")}
+                  />
+                  <FiltreTableau
+                    valeur={criteres.statut}
+                    onChangement={(statut) => setCriteres({ ...criteres, statut })}
+                    libelle={t("filtreStatut")}
+                    libelleTous={t("filtreStatutTous")}
+                    options={statuts.map((statut) => ({
+                      valeur: statut,
+                      libelle: t(`statut.${statut}`),
+                    }))}
+                  />
+                  <FiltreTableau
+                    valeur={criteres.chefProjetId}
+                    onChangement={(chefProjetId) => setCriteres({ ...criteres, chefProjetId })}
+                    libelle={t("filtreChefProjet")}
+                    libelleTous={t("filtreChefProjetTous")}
+                    options={chefs.map((chef) => ({ valeur: chef.id, libelle: chef.nomComplet }))}
+                  />
+                </>
+              }
+            />
+          </>
         ))}
 
       {modaux}

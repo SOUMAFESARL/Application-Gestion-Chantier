@@ -14,7 +14,7 @@ export { BLOC } from "../classes";
 
 export const BADGE_STATUT: Record<StatutActivite, VarianteBadge> = {
   A_VENIR: "neutre",
-  EN_COURS: "primaire",
+  EN_COURS: "information",
   EN_RETARD: "erreur",
   TERMINE: "succes",
 };
@@ -22,7 +22,7 @@ export const BADGE_STATUT: Record<StatutActivite, VarianteBadge> = {
 /** La barre du planning prend la teinte de son statut. */
 export const BARRE_STATUT: Record<StatutActivite, string> = {
   A_VENIR: "bg-neutral-300",
-  EN_COURS: "bg-primary-400",
+  EN_COURS: "bg-information",
   EN_RETARD: "bg-erreur",
   TERMINE: "bg-succes",
 };

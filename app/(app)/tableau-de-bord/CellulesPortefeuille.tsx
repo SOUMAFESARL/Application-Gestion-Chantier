@@ -24,7 +24,7 @@ import { MONTANT_TAB, PROJET_DETAIL } from "./classes";
 /** Le ton d'un statut — le même que sur la liste des projets. */
 const TON_STATUT: Record<StatutProjet, VarianteBadge> = {
   EN_ATTENTE: "neutre",
-  EN_COURS: "primaire",
+  EN_COURS: "information",
   EN_RETARD: "avertissement",
   CRITIQUE: "erreur",
   SUSPENDU: "avertissement",

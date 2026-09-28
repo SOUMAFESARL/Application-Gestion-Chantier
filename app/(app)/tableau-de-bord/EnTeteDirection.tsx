@@ -95,6 +95,7 @@ export function EnTeteDirection({ donnees, onNouveauProjet }: Props) {
         <>
           <Bouton
             variante="secondaire"
+            taille="sm"
             iconeGauche={<Plus className="size-4" aria-hidden="true" />}
             onClick={onNouveauProjet}
           >
@@ -104,6 +105,7 @@ export function EnTeteDirection({ donnees, onNouveauProjet }: Props) {
             <DropdownMenuTrigger asChild>
               <Bouton
                 variante="primaire"
+                taille="sm"
                 iconeGauche={<Download className="size-4" aria-hidden="true" />}
                 iconeDroite={<ChevronDown className="size-4" aria-hidden="true" />}
               >

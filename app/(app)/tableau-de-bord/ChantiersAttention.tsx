@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { chantiersAAttention, estMotifGrave } from "@/features/tableauDeBord";
 import type { LigneChantier, MotifAttention } from "@/features/tableauDeBord";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,9 @@ const NOMBRE_MAXIMAL = 5;
  * Chaque ligne dit **pourquoi** elle est là : « santé 38 » oblige à ouvrir la
  * fiche, « budget dépassé (106 %) · marge -4,2 % » dit déjà quelle question
  * poser au directeur de projet. Les motifs viennent de `motifsAttention`.
+ *
+ * Ils ne s'affichent plus en ligne mais **au survol du nom** : la liste reste
+ * lisible d'un coup d'œil (nom + santé), le détail vient à la demande.
  */
 export function ChantiersAttention({ chantiers }: { chantiers: LigneChantier[] }) {
   const t = useTranslations("tableauDeBord.attention");
@@ -62,28 +66,36 @@ export function ChantiersAttention({ chantiers }: { chantiers: LigneChantier[] }
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <span className="truncate font-semibold text-neutral-900 group-hover:text-primary-600">
-                        {chantier.nom}
-                      </span>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <span className="truncate font-semibold text-neutral-900 group-hover:text-primary-600">
+                            {chantier.nom}
+                          </span>
+                        </HoverCardTrigger>
+                        <HoverCardContent>
+                          <p className="m-0 mb-2 text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+                            {t("pourquoi")}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {motifs.map((motif) => (
+                              <span
+                                key={motif.type}
+                                className={cn(
+                                  "rounded-full px-2 py-0.5 text-xs font-medium",
+                                  estMotifGrave(motif)
+                                    ? "bg-erreur-fond text-erreur"
+                                    : "bg-avertissement-fond text-avertissement",
+                                )}
+                              >
+                                {libelleMotif(motif)}
+                              </span>
+                            ))}
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
                       <PastilleSante indice={chantier.indiceSante} />
                     </div>
                     <div className={cn(PROJET_DETAIL, "mt-0.5")}>{chantier.chefProjetNom || chantier.clientNom}</div>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {/* La santé critique est déjà dite par la pastille, juste au-dessus. */}
-                      {motifs.filter((motif) => motif.type !== "SANTE_CRITIQUE").map((motif) => (
-                        <span
-                          key={motif.type}
-                          className={cn(
-                            "rounded-full px-2 py-0.5 text-xs font-medium",
-                            estMotifGrave(motif)
-                              ? "bg-erreur-fond text-erreur"
-                              : "bg-avertissement-fond text-avertissement",
-                          )}
-                        >
-                          {libelleMotif(motif)}
-                        </span>
-                      ))}
-                    </div>
                   </div>
                   <ChevronRight
                     className="size-4 shrink-0 text-neutral-400 group-hover:text-primary-600"

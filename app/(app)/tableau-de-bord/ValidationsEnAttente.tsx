@@ -1,14 +1,13 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, FilePenLine, Receipt, ShoppingCart } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Check } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Alerte, Badge, Bouton } from "@/components/ui";
 import { apresValidation, montantAValider } from "@/features/tableauDeBord";
-import type { ElementAValider, TableauDeBord, TypeValidation } from "@/features/tableauDeBord";
+import type { ElementAValider, TableauDeBord } from "@/features/tableauDeBord";
 import { validerElement } from "@/features/tableauDeBord/adaptateur";
 import { formaterDate, formaterMontant, formaterMontantCourt } from "@/lib/format";
 
@@ -24,12 +23,6 @@ import {
   PROJET_DETAIL,
 } from "./classes";
 import { CLE_TABLEAU_DE_BORD } from "./cles";
-
-const ICONE_TYPE: Record<TypeValidation, LucideIcon> = {
-  BON_PAIEMENT: Receipt,
-  DEMANDE_ACHAT: ShoppingCart,
-  AVENANT: FilePenLine,
-};
 
 interface Message {
   type: "succes" | "erreur";
@@ -90,21 +83,17 @@ export function ValidationsEnAttente({ validations }: { validations: ElementAVal
         ) : (
           <ul className="m-0 flex list-none flex-col p-0">
             {validations.map((element) => {
-              const Icone = ICONE_TYPE[element.type];
               const enCours = validation.isPending && validation.variables?.id === element.id;
 
               return (
                 <li key={element.id} className={LIGNE_LISTE}>
-                  <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-600">
-                    <Icone className="size-4" aria-hidden="true" />
-                  </span>
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-medium text-neutral-500">{t(`types.${element.type}`)}</div>
                     <div className="truncate text-sm font-semibold text-neutral-900" title={element.objet}>
                       {element.objet}
                     </div>
                     <div className={PROJET_DETAIL}>
-                      {t("detail", { reference: element.reference, chantier: element.chantierNom })}
+                      {t("detail", { reference: element.reference, projet: element.chantierNom })}
                     </div>
                     <div className={PROJET_DETAIL}>
                       {t("demande", {

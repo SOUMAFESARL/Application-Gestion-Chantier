@@ -102,10 +102,8 @@ export function TableauDeBordDirection() {
 
       <IndicateursDirection chantiers={donnees.chantiers} />
 
-      <div className="grid items-start gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <ChantiersAttention chantiers={donnees.chantiers} />
-        </div>
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <ChantiersAttention chantiers={donnees.chantiers} />
         <ValidationsEnAttente validations={donnees.validations} />
       </div>
 

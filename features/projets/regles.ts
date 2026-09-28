@@ -475,6 +475,20 @@ export function statutsPresents(projets: Projet[]): StatutProjet[] {
 }
 
 /**
+ * Le nombre de chantiers par statut, **tous statuts présents** : un statut
+ * sans chantier vaut zéro plutôt que de disparaître, pour que la rangée
+ * d'indicateurs garde la même place d'un portefeuille à l'autre.
+ */
+export function compterParStatut(projets: Projet[]): Record<StatutProjet, number> {
+  const compte = Object.fromEntries(ORDRE_STATUTS.map((statut) => [statut, 0])) as Record<
+    StatutProjet,
+    number
+  >;
+  for (const projet of projets) compte[projet.statut] += 1;
+  return compte;
+}
+
+/**
  * Les chefs de projet à proposer au filtre, sans doublon et classés.
  *
  * Les chantiers sans responsable désigné n'y apparaissent pas : il n'y a

@@ -1,19 +1,23 @@
-import { useTranslations } from "next-intl";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 
-import { EnTetePage } from "@/components/layout/EnTetePage";
+import { RapportJournalierDocument } from "./RapportJournalierDocument";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("journal.rapport");
+  return { title: t("titre") };
+}
 
 /**
  * Écran « Rapport journalier »
  *
  * Motif d'interface : Circuit d'approbation
  *
- * Squelette posé par la tâche T-005. Le contenu réel est développé
- * au sprint qui porte la fonctionnalité correspondante.
+ * Le rapport d'un lot pour un jour, tel que le chef de chantier l'a signé,
+ * et où en est sa validation CC → CT → CP. La page ne porte que le gabarit :
+ * la lecture vit dans `RapportJournalierDocument`.
  */
-export default function Page() {
-  const t = useTranslations("squelettes");
-
-  return (
-    <EnTetePage titre={t("rapportJournalier.titre")} description={t("aConstruire", { motif: t("rapportJournalier.motif") })} />
-  );
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <RapportJournalierDocument id={id} />;
 }

@@ -41,6 +41,7 @@ export const FOND_INDICATEUR = {
   succes: "border-succes/20 bg-succes-fond",
   erreur: "border-erreur/20 bg-erreur-fond",
   avertissement: "border-avertissement/20 bg-avertissement-fond",
+  information: "border-information/20 bg-information-fond",
   neutre: "border-neutral-200 bg-neutral-50",
 } as const;
 
@@ -58,12 +59,28 @@ export const CHIFFRE_ALERTE: Partial<Record<FondIndicateur, string>> = {
  */
 export const TON_STATUT: Record<StatutProjet, VarianteBadge> = {
   EN_ATTENTE: "neutre",
-  EN_COURS: "primaire",
+  EN_COURS: "information",
   EN_RETARD: "avertissement",
   CRITIQUE: "erreur",
   SUSPENDU: "avertissement",
   TERMINE: "succes",
   ARCHIVE: "neutre",
+};
+
+/**
+ * Le fond de la tuile d'indicateur d'un statut, sur la liste des projets.
+ * Il suit le ton du badge (`TON_STATUT`) pour qu'une tuile et les lignes
+ * qu'elle compte se reconnaissent ; « Archivé », gris en badge comme
+ * « En attente », prend l'ardoise pour ne pas se confondre avec lui.
+ */
+export const FOND_STATUT: Record<StatutProjet, FondIndicateur> = {
+  EN_ATTENTE: "neutre",
+  EN_COURS: "information",
+  EN_RETARD: "avertissement",
+  CRITIQUE: "erreur",
+  SUSPENDU: "avertissement",
+  TERMINE: "succes",
+  ARCHIVE: "secondaire",
 };
 
 /** La couleur d'un indice de santé. */

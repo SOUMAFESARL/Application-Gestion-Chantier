@@ -110,6 +110,7 @@ const ICONE: Record<Exclude<FondIndicateur, "neutre">, string> = {
   succes: "text-succes",
   avertissement: "text-avertissement",
   erreur: "text-erreur",
+  information: "text-information",
 };
 
 /** Le filet qui sépare les chiffres secondaires, lisible sur n'importe quel fond. */

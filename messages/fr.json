@@ -851,6 +851,10 @@
     "filtreChefProjetTous": "Tous les chefs de projet",
     "filtreStatut": "Filtrer par statut",
     "filtreStatutTous": "Tous les statuts",
+    "indicateurs": {
+      "libelle": "Répartition des projets par statut",
+      "total": "Total des projets"
+    },
     "localisation": "{quartier}, {ville}",
     "pourcentage": "{valeur} %",
     "recherche": "Rechercher un projet",
@@ -1557,17 +1561,17 @@
       "exporter": "Exporter le rapport",
       "exporterExcel": "Portefeuille (Excel)",
       "imprimer": "Imprimer ou enregistrer en PDF",
-      "nomFichier": "portefeuille-chantiers-{date}.csv",
+      "nomFichier": "portefeuille-projets-{date}.csv",
       "nouveauProjet": "Nouveau projet"
     },
     "alertes": {
       "aucune": "Aucune alerte en cours.",
-      "contexte": "{chantier} · {date}",
+      "contexte": "{projet} · {date}",
       "gravite": {
         "ATTENTION": "Attention",
         "CRITIQUE": "Critique"
       },
-      "sousTitre": "Remontées automatiquement des chantiers",
+      "sousTitre": "Remontées automatiquement des projets",
       "titre": "Alertes",
       "types": {
         "DEPENSE_INHABITUELLE": "Dépense inhabituelle : {sujet} ({montant})",
@@ -1580,7 +1584,7 @@
       }
     },
     "attention": {
-      "aucun": "Tous les chantiers sont sous contrôle.",
+      "aucun": "Tous les projets sont sous contrôle.",
       "motifs": {
         "BUDGET_ALERTE": "Budget consommé à {valeur} %",
         "BUDGET_DEPASSE": "Budget dépassé ({valeur} %)",
@@ -1588,11 +1592,12 @@
         "MARGE_NEGATIVE": "Marge {valeur} %",
         "RETARD": "Retard de {valeur} pts",
         "SANTE_CRITIQUE": "Santé {valeur}/100",
-        "SUSPENDU": "Chantier suspendu"
+        "SUSPENDU": "Projet suspendu"
       },
       "ouvrir": "Ouvrir {nom}",
+      "pourquoi": "Pourquoi ce projet remonte",
       "sousTitre": "Ce qui justifie votre intervention",
-      "titre": "Chantiers à surveiller"
+      "titre": "Projets à surveiller"
     },
     "echeances": {
       "aucune": "Aucune échéance dans les 30 prochains jours.",
@@ -1608,9 +1613,9 @@
       }
     },
     "emptyState": {
-      "actionCreer": "Créer mon premier chantier",
-      "badgeSansChantier": "0 chantier actif",
-      "description": "Votre entreprise est configurée. Créez votre premier chantier pour suivre sa santé, son budget et sa rentabilité depuis cet écran.",
+      "actionCreer": "Créer mon premier projet",
+      "badgeSansChantier": "0 projet actif",
+      "description": "Votre entreprise est configurée. Créez votre premier projet pour suivre sa santé, son budget et sa rentabilité depuis cet écran.",
       "titre": "Bienvenue sur votre espace CCD Digital"
     },
     "erreurChargement": "Le tableau de bord n'a pas pu être chargé.",
@@ -1625,28 +1630,28 @@
       "indiceSante": "Indice de santé",
       "marge": "Marge prévisionnelle (%)",
       "montantMarche": "Marché (FCFA)",
-      "nom": "Chantier",
+      "nom": "Projet",
       "reference": "Référence",
       "statut": "Statut",
       "ville": "Ville"
     },
     "graphique": {
-      "aucun": "Aucun chantier suivi n'a encore de budget défini.",
+      "aucun": "Aucun projet suivi n'a encore de budget défini.",
       "consomme": "Dépensé",
       "prevu": "Budget prévu",
-      "sousTitre": "Par chantier suivi, en FCFA",
+      "sousTitre": "Par projet suivi, en FCFA",
       "titre": "Budget prévu et dépensé"
     },
     "indicateurs": {
-      "actifs": "Chantiers actifs",
+      "actifs": "Projets actifs",
       "aria": "Indicateurs de direction",
       "budget": "Budget consommé",
-      "depassements": "{n, plural, =0 {Aucun dépassement} one {# chantier en dépassement} other {# chantiers en dépassement}}",
+      "depassements": "{n, plural, =0 {Aucun dépassement} one {# projet en dépassement} other {# projets en dépassement}}",
       "detailActifs": "Carnet {montant} · {enAttente} en attente · {suspendus, plural, =0 {aucun suspendu} one {# suspendu} other {# suspendus}}",
       "detailBudget": "{consomme} sur {total}",
       "detailMarge": "{montant} sur les marchés en cours",
       "marge": "Marge prévisionnelle",
-      "margesNegatives": "{n, plural, =0 {Aucune marge négative} one {# chantier à marge négative} other {# chantiers à marge négative}}",
+      "margesNegatives": "{n, plural, =0 {Aucune marge négative} one {# projet à marge négative} other {# projets à marge négative}}",
       "pourcent": "{valeur} %",
       "repartition": "{bon} sous contrôle · {vigilance} vigilance · {critique} critique",
       "sansDonnee": "—",
@@ -1740,7 +1745,9 @@
       "roleVisiteur": "Visiteur",
       "stocks": "Stocks",
       "tarifs": "Tarifs",
-      "tiers": "Tiers"
+      "tiers": "Tiers",
+      "chantierSynthese": "Synthèse périodique",
+      "chantierRapport": "Rapport journalier"
     },
     "portefeuille": {
       "budgetNonDefini": "Non défini",
@@ -1749,10 +1756,10 @@
       "colChef": "Chef de projet",
       "colFin": "Fin prévue",
       "colMarge": "Marge",
-      "colProjet": "Chantier",
+      "colProjet": "Projet",
       "colSante": "Santé",
-      "compteur": "{n, plural, one {# chantier suivi} other {# chantiers suivis}}",
-      "consulter": "Consulter le chantier",
+      "compteur": "{n, plural, one {# projet suivi} other {# projets suivis}}",
+      "consulter": "Consulter le projet",
       "detailProjet": "{client} · {ville}",
       "finDans": "{jours, plural, =0 {aujourd'hui} one {dans # jour} other {dans # jours}}",
       "finDepassee": "{jours, plural, one {dépassée de # jour} other {dépassée de # jours}}",
@@ -1769,7 +1776,7 @@
       "sansChef": "Non désigné",
       "sansDate": "Non planifiée",
       "sousTitre": "Du plus critique au plus sain",
-      "titre": "Portefeuille de chantiers",
+      "titre": "Portefeuille de projets",
       "vueCartes": "Cartes",
       "vueTableau": "Tableau"
     },
@@ -1779,7 +1786,7 @@
       "ncEnRetard": "{n, plural, =0 {Toutes traitées dans les délais} one {# action corrective en retard} other {# actions correctives en retard}}",
       "ncOuvertes": "Non-conformités ouvertes",
       "presqueAccidents": "Presque-accidents",
-      "sousTitre": "Mois en cours, tous chantiers",
+      "sousTitre": "Mois en cours, tous projets",
       "titre": "Sécurité & qualité",
       "voir": "Voir le registre QHSE"
     },
@@ -1790,12 +1797,12 @@
       "CRITIQUE": "Critique",
       "VIGILANCE": "Vigilance"
     },
-    "synthese": "{actifs, plural, =0 {Aucun chantier actif} one {# chantier actif} other {# chantiers actifs}} · {critiques, plural, =0 {aucun en situation critique} one {# en situation critique} other {# en situation critique}} · {aValider, plural, =0 {rien à valider} one {# validation vous attend} other {# validations vous attendent}}",
+    "synthese": "{actifs, plural, =0 {Aucun projet actif} one {# projet actif} other {# projets actifs}} · {critiques, plural, =0 {aucun en situation critique} one {# en situation critique} other {# en situation critique}} · {aValider, plural, =0 {rien à valider} one {# validation vous attend} other {# validations vous attendent}}",
     "titre": "Tableau de bord",
     "validations": {
       "aucune": "Rien n'attend votre signature.",
       "demande": "Demandé par {demandeur} le {date}",
-      "detail": "{reference} · {chantier}",
+      "detail": "{reference} · {projet}",
       "erreur": "La validation de {reference} a échoué. Réessayez.",
       "succes": "{reference} validé.",
       "titre": "Validations en attente",
@@ -1819,5 +1826,588 @@
     "fermer": "Fermer",
     "menuMobile": "Menu",
     "navigationMobile": "Navigation de l’application"
+  },
+  "journal": {
+    "titre": "Journal de chantier",
+    "erreurChargement": "Le journal de chantier n'a pas pu être chargé.",
+    "resume": "{date} · {heure} — {deposes} rapport(s) déposé(s) sur {attendus} attendu(s), {manquants, plural, =0 {aucun manquant} one {# manquant} other {# manquants}}, {validations, plural, =0 {aucune validation en attente} one {# validation en attente} other {# validations en attente}}.",
+    "synthese": {
+      "titre": "Journal de chantier — rapport périodique",
+      "sousTitre": "Synthèse des rapports journaliers sur une période · validée par le chef de projet",
+      "demandeInvalide": "Cette synthèse ne peut pas être générée : le chantier ou la période est invalide.",
+      "retour": "Retour au journal de chantier",
+      "agregation": "Agrégation des rapports journaliers…",
+      "erreurChargement": "La synthèse n'a pas pu être générée.",
+      "periode": {
+        "semaine": "Semaine {numero} — du {debut} au {fin}",
+        "intervalle": "Du {debut} au {fin}"
+      },
+      "type": {
+        "HEBDOMADAIRE": "Synthèse hebdomadaire",
+        "MENSUELLE": "Synthèse mensuelle",
+        "PERSONNALISEE": "Synthèse personnalisée"
+      },
+      "genereLe": "Générée le {quand}",
+      "periodeEnCours": "Période en cours — chiffres provisoires",
+      "identification": "Identification",
+      "projet": "Projet",
+      "lots": "Lots couverts",
+      "joursOuvres": "Jours ouvrés couverts",
+      "joursOuvresValeur": "{n, plural, one {# jour} other {# jours}}",
+      "rapportsAttendus": "Rapports attendus",
+      "rapportsRecus": "Rapports reçus",
+      "rapportsRecusValeur": "{recus}/{attendus} — taux {taux} %",
+      "manquants": "Rapports manquants",
+      "aucunManquant": "Aucun",
+      "manquant": "{code} du {date}",
+      "intervenants": "Intervenants",
+      "chefChantierLot": "Chef de chantier {code}",
+      "progression": "Progression",
+      "avancementDebut": "Avancement début",
+      "avancementFin": "Avancement fin",
+      "gain": "Gain sur la période",
+      "points": "{valeur} pts",
+      "pointsCourts": "{valeur}",
+      "objectif": "Objectif",
+      "ecart": "Écart vs objectif",
+      "theorique": "Avancement théorique",
+      "retardCumule": "Retard cumulé",
+      "immuable": "Synthèse approuvée — elle n'est plus modifiable.",
+      "mention": "Synthèse automatique — agrégée de {n} rapports journaliers",
+      "chiffres": {
+        "presence": "Présence moyenne",
+        "heures": "Heures travaillées",
+        "heuresDetail": "lots en régie",
+        "livraisons": "Livraisons reçues",
+        "livraisonsDetail": "{n, plural, =0 {toutes conformes} one {dont # partielle} other {dont # partielles}}",
+        "incidents": "Incidents signalés",
+        "incidentsDetail": "{n, plural, =0 {tous mineurs} one {dont # significatif} other {dont # significatifs}}",
+        "blocages": "Blocages",
+        "blocagesDetail": "sur la période",
+        "aucunBlocage": "aucun sur la période",
+        "remise": "Taux de remise",
+        "remiseDetail": "{n, plural, =0 {aucun rapport manquant} one {# rapport manquant} other {# rapports manquants}}",
+        "heuresSousTraitants": "suivies par les sous-traitants"
+      },
+      "sections": {
+        "recapitulatif": "Récapitulatif des rapports journaliers couverts",
+        "avancement": "Avancement cumulé par lot et par activité",
+        "effectifs": "Synthèse des effectifs sur la période",
+        "materiaux": "Synthèse des matériaux consommés",
+        "incidents": "Incidents signalés sur la période",
+        "appreciation": "Appréciation du conducteur de travaux",
+        "objectifs": "Objectifs de la période suivante",
+        "circuit": "Validation du rapport périodique — CT → CP"
+      },
+      "recapitulatif": {
+        "complement": "{valides}/{attendus} rapports validés",
+        "date": "Date",
+        "lot": "Lot",
+        "chef": "Chef de chantier",
+        "statut": "Statut",
+        "effectifs": "Effectifs",
+        "avancement": "Av. lot",
+        "incidents": "Incidents",
+        "blocages": "Blocages",
+        "reference": "Réf.",
+        "vide": "Aucun rapport attendu sur cette période.",
+        "nonDisponible": "Non disponible",
+        "absent": "Absent",
+        "total": "Total",
+        "totalValides": "{valides}/{attendus} validés",
+        "totalPresence": "Présence {taux} %",
+        "totalManquants": "{n, plural, one {# manquant} other {# manquants}}"
+      },
+      "avancement": {
+        "activite": "Lot / activité",
+        "unite": "Unité",
+        "prevue": "Qté prévue",
+        "debut": "Début",
+        "fin": "Fin",
+        "gain": "Gain",
+        "objectif": "Objectif",
+        "ecart": "Écart",
+        "avancement": "Avancement",
+        "lot": "{code} — {nom} ({mode})",
+        "aucunRapport": "Aucun rapport déposé sur la période."
+      },
+      "effectifs": {
+        "sousTraitance": "Aucun lot en régie directe sur ce chantier : les effectifs détaillés sont tenus par les sous-traitants.",
+        "categorie": "Catégorie",
+        "prevu": "Prévu / jour",
+        "moyenne": "Présence moy. / jour",
+        "taux": "Taux moyen",
+        "heures": "Total heures",
+        "absences": "Absences",
+        "observation": "Observations",
+        "total": "Total",
+        "cible": "Cible : {cible} %"
+      },
+      "materiaux": {
+        "designation": "Matériau",
+        "unite": "Unité",
+        "debut": "Stock début",
+        "consomme": "Consommé",
+        "livre": "Livré",
+        "fin": "Stock fin",
+        "seuil": "Seuil d'alerte",
+        "statut": "Statut",
+        "vide": "Aucun matériau suivi sur la période."
+      },
+      "incidents": {
+        "date": "Date",
+        "lot": "Lot",
+        "type": "Type",
+        "description": "Description",
+        "gravite": "Gravité",
+        "resolution": "Résolution",
+        "vide": "Aucun incident signalé sur la période.",
+        "resolu": "Résolu — {action}",
+        "enCours": "En cours — {action}",
+        "total": "{n, plural, one {# incident} other {# incidents}}",
+        "totalGravite": "{majeurs, plural, =0 {tous mineurs} one {# significatif} other {# significatifs}}",
+        "totalResolution": "{resolus} résolu(s) · {enCours} en cours"
+      },
+      "appreciation": {
+        "auteur": "{nom} — conducteur de travaux · {quand}",
+        "enAttente": "La période n'est pas close : le conducteur de travaux rédigera son appréciation à sa clôture."
+      },
+      "objectifs": {
+        "lot": "Lot",
+        "activite": "Activité prioritaire",
+        "objectif": "Objectif quantitatif",
+        "cible": "Cible d'avancement",
+        "prerequis": "Actions préalables",
+        "vide": "Les objectifs de la période suivante sont fixés à la clôture."
+      },
+      "separateur": " · ",
+      "lotCouvert": "{code} {nom}"
+    },
+    "pourcent": "{valeur} %",
+    "actions": {
+      "actualiser": "Actualiser",
+      "synthese": "Synthèse périodique"
+    },
+    "indicateurs": {
+      "aria": "Situation des rapports journaliers",
+      "attendus": "Rapports attendus aujourd'hui",
+      "detailAttendus": "Lots actifs sur {chantiers, plural, one {# chantier} other {# chantiers}}",
+      "deposes": "Rapports déposés",
+      "sansAttente": "Aucun rapport attendu",
+      "detailDeposes": "{taux} % des lots actifs",
+      "manquants": "Rapports manquants",
+      "detailManquants": "Relance automatique à 17h30",
+      "validations": "En attente de validation",
+      "detailValidations": "{n, plural, =0 {Aucune hors délai} one {# hors délai} other {# hors délai}}",
+      "taux": "Taux de remise",
+      "sansDonnee": "—",
+      "detailTaux": "{deposes}/{attendus} rapports sur {jours} jours ouvrés"
+    },
+    "onglets": {
+      "aria": "Vues du journal de chantier",
+      "jour": "Aujourd'hui",
+      "validations": "Circuit de validation",
+      "validationsNombre": "Circuit de validation ({n})",
+      "historique": "Historique",
+      "syntheses": "Synthèses périodiques"
+    },
+    "situation": {
+      "NON_SOUMIS": "Non soumis",
+      "SOUMIS": "Soumis",
+      "VALIDE_CT": "Validé CT",
+      "APPROUVE_CP": "Approuvé CP",
+      "REJETE": "Rejeté"
+    },
+    "circuit": {
+      "aria": "Circuit de validation",
+      "role": {
+        "CC": "Chef de chantier",
+        "CT": "Conducteur de travaux",
+        "CP": "Chef de projet"
+      },
+      "court": {
+        "CC": "CC",
+        "CT": "CT",
+        "CP": "CP"
+      },
+      "etat": {
+        "SIGNE": "{role} ({nom}) : signé",
+        "EN_ATTENTE": "{role} ({nom}) : signature attendue",
+        "A_VENIR": "{role} ({nom}) : à venir",
+        "REJETE": "{role} ({nom}) : rejeté"
+      },
+      "statut": {
+        "SIGNE": "Signé",
+        "EN_ATTENTE": "En attente",
+        "A_VENIR": "À venir",
+        "REJETE": "Rejeté"
+      },
+      "avant": "avant {quand}",
+      "signeLe": "Signé le {quand}",
+      "delai": "Délai : {quand}",
+      "enAttentePrecedente": "En attente de l'étape précédente",
+      "signatureNumerique": "Signature numérique horodatée",
+      "signatureAttendue": "Signature attendue"
+    },
+    "relance": {
+      "envoyee": "Relancé à {quand}",
+      "envoi": "Envoi…",
+      "echec": "La relance n'a pas pu être envoyée."
+    },
+    "jour": {
+      "videTitre": "Aucun rapport attendu aujourd'hui",
+      "videDescription": "Les rapports journaliers sont attendus du lundi au vendredi, pour chaque lot actif.",
+      "deposesChantier": "{deposes}/{total} rapports déposés",
+      "alerteAutomatique": "Un lot sans rapport déposé à {heure} déclenche une relance automatique (notification et e-mail) du chef de chantier ; le conducteur de travaux et le chef de projet sont alertés à {escalade} si le rapport manque toujours.",
+      "titreLot": "{code} · {nom}",
+      "chefChantier": "Chef de chantier",
+      "dernierRapport": "Dernier rapport",
+      "dernierRapportLe": "{date} ({jours, plural, =0 {hier} one {il y a # jour ouvré} other {il y a # jours ouvrés}})",
+      "jamais": "Aucun",
+      "effectifs": "Effectifs",
+      "nonRenseigne": "Non renseigné",
+      "effectifsValeur": "{presents}/{prevus} ({taux} %)",
+      "avancement": "Avancement du lot",
+      "avancementValeur": "{reel} % · prévu {theorique} %",
+      "incidents": "Incidents",
+      "blocages": "Blocages",
+      "relancerChef": "Relancer le chef de chantier",
+      "voirRapport": "Voir le rapport"
+    },
+    "validations": {
+      "resume": "{total, plural, =0 {Aucun rapport n'attend de signature.} one {# rapport attend une signature} other {# rapports attendent une signature}}{total, plural, =0 {} other { : {ct} chez le conducteur de travaux, {cp} chez le chef de projet — {horsDelai} hors délai.}}",
+      "videTitre": "Le circuit est à jour",
+      "videDescription": "Tous les rapports déposés ont été validés par le conducteur de travaux et approuvés par le chef de projet.",
+      "rejetesTitre": "Rapports rejetés",
+      "rejetesSousTitre": "Renvoyés au chef de chantier pour correction",
+      "explication": "Le conducteur de travaux valide chaque rapport sous {heures} h, puis le chef de projet l'approuve. Tant qu'il n'est pas approuvé, un rapport ne compte ni dans l'avancement ni dans les bons de paiement ; une fois approuvé, il n'est plus modifiable.",
+      "titre": "{code} {lot} — {chantier}",
+      "horsDelai": "Hors délai",
+      "details": "{date} · {chef} · effectifs {presents}/{prevus} ({taux} %) · avancement {avancement} % · {incidents, plural, =0 {aucun incident} one {# incident} other {# incidents}} · {blocages, plural, =0 {aucun blocage} one {# blocage} other {# blocages}}",
+      "note": "Note du chef de chantier : « {note} »",
+      "attendu": "Attendu : {role} ({nom})",
+      "echeance": "— avant {quand}",
+      "echeanceDepassee": "— délai dépassé ({quand})",
+      "relancer": "Relancer le {role}",
+      "voir": "Voir le rapport",
+      "motif": "Rejeté par {nom} : {motif}"
+    },
+    "historique": {
+      "recherche": "Rechercher un rapport",
+      "recherchePlaceholder": "Référence, lot, chantier, chef…",
+      "filtreChantier": "Filtrer par chantier",
+      "filtreChantierTous": "Tous les chantiers",
+      "filtreStatut": "Filtrer par statut",
+      "filtreStatutTous": "Tous les statuts",
+      "filtrePeriode": "Filtrer par période",
+      "fenetre": {
+        "SEMAINE": "7 derniers jours",
+        "MOIS": "30 derniers jours",
+        "TOUT": "Tout l'historique"
+      },
+      "aucunResultat": "Aucun rapport ne correspond à ces critères.",
+      "aucuneLigne": "Aucun rapport journalier pour l'instant.",
+      "lot": "{code} · {nom}",
+      "effectifs": "{presents}/{prevus} ({taux} %)",
+      "pourcent": "{valeur} %",
+      "voir": "Voir le rapport {reference}",
+      "colonnes": {
+        "date": "Date",
+        "lot": "Chantier / lot",
+        "chefChantier": "Chef de chantier",
+        "effectifs": "Effectifs",
+        "avancement": "Av. lot",
+        "incidents": "Incidents",
+        "blocages": "Blocages",
+        "statut": "Statut",
+        "actions": "Actions"
+      },
+      "export": {
+        "titre": "Historique des rapports journaliers",
+        "nomFichier": "journal-chantier",
+        "date": "Date",
+        "reference": "Référence",
+        "chantier": "Chantier",
+        "lot": "Lot",
+        "chefChantier": "Chef de chantier",
+        "presents": "Présents",
+        "prevus": "Prévus",
+        "avancement": "Avancement du lot (%)",
+        "theorique": "Avancement théorique (%)",
+        "incidents": "Incidents",
+        "blocages": "Blocages",
+        "statut": "Statut",
+        "soumisLe": "Soumis le"
+      }
+    },
+    "syntheses": {
+      "genererTitre": "Générer une synthèse",
+      "genererSousTitre": "Agrégée automatiquement des rapports journaliers du chantier, puis signée CT → CP.",
+      "chantier": "Chantier",
+      "chantierPlaceholder": "Choisir un chantier",
+      "typePeriode": "Période",
+      "type": {
+        "HEBDOMADAIRE": "Hebdomadaire",
+        "MENSUELLE": "Mensuelle",
+        "PERSONNALISEE": "Personnalisée"
+      },
+      "typeAide": {
+        "HEBDOMADAIRE": "Du lundi au vendredi",
+        "MENSUELLE": "Le mois civil",
+        "PERSONNALISEE": "Date de début → date de fin"
+      },
+      "semaineChoix": "Semaine",
+      "semaine": "S{numero} — du {debut} au {fin}",
+      "suffixeEnCours": " · en cours",
+      "moisChoix": "Mois",
+      "du": "Du",
+      "au": "Au",
+      "datePlaceholder": "Choisir une date",
+      "periodeInvalide": "La date de début doit précéder la date de fin, et ne pas être dans le futur.",
+      "generer": "Générer la synthèse",
+      "raccourcisTitre": "Dernière semaine close",
+      "raccourci": "Synthèse S{numero} · {reference}"
+    },
+    "document": {
+      "retour": "Journal de chantier",
+      "imprimer": "Imprimer / PDF",
+      "marque": "CCD Digital · Journal de chantier",
+      "pied": "CCD Digital — solution SaaS de gestion de chantier BTP"
+    },
+    "enumerations": {
+      "meteo": {
+        "ENSOLEILLE": "Ensoleillé",
+        "NUAGEUX": "Nuageux",
+        "PLUVIEUX": "Pluvieux",
+        "ORAGEUX": "Orageux",
+        "BRUMEUX": "Brumeux"
+      },
+      "conditions": {
+        "FAVORABLES": "Favorables",
+        "DIFFICILES": "Difficiles",
+        "ARRET": "Arrêt de chantier"
+      },
+      "conformite": {
+        "CONFORME": "Conforme",
+        "PARTIELLE": "Partielle",
+        "NON_CONFORME": "Non conforme"
+      },
+      "propriete": {
+        "ENTREPRISE": "Entreprise",
+        "LOCATION": "Location"
+      },
+      "etatEquipement": {
+        "BON": "Bon",
+        "ENTRETIEN": "Entretien",
+        "PANNE": "En panne"
+      },
+      "typeIncident": {
+        "QUALITE": "Qualité",
+        "SECURITE": "Sécurité HSE",
+        "MATERIEL": "Matériel",
+        "APPROVISIONNEMENT": "Approvisionnement",
+        "ADMINISTRATIF": "Administratif"
+      },
+      "gravite": {
+        "MINEUR": "Mineur",
+        "SIGNIFICATIF": "Significatif",
+        "GRAVE": "Grave"
+      },
+      "natureBlocage": {
+        "APPROVISIONNEMENT": "Approvisionnement",
+        "METEO": "Météo",
+        "MAIN_OEUVRE": "Main-d'œuvre",
+        "TECHNIQUE": "Technique",
+        "ADMINISTRATIF": "Administratif",
+        "SECURITE": "Sécurité"
+      },
+      "niveauBlocage": {
+        "MINEUR": "Mineur",
+        "SIGNIFICATIF": "Significatif",
+        "BLOQUANT": "Bloquant"
+      }
+    },
+    "rapport": {
+      "titre": "Journal de chantier quotidien",
+      "sousTitre": "Rapport journalier officiel — validé par le conducteur de travaux sous 24 h",
+      "introuvable": "Ce rapport n'existe pas ou n'a pas encore été rédigé.",
+      "erreurChargement": "Le rapport n'a pas pu être chargé.",
+      "statut": "Statut : {statut}",
+      "soumisLe": "Soumis le {quand} par {nom}",
+      "attente": "En attente : {role} — délai {quand}",
+      "attenteHorsDelai": "Hors délai : {role} — délai dépassé depuis le {quand}",
+      "rejet": "Motif du rejet : {motif}",
+      "identification": "Identification",
+      "projet": "Projet",
+      "lot": "Lot",
+      "lotValeur": "{code} — {nom}",
+      "mode": "Mode d'exécution",
+      "referenceProjet": "Référence projet",
+      "numero": "N° de rapport",
+      "localisation": "Localisation",
+      "intervenants": "Intervenants",
+      "date": "Date du rapport",
+      "horaires": "Horaires du chantier",
+      "horairesValeur": "{debut} — {fin}",
+      "statutLigne": "Statut",
+      "pourcent": "{valeur} %",
+      "fraction": "{a}/{b}",
+      "heures": "{valeur} h",
+      "sansObjet": "—",
+      "neant": "—",
+      "total": "Total",
+      "quantiteUnite": "{quantite} {unite}",
+      "mention": "Données figées à la soumission — immuables après approbation du CP",
+      "chiffres": {
+        "avancement": "Avancement du lot",
+        "retard": "Retard {points} pts · prévu {theorique} %",
+        "alHeure": "Dans le planning · prévu {theorique} %",
+        "effectifs": "Effectifs",
+        "presence": "{taux} % de présence",
+        "heures": "Heures travaillées",
+        "heuresDetail": "cumulées par l'équipe",
+        "heuresSousTraitant": "suivies par le sous-traitant",
+        "activites": "Activités actives",
+        "activitesDetail": "en cours ce jour",
+        "livraisons": "Livraisons",
+        "livraisonsDetail": "{n, plural, =0 {toutes conformes} one {dont # partielle} other {dont # partielles}}",
+        "incidents": "Incidents",
+        "incidentsDetail": "{n, plural, =0 {tous mineurs} one {dont # significatif} other {dont # significatifs}}",
+        "blocages": "Blocages",
+        "blocagesDetail": "signalés ce jour",
+        "aucunBlocage": "aucun ce jour",
+        "photos": "Photos",
+        "photosDetail": "géolocalisées"
+      },
+      "sections": {
+        "meteo": "Conditions météorologiques et de travail",
+        "effectifs": "Effectifs présents",
+        "production": "Production des intervenants informels",
+        "avancement": "Avancement des travaux — lot {code} {nom}",
+        "materiaux": "Matériaux et consommables utilisés",
+        "livraisons": "Livraisons reçues ce jour",
+        "equipements": "Équipements et engins en service",
+        "incidents": "Incidents et non-conformités",
+        "blocages": "Blocages signalés",
+        "photos": "Photos géolocalisées",
+        "previsions": "Prévisions pour le jour suivant",
+        "note": "Note du chef de chantier",
+        "circuit": "Circuit de validation — CC → CT → CP"
+      },
+      "meteo": {
+        "matin": "Matin",
+        "apresMidi": "Après-midi",
+        "temperature": "Température",
+        "temperatureValeur": "{min}° / {max} °C",
+        "humidite": "Humidité",
+        "vent": "Vent",
+        "conditions": "Conditions",
+        "prevision": "Prévision du lendemain : {texte}"
+      },
+      "effectifs": {
+        "categorie": "Catégorie",
+        "prevus": "Prévus",
+        "presents": "Présents",
+        "absents": "Absents",
+        "presence": "Présence",
+        "heures": "Heures",
+        "observation": "Motif d'absence / observations",
+        "sousTraitant": "Lot en sous-traitance structurée : le détail des effectifs est tenu par le sous-traitant. Effectif déclaré ce jour : {presents}/{prevus}.",
+        "appreciation": {
+          "BONNE": "Bonne",
+          "ACCEPTABLE": "Acceptable",
+          "INSUFFISANTE": "Insuffisante"
+        }
+      },
+      "production": {
+        "intervenant": "Intervenant",
+        "activite": "Activité",
+        "unite": "Unité",
+        "prix": "Prix unitaire",
+        "quantite": "Qté du jour",
+        "cumul": "Cumul lot",
+        "montant": "Montant estimé",
+        "aide": "Quantités du jour × bordereau de prix = montant du bon de paiement. La validation du conducteur de travaux est obligatoire avant tout calcul de paiement."
+      },
+      "avancement": {
+        "global": "Avancement global : {reel} % · théorique {theorique} %",
+        "activite": "Activité",
+        "unite": "Unité",
+        "prevue": "Qté prévue",
+        "veille": "Cumul veille",
+        "jour": "Réalisé ce jour",
+        "cumul": "Cumul",
+        "avancement": "Avancement",
+        "observation": "Observations"
+      },
+      "materiaux": {
+        "designation": "Matériau",
+        "unite": "Unité",
+        "debut": "Stock début",
+        "livre": "Livré",
+        "utilise": "Utilisé",
+        "fin": "Stock fin",
+        "seuil": "Seuil d'alerte",
+        "statut": "Statut",
+        "vide": "Aucun matériau suivi sur ce lot.",
+        "alerte": "Alerte",
+        "ok": "OK"
+      },
+      "livraisons": {
+        "fournisseur": "Fournisseur",
+        "designation": "Désignation",
+        "quantite": "Quantité",
+        "bon": "N° bon de livraison",
+        "heure": "Heure",
+        "conformite": "Conformité",
+        "observation": "Observations",
+        "vide": "Aucune livraison reçue ce jour."
+      },
+      "equipements": {
+        "designation": "Équipement",
+        "reference": "Réf.",
+        "propriete": "Propriété",
+        "utilisation": "Utilisation",
+        "operateur": "Opérateur",
+        "etat": "État",
+        "observation": "Observations",
+        "vide": "Aucun équipement en service ce jour."
+      },
+      "incidents": {
+        "numero": "N°",
+        "type": "Type",
+        "description": "Description",
+        "gravite": "Gravité",
+        "decidePar": "Décidé par",
+        "action": "Action entreprise",
+        "vide": "Aucun incident signalé ce jour."
+      },
+      "blocages": {
+        "aucun": "Aucun blocage signalé ce jour — chantier opérationnel.",
+        "numero": "N°",
+        "nature": "Nature",
+        "description": "Description",
+        "niveau": "Gravité",
+        "impact": "Impact sur l'avancement",
+        "escalade": "Escalade"
+      },
+      "photos": {
+        "nombre": "{n, plural, one {# photo jointe} other {# photos jointes}}",
+        "titre": "Photo {rang}/{total}",
+        "meta": "{heure} · {latitude}° N, {longitude}° O",
+        "gps": "GPS confirmé"
+      },
+      "previsions": {
+        "activite": "Activité prévue",
+        "equipe": "Équipe affectée",
+        "objectif": "Objectif",
+        "prerequis": "Ressources / prérequis",
+        "vide": "Aucune prévision renseignée."
+      },
+      "note": {
+        "auteur": "{nom} — chef de chantier · {quand}",
+        "vide": "Aucune note."
+      }
+    }
   }
 }

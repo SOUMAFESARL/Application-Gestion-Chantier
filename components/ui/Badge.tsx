@@ -8,6 +8,7 @@ export type VarianteBadge =
   | "succes"
   | "erreur"
   | "avertissement"
+  | "information"
   | "neutre";
 
 interface Props {
@@ -28,6 +29,7 @@ const VARIANTES: Record<VarianteBadge, string> = {
   succes: "bg-succes/12 text-succes",
   erreur: "bg-erreur/12 text-erreur",
   avertissement: "bg-avertissement/12 text-avertissement",
+  information: "bg-information/12 text-information",
 };
 
 /**

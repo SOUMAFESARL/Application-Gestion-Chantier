@@ -1,6 +1,5 @@
 "use client";
 
-import { Building2, HeartPulse, TrendingUp, Wallet } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
@@ -9,28 +8,28 @@ import {
   indicateurMarge,
   indicateurPortefeuille,
   indicateurSante,
-  niveauSante,
   niveauxIndicateurs,
 } from "@/features/tableauDeBord";
 import type { LigneChantier, NiveauSante } from "@/features/tableauDeBord";
 import { formaterMontantCourt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-import {
-  PASTILLE_SANTE,
-  TEXTE_SANTE,
-  TUILE,
-  TUILE_DETAIL,
-  TUILE_FILET,
-  TUILE_LIBELLE,
-  TUILE_UNITE,
-  TUILE_VALEUR,
-} from "./classes";
+import { Indicateur } from "../projets/EnteteChantier";
+import type { FondIndicateur } from "../projets/classes";
+import { PASTILLE_SANTE, TEXTE_SANTE, TUILE_UNITE } from "./classes";
 
-const ICONE = "size-4 text-neutral-500";
+/**
+ * Le fond d'une tuile suit son niveau, comme celles de la liste des projets
+ * suivent leur statut. Sans niveau — pas de donnée — la tuile reste neutre.
+ */
+const FOND_NIVEAU: Record<NiveauSante, FondIndicateur> = {
+  BON: "succes",
+  VIGILANCE: "avertissement",
+  CRITIQUE: "erreur",
+};
 
-/** Une tuile sans niveau — le portefeuille, ou un indicateur sans donnée — prend la marque. */
-const filet = (niveau: NiveauSante | null) => (niveau ? PASTILLE_SANTE[niveau] : "bg-primary-500");
+const fond = (niveau: NiveauSante | null): FondIndicateur =>
+  niveau ? FOND_NIVEAU[niveau] : "neutre";
 
 /** La ligne d'alerte n'est colorée que si elle signale quelque chose. */
 const texteAlerte = (niveau: NiveauSante | null) =>
@@ -39,10 +38,10 @@ const texteAlerte = (niveau: NiveauSante | null) =>
 interface Tuile {
   cle: string;
   libelle: string;
-  icone: ReactNode;
   valeur: ReactNode;
   detail: ReactNode;
   alerte?: ReactNode;
+  fond: FondIndicateur;
   niveau: NiveauSante | null;
 }
 
@@ -51,8 +50,9 @@ interface Tuile {
  * du portefeuille, dépassements budgétaires, rentabilité globale.
  *
  * Chaque tuile se lit dans le même ordre : **combien**, **de quoi c'est
- * fait**, **ce qui cloche**. Le filet du bas prend le niveau que lui donne
- * `niveauxIndicateurs` — réglé sur le pire cas, pas sur la moyenne.
+ * fait**, **ce qui cloche**. Le fond de la tuile — la même tuile que la
+ * liste des projets — prend le niveau que lui donne `niveauxIndicateurs`,
+ * réglé sur le pire cas, pas sur la moyenne.
  *
  * Tout est déduit des lignes du portefeuille par `regles.ts` : aucun chiffre
  * n'arrive à part, qui pourrait contredire le tableau juste en dessous.
@@ -70,25 +70,24 @@ export function IndicateursDirection({ chantiers }: { chantiers: LigneChantier[]
     {
       cle: "actifs",
       libelle: t("actifs"),
-      icone: <Building2 className={ICONE} aria-hidden="true" />,
       valeur: portefeuille.actifs,
       detail: t("detailActifs", {
         montant: formaterMontantCourt(portefeuille.carnetCommandes),
         enAttente: portefeuille.enAttente,
         suspendus: portefeuille.suspendus,
       }),
+      fond: "secondaire",
       niveau: null,
     },
     {
       cle: "sante",
       libelle: t("sante"),
-      icone: <HeartPulse className={ICONE} aria-hidden="true" />,
       valeur:
         sante.moyenne === null ? (
           t("sansDonnee")
         ) : (
           <>
-            <span className={TEXTE_SANTE[niveauSante(sante.moyenne)]}>{sante.moyenne}</span>
+            {sante.moyenne}
             <span className={TUILE_UNITE}>{t("surCent")}</span>
           </>
         ),
@@ -111,12 +110,12 @@ export function IndicateursDirection({ chantiers }: { chantiers: LigneChantier[]
           </span>
         </span>
       ),
+      fond: fond(niveaux.sante),
       niveau: niveaux.sante,
     },
     {
       cle: "budget",
       libelle: t("budget"),
-      icone: <Wallet className={ICONE} aria-hidden="true" />,
       valeur:
         budget.tauxConsommation === null
           ? t("sansDonnee")
@@ -126,22 +125,17 @@ export function IndicateursDirection({ chantiers }: { chantiers: LigneChantier[]
         total: formaterMontantCourt(budget.budgetTotal),
       }),
       alerte: t("depassements", { n: budget.depassements }),
+      fond: fond(niveaux.budget),
       niveau: niveaux.budget,
     },
     {
       cle: "marge",
       libelle: t("marge"),
-      icone: <TrendingUp className={ICONE} aria-hidden="true" />,
       valeur:
-        marge.taux === null ? (
-          t("sansDonnee")
-        ) : (
-          <span className={marge.taux < 0 ? "text-erreur" : undefined}>
-            {t("pourcent", { valeur: marge.taux })}
-          </span>
-        ),
+        marge.taux === null ? t("sansDonnee") : t("pourcent", { valeur: marge.taux }),
       detail: t("detailMarge", { montant: formaterMontantCourt(marge.montant) }),
       alerte: t("margesNegatives", { n: marge.negatives }),
+      fond: fond(niveaux.marge),
       niveau: niveaux.marge,
     },
   ];
@@ -149,20 +143,24 @@ export function IndicateursDirection({ chantiers }: { chantiers: LigneChantier[]
   return (
     <section aria-label={t("aria")} className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {tuiles.map((tuile) => (
-        <article key={tuile.cle} className={cn(TUILE, "pb-5")}>
-          <span className={TUILE_LIBELLE}>
-            {tuile.icone}
-            {tuile.libelle}
-          </span>
-          <span className={TUILE_VALEUR}>{tuile.valeur}</span>
-          <span className={TUILE_DETAIL}>{tuile.detail}</span>
-          {tuile.alerte && (
-            <span className={cn("text-xs font-medium", texteAlerte(tuile.niveau))}>
-              {tuile.alerte}
-            </span>
-          )}
-          <span aria-hidden="true" className={cn(TUILE_FILET, filet(tuile.niveau))} />
-        </article>
+        <Indicateur
+          key={tuile.cle}
+          libelle={tuile.libelle}
+          valeur={tuile.valeur}
+          fond={tuile.fond}
+          // Un chiffre ne prend la teinte de sa tuile que s'il alerte.
+          alerte={tuile.niveau === "VIGILANCE" || tuile.niveau === "CRITIQUE"}
+          detail={
+            <div className="flex flex-col gap-1">
+              {tuile.detail}
+              {tuile.alerte && (
+                <span className={cn("font-medium", texteAlerte(tuile.niveau))}>
+                  {tuile.alerte}
+                </span>
+              )}
+            </div>
+          }
+        />
       ))}
     </section>
   );

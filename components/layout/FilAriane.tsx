@@ -35,6 +35,7 @@ const CARTE_SEGMENTS: Record<string, string> = {
   "/projets/lots-activites": "projetsLots",
   "/projets/equipe-affectations": "projetsEquipe",
   "/rapports": "chantier",
+  "/rapports/synthese": "chantierSynthese",
   "/planning": "planning",
   "/finance": "finance",
   "/achats": "achats",
@@ -64,7 +65,8 @@ export function FilAriane() {
   const segments = pathname.split("/").filter(Boolean);
 
   function libelle(chemin: string, segmentBrut: string): string {
-    const cle = CARTE_SEGMENTS[chemin];
+    // Un rapport journalier (`/rapports/[id]`) se nomme par son type, pas par son identifiant.
+    const cle = CARTE_SEGMENTS[chemin] ?? (/^\/rapports\/(rap|abs)-/.test(chemin) ? "chantierRapport" : undefined);
     return cle ? t(cle) : humaniser(segmentBrut);
   }
 
