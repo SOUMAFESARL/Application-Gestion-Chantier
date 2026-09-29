@@ -316,6 +316,8 @@ Two things that migration surfaced, worth knowing before reading old code:
    itself lives in the domain's `regles.ts` (`filtrerProjets`,
    `filtrerClients`). Only dashboard blocks keep `Tableau` or a bare
    `DataTable`.
+10. **Zéro `git push` par les agents.** Tout envoi vers le dépôt distant (`git push`) est formellement interdit aux assistants et agents d'IA sur ce projet frontend (`Application-Gestion-Chantier`). Les commits et merges locaux sont autorisés ; le push est exclusivement réservé au développeur humain.
+11. **Code frontend protégé contre l'édition par les outils de l'agent.** L'agent d'IA ne doit utiliser aucun outil d'écriture (`write_to_file`, `replace_file_content`, scripts) pour modifier, ajouter ou supprimer des fichiers frontend (voir skill `prevent-frontend-modification`). En revanche, **`git pull` et `git fetch` sont pleinement autorisés** pour synchroniser les mises à jour distantes. `git push` reste strictement interdit.
 
 ### What lot 0 established
 
