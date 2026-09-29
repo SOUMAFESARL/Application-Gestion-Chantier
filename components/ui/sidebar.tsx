@@ -4,7 +4,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Slot } from "radix-ui"
-import { ChevronRight, PanelLeftIcon } from "lucide-react"
+import { ChevronRight, PanelLeftIcon, Plus } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { Button } from "@/components/ui/button"
@@ -441,6 +441,7 @@ function SidebarMenuButton({
   isActive = false,
   size = "default",
   tooltip,
+  sousMenu = false,
   className,
   children,
   ...props
@@ -449,13 +450,18 @@ function SidebarMenuButton({
   isActive?: boolean
   size?: keyof typeof sidebarMenuButtonSizes
   tooltip?: string | React.ComponentProps<typeof TooltipContent>
+  /** L'entrée ouvre un sous-menu : un « + » remplace la flèche, actif ou non. */
+  sousMenu?: boolean
 }) {
   const Comp = asChild ? Slot.Root : "button"
   const { isMobile, state } = useSidebar()
 
   // Flèche posée à droite de l'item actif — repère de sélection en plus de la
   // pastille orange, y compris replié en icônes où le libellé disparaît.
-  const fleche = isActive ? (
+  // Une entrée à sous-menu porte un « + » à la place, en permanence.
+  const fleche = sousMenu ? (
+    <Plus aria-hidden="true" className="ml-auto group-data-[collapsible=icon]:hidden" />
+  ) : isActive ? (
     <ChevronRight aria-hidden="true" className="ml-auto group-data-[collapsible=icon]:hidden" />
   ) : null
 

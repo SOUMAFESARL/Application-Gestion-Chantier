@@ -13,13 +13,16 @@ import type {
   CleIndicateur,
   ClientPlateforme,
   CodePlan,
+  CompteAdministrateur,
   EtatCommercial,
   IndicateursPlateforme,
   PartParcClient,
   PointEvolutionAbonnements,
   ProfilAdministrateur,
+  RoleAdministrateur,
   StatutAbonnement,
   StatutClient,
+  StatutCompteAdministrateur,
   TendanceIndicateur,
   TonVariation,
 } from "./types";
@@ -45,12 +48,17 @@ export const SEUIL_INSCRIPTION_SANS_SUITE_JOURS = 7;
  * vraie barrière est côté Django, qui refuse la requête. Le dire ici évite
  * qu'on prenne un jour cette fonction pour un contrôle d'accès.
  */
-export function peutAgirSurClients(profil: ProfilAdministrateur | null): boolean {
+export function peutAgirSurClients(
+  profil: ProfilAdministrateur | null,
+): boolean {
   return profil?.role === "SUPERVISEUR";
 }
 
 /** Nombre de jours entiers entre aujourd'hui et une échéance. */
-export function joursAvant(echeance: Date, maintenant: Date = new Date()): number {
+export function joursAvant(
+  echeance: Date,
+  maintenant: Date = new Date(),
+): number {
   const MS_PAR_JOUR = 24 * 60 * 60 * 1000;
   const depart = Date.UTC(
     maintenant.getFullYear(),
@@ -88,7 +96,8 @@ export function alerteClient(
 
   if (client.abonnement.statut === "ESSAI" && client.abonnement.finEssai) {
     const restants = joursAvant(client.abonnement.finEssai, maintenant);
-    if (restants <= SEUIL_ESSAI_BIENTOT_EXPIRE_JOURS) return "ESSAI_BIENTOT_EXPIRE";
+    if (restants <= SEUIL_ESSAI_BIENTOT_EXPIRE_JOURS)
+      return "ESSAI_BIENTOT_EXPIRE";
   }
 
   return null;
@@ -180,20 +189,33 @@ export function filtrerClients(
   const recherche = normaliser(criteres.recherche);
 
   return clients.filter((client) => {
-    if (criteres.statutClient && client.statut !== criteres.statutClient) return false;
-    if (criteres.statutAbonnement && client.abonnement.statut !== criteres.statutAbonnement) {
+    if (criteres.statutClient && client.statut !== criteres.statutClient)
+      return false;
+    if (
+      criteres.statutAbonnement &&
+      client.abonnement.statut !== criteres.statutAbonnement
+    ) {
       return false;
     }
     if (criteres.plan && client.abonnement.plan !== criteres.plan) return false;
     if (!recherche) return true;
 
-    return [client.raisonSociale, client.nomCommercial, client.ville, client.slug].some(
-      (champ) => normaliser(champ).includes(recherche),
-    );
+    return [
+      client.raisonSociale,
+      client.nomCommercial,
+      client.ville,
+      client.slug,
+    ].some((champ) => normaliser(champ).includes(recherche));
   });
 }
 
-const ORDRE_STATUTS_CLIENT: StatutClient[] = ["ACTIF", "EN_ATTENTE", "SUSPENDU", "RESILIE"];
+const ORDRE_STATUTS_CLIENT: StatutClient[] = [
+  "ACTIF",
+  "ESSAI",
+  "EN_ATTENTE",
+  "SUSPENDU",
+  "RESILIE",
+];
 const ORDRE_STATUTS_ABONNEMENT: StatutAbonnement[] = [
   "ACTIF",
   "ESSAI",
@@ -208,12 +230,16 @@ const ORDRE_PLANS: CodePlan[] = ["BATISSEUR", "MAITRE_OEUVRE", "PROMOTEUR"];
  * réellement. Un statut qu'aucune entreprise n'a ne donnerait qu'un tableau
  * vide.
  */
-export function statutsClientPresents(clients: ClientPlateforme[]): StatutClient[] {
+export function statutsClientPresents(
+  clients: ClientPlateforme[],
+): StatutClient[] {
   const presents = new Set(clients.map((client) => client.statut));
   return ORDRE_STATUTS_CLIENT.filter((statut) => presents.has(statut));
 }
 
-export function statutsAbonnementPresents(clients: ClientPlateforme[]): StatutAbonnement[] {
+export function statutsAbonnementPresents(
+  clients: ClientPlateforme[],
+): StatutAbonnement[] {
   const presents = new Set(clients.map((client) => client.abonnement.statut));
   return ORDRE_STATUTS_ABONNEMENT.filter((statut) => presents.has(statut));
 }
@@ -249,16 +275,23 @@ export function reactivationPossible(client: ClientPlateforme): boolean {
 export function revenuMensuelCentimes(clients: ClientPlateforme[]): number {
   return clients
     .filter((client) => client.abonnement.statut === "ACTIF")
-    .reduce((total, client) => total + client.abonnement.montantMensuelCentimes, 0);
+    .reduce(
+      (total, client) => total + client.abonnement.montantMensuelCentimes,
+      0,
+    );
 }
 
 /** Le résumé chiffré du tableau de bord, calculé depuis la liste des clients. */
-export function indicateurs(clients: ClientPlateforme[]): IndicateursPlateforme {
+export function indicateurs(
+  clients: ClientPlateforme[],
+): IndicateursPlateforme {
   return {
     nbClients: clients.length,
     nbClientsActifs: clients.filter((c) => c.statut === "ACTIF").length,
-    nbClientsEnEssai: clients.filter((c) => c.abonnement.statut === "ESSAI").length,
-    nbClientsImpayes: clients.filter((c) => c.abonnement.statut === "IMPAYE").length,
+    nbClientsEnEssai: clients.filter((c) => c.abonnement.statut === "ESSAI")
+      .length,
+    nbClientsImpayes: clients.filter((c) => c.abonnement.statut === "IMPAYE")
+      .length,
     revenuMensuelCentimes: revenuMensuelCentimes(clients),
   };
 }
@@ -274,7 +307,10 @@ export function indicateurs(clients: ClientPlateforme[]): IndicateursPlateforme 
 export function montantImpayeCentimes(clients: ClientPlateforme[]): number {
   return clients
     .filter((client) => client.abonnement.statut === "IMPAYE")
-    .reduce((total, client) => total + client.abonnement.montantMensuelCentimes, 0);
+    .reduce(
+      (total, client) => total + client.abonnement.montantMensuelCentimes,
+      0,
+    );
 }
 
 /** L'état commercial d'une entreprise — la lecture « parc » de son dossier. */
@@ -293,7 +329,11 @@ export function etatCommercial(client: ClientPlateforme): EtatCommercial {
  * une part disparue se confond avec une part oubliée.
  */
 export function repartitionParc(clients: ClientPlateforme[]): PartParcClient[] {
-  const ordre: EtatCommercial[] = ["ABONNEMENT_ACTIF", "ESSAI", "SANS_ABONNEMENT"];
+  const ordre: EtatCommercial[] = [
+    "ABONNEMENT_ACTIF",
+    "ESSAI",
+    "SANS_ABONNEMENT",
+  ];
   return ordre.map((etat) => ({
     etat,
     nombre: clients.filter((client) => etatCommercial(client) === etat).length,
@@ -323,7 +363,8 @@ export function partDuParc(nombre: number, total: number): number {
 
 /** Combien de mois un abonnement actif compte au revenu récurrent. */
 export function nbAbonnementsFactures(clients: ClientPlateforme[]): number {
-  return clients.filter((client) => client.abonnement.statut === "ACTIF").length;
+  return clients.filter((client) => client.abonnement.statut === "ACTIF")
+    .length;
 }
 
 /**
@@ -338,7 +379,10 @@ export function derniersAbonnements(
   limite = 5,
 ): ClientPlateforme[] {
   return [...clients]
-    .sort((a, b) => b.abonnement.dateDebut.getTime() - a.abonnement.dateDebut.getTime())
+    .sort(
+      (a, b) =>
+        b.abonnement.dateDebut.getTime() - a.abonnement.dateDebut.getTime(),
+    )
     .slice(0, limite);
 }
 
@@ -360,7 +404,10 @@ const HAUSSE_FAVORABLE: Record<CleIndicateur, boolean> = {
 };
 
 /** Ce que vaut une variation pour cet indicateur. */
-export function tonVariation(cle: CleIndicateur, variationPourcent: number): TonVariation {
+export function tonVariation(
+  cle: CleIndicateur,
+  variationPourcent: number,
+): TonVariation {
   if (variationPourcent === 0) return "NEUTRE";
   const hausse = variationPourcent > 0;
   return hausse === HAUSSE_FAVORABLE[cle] ? "FAVORABLE" : "DEFAVORABLE";
@@ -408,5 +455,135 @@ export function cumulEvolution(points: PointEvolutionAbonnements[]): {
       nonRenouveles: total.nonRenouveles + point.nonRenouveles,
     }),
     { renouveles: 0, nonRenouveles: 0 },
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Paramétrage de la plateforme
+ * ------------------------------------------------------------------ */
+
+/**
+ * Qui peut toucher au paramétrage : les comptes d'agents, les tarifs, la
+ * marque.
+ *
+ * Le même seuil que pour agir sur un client — la supervision — mais une
+ * fonction à part : le jour où ces deux droits divergent, un seul appel
+ * change, et aucun écran ne confond les deux questions.
+ */
+export function peutParametrerPlateforme(profil: ProfilAdministrateur | null): boolean {
+  return profil?.role === "SUPERVISEUR";
+}
+
+/**
+ * Un compte d'agent peut-il être suspendu par celui qui regarde ?
+ *
+ * **Jamais le sien** : un superviseur qui se suspend par mégarde n'a plus
+ * personne pour le réactiver s'il était le dernier. Le serveur le refuse
+ * aussi — l'écran se contente de ne pas le proposer.
+ */
+export function suspensionComptePossible(
+  compte: CompteAdministrateur,
+  profil: ProfilAdministrateur | null,
+): boolean {
+  return compte.statut === "ACTIF" && compte.id !== profil?.id;
+}
+
+export function reactivationComptePossible(compte: CompteAdministrateur): boolean {
+  return compte.statut === "SUSPENDU";
+}
+
+export interface CriteresComptes {
+  /** Recherche libre : nom, prénom ou adresse. */
+  recherche: string;
+  role: RoleAdministrateur | "";
+  statut: StatutCompteAdministrateur | "";
+}
+
+export const CRITERES_COMPTES_VIDES: CriteresComptes = { recherche: "", role: "", statut: "" };
+
+export function criteresComptesActifs(criteres: CriteresComptes): boolean {
+  return criteres.recherche.trim() !== "" || criteres.role !== "" || criteres.statut !== "";
+}
+
+export function filtrerComptes(
+  comptes: CompteAdministrateur[],
+  criteres: CriteresComptes,
+): CompteAdministrateur[] {
+  const recherche = normaliser(criteres.recherche);
+
+  return comptes.filter((compte) => {
+    if (criteres.role && compte.role !== criteres.role) return false;
+    if (criteres.statut && compte.statut !== criteres.statut) return false;
+    if (!recherche) return true;
+
+    return [compte.nomComplet, compte.email].some((champ) =>
+      normaliser(champ).includes(recherche),
+    );
+  });
+}
+
+export const ROLES_ADMINISTRATEUR: RoleAdministrateur[] = ["SUPERVISEUR", "SUPPORT"];
+export const STATUTS_COMPTE: StatutCompteAdministrateur[] = ["ACTIF", "SUSPENDU"];
+
+/** Les comptes actifs d'abord, puis par nom — l'ordre stable d'un annuaire. */
+export function trierComptes(comptes: CompteAdministrateur[]): CompteAdministrateur[] {
+  return [...comptes].sort((a, b) => {
+    if (a.statut !== b.statut) return a.statut === "ACTIF" ? -1 : 1;
+    return a.nomComplet.localeCompare(b.nomComplet, "fr");
+  });
+}
+
+/** Les formats de logo acceptés : ceux qu'un navigateur affiche sans surprise. */
+export const FORMATS_LOGO_PLATEFORME = ["image/png", "image/jpeg", "image/svg+xml", "image/webp"];
+
+/**
+ * Le plafond du logo, en octets.
+ *
+ * Le logo est lu à chaque ouverture de chaque espace client : 512 Ko suffisent
+ * largement à un signe, et au-delà, c'est une photo qu'on a téléversée par
+ * erreur.
+ */
+export const TAILLE_MAX_LOGO_PLATEFORME = 512 * 1024;
+
+export type RefusImage = "FORMAT" | "TAILLE";
+
+/** Pourquoi un fichier ne peut pas servir de logo — `null` s'il convient. */
+export function refusLogo(fichier: { type: string; size: number }): RefusImage | null {
+  if (!FORMATS_LOGO_PLATEFORME.includes(fichier.type)) return "FORMAT";
+  if (fichier.size > TAILLE_MAX_LOGO_PLATEFORME) return "TAILLE";
+  return null;
+}
+
+/**
+ * Les formats de photo de profil : pas de SVG, qui n'est pas une photo et
+ * peut porter du script.
+ */
+export const FORMATS_PHOTO_PROFIL = ["image/png", "image/jpeg", "image/webp"];
+
+/**
+ * Le plafond d'une photo de profil, en octets.
+ *
+ * Un avatar s'affiche à 56 px au plus : 1 Mo couvre largement une photo de
+ * téléphone recadrée, et refuse celle qu'on n'a pas recadrée.
+ */
+export const TAILLE_MAX_PHOTO_PROFIL = 1024 * 1024;
+
+/** Pourquoi un fichier ne peut pas servir de photo de profil — `null` s'il convient. */
+export function refusPhotoProfil(fichier: { type: string; size: number }): RefusImage | null {
+  if (!FORMATS_PHOTO_PROFIL.includes(fichier.type)) return "FORMAT";
+  if (fichier.size > TAILLE_MAX_PHOTO_PROFIL) return "TAILLE";
+  return null;
+}
+
+/** Les initiales de l'avatar, quand il n'y a pas de photo. */
+export function initialesAdministrateur(profil: {
+  prenom: string;
+  nom: string;
+  email: string;
+}): string {
+  return (
+    `${profil.prenom[0] ?? ""}${profil.nom[0] ?? ""}`.toUpperCase() ||
+    profil.email[0]?.toUpperCase() ||
+    "?"
   );
 }

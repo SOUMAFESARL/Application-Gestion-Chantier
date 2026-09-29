@@ -965,6 +965,21 @@ export function membresEquipe(equipe: Pick<Equipe, "chef" | "membres">): MembreE
 }
 
 /**
+ * Le nombre de personnes mobilisées sur un projet, toutes équipes confondues.
+ * Un collaborateur de l'entreprise présent dans deux équipes compte une fois ;
+ * une personne sans compte, saisie sur le chantier, compte pour elle-même.
+ */
+export function effectifProjet(equipes: Pick<Equipe, "chef" | "membres">[]): number {
+  const personnes = new Set<string>();
+  for (const equipe of equipes) {
+    for (const membre of membresEquipe(equipe)) {
+      personnes.add(membre.collaborateurId ?? membre.id);
+    }
+  }
+  return personnes.size;
+}
+
+/**
  * Une équipe dont un membre change de rôle.
  *
  * Il n'y a qu'un chef par équipe : en nommer un nouveau fait redescendre

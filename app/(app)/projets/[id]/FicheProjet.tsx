@@ -13,6 +13,7 @@ import {
   Play,
   Phone,
   TrendingUp,
+  Users,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -23,13 +24,14 @@ import type { ReactNode } from "react";
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { Badge, EtatChargement, EtatErreur } from "@/components/ui";
 import { Button } from "@/components/ui/button";
-import { lireProjet, listerLots } from "@/features/projets/adaptateur";
-import { cleLots, cleProjet } from "@/features/projets/cles";
+import { lireProjet, listerEquipes, listerLots } from "@/features/projets/adaptateur";
+import { cleEquipes, cleLots, cleProjet } from "@/features/projets/cles";
 import { useGestionProjet } from "@/features/projets/components/GestionProjet";
 import {
   budgetRestant,
   ecartAvancement,
   echeancierProjet,
+  effectifProjet,
   estEnRetard,
   initiales,
   largeurJauge,
@@ -127,6 +129,10 @@ export function FicheProjet({ projetId }: { projetId: string }) {
   const requeteLots = useQuery({
     queryKey: cleLots(projetId),
     queryFn: ({ signal }) => listerLots(projetId, signal),
+  });
+  const requeteEquipes = useQuery({
+    queryKey: cleEquipes(projetId),
+    queryFn: ({ signal }) => listerEquipes(projetId, signal),
   });
 
   /**
@@ -347,6 +353,20 @@ export function FicheProjet({ projetId }: { projetId: string }) {
               <LienSection href={lienEquipesChantier(projet.id)}>
                 {t("structure.voirEquipes")}
               </LienSection>
+              {/* Pas de chiffre tant qu'on ne le connaît pas : « 0 » se lirait comme un fait. */}
+              {requeteEquipes.isSuccess && (
+                <span className="inline-flex items-center gap-2 rounded-md border border-solid border-primary-200 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700">
+                  <Users size={16} aria-hidden="true" />
+                  <span>
+                    {t.rich("structure.collaborateurs", {
+                      nombre: effectifProjet(requeteEquipes.data),
+                      fort: (chunks) => (
+                        <strong className="text-base font-bold">{chunks}</strong>
+                      ),
+                    })}
+                  </span>
+                </span>
+              )}
             </div>
           </Bloc>
         </div>

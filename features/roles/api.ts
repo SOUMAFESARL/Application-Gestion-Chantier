@@ -38,14 +38,13 @@ export interface ResultatSuppressionRole {
 }
 
 /**
- * `GET /roles/` n'est pas encore accessible depuis ce poste — voir
- * `simulationRoles.ts`. Sous `NEXT_PUBLIC_API_SIMULE`, la lecture vient du jeu
- * de démonstration du domaine. L'appel réel est déjà à sa place définitive :
- * le jour où le drapeau passe à `0`, aucun écran ne bouge.
+ * `GET /parametres/roles/` — branché sur le serveur, **hors simulation** : la
+ * route existe, la liste lue est donc toujours la vraie, drapeau
+ * `NEXT_PUBLIC_API_SIMULE` ou non. Le serveur renvoie un tableau nu (pas de
+ * pagination), déjà à la forme de `RoleItem`.
  */
 export async function listerRoles(): Promise<RoleItem[]> {
-  if (SIMULATION_ACTIVE) return simulationRoles.lister();
-  return api.lire<RoleItem[]>("/roles/");
+  return api.lire<RoleItem[]>("/parametres/roles/");
 }
 
 export async function obtenirRole(roleId: string): Promise<RoleDetailItem> {
@@ -53,17 +52,26 @@ export async function obtenirRole(roleId: string): Promise<RoleDetailItem> {
   return api.lire<RoleDetailItem>(`/roles/${roleId}/`);
 }
 
-export async function creerRole(payload: CreationRolePayload): Promise<RoleDetailItem> {
-  if (SIMULATION_ACTIVE) return simulationRoles.creer(payload);
-  return api.creer<RoleDetailItem>("/roles/", payload);
+/**
+ * `POST /parametres/roles/` — branché sur le serveur, hors simulation, comme la
+ * lecture : un rôle créé en simulation n'apparaîtrait jamais dans la liste
+ * réelle. La réponse n'est typée qu'en `RoleItem` — rien ne garantit encore
+ * qu'elle porte le `comptage` du détail, et l'écran ne la lit pas.
+ */
+export async function creerRole(payload: CreationRolePayload): Promise<RoleItem> {
+  return api.creer<RoleItem>("/parametres/roles/", payload);
 }
 
+/**
+ * `PATCH /parametres/roles/{id}/` — branché sur le serveur, hors simulation :
+ * les identifiants viennent de la liste réelle, la simulation ne les connaît
+ * pas. Sert à la fois à l'intitulé/description et à la matrice des droits.
+ */
 export async function modifierRole(
   roleId: string,
   payload: ModificationRolePayload,
-): Promise<RoleDetailItem> {
-  if (SIMULATION_ACTIVE) return simulationRoles.modifier(roleId, payload);
-  return api.modifier<RoleDetailItem>(`/roles/${roleId}/`, payload);
+): Promise<RoleItem> {
+  return api.modifier<RoleItem>(`/parametres/roles/${roleId}/`, payload);
 }
 
 export async function supprimerRole(

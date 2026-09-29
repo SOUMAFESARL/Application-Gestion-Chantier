@@ -91,27 +91,20 @@ export default function ParametresRolesPage() {
   }
 
   async function handleChangementNiveau(roleId: string, module: string, nouveauNiveau: NiveauAcces) {
+    const role = roles.find((r) => r.id === roleId);
+    if (!role) return;
+
+    // La matrice **complète** du rôle part au serveur, pas le seul module
+    // touché : un `PATCH` qui remplace le champ JSON au lieu de le fusionner
+    // effacerait sinon les onze autres modules.
+    const permissions = { ...role.permissions_modules, [module]: nouveauNiveau };
+
     setRoles((prev) =>
-      prev.map((r) => {
-        if (r.id === roleId) {
-          return {
-            ...r,
-            permissions_modules: {
-              ...r.permissions_modules,
-              [module]: nouveauNiveau,
-            },
-          };
-        }
-        return r;
-      })
+      prev.map((r) => (r.id === roleId ? { ...r, permissions_modules: permissions } : r))
     );
 
     try {
-      await modifierRole(roleId, {
-        permissions_modules: {
-          [module]: nouveauNiveau,
-        },
-      });
+      await modifierRole(roleId, { permissions_modules: permissions });
     } catch (err: unknown) {
       await chargerDonnees();
       alert(err instanceof Error ? err.message : "");

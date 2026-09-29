@@ -4,7 +4,6 @@ import {
   Bell,
   Building2,
   CalendarDays,
-  ChevronRight,
   CircleDollarSign,
   Cloud,
   CloudLightning,
@@ -31,7 +30,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
-import { LogoCCD } from "@/components/layout/MarqueCCD";
+import { LogoPlateforme } from "@/components/layout/LogoPlateforme";
 import { FilAriane } from "@/components/layout/FilAriane";
 import { BadgeEssai } from "@/components/metier/BadgeEssai";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -72,6 +71,7 @@ import { EVENEMENT_ENTREPRISE_MODIFIEE, lireEntreprise } from "@/features/config
 import type { DonneesEntreprise } from "@/features/configuration/api";
 import { obtenirMeteo } from "@/features/projets/adaptateur";
 import type { MeteoProjet } from "@/features/projets/types";
+import { useIdentitePlateforme } from "@/features/plateforme/hooks";
 
 interface LayoutAppProps {
   children: React.ReactNode;
@@ -194,6 +194,8 @@ export default function LayoutApp({ children }: LayoutAppProps) {
   const [profil, setProfil] = useState<ProfilUtilisateur | null>(null);
   const [entreprise, setEntreprise] = useState<DonneesEntreprise | null>(null);
   const [meteo, setMeteo] = useState<MeteoProjet | null>(null);
+  // Le nom et le logo de la plateforme, paramétrés au back-office.
+  const identitePlateforme = useIdentitePlateforme().data;
 
   // Garde de session : redirection immédiate vers la connexion si aucune session
   useEffect(() => {
@@ -413,12 +415,12 @@ export default function LayoutApp({ children }: LayoutAppProps) {
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
                 <Link href="/tableau-de-bord">
-                  <LogoCCD taille={28} />
+                  <LogoPlateforme logo={identitePlateforme?.logo} taille={28} />
                   {/* Le nom de marque est le seul texte encre de la barre —
                       comme sur `docs/interface.jpg`, où le signe porte la
                       couleur et le mot reste noir. */}
                   <span className="truncate text-base leading-tight font-bold tracking-tight text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden">
-                    {tMarque("nom")}
+                    {identitePlateforme?.nom || tMarque("nom")}
                   </span>
                 </Link>
               </SidebarMenuButton>
@@ -443,16 +445,10 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                 <SidebarMenuSousMenu
                   libelle={t("projets")}
                   declencheur={
-                    <SidebarMenuButton asChild isActive={estSurProjets}>
+                    <SidebarMenuButton asChild isActive={estSurProjets} sousMenu>
                       <Link href="/projets">
                         <Building2 />
                         <span>{t("projets")}</span>
-                        {!estSurProjets && (
-                          <ChevronRight
-                            aria-hidden="true"
-                            className="ml-auto group-data-[collapsible=icon]:hidden"
-                          />
-                        )}
                       </Link>
                     </SidebarMenuButton>
                   }

@@ -9,16 +9,23 @@ import {
   ShieldCheck,
   Smartphone,
   X,
-  Zap,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { ChampTelephone } from "@/components/metier/ChampTelephone";
-import { Alerte, Badge, Bouton, Carte, Champ } from "@/components/ui";
+import {
+  Alerte,
+  Badge,
+  Bouton,
+  Carte,
+  Champ,
+  EtatChargement,
+  EtatErreur,
+} from "@/components/ui";
 import {
   Select,
   SelectContent,
@@ -43,55 +50,14 @@ import type {
 } from "@/features/abonnement/api";
 import { decomposerTva, prixPeriode } from "@/features/abonnement/regles";
 import { lireEntreprise, paysEntreprise } from "@/features/configuration/api";
+import { BasculePeriodicite, CadreForfait } from "@/features/abonnement/components/CadreForfait";
+import { catalogueAuxTarifs, tarifDuPlan } from "@/features/plateforme";
+import type { TarifPlan } from "@/features/plateforme";
+import { useLibellePlan, useTarifsPlateforme } from "@/features/plateforme/hooks";
 import { telephoneValide } from "@/features/referentiels/telephone";
 import { ErreurApi } from "@/lib/api";
 import { ABSENT, formaterDateHeure, formaterMontant } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-/**
- * L'ordre des fonctionnalités affichées sous chaque forfait — clés de traduction.
- * Les quotas (chantiers, utilisateurs, stockage) n'y figurent pas : ils sont
- * lus sur le plan lui-même, sans quoi chaque carte les affichait deux fois.
- */
-const FONCTIONNALITES_PAR_PLAN: Record<CodePlan, string[]> = {
-  BATISSEUR: ["journalQuotidien", "suiviMeteo", "suiviPresences", "exportPdf", "supportStandard"],
-  MAITRE_OEUVRE: [
-    "suiviAvancement",
-    "gestionBudgetaire",
-    "gestionStocks",
-    "alertesQuotas",
-    "rapportsQhse",
-    "supportPrioritaire",
-  ],
-  PROMOTEUR: [
-    "assistantIaIllimite",
-    "multiFiliales",
-    "marqueBlanche",
-    "rapprochementBancaire",
-    "integrationsApi",
-    "sauvegardesQuotidiennes",
-    "chargeCompteDedie",
-  ],
-};
-
-/**
- * Ce qu'un forfait n'inclut pas, barré sous la liste — emprunté au forfait
- * supérieur qui l'apporte, pour que la comparaison se lise d'une carte à l'autre.
- */
-const FONCTIONNALITES_ABSENTES: Record<CodePlan, [CodePlan, string][]> = {
-  BATISSEUR: [
-    ["MAITRE_OEUVRE", "suiviAvancement"],
-    ["MAITRE_OEUVRE", "gestionBudgetaire"],
-    ["MAITRE_OEUVRE", "gestionStocks"],
-    ["PROMOTEUR", "assistantIaIllimite"],
-  ],
-  MAITRE_OEUVRE: [
-    ["PROMOTEUR", "assistantIaIllimite"],
-    ["PROMOTEUR", "multiFiliales"],
-    ["PROMOTEUR", "marqueBlanche"],
-  ],
-  PROMOTEUR: [],
-};
 
 const ICONE_MODE: Record<ModePaiement, typeof Smartphone> = {
   WAVE: Smartphone,
@@ -119,17 +85,25 @@ const FACTURATION_VIDE: InformationsFacturation = {
 
 function CartePlan({
   plan,
+  tarif,
   periodicite,
   onChoisir,
 }: {
   plan: DefinitionPlan;
+  /**
+   * Le tarif publié au back-office : il porte la remise annuelle et les
+   * avantages (les non inclus s'affichent barrés sous la liste).
+   */
+  tarif: TarifPlan | undefined;
   periodicite: Periodicite;
   onChoisir: (code: CodePlan) => void;
 }) {
   const t = useTranslations("abonnement.tarifs");
   const tPlans = useTranslations("abonnement.plan");
-  const libelle = tPlans(`${plan.code}.libelle`);
+  const libelle = tarif?.libelle || tPlans(`${plan.code}.libelle`);
   const populaire = plan.etiquette === "POPULAIRE";
+  const avantages = tarif?.avantages ?? [];
+  const remise = tarif?.remiseAnnuellePourcent ?? 0;
 
   const incluses = [
     plan.limite_chantiers === null
@@ -139,22 +113,14 @@ function CartePlan({
       ? t("utilisateursIllimites")
       : t("utilisateursLimite", { n: plan.limite_utilisateurs }),
     t("stockage", { go: plan.limite_stockage_go }),
-    ...FONCTIONNALITES_PAR_PLAN[plan.code].map((cle) =>
-      tPlans(`${plan.code}.fonctionnalite.${cle}`),
-    ),
+    ...avantages.filter((avantage) => avantage.inclus).map((avantage) => avantage.libelle),
   ];
-  const absentes = FONCTIONNALITES_ABSENTES[plan.code].map(([source, cle]) =>
-    tPlans(`${source}.fonctionnalite.${cle}`),
-  );
+  const absentes = avantages
+    .filter((avantage) => !avantage.inclus)
+    .map((avantage) => avantage.libelle);
 
-  const contenu = (
-    <Carte
-      plate
-      className={cn(
-        "flex flex-1 flex-col gap-5 border-0 p-6 md:p-6",
-        populaire ? "rounded-xl bg-neutral-0" : "bg-primary-50",
-      )}
-    >
+  return (
+    <CadreForfait populaire={populaire} libellePopulaire={t("populaire")}>
       <div>
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-medium text-neutral-600">{libelle}</h3>
@@ -170,6 +136,11 @@ function CartePlan({
             {periodicite === "ANNUELLE" ? t("parAn") : t("parMois")}
           </span>
         </div>
+        {remise > 0 && (
+          <p className="mt-2 inline-flex rounded-full border border-succes/30 bg-succes-fond px-2 py-0.5 text-xs font-medium text-succes">
+            {t("remiseAnnuelle", { valeur: remise })}
+          </p>
+        )}
         <p className="mt-2 text-sm text-neutral-700">{tPlans(`${plan.code}.accroche`)}</p>
       </div>
 
@@ -186,14 +157,14 @@ function CartePlan({
       </Bouton>
 
       <ul className="flex flex-col gap-2.5">
-        {incluses.map((texte) => (
-          <li key={texte} className="flex items-start gap-2.5 text-sm text-neutral-800">
+        {incluses.map((texte, rang) => (
+          <li key={`${rang}-${texte}`} className="flex items-start gap-2.5 text-sm text-neutral-800">
             <Check size={16} className="mt-0.5 shrink-0 text-neutral-700" aria-hidden="true" />
             <span>{texte}</span>
           </li>
         ))}
-        {absentes.map((texte) => (
-          <li key={texte} className="flex items-start gap-2.5 text-sm text-neutral-400">
+        {absentes.map((texte, rang) => (
+          <li key={`${rang}-${texte}`} className="flex items-start gap-2.5 text-sm text-neutral-400">
             <X size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
             <span>
               <span className="sr-only">{t("nonInclus")}</span>
@@ -202,22 +173,7 @@ function CartePlan({
           </li>
         ))}
       </ul>
-    </Carte>
-  );
-
-  if (!populaire) return contenu;
-
-  // Le forfait mis en avant : un cadre dégradé dont le bandeau haut porte
-  // l'étiquette, et qui déborde des cartes voisines par le haut (lg:-mt-9,
-  // compensé par le lg:pt-9 de la grille).
-  return (
-    <div className="flex flex-col rounded-2xl bg-gradient-to-b from-primary-600 via-primary-500 to-primary-300 px-1 pb-1 shadow-lg shadow-primary-500/30 lg:-mt-9">
-      <p className="flex h-8 items-center justify-center gap-1.5 text-xs font-medium text-neutral-0">
-        <Zap size={12} className="fill-current" aria-hidden="true" />
-        {t("populaire")}
-      </p>
-      {contenu}
-    </div>
+    </CadreForfait>
   );
 }
 
@@ -236,11 +192,19 @@ export function AssistantAbonnement() {
   const tConfirmation = useTranslations("abonnement.confirmation");
   const tMode = useTranslations("abonnement.mode");
   const tModeDescription = useTranslations("abonnement.modeDescription");
-  const tPlan = useTranslations("abonnement.plan");
+  const libellePlan = useLibellePlan();
 
   const [etape, setEtape] = useState<1 | 2 | 3>(1);
   const [periodicite, setPeriodicite] = useState<Periodicite>("MENSUELLE");
   const [planCode, setPlanCode] = useState<CodePlan | null>(null);
+
+  // Les prix et les avantages viennent de la plateforme, qui les paramètre
+  // au back-office ; les quotas restent ceux du catalogue.
+  const requeteTarifs = useTarifsPlateforme();
+  const plans = useMemo(
+    () => catalogueAuxTarifs(PLANS_DISPONIBLES, requeteTarifs.data ?? []),
+    [requeteTarifs.data],
+  );
   const [modePaiement, setModePaiement] = useState<ModePaiement | null>(null);
   const [telephonePaiement, setTelephonePaiement] = useState("");
   const [pays, setPays] = useState("");
@@ -280,7 +244,7 @@ export function AssistantAbonnement() {
     };
   }, []);
 
-  const plan = planCode ? PLANS_DISPONIBLES.find((p) => p.code === planCode) : undefined;
+  const plan = planCode ? plans.find((p) => p.code === planCode) : undefined;
   const paysFiscal = PAYS_FISCAUX.find((p) => p.code === facturation.pays_fiscal);
   const montantTtc = plan ? prixPeriode(plan, periodicite) : 0;
   const { ht, tva } = decomposerTva(montantTtc, paysFiscal?.taux_tva ?? 18);
@@ -363,46 +327,39 @@ export function AssistantAbonnement() {
           {/* Seule la grille des forfaits reste centrée : le titre, lui, suit
               la gouttière commune à tous les écrans. */}
           <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-6 text-center">
-            {/* `border-0 bg-transparent` : sans preflight, un `button` garde le
-                cadre et le fond gris du navigateur. */}
-            <div className="inline-flex w-fit items-center gap-1 rounded-lg bg-neutral-100 p-1">
-              <button
-                type="button"
-                className={cn(
-                  "cursor-pointer rounded-md border-0 bg-transparent px-4 py-1.5 text-sm font-medium transition-colors",
-                  periodicite === "MENSUELLE"
-                    ? "bg-neutral-0 text-neutral-900 shadow-sm"
-                    : "text-neutral-600 hover:text-neutral-900",
-                )}
-                onClick={() => setPeriodicite("MENSUELLE")}
-                aria-pressed={periodicite === "MENSUELLE"}
-              >
-                {t("facturationMensuelle")}
-              </button>
-              <button
-                type="button"
-                className={cn(
-                  "cursor-pointer rounded-md border-0 bg-transparent px-4 py-1.5 text-sm font-medium transition-colors",
-                  periodicite === "ANNUELLE"
-                    ? "bg-neutral-0 text-neutral-900 shadow-sm"
-                    : "text-neutral-600 hover:text-neutral-900",
-                )}
-                onClick={() => setPeriodicite("ANNUELLE")}
-                aria-pressed={periodicite === "ANNUELLE"}
-              >
-                {t("facturationAnnuelle")}
-              </button>
-            </div>
+            <BasculePeriodicite<Periodicite>
+              valeur={periodicite}
+              onChange={setPeriodicite}
+              options={[
+                { valeur: "MENSUELLE", libelle: t("facturationMensuelle") },
+                { valeur: "ANNUELLE", libelle: t("facturationAnnuelle") },
+              ]}
+            />
 
             <div className="grid w-full gap-5 text-left lg:grid-cols-3 lg:items-start lg:pt-9">
-              {PLANS_DISPONIBLES.map((planCatalogue) => (
-                <CartePlan
-                  key={planCatalogue.code}
-                  plan={planCatalogue}
-                  periodicite={periodicite}
-                  onChoisir={choisirPlan}
-                />
-              ))}
+              {/* Pas de repli sur les prix du catalogue en cas d'échec : afficher
+                  un prix que la plateforme a peut-être changé serait vendre à un
+                  tarif qui n'existe plus. */}
+              {requeteTarifs.isPending && (
+                <div className="lg:col-span-3">
+                  <EtatChargement />
+                </div>
+              )}
+              {requeteTarifs.isError && (
+                <div className="lg:col-span-3">
+                  <EtatErreur onReessayer={() => void requeteTarifs.refetch()} />
+                </div>
+              )}
+              {requeteTarifs.isSuccess &&
+                plans.map((planCatalogue) => (
+                  <CartePlan
+                    key={planCatalogue.code}
+                    plan={planCatalogue}
+                    tarif={tarifDuPlan(requeteTarifs.data, planCatalogue.code)}
+                    periodicite={periodicite}
+                    onChoisir={choisirPlan}
+                  />
+                ))}
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-medium text-neutral-600">
@@ -597,7 +554,7 @@ export function AssistantAbonnement() {
               <div className="flex flex-col gap-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-neutral-600">{tPaiement("forfaitSouscrit")}</span>
-                  <span className="font-medium text-neutral-900">{tPlan(`${plan.code}.libelle`)}</span>
+                  <span className="font-medium text-neutral-900">{libellePlan(plan.code)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-neutral-600">{tPaiement("periodicite")}</span>
@@ -648,7 +605,7 @@ export function AssistantAbonnement() {
           <div>
             <h1 className="text-h2 font-bold text-neutral-900">{tConfirmation("titre")}</h1>
             <p className="mt-1 text-sm text-neutral-600">
-              {tConfirmation("sousTitre", { plan: tPlan(`${plan.code}.libelle`) })}
+              {tConfirmation("sousTitre", { plan: libellePlan(plan.code) })}
             </p>
           </div>
 

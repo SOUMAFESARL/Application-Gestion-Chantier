@@ -27,6 +27,7 @@ import {
 import type { ClientPlateforme, CriteresClients } from "@/features/administration";
 import { listerClients } from "@/features/administration/adaptateur";
 import { formaterDate, formaterMontant, formaterMontantCourt } from "@/lib/format";
+import { useLibellePlan } from "@/features/plateforme/hooks";
 
 import { CLES_ADMINISTRATION } from "../cles";
 import {
@@ -57,6 +58,7 @@ const colonne = aideColonnes<ClientPlateforme>();
  */
 export function ListeAbonnements() {
   const t = useTranslations("administration");
+  const libellePlan = useLibellePlan();
   const [criteres, setCriteres] = useState<CriteresClients>(CRITERES_CLIENTS_VIDES);
 
   const requete = useQuery({
@@ -97,7 +99,7 @@ export function ListeAbonnements() {
           id: "plan",
           header: t("clients.colonnePlan"),
           meta: { classe: "text-neutral-700" },
-          cell: ({ getValue }) => t(`plan.${getValue()}`),
+          cell: ({ getValue }) => libellePlan(getValue()),
         }),
         colonne.accessor((client) => client.abonnement.statut, {
           id: "statut",
@@ -134,7 +136,7 @@ export function ListeAbonnements() {
           },
         }),
       ]),
-    [t],
+    [t, libellePlan],
   );
 
   /** Le montant sort en francs entiers : un fichier se somme, un « 25 000 FCFA » non. */
@@ -145,7 +147,7 @@ export function ListeAbonnements() {
       colonnes: [
         { entete: t("clients.colonneClient"), valeur: (c) => c.nomCommercial },
         { entete: t("fiche.slug"), valeur: (c) => c.slug },
-        { entete: t("clients.colonnePlan"), valeur: (c) => t(`plan.${c.abonnement.plan}`) },
+        { entete: t("clients.colonnePlan"), valeur: (c) => libellePlan(c.abonnement.plan) },
         {
           entete: t("clients.colonneStatut"),
           valeur: (c) => t(`statutAbonnement.${c.abonnement.statut}`),
@@ -166,7 +168,7 @@ export function ListeAbonnements() {
         },
       ],
     }),
-    [t],
+    [t, libellePlan],
   );
 
   return (
@@ -239,7 +241,7 @@ export function ListeAbonnements() {
                     onChangement={(plan) => setCriteres({ ...criteres, plan })}
                     libelle={t("clients.filtrePlan")}
                     libelleTous={t("clients.filtrePlanTous")}
-                    options={plans.map((plan) => ({ valeur: plan, libelle: t(`plan.${plan}`) }))}
+                    options={plans.map((plan) => ({ valeur: plan, libelle: libellePlan(plan) }))}
                   />
                 </>
               }

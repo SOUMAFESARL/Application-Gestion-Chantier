@@ -86,38 +86,14 @@
     "plan": {
       "BATISSEUR": {
         "accroche": "Idéal pour les artisans, maîtres d'œuvre indépendants et petits chantiers.",
-        "fonctionnalite": {
-          "exportPdf": "Export PDF rapports de base",
-          "journalQuotidien": "Journal de chantier quotidien",
-          "suiviMeteo": "Suivi météo connectée",
-          "suiviPresences": "Suivi présences ouvriers",
-          "supportStandard": "Support standard par email (24h)"
-        },
         "libelle": "Bâtisseur"
       },
       "MAITRE_OEUVRE": {
         "accroche": "Pour les PME du BTP qui pilotent plusieurs chantiers en parallèle.",
-        "fonctionnalite": {
-          "alertesQuotas": "Alertes automatiques de quotas & dépassements",
-          "gestionBudgetaire": "Gestion budgétaire & bons de paiement",
-          "gestionStocks": "Gestion des stocks & achats",
-          "rapportsQhse": "Rapports QHSE et sécurité",
-          "suiviAvancement": "Suivi d'avancement & photos géolocalisées",
-          "supportPrioritaire": "Support prioritaire sous 2h (WhatsApp & Téléphone)"
-        },
         "libelle": "Maître d'Œuvre"
       },
       "PROMOTEUR": {
         "accroche": "Pour les groupes et promoteurs qui consolident plusieurs filiales.",
-        "fonctionnalite": {
-          "assistantIaIllimite": "Assistant IA illimité (analyse risques, résumés auto)",
-          "chargeCompteDedie": "Chargé de compte dédié + formation sur site",
-          "integrationsApi": "Intégrations API & webhooks",
-          "marqueBlanche": "Personnalisation marque blanche (logo, charte client)",
-          "multiFiliales": "Multi-filiales & gestion consolidée",
-          "rapprochementBancaire": "Rapprochement bancaire & exports comptables",
-          "sauvegardesQuotidiennes": "Sauvegardes quotidiennes externalisées"
-        },
         "libelle": "Promoteur"
       }
     },
@@ -142,7 +118,8 @@
       "stockage": "{go} Go de stockage",
       "titre": "Forfaits spécialisés BTP & travaux publics",
       "utilisateursIllimites": "Utilisateurs illimités",
-      "utilisateursLimite": "{n} utilisateurs"
+      "utilisateursLimite": "{n} utilisateurs",
+      "remiseAnnuelle": "−{valeur} % en facturation annuelle"
     },
     "titre": "Abonnement"
   },
@@ -338,7 +315,11 @@
       "titre": "Administration",
       "titreClients": "Clients — Administration",
       "titreConnexion": "Connexion — Administration",
-      "titreMotDePasseOublie": "Mot de passe oublié — Administration"
+      "titreMotDePasseOublie": "Mot de passe oublié — Administration",
+      "titreProfil": "Mon profil — Administration",
+      "titreComptes": "Comptes administrateurs — Administration",
+      "titreTarifs": "Tarifs — Administration",
+      "titreIdentite": "Nom et logo — Administration"
     },
     "motDePasseOublie": {
       "accroche": "Indiquez votre adresse professionnelle : un lien de réinitialisation vous y sera envoyé.",
@@ -363,7 +344,12 @@
       "clients": "Clients",
       "deconnexion": "Se déconnecter",
       "ouvrirMenu": "Ouvrir le menu",
-      "tableauDeBord": "Vue d’ensemble"
+      "tableauDeBord": "Vue d’ensemble",
+      "profil": "Mon profil",
+      "parametrage": "Paramétrage",
+      "parametrageComptes": "Comptes administrateurs",
+      "parametrageTarifs": "Tarifs",
+      "parametrageIdentite": "Nom et logo"
     },
     "plan": {
       "BATISSEUR": "Bâtisseur",
@@ -391,6 +377,7 @@
     "statutClient": {
       "ACTIF": "Actif",
       "EN_ATTENTE": "Jamais activé",
+      "ESSAI": "En essai",
       "RESILIE": "Résilié",
       "SUSPENDU": "Suspendu"
     },
@@ -421,6 +408,176 @@
       "variationBaisse": "−{valeur} %",
       "variationHausse": "+{valeur} %",
       "variationStable": "± 0 %"
+    },
+    "profil": {
+      "titre": "Mon profil",
+      "sousTitre": "Vos informations de contact au sein de l’équipe de la plateforme.",
+      "sectionIdentite": "Informations personnelles",
+      "sectionIdentiteAide": "Elles apparaissent dans l’en-tête et dans le journal des actions.",
+      "sectionCompte": "Compte",
+      "prenom": "Prénom",
+      "nom": "Nom",
+      "email": "Adresse professionnelle",
+      "emailAide": "C’est aussi votre identifiant de connexion.",
+      "telephone": "Téléphone",
+      "telephonePlaceholder": "+225 07 00 00 00 00",
+      "role": "Rôle",
+      "roleAide": "Le rôle se change depuis la gestion des comptes, par un autre administrateur.",
+      "enregistrer": "Enregistrer",
+      "enCours": "Enregistrement…",
+      "annuler": "Annuler les modifications",
+      "succes": "Votre profil a été mis à jour.",
+      "erreurPrenomRequis": "Le prénom est requis.",
+      "erreurNomRequis": "Le nom est requis.",
+      "erreurEmailRequis": "L’adresse professionnelle est requise.",
+      "erreurEmailInvalide": "Cette adresse n’est pas valide.",
+      "erreurTelephoneInvalide": "Ce numéro n’est pas valide.",
+      "photo": {
+        "changer": "Changer la photo",
+        "ajouter": "Ajouter une photo",
+        "retirer": "Retirer la photo",
+        "contrainte": "PNG, JPEG ou WebP — 1 Mo au plus.",
+        "enCours": "Envoi de la photo…",
+        "succes": "Votre photo de profil a été mise à jour.",
+        "retiree": "Votre photo de profil a été retirée.",
+        "formatInvalide": "Ce format n’est pas accepté.",
+        "tropLourde": "Cette photo dépasse 1 Mo."
+      },
+      "motDePasse": {
+        "titre": "Mot de passe",
+        "description": "Choisissez un mot de passe que vous n’utilisez nulle part ailleurs.",
+        "actuel": "Mot de passe actuel",
+        "enregistrer": "Changer le mot de passe",
+        "enCours": "Changement…",
+        "succes": "Votre mot de passe a été changé.",
+        "erreurActuelRequis": "Le mot de passe actuel est requis.",
+        "erreurNouveauRequis": "Le nouveau mot de passe est requis.",
+        "erreurIdentique": "Le nouveau mot de passe doit être différent de l’actuel."
+      }
+    },
+    "parametres": {
+      "lectureSeule": "Votre rôle permet la consultation du paramétrage, pas sa modification.",
+      "comptes": {
+        "titre": "Comptes administrateurs",
+        "description": "Les agents qui ont accès au back-office, et ce que leur rôle leur permet.",
+        "colonneAgent": "Agent",
+        "colonneRole": "Rôle",
+        "colonneStatut": "Statut",
+        "colonneTelephone": "Téléphone",
+        "colonneDerniereConnexion": "Dernière connexion",
+        "colonneCreeLe": "Créé le",
+        "colonneActions": "Actions",
+        "jamaisConnecte": "Jamais connecté",
+        "vous": "Vous",
+        "ajouter": "Ajouter un administrateur",
+        "recherche": "Rechercher un agent",
+        "recherchePlaceholder": "Nom, adresse…",
+        "filtreRole": "Filtrer par rôle",
+        "filtreRoleTous": "Tous les rôles",
+        "filtreStatut": "Filtrer par statut",
+        "filtreStatutTous": "Tous les statuts",
+        "aucun": "Aucun compte ne correspond à ces critères.",
+        "suspendre": "Suspendre",
+        "reactiver": "Réactiver",
+        "statut": {
+          "ACTIF": "Actif",
+          "SUSPENDU": "Suspendu"
+        },
+        "creation": {
+          "titre": "Ajouter un administrateur",
+          "description": "Une invitation est envoyée à cette adresse : l’agent y choisira lui-même son mot de passe.",
+          "prenom": "Prénom",
+          "nom": "Nom",
+          "email": "Adresse professionnelle",
+          "emailPlaceholder": "prenom.nom@ccd-digital.ci",
+          "annuler": "Annuler",
+          "confirmer": "Créer le compte",
+          "enCours": "Création…",
+          "succes": "Le compte de {nom} a été créé. Une invitation lui a été envoyée."
+        },
+        "suspension": {
+          "titre": "Suspendre le compte de {nom}",
+          "description": "Cet agent ne pourra plus se connecter au back-office. Ses actions passées restent au journal.",
+          "annuler": "Annuler",
+          "confirmer": "Suspendre",
+          "enCours": "Suspension…"
+        },
+        "reactivation": {
+          "titre": "Réactiver le compte de {nom}",
+          "description": "Cet agent pourra de nouveau se connecter au back-office.",
+          "annuler": "Annuler",
+          "confirmer": "Réactiver",
+          "enCours": "Réactivation…"
+        },
+        "erreurPrenomRequis": "Le prénom est requis.",
+        "erreurNomRequis": "Le nom est requis.",
+        "erreurEmailRequis": "L’adresse professionnelle est requise.",
+        "erreurEmailInvalide": "Cette adresse n’est pas valide.",
+        "erreurRoleRequis": "Choisissez un rôle.",
+        "export": {
+          "titre": "Comptes administrateurs",
+          "nomFichier": "comptes-administrateurs",
+          "prenom": "Prénom",
+          "nom": "Nom",
+          "email": "Adresse"
+        }
+      },
+      "tarifs": {
+        "titre": "Tarifs affichés aux entreprises",
+        "prixMensuel": "Prix mensuel (FCFA TTC)",
+        "enregistrer": "Enregistrer les tarifs",
+        "enCours": "Enregistrement…",
+        "annuler": "Annuler les modifications",
+        "succes": "Les nouveaux tarifs sont en ligne.",
+        "erreurPrixRequis": "Le prix est requis.",
+        "erreurPrixEntier": "Le prix doit être un nombre entier de francs.",
+        "erreurPrixPositif": "Le prix doit être supérieur à zéro.",
+        "avantagesAide": "Cliquez sur la coche d’un avantage pour le barrer (non inclus).",
+        "aucunAvantage": "Aucun avantage affiché pour ce plan.",
+        "ajouterAvantage": "Ajouter un avantage",
+        "avantagesMax": "{max} avantages au plus",
+        "avantageLibelle": "Avantage {numero}",
+        "avantagePlaceholder": "Ex. Journal de chantier quotidien",
+        "marquerInclus": "Marquer comme inclus",
+        "marquerNonInclus": "Marquer comme non inclus",
+        "retirerAvantage": "Retirer l’avantage {numero}",
+        "erreurAvantageRequis": "Saisissez l’avantage ou retirez la ligne.",
+        "erreurAvantageTropLong": "{max} caractères au plus.",
+        "apercu": "Chaque carte est celle que voient les entreprises : modifiez-la directement.",
+        "remiseAnnuelle": "Remise annuelle",
+        "soitAnnuel": "Soit {montant} TTC par an.",
+        "prixIncomplet": "—",
+        "uniteChantiers": "chantiers",
+        "uniteUtilisateurs": "utilisateurs",
+        "uniteStockage": "Go de stockage",
+        "illimite": "Illimité",
+        "erreurQuota": "Un quota est un nombre entier supérieur à zéro.",
+        "erreurRemise": "La remise est un nombre entier entre 0 et 90 %.",
+        "nomPlan": "Nom du forfait {code}",
+        "erreurNomRequis": "Le forfait doit avoir un nom.",
+        "erreurNomTropLong": "{max} caractères au plus.",
+        "limite": "Limité"
+      },
+      "identite": {
+        "titre": "Nom et logo de la plateforme",
+        "description": "Ils apparaissent dans la barre latérale de l’espace entreprise et du back-office.",
+        "nom": "Nom de la plateforme",
+        "logo": "Logo",
+        "logoChoisir": "Choisir un logo",
+        "logoContrainte": "PNG, JPEG, SVG ou WebP — 512 Ko au plus. Un format carré rend le mieux.",
+        "logoRemplacer": "Remplacer",
+        "logoRetirer": "Revenir au logo par défaut",
+        "logoParDefaut": "Logo par défaut",
+        "logoFormatInvalide": "Ce format n’est pas accepté.",
+        "logoTropLourd": "Ce fichier dépasse 512 Ko.",
+        "apercu": "Aperçu",
+        "enregistrer": "Enregistrer",
+        "enCours": "Enregistrement…",
+        "annuler": "Annuler les modifications",
+        "succes": "L’identité de la plateforme a été mise à jour.",
+        "erreurNomRequis": "Le nom de la plateforme est requis.",
+        "erreurNomLong": "Le nom ne doit pas dépasser 40 caractères."
+      }
     }
   },
   "configuration": {
@@ -593,7 +750,8 @@
       "avancementPondere": "Avancement pondéré",
       "enRetard": "Activités en retard",
       "voirLots": "Lots & activités",
-      "voirEquipes": "Équipes & affectations"
+      "voirEquipes": "Équipes & affectations",
+      "collaborateurs": "{nombre, plural, =0 {Aucun collaborateur} one {<fort>#</fort> collaborateur} other {<fort>#</fort> collaborateurs}}"
     },
     "equipe": {
       "titre": "Équipe projet",
