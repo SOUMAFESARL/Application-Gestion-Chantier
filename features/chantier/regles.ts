@@ -674,3 +674,31 @@ export function rapportsManquants(synthese: Pick<SynthesePeriodique, "recapitula
 export function incidentsResolus(incidents: IncidentSynthese[]): number {
   return incidents.filter((incident) => incident.resolu).length;
 }
+
+/* ------------------------------------------------------------------ *
+ * Les indicateurs d'un chantier, pour sa fiche projet (F1 §9.4).
+ * ------------------------------------------------------------------ */
+
+/** La fenêtre du taux de soumission : les 7 derniers jours ouvrés. */
+export const FENETRE_SOUMISSION_JOURS = 7;
+
+export interface IndicateursJournalProjet {
+  soumission: TauxSoumission;
+  /** Sur tout le journal lu (neuf semaines). */
+  incidents: number;
+  blocages: number;
+}
+
+/** Ce que le journal dit d'un chantier : rapports remis, incidents, blocages. */
+export function indicateursJournalProjet(
+  entrees: EntreeJournal[],
+  projetId: string,
+  aujourdhui: string,
+): IndicateursJournalProjet {
+  const duProjet = entrees.filter((entree) => entree.lot.projetId === projetId);
+  return {
+    soumission: tauxSoumission(duProjet, aujourdhui, FENETRE_SOUMISSION_JOURS),
+    incidents: duProjet.reduce((somme, entree) => somme + (entree.incidents ?? 0), 0),
+    blocages: duProjet.reduce((somme, entree) => somme + (entree.blocages ?? 0), 0),
+  };
+}

@@ -17,7 +17,7 @@ import { formaterDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { BLOC, BLOC_CORPS, BLOC_ENTETE, BLOC_SOUS_TITRE, BLOC_TITRE } from "./classes";
-import { BadgeSituation, BoutonRelance, CircuitCompact, horodatageCourt } from "./composants";
+import { BadgeSituation, BoutonRelance, CircuitCompact } from "./composants";
 
 /**
  * L'onglet « Circuit de validation » — ce que la maquette appelait la file du
@@ -114,40 +114,21 @@ function LigneValidation({ ligne, aujourdhui }: { ligne: ValidationEnAttente; au
             blocages: entree.blocages ?? 0,
           })}
         </p>
-        {entree.noteChefChantier && (
-          <p className="m-0 line-clamp-2 text-xs text-neutral-600 italic">
-            {t("note", { note: entree.noteChefChantier })}
-          </p>
-        )}
         <CircuitCompact circuit={entree.circuit} aujourdhui={aujourdhui} />
       </div>
 
-      <div className="flex shrink-0 flex-col gap-2 md:items-end">
-        <span className={cn("text-xs font-medium", horsDelai ? "text-erreur" : "text-neutral-600")}>
-          {t("attendu", {
-            role: tCircuit(`role.${etape.role}`),
-            nom: etape.signataire,
-          })}
-          {etape.echeance && (
-            <>
-              {" "}
-              {t(horsDelai ? "echeanceDepassee" : "echeance", { quand: horodatageCourt(etape.echeance, aujourdhui) })}
-            </>
-          )}
-        </span>
-        <div className="flex flex-wrap items-center gap-2">
-          <BoutonRelance
-            entree={entree}
-            libelle={t("relancer", { role: tCircuit(`court.${etape.role}`) })}
-            aujourdhui={aujourdhui}
-          />
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/rapports/${entree.id}`}>
-              <Eye aria-hidden="true" />
-              {t("voir")}
-            </Link>
-          </Button>
-        </div>
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <BoutonRelance
+          entree={entree}
+          libelle={t("relancer", { role: tCircuit(`court.${etape.role}`) })}
+          aujourdhui={aujourdhui}
+        />
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/rapports/${entree.id}`}>
+            <Eye aria-hidden="true" />
+            {t("voir")}
+          </Link>
+        </Button>
       </div>
     </li>
   );

@@ -1,9 +1,11 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 
 import {
   Breadcrumb,
@@ -14,6 +16,9 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { lireProjet } from "@/features/projets/adaptateur";
+import { cleProjet } from "@/features/projets/cles";
 
 /**
  * Fil d'Ariane de la topbar — modèle demandé : flèche de retour, puis
@@ -23,8 +28,9 @@ import { Button } from "@/components/ui/button";
  *
  * Les libellés viennent de `tableauDeBord.navigation.*` — les mêmes clés
  * que la sidebar (`LayoutApp`), pour ne pas nommer deux fois le même écran.
- * Un segment sans clé connue (ex. un identifiant dans `/projets/[id]`) se
- * replie sur une version lisible du segment brut plutôt que sur rien.
+ * Un projet (`/projets/[id]`) se nomme par son nom, lu dans le même cache
+ * React Query que sa fiche — pas de seconde requête. Tout autre segment sans
+ * clé connue se replie sur une version lisible du segment brut.
  */
 const CARTE_SEGMENTS: Record<string, string> = {
   "/tableau-de-bord": "accueil",
@@ -53,6 +59,12 @@ const CARTE_SEGMENTS: Record<string, string> = {
   "/parametres/configuration": "configuration",
 };
 
+/** L'identifiant du projet de `/projets/[id]/…`, s'il y en a un. */
+function projetDuChemin(segments: string[]): string | undefined {
+  if (segments[0] !== "projets" || !segments[1]) return undefined;
+  return CARTE_SEGMENTS[`/projets/${segments[1]}`] ? undefined : segments[1];
+}
+
 function humaniser(segment: string): string {
   const propre = decodeURIComponent(segment).replace(/[-_]+/g, " ").trim();
   return propre.charAt(0).toUpperCase() + propre.slice(1);
@@ -63,8 +75,18 @@ export function FilAriane() {
   const t = useTranslations("tableauDeBord.navigation");
 
   const segments = pathname.split("/").filter(Boolean);
+  const projetId = projetDuChemin(segments);
+  const projet = useQuery({
+    queryKey: cleProjet(projetId ?? ""),
+    queryFn: () => lireProjet(projetId ?? ""),
+    enabled: projetId !== undefined,
+  });
 
-  function libelle(chemin: string, segmentBrut: string): string {
+  function libelle(chemin: string, segmentBrut: string): ReactNode {
+    if (projetId !== undefined && chemin === `/projets/${projetId}`) {
+      if (projet.data) return projet.data.nom;
+      return projet.isError ? humaniser(segmentBrut) : <Skeleton className="h-4 w-32" />;
+    }
     // Un rapport journalier (`/rapports/[id]`) se nomme par son type, pas par son identifiant.
     const cle = CARTE_SEGMENTS[chemin] ?? (/^\/rapports\/(rap|abs)-/.test(chemin) ? "chantierRapport" : undefined);
     return cle ? t(cle) : humaniser(segmentBrut);
@@ -79,7 +101,7 @@ export function FilAriane() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbPage>{courant.texte}</BreadcrumbPage>
+            <BreadcrumbPage className="block max-w-xs truncate">{courant.texte}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
@@ -104,12 +126,12 @@ export function FilAriane() {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href={parent.chemin}>{parent.texte}</Link>
+              <Link href={parent.chemin} className="block max-w-xs truncate">{parent.texte}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>{courant.texte}</BreadcrumbPage>
+            <BreadcrumbPage className="block max-w-xs truncate">{courant.texte}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>

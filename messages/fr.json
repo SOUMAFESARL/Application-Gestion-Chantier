@@ -697,8 +697,6 @@
   "ficheProjet": {
     "actionWhatsApp": "Contacter sur WhatsApp",
     "retourProjets": "Retour aux projets",
-    "titre": "Fiche projet : {nom}",
-    "sousTitre": "{reference} · {client} · {ville}",
     "points": "{valeur} pts",
     "calendrier": {
       "titre": "Calendrier",
@@ -765,7 +763,146 @@
     },
     "modifier": "Modifier",
     "suspendre": "Suspendre",
-    "reprendre": "Reprendre"
+    "reprendre": "Reprendre",
+    "exporterPdf": "Fiche PDF",
+    "actions": "Actions",
+    "pdf": {
+      "generation": {
+        "titre": "Fiche projet PDF",
+        "enCours": "Génération de la fiche en cours… Le téléchargement démarrera automatiquement.",
+        "echec": "La fiche n'a pas pu être générée.",
+        "erreur": "La fiche n'a pas pu être générée. Réessayez.",
+        "fermer": "Fermer",
+        "reessayer": "Réessayer"
+      },
+      "nomFichier": "fiche-projet-{reference}-{date}.pdf",
+      "titre": "Fiche projet",
+      "dateGeneration": "Date de génération : {date}",
+      "sante": "Indice de santé",
+      "santeValeur": "{valeur}/100",
+      "santeNiveau": {
+        "vert": "Bon",
+        "orange": "Passable",
+        "rouge": "Critique",
+        "inconnu": "Non calculé"
+      },
+      "sections": {
+        "identification": "1. Identification",
+        "calendrierBudget": "2. Calendrier & budget",
+        "avancement": "3. Avancement global",
+        "indicateurs": "4. Indicateurs clés",
+        "risques": "5. Risques et vigilance",
+        "equipe": "6. Équipe projet",
+        "prochainesEtapes": "7. Prochaines étapes",
+        "note": "8. Note du chef de projet",
+        "signatures": "Validation et signatures"
+      },
+      "identification": {
+        "client": "Client (maître d'ouvrage)",
+        "contactClient": "Contact client",
+        "maitreOeuvre": "Maître d'œuvre",
+        "localisation": "Localisation",
+        "type": "Type d'ouvrage",
+        "reference": "Référence",
+        "description": "Description",
+        "nonRenseigne": "Non renseigné"
+      },
+      "calendrier": {
+        "debutPrevu": "Début prévu",
+        "finPrevue": "Fin prévue",
+        "duree": "Durée contractuelle",
+        "debutReel": "Démarrage réel",
+        "nonDemarre": "Pas encore démarré",
+        "delaiEcoule": "Délai écoulé",
+        "delaiEcouleValeur": "{valeur} %",
+        "echeance": "Échéance",
+        "joursRestants": "{jours, plural, =0 {Aujourd'hui} one {Dans # jour} other {Dans # jours}}",
+        "echeanceDepassee": "{jours, plural, one {Dépassée de # jour} other {Dépassée de # jours}}",
+        "termineLe": "Terminé le {date}",
+        "clos": "Projet clos"
+      },
+      "budget": {
+        "initial": "Budget prévisionnel",
+        "consomme": "Consommé",
+        "restant": "Reste à engager",
+        "depasse": "Dépassement",
+        "part": "{valeur} % du budget",
+        "nonDefini": "Non défini"
+      },
+      "avancement": {
+        "reel": "Avancement réel",
+        "theorique": "Avancement théorique",
+        "ecart": "Écart au théorique : {valeur} pts"
+      },
+      "lots": {
+        "numero": "N°",
+        "lot": "Lot",
+        "mode": "Mode d'exécution",
+        "bordereau": "Bordereau",
+        "avancement": "Avancement",
+        "budget": "Budget lot (FCFA)",
+        "statut": "Statut",
+        "sansActivite": "Aucune activité",
+        "vide": "Aucun lot n'est encore structuré sur ce projet."
+      },
+      "indicateurs": {
+        "respectDelais": "Respect des délais",
+        "respectDelaisDetail": "activités attendues à l'heure",
+        "soumission": "Rapports soumis",
+        "soumissionDetail": "{deposes} / {attendus} · 7 jours ouvrés",
+        "incidents": "Incidents",
+        "incidentsDetail": "{blocages, plural, =0 {aucun blocage} one {# blocage} other {# blocages}} · 9 semaines",
+        "ecart": "Avancement vs prévu",
+        "ecartDetail": "réel {reel} · prévu {theorique}",
+        "points": "{valeur} pts",
+        "journalIndisponible": "journal indisponible"
+      },
+      "vigilance": {
+        "ECHEANCE_DEPASSEE": "Échéance contractuelle dépassée de {jours, plural, one {# jour} other {# jours}}.",
+        "RETARD_AVANCEMENT": "Avancement en retard de {ecart} points sur le théorique.",
+        "BUDGET_alerte": "Budget consommé à {ratio} % : seuil d'alerte franchi.",
+        "BUDGET_depassement": "Budget dépassé : {ratio} % consommés.",
+        "LOT_EN_RETARD": "Lot {code} — {nom} : en retard.",
+        "ACTIVITE_EN_RETARD": "{code} {libelle} : {reel} réalisés pour {theorique} attendus, fin prévue le {fin}.",
+        "BLOCAGES": "{nombre, plural, one {# blocage signalé} other {# blocages signalés}} au journal de chantier sur les neuf dernières semaines.",
+        "vide": "Aucun point de vigilance à la date de génération."
+      },
+      "equipe": {
+        "role": "Rôle",
+        "nom": "Nom & prénom",
+        "telephone": "Téléphone",
+        "email": "Email",
+        "nonDesigne": "Non désigné",
+        "equipesChantier": "Sur le chantier : {equipes, plural, =0 {aucune équipe constituée} one {# équipe} other {# équipes}}, {personnes, plural, =0 {aucune personne} one {# personne} other {# personnes}}.",
+        "chefProjet": "Chef de projet",
+        "conducteurTravaux": "Conducteur de travaux",
+        "chefChantier": "Chef de chantier",
+        "directeurFinancier": "Directeur financier"
+      },
+      "etapes": {
+        "code": "Code",
+        "activite": "Activité",
+        "lot": "Lot",
+        "debut": "Début prévu",
+        "fin": "Fin prévue",
+        "equipe": "Équipe",
+        "aAffecter": "À affecter",
+        "vide": "Aucune activité ne démarre dans les 14 prochains jours."
+      },
+      "note": {
+        "auteur": "{nom} — Chef de projet · {date}",
+        "auteurSansNom": "Chef de projet · {date}"
+      },
+      "signatures": {
+        "chefProjet": "Chef de projet",
+        "directeurGeneral": "Directeur général",
+        "directeurFinancier": "Directeur financier",
+        "signature": "Signature"
+      },
+      "pied": {
+        "page": "Page {page}/{total}"
+      }
+    }
   },
   "format": {
     "dateHeure": "{date} à {heure}"
@@ -2005,7 +2142,6 @@
         "MENSUELLE": "Synthèse mensuelle",
         "PERSONNALISEE": "Synthèse personnalisée"
       },
-      "genereLe": "Générée le {quand}",
       "periodeEnCours": "Période en cours — chiffres provisoires",
       "identification": "Identification",
       "projet": "Projet",
@@ -2067,14 +2203,11 @@
         "avancement": "Av. lot",
         "incidents": "Incidents",
         "blocages": "Blocages",
-        "reference": "Réf.",
         "vide": "Aucun rapport attendu sur cette période.",
         "nonDisponible": "Non disponible",
-        "absent": "Absent",
         "total": "Total",
         "totalValides": "{valides}/{attendus} validés",
-        "totalPresence": "Présence {taux} %",
-        "totalManquants": "{n, plural, one {# manquant} other {# manquants}}"
+        "totalPresence": "Présence {taux} %"
       },
       "avancement": {
         "activite": "Lot / activité",
@@ -2139,7 +2272,10 @@
         "vide": "Les objectifs de la période suivante sont fixés à la clôture."
       },
       "separateur": " · ",
-      "lotCouvert": "{code} {nom}"
+      "lotCouvert": "{code} {nom}",
+      "pdf": {
+        "nomFichier": "synthese-{reference}.pdf"
+      }
     },
     "pourcent": "{valeur} %",
     "actions": {
@@ -2242,10 +2378,6 @@
       "titre": "{code} {lot} — {chantier}",
       "horsDelai": "Hors délai",
       "details": "{date} · {chef} · effectifs {presents}/{prevus} ({taux} %) · avancement {avancement} % · {incidents, plural, =0 {aucun incident} one {# incident} other {# incidents}} · {blocages, plural, =0 {aucun blocage} one {# blocage} other {# blocages}}",
-      "note": "Note du chef de chantier : « {note} »",
-      "attendu": "Attendu : {role} ({nom})",
-      "echeance": "— avant {quand}",
-      "echeanceDepassee": "— délai dépassé ({quand})",
       "relancer": "Relancer le {role}",
       "voir": "Voir le rapport",
       "motif": "Rejeté par {nom} : {motif}"
@@ -2327,10 +2459,18 @@
       "raccourci": "Synthèse S{numero} · {reference}"
     },
     "document": {
-      "retour": "Journal de chantier",
-      "imprimer": "Imprimer / PDF",
-      "marque": "CCD Digital · Journal de chantier",
-      "pied": "CCD Digital — solution SaaS de gestion de chantier BTP"
+      "retour": "Retour au journal de chantier",
+      "actions": "Actions",
+      "imprimer": "Imprimer",
+      "telecharger": "Télécharger le PDF",
+      "generation": {
+        "enCours": "Génération du PDF en cours… Le téléchargement démarrera automatiquement.",
+        "enCoursImpression": "Préparation du document à imprimer… La fenêtre d'impression s'ouvrira automatiquement.",
+        "echec": "Le document n'a pas pu être généré.",
+        "erreur": "Le document n'a pas pu être généré. Réessayez.",
+        "fermer": "Fermer",
+        "reessayer": "Réessayer"
+      }
     },
     "enumerations": {
       "meteo": {
@@ -2390,15 +2530,11 @@
       "sousTitre": "Rapport journalier officiel — validé par le conducteur de travaux sous 24 h",
       "introuvable": "Ce rapport n'existe pas ou n'a pas encore été rédigé.",
       "erreurChargement": "Le rapport n'a pas pu être chargé.",
-      "statut": "Statut : {statut}",
-      "soumisLe": "Soumis le {quand} par {nom}",
-      "attente": "En attente : {role} — délai {quand}",
-      "attenteHorsDelai": "Hors délai : {role} — délai dépassé depuis le {quand}",
-      "rejet": "Motif du rejet : {motif}",
       "identification": "Identification",
       "projet": "Projet",
       "lot": "Lot",
       "lotValeur": "{code} — {nom}",
+      "titrePage": "Rapport du {jour}",
       "mode": "Mode d'exécution",
       "referenceProjet": "Référence projet",
       "numero": "N° de rapport",
@@ -2415,7 +2551,6 @@
       "neant": "—",
       "total": "Total",
       "quantiteUnite": "{quantite} {unite}",
-      "mention": "Données figées à la soumission — immuables après approbation du CP",
       "chiffres": {
         "avancement": "Avancement du lot",
         "retard": "Retard {points} pts · prévu {theorique} %",
@@ -2565,6 +2700,17 @@
       "note": {
         "auteur": "{nom} — chef de chantier · {quand}",
         "vide": "Aucune note."
+      },
+      "pdf": {
+        "nomFichier": "rapport-journalier-{reference}.pdf",
+        "dateGeneration": "Date de génération : {date}",
+        "identification": "Identification et chiffres du jour",
+        "retard": "Retard {points} pts",
+        "alHeure": "Dans le planning",
+        "photo": "{titre} — {legende} · {meta}",
+        "signeLe": "Signé le : {quand}",
+        "signeLeVide": "Signé le :",
+        "page": "Page {page}/{total}"
       }
     }
   }

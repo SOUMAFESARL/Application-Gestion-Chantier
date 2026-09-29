@@ -5,7 +5,10 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
+  ChevronDown,
   ChevronRight,
+  FileDown,
+  LoaderCircle,
   Mail,
   MessageCircle,
   Pause,
@@ -24,6 +27,13 @@ import type { ReactNode } from "react";
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { Badge, EtatChargement, EtatErreur } from "@/components/ui";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { lireProjet, listerEquipes, listerLots } from "@/features/projets/adaptateur";
 import { cleEquipes, cleLots, cleProjet } from "@/features/projets/cles";
 import { useGestionProjet } from "@/features/projets/components/GestionProjet";
@@ -68,6 +78,7 @@ import {
 } from "../classes";
 import { useEstColle } from "../EnteteChantier";
 import { lienEquipesChantier } from "../equipe-affectations/liens";
+import { useGenerationFicheProjet } from "./GenerationFicheProjet";
 
 /**
  * La fiche d'un projet.
@@ -142,6 +153,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
   const [entete, setEntete] = useState<HTMLDivElement | null>(null);
   const colle = useEstColle(entete);
   const { modifier, basculerSuspension, modaux } = useGestionProjet();
+  const fichePdf = useGenerationFicheProjet(requete.data);
 
   const synthese = useMemo(
     () => syntheseLots(requeteLots.data ?? []),
@@ -205,14 +217,9 @@ export function FicheProjet({ projetId }: { projetId: string }) {
             "max-sm:[&>div:last-child]:justify-start max-sm:[&>div:last-child]:gap-2",
             !colle && "border-0 border-b border-solid border-neutral-200 pb-4",
           )}
-          titre={t("titre", { nom: projet.nom })}
-          description={t("sousTitre", {
-            reference: projet.reference,
-            client: projet.client.raisonSociale,
-            ville: lieu || projet.ville,
-          })}
-          actions={
-            <>
+          titre={projet.nom}
+          description={
+            <span className="mt-1 flex flex-wrap items-center gap-2">
               {projet.typeProjet && (
                 <Badge variante="neutre">
                   {tProjets(`tiroirCreation.typeProjet.${projet.typeProjet}`)}
@@ -221,35 +228,54 @@ export function FicheProjet({ projetId }: { projetId: string }) {
               <Badge variante={TON_STATUT[projet.statut]}>
                 {tProjets(`statut.${projet.statut}`)}
               </Badge>
-              {peutSuspendre(projet) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => basculerSuspension(projet)}
-                  className="text-avertissement hover:text-avertissement"
-                >
-                  <Pause aria-hidden="true" />
-                  {t("suspendre")}
+            </span>
+          }
+          actions={
+            /*
+             * Les actions du projet sont regroupées derrière un seul bouton :
+             * trois boutons côte à côte chargeaient l'en-tête collant, et
+             * passaient sur deux lignes sur téléphone.
+             */
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" aria-busy={fichePdf.enCours}>
+                  {fichePdf.enCours && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+                  {t("actions")}
+                  <ChevronDown aria-hidden="true" />
                 </Button>
-              )}
-              {peutReprendre(projet) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => basculerSuspension(projet)}
-                  className="text-succes hover:text-succes"
-                >
-                  <Play aria-hidden="true" />
-                  {t("reprendre")}
-                </Button>
-              )}
-              {projetModifiable(projet) && (
-                <Button size="sm" onClick={() => modifier(projet)}>
-                  <Pencil aria-hidden="true" />
-                  {t("modifier")}
-                </Button>
-              )}
-            </>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="bottom" align="end" className="min-w-48">
+                {projetModifiable(projet) && (
+                  <DropdownMenuItem onSelect={() => modifier(projet)}>
+                    <Pencil aria-hidden="true" />
+                    {t("modifier")}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onSelect={fichePdf.generer} disabled={fichePdf.enCours}>
+                  <FileDown aria-hidden="true" />
+                  {t("exporterPdf")}
+                </DropdownMenuItem>
+                {(peutSuspendre(projet) || peutReprendre(projet)) && <DropdownMenuSeparator />}
+                {peutSuspendre(projet) && (
+                  <DropdownMenuItem
+                    onSelect={() => basculerSuspension(projet)}
+                    className="text-avertissement focus:text-avertissement"
+                  >
+                    <Pause className="text-avertissement" aria-hidden="true" />
+                    {t("suspendre")}
+                  </DropdownMenuItem>
+                )}
+                {peutReprendre(projet) && (
+                  <DropdownMenuItem
+                    onSelect={() => basculerSuspension(projet)}
+                    className="text-succes focus:text-succes"
+                  >
+                    <Play className="text-succes" aria-hidden="true" />
+                    {t("reprendre")}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           }
         />
       </div>
@@ -375,6 +401,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
       </div>
 
       {modaux}
+      {fichePdf.indicateur}
     </div>
   );
 }
@@ -400,12 +427,15 @@ function CarteCle({
   return (
     <section
       className={cn(
-        "flex flex-col gap-4 rounded-xl border border-solid p-4 shadow-md sm:p-5",
+        // `@container` : la carte se mesure elle-même. Entre 1024 et ~1280 px,
+        // trois cartes côte à côte à côté de la barre latérale n'ont que
+        // ~220 px utiles — le badge d'état et les grands chiffres débordaient.
+        "@container flex min-w-0 flex-col gap-4 rounded-xl border border-solid p-4 shadow-md sm:p-5",
         FOND_INDICATEUR[pastille],
       )}
     >
-      <header className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
+      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="flex min-w-0 items-center gap-2.5">
           <span
             className={cn(
               "flex size-9 items-center justify-center rounded-lg",
@@ -525,7 +555,7 @@ function CarteCalendrier({ projet }: { projet: Projet }) {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-neutral-500">{t("debutPrevu")}</span>
-          <span className="whitespace-nowrap text-xl font-bold sm:text-2xl tabular-nums text-neutral-900">
+          <span className="whitespace-nowrap text-xl font-bold @[17rem]:text-2xl tabular-nums text-neutral-900">
             {formaterDate(projet.dateDebutPrevue)}
           </span>
         </div>
@@ -538,7 +568,7 @@ function CarteCalendrier({ projet }: { projet: Projet }) {
           <span className="text-xs text-neutral-500">{t("finPrevue")}</span>
           <span
             className={cn(
-              "whitespace-nowrap text-xl font-bold sm:text-2xl tabular-nums",
+              "whitespace-nowrap text-xl font-bold @[17rem]:text-2xl tabular-nums",
               depasse ? "text-erreur" : "text-neutral-900",
             )}
           >
@@ -608,7 +638,7 @@ function CarteBudget({ projet }: { projet: Projet }) {
     >
       <div className="flex flex-col gap-0.5">
         <span className="text-xs text-neutral-500">{t("initial")}</span>
-        <span className="whitespace-nowrap text-xl font-bold sm:text-2xl tabular-nums text-neutral-900">
+        <span className="whitespace-nowrap text-xl font-bold @[17rem]:text-2xl tabular-nums text-neutral-900">
           {projet.budgetInitial !== null
             ? formaterMontant(projet.budgetInitial)
             : t("nonDefini")}
@@ -663,7 +693,7 @@ function CarteAvancement({ projet }: { projet: Projet }) {
         <span className="text-xs text-neutral-500">{t("avancement.reel")}</span>
         <span
           className={cn(
-            "text-xl font-bold tabular-nums sm:text-2xl",
+            "text-xl font-bold tabular-nums @[17rem]:text-2xl",
             retard ? "text-avertissement" : "text-neutral-900",
           )}
         >

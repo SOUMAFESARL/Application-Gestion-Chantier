@@ -682,10 +682,11 @@ export default function LayoutApp({ children }: LayoutAppProps) {
       <SidebarInset>
         <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
           <SidebarTrigger />
-          {/* Le fil d'Ariane disparaît sous 640 px : deux niveaux et une
-              flèche de retour mangeaient la barre, alors que la barre
-              latérale (repliée en tiroir) y donne déjà la navigation. */}
-          <div className="hidden min-w-0 items-center sm:flex">
+          {/* Le fil d'Ariane disparaît sous 1020 px : deux niveaux et une
+              flèche de retour mangeaient la barre, qui porte aussi le compteur
+              d'essai, la météo et le nom de l'entreprise — et la fiche porte
+              déjà son propre lien « Retour ». */}
+          <div className="hidden min-w-0 items-center min-[1020px]:flex">
             <FilAriane />
           </div>
 

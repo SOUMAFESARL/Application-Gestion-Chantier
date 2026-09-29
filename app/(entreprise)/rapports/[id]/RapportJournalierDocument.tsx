@@ -10,8 +10,6 @@ import {
   avancementActivite,
   cumulActivite,
   enAlerteStock,
-  estHorsDelai,
-  etapeEnAttente,
   montantProduction,
   presenceSuffisante,
   retardPoints,
@@ -25,11 +23,21 @@ import { lireRapport } from "@/features/chantier/adaptateur";
 import { cleRapport } from "@/features/chantier/cles";
 import { ErreurApi } from "@/lib/api/erreurs";
 import { formaterDate, formaterDateHeure, formaterMontant, formaterQuantite } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
-import { TON_BLOCAGE, TON_CONFORMITE, TON_EQUIPEMENT, TON_GRAVITE } from "../classes";
+import { FOND_INDICATEUR } from "../../projets/classes";
+import type { FondIndicateur } from "../../projets/classes";
+import {
+  TEINTE_CONDITIONS,
+  TEINTE_METEO,
+  teintesChiffresRapport,
+  TON_BLOCAGE,
+  TON_CONFORMITE,
+  TON_EQUIPEMENT,
+  TON_GRAVITE,
+} from "../classes";
 import { BadgeSituation } from "../composants";
 import {
-  BandeauDocument,
   BarreDocument,
   ChiffreDocument,
   CircuitSignatures,
@@ -42,6 +50,8 @@ import {
   SectionDocument,
   TableauDocument,
 } from "../document";
+import { useGenerationDocumentPdf } from "../GenerationDocumentPdf";
+import { contenuRapportPdf } from "./contenuRapportPdf";
 
 /**
  * Le rapport journalier, tel que le chef de chantier l'a signé — la maquette
@@ -76,7 +86,6 @@ export function RapportJournalierDocument({ id }: { id: string }) {
 
 function Document({ rapport }: { rapport: RapportJournalier }) {
   const t = useTranslations("journal.rapport");
-  const tSituation = useTranslations("journal.situation");
   const tCircuit = useTranslations("journal.circuit");
   const tMode = useTranslations("projets.tiroirCreation.modeExecution");
   const tEnum = useTranslations("journal.enumerations");
@@ -91,22 +100,18 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
   });
   const reference = rapport.reference ?? "";
   const retard = retardPoints(rapport);
-  const attente = etapeEnAttente(rapport.circuit);
-  const horsDelai = estHorsDelai(rapport.circuit, new Date());
   const totaux = rapport.effectifs ? totauxEffectifs(rapport.effectifs) : null;
   const presence = totaux?.taux ?? tauxPresence(rapport.effectifPresent, rapport.effectifPrevu);
   const livraisonsPartielles = rapport.livraisons.filter((livraison) => livraison.conformite !== "CONFORME").length;
   const incidentsMajeurs = rapport.listeIncidents.filter((incident) => incident.gravite !== "MINEUR").length;
-  const rejet = rapport.circuit.find((etape) => etape.etat === "REJETE");
-
-  const ton =
-    rapport.situation === "APPROUVE_CP"
-      ? "succes"
-      : rapport.situation === "REJETE"
-        ? "erreur"
-        : horsDelai
-          ? "avertissement"
-          : "information";
+  const teintes = teintesChiffresRapport({
+    retard,
+    presenceInsuffisante: presenceSuffisante(presence) === "INSUFFISANTE",
+    livraisonsPartielles,
+    incidents: rapport.listeIncidents.length,
+    incidentsMajeurs,
+    blocages: rapport.listeBlocages.length,
+  });
 
   const sousTraitanceStructuree = !rapport.effectifs && rapport.lot.modeExecution === "SOUS_TRAITANCE_STRUCTUREE";
   // Les sections se numérotent d'après celles que le mode d'exécution affiche.
@@ -127,37 +132,34 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
   ].filter((cle): cle is string => cle !== null);
   const numero = (cle: string) => sections.indexOf(cle) + 1;
   const roles = { CC: tCircuit("role.CC"), CT: tCircuit("role.CT"), CP: tCircuit("role.CP") };
+  const tJournal = useTranslations("journal");
+  const { pdf, indicateur } = useGenerationDocumentPdf(t("titre"), (source) =>
+    contenuRapportPdf((cle, valeurs) => tJournal(cle, valeurs), {
+      ...source,
+      rapport,
+      jour,
+      modeExecution: (mode) => tMode(mode),
+    }),
+  );
 
   return (
     <div className="flex flex-col gap-4">
-      <BarreDocument titre={t("titre")} reference={reference} />
+      <BarreDocument
+        titre={t("titrePage", { jour })}
+        pdf={pdf}
+        badges={
+          <>
+            <Badge variante="neutre">{t("lotValeur", { code: rapport.lot.code, nom: rapport.lot.nom })}</Badge>
+            <BadgeSituation situation={rapport.situation} />
+          </>
+        }
+      />
 
       <article className={PAPIER}>
         <EnTeteDocument
           titre={t("titre")}
           sousTitre={t("sousTitre")}
           reference={reference}
-          bandeau={
-            <BandeauDocument ton={ton}>
-              <span className="font-semibold">
-                {t("statut", { statut: tSituation(rapport.situation) })}
-              </span>
-              {rapport.soumisLe && (
-                <span>
-                  {t("soumisLe", { quand: formaterDateHeure(rapport.soumisLe), nom: rapport.intervenants.chefChantier })}
-                </span>
-              )}
-              {attente && (
-                <span className={horsDelai ? "font-semibold" : undefined}>
-                  {t(horsDelai ? "attenteHorsDelai" : "attente", {
-                    role: tCircuit(`role.${attente.role}`),
-                    quand: attente.echeance ? formaterDateHeure(attente.echeance) : "",
-                  })}
-                </span>
-              )}
-              {rejet?.commentaire && <span>{t("rejet", { motif: rejet.commentaire })}</span>}
-            </BandeauDocument>
-          }
         />
 
         <div className={CORPS_PAPIER}>
@@ -194,7 +196,7 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
             <ChiffreDocument
-              accent
+              fond={teintes.avancement}
               libelle={t("chiffres.avancement")}
               valeur={t("pourcent", { valeur: rapport.avancementLot ?? 0 })}
               detail={
@@ -205,39 +207,47 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
               alerte={retard !== null && retard >= 10}
             />
             <ChiffreDocument
+              fond={teintes.effectifs}
               libelle={t("chiffres.effectifs")}
               valeur={t("fraction", { a: rapport.effectifPresent ?? 0, b: rapport.effectifPrevu ?? 0 })}
               detail={t("chiffres.presence", { taux: presence ?? 0 })}
               alerte={presenceSuffisante(presence) === "INSUFFISANTE"}
             />
             <ChiffreDocument
+              fond={teintes.heures}
               libelle={t("chiffres.heures")}
               valeur={totaux ? t("heures", { valeur: formaterQuantite(totaux.heures) }) : t("sansObjet")}
               detail={totaux ? t("chiffres.heuresDetail") : t("chiffres.heuresSousTraitant")}
             />
             <ChiffreDocument
+              fond={teintes.activites}
               libelle={t("chiffres.activites")}
               valeur={t("fraction", { a: activitesActives(rapport.activites), b: rapport.activites.length })}
               detail={t("chiffres.activitesDetail")}
             />
             <ChiffreDocument
+              fond={teintes.livraisons}
+              alerte={livraisonsPartielles > 0}
               libelle={t("chiffres.livraisons")}
               valeur={rapport.livraisons.length}
               detail={t("chiffres.livraisonsDetail", { n: livraisonsPartielles })}
             />
             <ChiffreDocument
+              fond={teintes.incidents}
               libelle={t("chiffres.incidents")}
               valeur={rapport.listeIncidents.length}
               detail={t("chiffres.incidentsDetail", { n: incidentsMajeurs })}
               alerte={incidentsMajeurs > 0}
             />
             <ChiffreDocument
+              fond={teintes.blocages}
               libelle={t("chiffres.blocages")}
               valeur={rapport.listeBlocages.length}
               detail={rapport.listeBlocages.length ? t("chiffres.blocagesDetail") : t("chiffres.aucunBlocage")}
               alerte={rapport.listeBlocages.length > 0}
             />
             <ChiffreDocument
+              fond={teintes.photos}
               libelle={t("chiffres.photos")}
               valeur={rapport.listePhotos.length}
               detail={t("chiffres.photosDetail")}
@@ -248,18 +258,23 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
               {(
                 [
-                  [t("meteo.matin"), tEnum(`meteo.${rapport.meteo.matin}`)],
-                  [t("meteo.apresMidi"), tEnum(`meteo.${rapport.meteo.apresMidi}`)],
+                  [t("meteo.matin"), tEnum(`meteo.${rapport.meteo.matin}`), TEINTE_METEO.ciel],
+                  [t("meteo.apresMidi"), tEnum(`meteo.${rapport.meteo.apresMidi}`), TEINTE_METEO.ciel],
                   [
                     t("meteo.temperature"),
                     t("meteo.temperatureValeur", { min: rapport.meteo.temperatureMin, max: rapport.meteo.temperatureMax }),
+                    TEINTE_METEO.temperature,
                   ],
-                  [t("meteo.humidite"), t("pourcent", { valeur: rapport.meteo.humidite })],
-                  [t("meteo.vent"), rapport.meteo.vent],
-                  [t("meteo.conditions"), tEnum(`conditions.${rapport.meteo.conditions}`)],
-                ] as const
-              ).map(([libelle, valeur]) => (
-                <div key={libelle} className="rounded-lg border border-neutral-200 px-3 py-2">
+                  [t("meteo.humidite"), t("pourcent", { valeur: rapport.meteo.humidite }), TEINTE_METEO.humidite],
+                  [t("meteo.vent"), rapport.meteo.vent, TEINTE_METEO.vent],
+                  [
+                    t("meteo.conditions"),
+                    tEnum(`conditions.${rapport.meteo.conditions}`),
+                    TEINTE_CONDITIONS[rapport.meteo.conditions],
+                  ],
+                ] satisfies [string, string, FondIndicateur][]
+              ).map(([libelle, valeur, teinte]) => (
+                <div key={libelle} className={cn("rounded-lg border px-3 py-2 break-inside-avoid", FOND_INDICATEUR[teinte])}>
                   <span className="block text-xs text-neutral-500">{libelle}</span>
                   <span className="text-sm font-semibold text-neutral-900">{valeur}</span>
                 </div>
@@ -615,8 +630,9 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
           </SectionDocument>
         </div>
 
-        <PiedDocument mention={t("mention")} reference={reference} />
+        <PiedDocument reference={reference} />
       </article>
+      {indicateur}
     </div>
   );
 }

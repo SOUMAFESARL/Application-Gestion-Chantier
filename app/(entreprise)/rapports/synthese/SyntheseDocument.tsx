@@ -25,7 +25,7 @@ import { jourDe } from "@/features/chantier/regles";
 import { ABSENT, formaterDate, formaterDateHeure, formaterJourMoisNumerique, formaterQuantite } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-import { TON_GRAVITE } from "../classes";
+import { teintesChiffresSynthese, TON_GRAVITE } from "../classes";
 import { BadgeSituation } from "../composants";
 import {
   BandeauDocument,
@@ -35,21 +35,15 @@ import {
   CORPS_PAPIER,
   EnTeteDocument,
   GrilleInfos,
-  Jauge,
   PAPIER,
   PiedDocument,
   SectionDocument,
   TableauDocument,
 } from "../document";
+import { useGenerationDocumentPdf } from "../GenerationDocumentPdf";
+import { contenuSynthesePdf, signe } from "./contenuSynthesePdf";
 
 const TYPES: TypePeriode[] = ["HEBDOMADAIRE", "MENSUELLE", "PERSONNALISEE"];
-
-/** Un écart signé : « +2 », « −3 », « 0 ». */
-function signe(valeur: number): string {
-  if (valeur > 0) return `+${valeur}`;
-  if (valeur < 0) return `−${Math.abs(valeur)}`;
-  return "0";
-}
 
 /**
  * La synthèse périodique — la maquette « Journal de chantier synthétique »
@@ -136,24 +130,49 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
     .map((entree) => t("manquant", { code: entree.lot.code, date: formaterJourMoisNumerique(entree.date) }))
     .join(separateur);
   const roles = { CT: tCircuit("role.CT"), CP: tCircuit("role.CP") };
+  const teintes = teintesChiffresSynthese({
+    presenceInsuffisante: presence !== null && presence < CIBLE_PRESENCE - 7,
+    livraisonsPartielles: chiffres.livraisonsPartielles,
+    incidents: chiffres.incidents,
+    incidentsMajeurs: chiffres.incidentsMajeurs,
+    blocages: chiffres.blocages,
+    manquants: manquants.length,
+  });
   const statutStock = { alerte: tRapport("materiaux.alerte"), ok: tRapport("materiaux.ok") };
+  const tJournal = useTranslations("journal");
+  const { pdf, indicateur } = useGenerationDocumentPdf(t(`type.${synthese.type}`), (source) =>
+    contenuSynthesePdf((cle, valeurs) => tJournal(cle, valeurs), {
+      ...source,
+      synthese,
+      periode: libellePeriode,
+      modeExecution: (mode) => tMode(mode),
+    }),
+  );
 
   return (
     <div className="flex flex-col gap-4">
-      <BarreDocument titre={t("titre")} reference={synthese.reference} />
+      <BarreDocument
+        titre={t(`type.${synthese.type}`)}
+        pdf={pdf}
+        badges={
+          <>
+            <Badge variante="neutre">{synthese.projetNom}</Badge>
+            <Badge variante="neutre">{libellePeriode}</Badge>
+          </>
+        }
+      />
 
       <article className={PAPIER}>
         <EnTeteDocument
           titre={t("titre")}
           sousTitre={t("sousTitre")}
-          reference={synthese.reference}
           bandeau={
-            <BandeauDocument ton={approuvee ? "succes" : attente ? "information" : "avertissement"}>
-              <span className="font-semibold">{t(`type.${synthese.type}`)}</span>
-              <span>{libellePeriode}</span>
-              <span>{t("genereLe", { quand: formaterDateHeure(synthese.genereLe) })}</span>
-              {!attente && !approuvee && <span className="font-semibold">{t("periodeEnCours")}</span>}
-            </BandeauDocument>
+            !attente &&
+            !approuvee && (
+              <BandeauDocument ton="avertissement">
+                <span className="font-semibold">{t("periodeEnCours")}</span>
+              </BandeauDocument>
+            )
           }
         />
 
@@ -222,35 +241,41 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             <ChiffreDocument
-              accent
+              fond={teintes.presence}
               libelle={t("chiffres.presence")}
               valeur={presence === null ? ABSENT : tRapport("pourcent", { valeur: presence })}
               detail={tRapport("fraction", { a: chiffres.effectifsPresents, b: chiffres.effectifsPrevus })}
               alerte={presence !== null && presence < CIBLE_PRESENCE - 7}
             />
             <ChiffreDocument
+              fond={teintes.heures}
               libelle={t("chiffres.heures")}
               valeur={synthese.effectifs.length ? tRapport("heures", { valeur: formaterQuantite(chiffres.heures) }) : ABSENT}
               detail={synthese.effectifs.length ? t("chiffres.heuresDetail") : t("chiffres.heuresSousTraitants")}
             />
             <ChiffreDocument
+              fond={teintes.livraisons}
+              alerte={chiffres.livraisonsPartielles > 0}
               libelle={t("chiffres.livraisons")}
               valeur={chiffres.livraisons}
               detail={t("chiffres.livraisonsDetail", { n: chiffres.livraisonsPartielles })}
             />
             <ChiffreDocument
+              fond={teintes.incidents}
               libelle={t("chiffres.incidents")}
               valeur={chiffres.incidents}
               detail={t("chiffres.incidentsDetail", { n: chiffres.incidentsMajeurs })}
               alerte={chiffres.incidentsMajeurs > 0}
             />
             <ChiffreDocument
+              fond={teintes.blocages}
               libelle={t("chiffres.blocages")}
               valeur={chiffres.blocages}
               detail={chiffres.blocages ? t("chiffres.blocagesDetail") : t("chiffres.aucunBlocage")}
               alerte={chiffres.blocages > 0}
             />
             <ChiffreDocument
+              fond={teintes.remise}
               libelle={t("chiffres.remise")}
               valeur={tauxRemise === null ? ABSENT : tRapport("pourcent", { valeur: tauxRemise })}
               detail={t("chiffres.remiseDetail", { n: manquants.length })}
@@ -273,7 +298,6 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
                 { entete: t("recapitulatif.avancement"), nombre: true },
                 { entete: t("recapitulatif.incidents"), nombre: true },
                 { entete: t("recapitulatif.blocages"), nombre: true },
-                { entete: t("recapitulatif.reference") },
               ]}
               vide={t("recapitulatif.vide")}
               lignes={synthese.recapitulatif.map((entree) => {
@@ -281,7 +305,17 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
                 return {
                   cle: entree.id,
                   cellules: [
-                    <span key="d" className="tabular-nums">{formaterJourMoisNumerique(entree.date)}</span>,
+                    absent ? (
+                      <span key="d" className="tabular-nums">{formaterJourMoisNumerique(entree.date)}</span>
+                    ) : (
+                      <Link
+                        key="d"
+                        href={`/rapports/${entree.id}`}
+                        className="font-medium text-primary-600 tabular-nums print:text-inherit"
+                      >
+                        {formaterJourMoisNumerique(entree.date)}
+                      </Link>
+                    ),
                     entree.lot.code,
                     entree.lot.chefChantier,
                     <BadgeSituation key="s" situation={entree.situation} />,
@@ -291,19 +325,10 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
                     absent || entree.avancementLot === null ? (
                       <span key="a" className="text-neutral-500 italic">{t("recapitulatif.nonDisponible")}</span>
                     ) : (
-                      <Jauge key="a" valeur={entree.avancementLot} libelle={tRapport("pourcent", { valeur: entree.avancementLot })} />
+                      <span key="a" className="font-semibold">{tRapport("pourcent", { valeur: entree.avancementLot })}</span>
                     ),
                     absent ? ABSENT : (entree.incidents ?? 0),
                     absent ? ABSENT : (entree.blocages ?? 0),
-                    absent ? (
-                      <Badge key="r" variante="erreur">{t("recapitulatif.absent")}</Badge>
-                    ) : entree.reference ? (
-                      <Link key="r" href={`/rapports/${entree.id}`} className="font-mono text-xs text-primary-600 print:text-inherit">
-                        {entree.reference}
-                      </Link>
-                    ) : (
-                      ABSENT
-                    ),
                   ],
                 };
               })}
@@ -316,7 +341,6 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
                 presence === null ? "" : t("recapitulatif.totalPresence", { taux: presence }),
                 chiffres.incidents,
                 chiffres.blocages,
-                manquants.length ? t("recapitulatif.totalManquants", { n: manquants.length }) : "",
               ]}
             />
           </SectionDocument>
@@ -385,7 +409,7 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
                           <span key="e" className={cn("font-semibold", ecartActivite < 0 ? "text-erreur" : "text-succes")}>
                             {t("pointsCourts", { valeur: signe(ecartActivite) })}
                           </span>,
-                          <Jauge key="j" valeur={activite.avancementFin} libelle={tRapport("pourcent", { valeur: activite.avancementFin })} />,
+                          <span key="j" className="font-semibold">{tRapport("pourcent", { valeur: activite.avancementFin })}</span>,
                         ],
                       };
                     })),
@@ -563,11 +587,9 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
           </SectionDocument>
         </div>
 
-        <PiedDocument
-          mention={t("mention", { n: chiffres.rapportsRecus })}
-          reference={synthese.reference}
-        />
+        <PiedDocument mention={t("mention", { n: chiffres.rapportsRecus })} />
       </article>
+      {indicateur}
     </div>
   );
 }

@@ -56,14 +56,14 @@ export function SituationDuJour({ journal }: { journal: Journal }) {
         const deposes = groupe.entrees.filter((entree) => estDepose(entree.situation)).length;
         return (
           <section key={groupe.projetId} aria-labelledby={`chantier-${groupe.projetId}`} className="flex flex-col gap-3">
-            <header className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 id={`chantier-${groupe.projetId}`} className="m-0 text-base font-semibold text-neutral-900">
+            <header className="flex items-center gap-3">
+              <h2 id={`chantier-${groupe.projetId}`} className="m-0 min-w-0 text-base font-semibold text-neutral-900">
                 <Link href={`/projets/${groupe.projetId}`} className="text-inherit no-underline hover:text-primary-600 hover:underline">
                   {groupe.projetNom}
                 </Link>
-                <span className="ml-2 text-xs font-normal text-neutral-500">{groupe.projetReference}</span>
               </h2>
-              <span className="text-xs text-neutral-600">
+              <span className="h-px min-w-6 flex-1 bg-neutral-200" aria-hidden="true" />
+              <span className="shrink-0 text-xs text-neutral-600">
                 {t("deposesChantier", { deposes, total: groupe.entrees.length })}
               </span>
             </header>

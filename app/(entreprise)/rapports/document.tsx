@@ -1,15 +1,28 @@
 "use client";
 
-import { ArrowLeft, Check, Clock, PenLine, Printer, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Clock, FileDown, PenLine, Printer, X } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 import type { ReactNode } from "react";
+
+import { EnTetePage } from "@/components/layout/EnTetePage";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { EtapeCircuit } from "@/features/chantier";
 import { formaterDateHeure } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+import { BARRE_PROJET, BARRE_PROJET_COLLEE, CHIFFRE_ALERTE, FOND_INDICATEUR } from "../projets/classes";
+import type { FondIndicateur } from "../projets/classes";
+import { useEstColle } from "../projets/EnteteChantier";
 import { JAUGE, JAUGE_REMPLIE, PASTILLE_ETAPE } from "./classes";
 
 /**
@@ -20,38 +33,92 @@ import { JAUGE, JAUGE_REMPLIE, PASTILLE_ETAPE } from "./classes";
  * « Imprimer / PDF » le sort tel quel par le navigateur.
  */
 
-/** La barre du haut : retour au journal, et impression. Elle ne s'imprime pas. */
-export function BarreDocument({ titre, reference }: { titre: string; reference: string }) {
+/**
+ * L'en-tête de l'écran, calqué sur celui de la fiche projet : le retour au
+ * journal, le titre et ses badges, les actions regroupées derrière un seul
+ * bouton. Il reste collé sous l'en-tête de l'application, et ne s'imprime
+ * pas — le cartouche du document, dessous, porte déjà tout ce que le papier
+ * doit dire.
+ *
+ * Le conteneur est en `contents` : un élément `sticky` ne colle qu'à
+ * l'intérieur de son parent, et une boîte qui n'enveloppait que le lien retour
+ * et la barre la décollait dès le premier défilement. Sans boîte, la barre
+ * colle sur toute la hauteur de l'écran.
+ */
+export function BarreDocument({
+  titre,
+  badges,
+  pdf,
+}: {
+  titre: string;
+  badges: ReactNode;
+  /**
+   * Le document généré en PDF (en-tête et pied de la fiche projet). Présent,
+   * il se télécharge, et c'est lui qui s'imprime ; absent, « Imprimer »
+   * imprime l'écran.
+   */
+  pdf?: { telecharger: () => void; imprimer: () => void; enCours: boolean };
+}) {
   const t = useTranslations("journal.document");
+  const [entete, setEntete] = useState<HTMLDivElement | null>(null);
+  const colle = useEstColle(entete);
+
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-secondary-800 px-4 py-3 text-neutral-0 print:hidden">
-      <div className="flex min-w-0 items-center gap-3">
+    <div className="contents print:hidden">
+      <nav className="mb-2">
         <Link
           href="/rapports"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-sm text-secondary-100 no-underline hover:bg-secondary-700 hover:text-neutral-0"
+          className="inline-flex items-center gap-2 text-sm font-medium text-neutral-600 no-underline transition-colors hover:text-primary-600 hover:underline"
         >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          {t("retour")}
+          <ArrowLeft size={16} aria-hidden="true" />
+          <span>{t("retour")}</span>
         </Link>
-        <span className="hidden h-5 w-px bg-secondary-600 sm:block" aria-hidden="true" />
-        <span className="min-w-0 truncate text-sm">
-          <span className="font-semibold">{titre}</span>
-          <span className="ml-2 text-secondary-200">{reference}</span>
-        </span>
+      </nav>
+
+      <div ref={setEntete} className={cn(BARRE_PROJET, colle && BARRE_PROJET_COLLEE)}>
+        <EnTetePage
+          className={cn(
+            "max-sm:flex-col max-sm:gap-3",
+            "max-sm:[&_h1]:text-xl!",
+            "max-sm:[&_h1]:leading-snug!",
+            "max-sm:[&>div:last-child]:justify-start max-sm:[&>div:last-child]:gap-2",
+            !colle && "border-0 border-b border-solid border-neutral-200 pb-4",
+          )}
+          titre={titre}
+          description={<span className="mt-1 flex flex-wrap items-center gap-2">{badges}</span>}
+          actions={
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm">
+                  {t("actions")}
+                  <ChevronDown aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="bottom" align="end" className="min-w-48">
+                {pdf && (
+                  <DropdownMenuItem disabled={pdf.enCours} onSelect={pdf.telecharger}>
+                    <FileDown aria-hidden="true" />
+                    {t("telecharger")}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem disabled={pdf?.enCours} onSelect={pdf ? pdf.imprimer : () => window.print()}>
+                  <Printer aria-hidden="true" />
+                  {t("imprimer")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
+        />
       </div>
-      <button
-        type="button"
-        onClick={() => window.print()}
-        className="inline-flex cursor-pointer items-center gap-2 rounded-md border-0 bg-primary-500 px-3 py-1.5 text-sm font-semibold text-neutral-0 hover:bg-primary-600"
-      >
-        <Printer className="size-4" aria-hidden="true" />
-        {t("imprimer")}
-      </button>
     </div>
   );
 }
 
-/** Le cartouche du document : son titre à gauche, sa référence à droite. */
+/**
+ * Le cartouche du document : son titre à gauche, sa référence à droite. Le
+ * bandeau de statut dessous est facultatif — le rapport journalier n'en a
+ * pas, son circuit de signatures dit déjà où en est la validation.
+ */
 export function EnTeteDocument({
   titre,
   sousTitre,
@@ -60,21 +127,21 @@ export function EnTeteDocument({
 }: {
   titre: string;
   sousTitre: string;
-  reference: string;
-  bandeau: ReactNode;
+  reference?: string;
+  bandeau?: ReactNode;
 }) {
-  const t = useTranslations("journal.document");
   return (
     <header className="overflow-hidden rounded-t-xl">
       <div className="flex flex-wrap items-start justify-between gap-4 bg-secondary-900 px-5 py-5 text-neutral-0 sm:px-8">
         <div className="min-w-0">
-          <p className="m-0 text-xs font-medium tracking-wide text-primary-300 uppercase">{t("marque")}</p>
-          <h1 className="m-0 mt-1 text-h3 font-bold !text-neutral-0">{titre}</h1>
+          <h1 className="m-0 text-h3 font-bold !text-neutral-0">{titre}</h1>
           <p className="m-0 mt-1 text-sm text-secondary-200">{sousTitre}</p>
         </div>
-        <span className="rounded-md bg-neutral-0/10 px-3 py-1.5 font-mono text-sm font-semibold tracking-wide">
-          {reference}
-        </span>
+        {reference && (
+          <span className="rounded-md bg-neutral-0/10 px-3 py-1.5 font-mono text-sm font-semibold tracking-wide">
+            {reference}
+          </span>
+        )}
       </div>
       {bandeau}
     </header>
@@ -115,30 +182,37 @@ export function GrilleInfos({ titre, lignes }: { titre: string; lignes: [string,
   );
 }
 
-/** Une case de la rangée de chiffres. */
+/**
+ * Une case de la rangée de chiffres. Avec `fond`, elle prend la teinte des
+ * tuiles d'indicateur de la fiche projet (`FOND_INDICATEUR`) ; sans, elle
+ * reste blanche, ou primaire avec `accent`.
+ */
 export function ChiffreDocument({
   libelle,
   valeur,
   detail,
   alerte = false,
   accent = false,
+  fond,
 }: {
   libelle: string;
   valeur: ReactNode;
   detail: ReactNode;
   alerte?: boolean;
   accent?: boolean;
+  fond?: FondIndicateur;
 }) {
+  const encreAlerte = (fond && CHIFFRE_ALERTE[fond]) ?? "text-erreur";
   return (
     <div
       className={cn(
         "flex flex-col gap-0.5 rounded-lg border px-3 py-2.5 break-inside-avoid",
-        accent ? "border-primary-200 bg-primary-50" : "border-neutral-200 bg-neutral-0",
+        fond ? FOND_INDICATEUR[fond] : accent ? "border-primary-200 bg-primary-50" : "border-neutral-200 bg-neutral-0",
       )}
     >
       <span className="text-xs text-neutral-500">{libelle}</span>
-      <span className={cn("text-xl font-bold tabular-nums", alerte ? "text-erreur" : "text-neutral-900")}>{valeur}</span>
-      <span className={cn("text-xs", alerte ? "text-erreur" : "text-neutral-500")}>{detail}</span>
+      <span className={cn("text-xl font-bold tabular-nums", alerte ? encreAlerte : "text-neutral-900")}>{valeur}</span>
+      <span className={cn("text-xs", alerte ? encreAlerte : "text-neutral-500")}>{detail}</span>
     </div>
   );
 }
@@ -175,7 +249,13 @@ export interface ColonneDocument {
   nombre?: boolean;
 }
 
-/** Un tableau de document : pas de tri, pas de pagination — il s'imprime entier. */
+/**
+ * Un tableau de document : pas de tri, pas de pagination — il s'imprime entier.
+ *
+ * Entier aussi en largeur : les en-têtes passent à la ligne (la primitive les
+ * garde sur une seule), sans quoi un tableau de huit colonnes dépassait la
+ * largeur de la page et le navigateur rognait les dernières à l'impression.
+ */
 export function TableauDocument({
   colonnes,
   lignes,
@@ -189,12 +269,12 @@ export function TableauDocument({
 }) {
   const aligner = (rang: number) => (colonnes[rang]?.nombre ? "text-right tabular-nums" : "");
   return (
-    <div className="overflow-hidden rounded-lg border border-neutral-200">
-      <Table className="text-xs sm:text-sm">
+    <div className="overflow-hidden rounded-lg border border-neutral-200 print:overflow-visible">
+      <Table className="text-xs sm:text-sm print:text-xs">
         <TableHeader>
           <TableRow className="bg-neutral-50 hover:bg-neutral-50">
             {colonnes.map((colonne, rang) => (
-              <TableHead key={colonne.entete} className={cn("h-9 px-3 text-xs font-semibold text-neutral-600", aligner(rang))}>
+              <TableHead key={colonne.entete} className={cn("h-9 px-3 text-xs font-semibold whitespace-normal text-neutral-600 print:px-2", aligner(rang))}>
                 {colonne.entete}
               </TableHead>
             ))}
@@ -211,7 +291,7 @@ export function TableauDocument({
             lignes.map((ligne) => (
               <TableRow key={ligne.cle} className={cn("border-b border-neutral-100", ligne.accent && "bg-neutral-50 font-semibold")}>
                 {ligne.cellules.map((cellule, rang) => (
-                  <TableCell key={rang} className={cn("px-3 py-2 whitespace-normal", aligner(rang))}>
+                  <TableCell key={rang} className={cn("px-3 py-2 whitespace-normal print:px-2", aligner(rang))}>
                     {cellule}
                   </TableCell>
                 ))}
@@ -223,7 +303,7 @@ export function TableauDocument({
           <TableFooter>
             <TableRow className="bg-neutral-100 font-semibold hover:bg-neutral-100">
               {pied.map((cellule, rang) => (
-                <TableCell key={rang} className={cn("px-3 py-2 whitespace-normal", aligner(rang))}>
+                <TableCell key={rang} className={cn("px-3 py-2 whitespace-normal print:px-2", aligner(rang))}>
                   {cellule}
                 </TableCell>
               ))}
@@ -301,13 +381,11 @@ export function CircuitSignatures({ circuit }: { circuit: EtapeCircuit[] }) {
 }
 
 /** Le pied du document. */
-export function PiedDocument({ mention, reference }: { mention: string; reference: string }) {
-  const t = useTranslations("journal.document");
+export function PiedDocument({ mention, reference }: { mention?: string; reference?: string }) {
   return (
     <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200 px-5 py-3 text-xs text-neutral-500 sm:px-8">
-      <span>{t("pied")}</span>
-      <span>{mention}</span>
-      <span className="font-mono">{reference}</span>
+      {mention && <span>{mention}</span>}
+      {reference && <span className="font-mono">{reference}</span>}
     </footer>
   );
 }

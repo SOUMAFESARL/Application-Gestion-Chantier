@@ -1223,3 +1223,143 @@ export function chevauchementsEquipe(
       statutActivite(autre, maintenant) !== "TERMINE",
   );
 }
+
+/* ------------------------------------------------------------------ *
+ * La fiche projet générée (F1 §9).
+ * ------------------------------------------------------------------ */
+
+/** « Activités à démarrer dans les 14 prochains jours » (F1 §9.4, section 7). */
+export const HORIZON_PROCHAINES_ETAPES_JOURS = 14;
+
+/** La longueur maximale de la note du chef de projet, saisie à la génération. */
+export const LONGUEUR_MAX_NOTE_FICHE = 2000;
+
+/**
+ * L'état d'un lot : celui de ses activités. `SANS_ACTIVITE` n'est pas un
+ * zéro — F1 §10 : un lot sans activité est exclu du calcul et s'affiche « — ».
+ */
+export type StatutLot = StatutActivite | "SANS_ACTIVITE";
+
+export function statutLot(lot: Lot, maintenant: Date = new Date()): StatutLot {
+  if (lot.activites.length === 0) return "SANS_ACTIVITE";
+  const statuts = lot.activites.map((activite) => statutActivite(activite, maintenant));
+  if (statuts.every((statut) => statut === "TERMINE")) return "TERMINE";
+  if (statuts.includes("EN_RETARD")) return "EN_RETARD";
+  if (statuts.every((statut) => statut === "A_VENIR")) return "A_VENIR";
+  return "EN_COURS";
+}
+
+/** L'avancement d'un lot, pondéré par budget. `null` sans activité (F1 §10). */
+export function avancementLot(lot: Lot): number | null {
+  return lot.activites.length === 0 ? null : avancementPondere(lot.activites);
+}
+
+/** Une activité, lue avec le lot qui la porte. */
+export interface ActiviteDuLot {
+  activite: Activite;
+  lot: Lot;
+}
+
+/**
+ * Les activités pas encore commencées dont le début prévu tombe dans les
+ * `HORIZON_PROCHAINES_ETAPES_JOURS` prochains jours, la plus proche d'abord.
+ */
+export function prochainesEtapes(lots: Lot[], maintenant: Date = new Date()): ActiviteDuLot[] {
+  const debut = isoCourt(maintenant);
+  const fin = isoCourt(new Date(maintenant.getTime() + HORIZON_PROCHAINES_ETAPES_JOURS * JOUR_MS));
+  return lots
+    .flatMap((lot) => lot.activites.map((activite) => ({ activite, lot })))
+    .filter(
+      ({ activite }) =>
+        activite.avancement === 0 &&
+        activite.dateDebutPrevue >= debut &&
+        activite.dateDebutPrevue <= fin,
+    )
+    .sort((a, b) => a.activite.dateDebutPrevue.localeCompare(b.activite.dateDebutPrevue));
+}
+
+/**
+ * Le taux de respect des délais : la part des activités **attendues** — celles
+ * dont le début prévu est passé — qui ne sont pas en retard. `null` tant
+ * qu'aucune n'est attendue : 100 % se lirait comme une performance.
+ */
+export function tauxRespectDelais(lots: Lot[], maintenant: Date = new Date()): number | null {
+  const attendues = activitesDuProjet(lots).filter(
+    (activite) => avancementTheoriqueActivite(activite, maintenant) > 0,
+  );
+  if (attendues.length === 0) return null;
+  const aLHeure = attendues.filter(
+    (activite) => statutActivite(activite, maintenant) !== "EN_RETARD",
+  ).length;
+  return Math.round((aLHeure / attendues.length) * 100);
+}
+
+/**
+ * Un point de vigilance de la fiche (F1 §9.4, section 5). C'est un **code**
+ * et ses chiffres, pas une phrase : le libellé appartient à l'écran.
+ */
+export type PointVigilance =
+  | { code: "ECHEANCE_DEPASSEE"; jours: number }
+  | { code: "RETARD_AVANCEMENT"; ecart: number }
+  | { code: "BUDGET"; niveau: Exclude<NiveauBudget, "conforme">; ratio: number }
+  | { code: "LOT_EN_RETARD"; lot: Lot }
+  | { code: "ACTIVITE_EN_RETARD"; activite: Activite; lot: Lot; theorique: number };
+
+/**
+ * Ce qui réclame une décision, du plus large au plus fin : le projet (délai,
+ * avancement, budget), puis chaque lot en retard **suivi de ses propres
+ * activités en retard** — la fiche les hiérarchise lot par lot.
+ */
+export function pointsDeVigilance(
+  projet: Projet,
+  lots: Lot[],
+  maintenant: Date = new Date(),
+): PointVigilance[] {
+  const points: PointVigilance[] = [];
+
+  const { joursRestants } = echeancierProjet(projet, maintenant);
+  if (joursRestants !== null && joursRestants < 0) {
+    points.push({ code: "ECHEANCE_DEPASSEE", jours: Math.abs(joursRestants) });
+  }
+
+  const ecart = ecartAvancement(projet.avancementReel, projet.avancementTheorique);
+  if (estEnRetard(ecart)) points.push({ code: "RETARD_AVANCEMENT", ecart });
+
+  const ratio = ratioConsommationBudget(projet.budgetInitial, projet.budgetConsomme);
+  const niveau = niveauBudget(ratio);
+  if (ratio !== null && niveau && niveau !== "conforme") {
+    points.push({ code: "BUDGET", niveau, ratio });
+  }
+
+  // Chaque lot en retard, suivi aussitôt de ses activités en retard.
+  for (const lot of lots) {
+    if (statutLot(lot, maintenant) !== "EN_RETARD") continue;
+    points.push({ code: "LOT_EN_RETARD", lot });
+    for (const activite of lot.activites) {
+      if (statutActivite(activite, maintenant) === "EN_RETARD") {
+        points.push({
+          code: "ACTIVITE_EN_RETARD",
+          activite,
+          lot,
+          theorique: avancementTheoriqueActivite(activite, maintenant),
+        });
+      }
+    }
+  }
+  return points;
+}
+
+/** Comment se lit un taux de conformité : délais tenus, rapports remis. */
+export type NiveauConformite = "conforme" | "alerte" | "critique";
+
+/** Au-dessus : conforme. */
+export const SEUIL_CONFORMITE = 90;
+/** En dessous : critique. Entre les deux : alerte. */
+export const SEUIL_CONFORMITE_CRITIQUE = 70;
+
+export function niveauConformite(taux: number | null): NiveauConformite | null {
+  if (taux === null) return null;
+  if (taux >= SEUIL_CONFORMITE) return "conforme";
+  if (taux >= SEUIL_CONFORMITE_CRITIQUE) return "alerte";
+  return "critique";
+}
