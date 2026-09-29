@@ -2,11 +2,10 @@
 
 import { useTranslations } from "next-intl";
 
-import { ecartSigne as formaterEcart, estEnRetard, largeurJauge } from "@/features/projets/regles";
+import { ecartSigne, estEnRetard, largeurJauge } from "@/features/projets/regles";
 import { cn } from "@/lib/utils";
 
 import { JAUGE_CIBLE, JAUGE_PISTE, JAUGE_REMPLI } from "./classes";
-
 
 interface Props {
   avancementReel: number;
@@ -15,47 +14,36 @@ interface Props {
 }
 
 /**
- * La jauge d'avancement d'un chantier : le réalisé, et le repère du prévu.
+ * L'avancement d'un chantier : la légende chiffrée, puis la jauge — le réalisé
+ * remplit la piste, le prévu y pose un repère.
  *
- * Elle était écrite **deux fois** dans le tableau de bord — une fois pour la
- * colonne du tableau, une fois pour la carte mobile — avec à chaque fois son
- * propre calcul de retard et de largeur. Deux copies d'une jauge finissent
- * par ne plus placer le repère au même endroit.
+ * La vue tableau et la vue cartes posent **la même** jauge : deux copies d'une
+ * jauge finissent par ne plus placer le repère au même endroit.
  */
 export function JaugeAvancement({ avancementReel, avancementTheorique, ecart }: Props) {
-  const t = useTranslations("tableauDeBord.chantiers");
+  const t = useTranslations("tableauDeBord.portefeuille");
   const enRetard = estEnRetard(ecart);
-  const libellePrevu = t("prevu", { taux: avancementTheorique, ecart: formaterEcart(ecart) });
+  const prevu = t("prevu", { taux: avancementTheorique, ecart: ecartSigne(ecart) });
 
   return (
-    <div className={JAUGE_PISTE}>
-      <div
-        className={cn(JAUGE_REMPLI, enRetard ? "bg-avertissement" : "bg-primary-500")}
-        style={{ width: `${largeurJauge(avancementReel)}%` }}
-      />
-      <div
-        className={JAUGE_CIBLE}
-        style={{ left: `${largeurJauge(avancementTheorique)}%` }}
-        title={libellePrevu}
-      />
+    <div className="min-w-[160px]">
+      <div className="flex justify-between gap-2 text-xs">
+        <span className="font-semibold text-neutral-800">{t("reel", { taux: avancementReel })}</span>
+        <span className={enRetard ? "font-medium text-avertissement" : "text-neutral-500"}>
+          {prevu}
+        </span>
+      </div>
+      <div className={JAUGE_PISTE}>
+        <div
+          className={cn(JAUGE_REMPLI, enRetard ? "bg-avertissement" : "bg-primary-500")}
+          style={{ width: `${largeurJauge(avancementReel)}%` }}
+        />
+        <div
+          className={JAUGE_CIBLE}
+          style={{ left: `${largeurJauge(avancementTheorique)}%` }}
+          title={prevu}
+        />
+      </div>
     </div>
-  );
-}
-
-/** La légende chiffrée qui surmonte la jauge — réalisé à gauche, prévu à droite. */
-export function LegendeAvancement({
-  avancementReel,
-  avancementTheorique,
-  ecart,
-}: Props) {
-  const t = useTranslations("tableauDeBord.chantiers");
-
-  return (
-    <>
-      <span style={{ fontWeight: 600 }}>{t("reel", { taux: avancementReel })}</span>
-      <span style={{ color: "var(--color-neutral-500, #8A8680)" }}>
-        {t("prevu", { taux: avancementTheorique, ecart: formaterEcart(ecart) })}
-      </span>
-    </>
   );
 }

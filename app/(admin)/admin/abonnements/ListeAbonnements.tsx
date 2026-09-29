@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import { aideColonnes } from "@/components/ui/data-table";
+import type { ExportTableau } from "@/components/ui/export-tableau";
 import {
   BORD_DROIT_TABLEAU,
   FiltreTableau,
@@ -26,6 +27,7 @@ import {
 import type { ClientPlateforme, CriteresClients } from "@/features/administration";
 import { listerClients } from "@/features/administration/adaptateur";
 import { formaterDate, formaterMontant, formaterMontantCourt } from "@/lib/format";
+import { useLibellePlan } from "@/features/plateforme/hooks";
 
 import { CLES_ADMINISTRATION } from "../cles";
 import {
@@ -56,6 +58,7 @@ const colonne = aideColonnes<ClientPlateforme>();
  */
 export function ListeAbonnements() {
   const t = useTranslations("administration");
+  const libellePlan = useLibellePlan();
   const [criteres, setCriteres] = useState<CriteresClients>(CRITERES_CLIENTS_VIDES);
 
   const requete = useQuery({
@@ -96,7 +99,7 @@ export function ListeAbonnements() {
           id: "plan",
           header: t("clients.colonnePlan"),
           meta: { classe: "text-neutral-700" },
-          cell: ({ getValue }) => t(`plan.${getValue()}`),
+          cell: ({ getValue }) => libellePlan(getValue()),
         }),
         colonne.accessor((client) => client.abonnement.statut, {
           id: "statut",
@@ -133,7 +136,39 @@ export function ListeAbonnements() {
           },
         }),
       ]),
-    [t],
+    [t, libellePlan],
+  );
+
+  /** Le montant sort en francs entiers : un fichier se somme, un « 25 000 FCFA » non. */
+  const exporter = useMemo<ExportTableau<ClientPlateforme>>(
+    () => ({
+      titre: t("abonnement.export.titre"),
+      nomFichier: t("abonnement.export.nomFichier"),
+      colonnes: [
+        { entete: t("clients.colonneClient"), valeur: (c) => c.nomCommercial },
+        { entete: t("fiche.slug"), valeur: (c) => c.slug },
+        { entete: t("clients.colonnePlan"), valeur: (c) => libellePlan(c.abonnement.plan) },
+        {
+          entete: t("clients.colonneStatut"),
+          valeur: (c) => t(`statutAbonnement.${c.abonnement.statut}`),
+        },
+        {
+          entete: t("abonnement.export.montantMensuel"),
+          valeur: (c) => Math.round(c.abonnement.montantMensuelCentimes / 100),
+        },
+        {
+          entete: t("fiche.renouvellementAuto"),
+          valeur: (c) => (c.abonnement.renouvellementAuto ? t("fiche.oui") : t("fiche.non")),
+        },
+        { entete: t("abonnement.export.dateDebut"), valeur: (c) => formaterDate(c.abonnement.dateDebut) },
+        { entete: t("fiche.dateFin"), valeur: (c) => formaterDate(c.abonnement.dateFin) },
+        {
+          entete: t("abonnement.export.reference"),
+          valeur: (c) => c.abonnement.referenceTransaction,
+        },
+      ],
+    }),
+    [t, libellePlan],
   );
 
   return (
@@ -180,6 +215,7 @@ export function ListeAbonnements() {
               filtresActifs={criteresClientsActifs(criteres)}
               onReinitialiser={() => setCriteres(CRITERES_CLIENTS_VIDES)}
               cleCriteres={`${criteres.recherche}|${criteres.statutAbonnement}|${criteres.plan}`}
+              exporter={exporter}
               outils={
                 <>
                   <RechercheTableau
@@ -205,7 +241,7 @@ export function ListeAbonnements() {
                     onChangement={(plan) => setCriteres({ ...criteres, plan })}
                     libelle={t("clients.filtrePlan")}
                     libelleTous={t("clients.filtrePlanTous")}
-                    options={plans.map((plan) => ({ valeur: plan, libelle: t(`plan.${plan}`) }))}
+                    options={plans.map((plan) => ({ valeur: plan, libelle: libellePlan(plan) }))}
                   />
                 </>
               }

@@ -48,7 +48,7 @@ export interface ChargeClientPlateforme {
   ville: string;
   email_contact: string;
   telephone_contact: string;
-  statut: "EN_ATTENTE" | "ACTIF" | "SUSPENDU" | "RESILIE";
+  statut: "EN_ATTENTE" | "ESSAI" | "ACTIF" | "SUSPENDU" | "RESILIE";
   cree_le: string;
   active_le: string | null;
   nb_utilisateurs: number;
@@ -356,14 +356,280 @@ function lireClients(): ChargeClientPlateforme[] {
   return neuf;
 }
 
+/* ------------------------------------------------------------------ *
+ * Comptes des agents de la plateforme
+ * ------------------------------------------------------------------ */
+
+export interface ChargeCompteAdministrateur {
+  id: string;
+  email: string;
+  nom: string;
+  prenom: string;
+  telephone: string;
+  role: "SUPERVISEUR" | "SUPPORT";
+  statut: "ACTIF" | "SUSPENDU";
+  cree_le: string;
+  derniere_connexion: string | null;
+}
+
+const CLE_COMPTES = "ccd.simulation.administration.comptes.v1";
+
 /**
- * Le tarif mensuel de chaque plan, **lu dans le catalogue de vente** de
- * l'espace entreprise : un changement de plan au back-office facture le prix
- * affiché sur la page de tarifs, jamais une grille parallèle.
+ * Trois agents de démonstration : un second superviseur, un support actif et
+ * un support suspendu — de quoi voir chaque action de la liste. L'agent
+ * connecté s'y ajoute à la première lecture (voir `listerComptes`).
  */
-const TARIFS_MENSUELS: Record<string, number> = Object.fromEntries(
-  PLANS_DISPONIBLES.map((plan) => [plan.code, plan.prix_mensuel_centimes]),
-);
+function comptesInitiaux(): ChargeCompteAdministrateur[] {
+  return [
+    {
+      id: "adm-101",
+      email: "a.kone@ccd-digital.ci",
+      nom: "Koné",
+      prenom: "Aminata",
+      telephone: "+2250707112233",
+      role: "SUPERVISEUR",
+      statut: "ACTIF",
+      cree_le: jour(-380),
+      derniere_connexion: jour(-1),
+    },
+    {
+      id: "adm-102",
+      email: "s.yao@ccd-digital.ci",
+      nom: "Yao",
+      prenom: "Serge",
+      telephone: "",
+      role: "SUPPORT",
+      statut: "ACTIF",
+      cree_le: jour(-150),
+      derniere_connexion: jour(-4),
+    },
+    {
+      id: "adm-103",
+      email: "m.diallo@ccd-digital.ci",
+      nom: "Diallo",
+      prenom: "Mariam",
+      telephone: "+2250505998877",
+      role: "SUPPORT",
+      statut: "SUSPENDU",
+      cree_le: jour(-260),
+      derniere_connexion: jour(-60),
+    },
+  ];
+}
+
+function lireComptes(): ChargeCompteAdministrateur[] {
+  if (typeof window === "undefined") return comptesInitiaux();
+  try {
+    const brut = window.sessionStorage.getItem(CLE_COMPTES);
+    if (brut) return JSON.parse(brut) as ChargeCompteAdministrateur[];
+  } catch {
+    // On repart du jeu initial.
+  }
+  return comptesInitiaux();
+}
+
+function ecrireComptes(comptes: ChargeCompteAdministrateur[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(CLE_COMPTES, JSON.stringify(comptes));
+  } catch {
+    // Sans mémoire, une création ne survit pas au changement d'écran.
+  }
+}
+
+function emailPris(comptes: ChargeCompteAdministrateur[], email: string, sauf?: string): boolean {
+  const cible = email.trim().toLowerCase();
+  return comptes.some((compte) => compte.id !== sauf && compte.email.toLowerCase() === cible);
+}
+
+/* ------------------------------------------------------------------ *
+ * Paramètres de la plateforme — tarifs et identité
+ * ------------------------------------------------------------------ */
+
+export interface ChargeAvantagePlan {
+  libelle: string;
+  inclus: boolean;
+}
+
+export interface ChargeTarifPlan {
+  plan_code: "BATISSEUR" | "MAITRE_OEUVRE" | "PROMOTEUR";
+  libelle: string;
+  prix_mensuel_centimes: number;
+  prix_annuel_centimes: number;
+  remise_annuelle_pourcent: number;
+  limite_chantiers: number | null;
+  limite_utilisateurs: number | null;
+  limite_stockage_go: number;
+  avantages: ChargeAvantagePlan[];
+}
+
+/** Les noms commerciaux de départ — ceux du catalogue, que le back-office renomme à sa guise. */
+const LIBELLES_INITIAUX: Record<ChargeTarifPlan["plan_code"], string> = {
+  BATISSEUR: "Bâtisseur",
+  MAITRE_OEUVRE: "Maître d'Œuvre",
+  PROMOTEUR: "Promoteur",
+};
+
+/**
+ * Les avantages de départ de chaque plan — ceux que la page de tarifs
+ * affichait quand ils étaient encore écrits dans le code. Le back-office les
+ * réécrit ensuite à sa guise.
+ */
+const AVANTAGES_INITIAUX: Record<ChargeTarifPlan["plan_code"], ChargeAvantagePlan[]> = {
+  BATISSEUR: [
+    { libelle: "Journal de chantier quotidien", inclus: true },
+    { libelle: "Suivi météo connectée", inclus: true },
+    { libelle: "Suivi présences ouvriers", inclus: true },
+    { libelle: "Export PDF rapports de base", inclus: true },
+    { libelle: "Support standard par email (24h)", inclus: true },
+    { libelle: "Suivi d'avancement & photos géolocalisées", inclus: false },
+    { libelle: "Gestion budgétaire & bons de paiement", inclus: false },
+    { libelle: "Gestion des stocks & achats", inclus: false },
+    { libelle: "Assistant IA illimité (analyse risques, résumés auto)", inclus: false },
+  ],
+  MAITRE_OEUVRE: [
+    { libelle: "Suivi d'avancement & photos géolocalisées", inclus: true },
+    { libelle: "Gestion budgétaire & bons de paiement", inclus: true },
+    { libelle: "Gestion des stocks & achats", inclus: true },
+    { libelle: "Alertes automatiques de quotas & dépassements", inclus: true },
+    { libelle: "Rapports QHSE et sécurité", inclus: true },
+    { libelle: "Support prioritaire sous 2h (WhatsApp & Téléphone)", inclus: true },
+    { libelle: "Assistant IA illimité (analyse risques, résumés auto)", inclus: false },
+    { libelle: "Multi-filiales & gestion consolidée", inclus: false },
+    { libelle: "Personnalisation marque blanche (logo, charte client)", inclus: false },
+  ],
+  PROMOTEUR: [
+    { libelle: "Assistant IA illimité (analyse risques, résumés auto)", inclus: true },
+    { libelle: "Multi-filiales & gestion consolidée", inclus: true },
+    { libelle: "Personnalisation marque blanche (logo, charte client)", inclus: true },
+    { libelle: "Rapprochement bancaire & exports comptables", inclus: true },
+    { libelle: "Intégrations API & webhooks", inclus: true },
+    { libelle: "Sauvegardes quotidiennes externalisées", inclus: true },
+    { libelle: "Chargé de compte dédié + formation sur site", inclus: true },
+  ],
+};
+
+export interface ChargeIdentitePlateforme {
+  nom: string;
+  logo_url: string | null;
+}
+
+interface ParametresPlateforme {
+  tarifs: ChargeTarifPlan[];
+  identite: ChargeIdentitePlateforme;
+}
+
+/**
+ * **`localStorage`, et non `sessionStorage`** comme le reste de ce module :
+ * ces paramètres sont lus par l'espace entreprise, qu'on ouvre souvent dans un
+ * autre onglet. En local, les deux espaces partagent cette mémoire tant qu'ils
+ * sont servis par la même origine ; sur deux origines (`localhost` et
+ * `demo.localhost`), chacun garde la sienne — c'est la limite de la
+ * simulation, pas du contrat : le vrai serveur n'a qu'une base.
+ */
+const CLE_PARAMETRES = "ccd.simulation.plateforme.parametres.v1";
+
+/** La remise qu'un couple de prix consent déjà — pour les tarifs écrits avant qu'elle ne se saisisse. */
+function remiseDeduite(mensuelCentimes: number, annuelCentimes: number): number {
+  const douzeMois = mensuelCentimes * 12;
+  if (douzeMois === 0) return 0;
+  return Math.max(0, Math.round(((douzeMois - annuelCentimes) / douzeMois) * 100));
+}
+
+function parametresInitiaux(): ParametresPlateforme {
+  return {
+    tarifs: PLANS_DISPONIBLES.map((plan) => ({
+      plan_code: plan.code,
+      libelle: LIBELLES_INITIAUX[plan.code],
+      prix_mensuel_centimes: plan.prix_mensuel_centimes,
+      prix_annuel_centimes: plan.prix_annuel_centimes,
+      remise_annuelle_pourcent: remiseDeduite(plan.prix_mensuel_centimes, plan.prix_annuel_centimes),
+      limite_chantiers: plan.limite_chantiers,
+      limite_utilisateurs: plan.limite_utilisateurs,
+      limite_stockage_go: plan.limite_stockage_go,
+      avantages: AVANTAGES_INITIAUX[plan.code],
+    })),
+    identite: { nom: "CCD Digital", logo_url: null },
+  };
+}
+
+function lireParametres(): ParametresPlateforme {
+  if (typeof window === "undefined") return parametresInitiaux();
+  try {
+    const brut = window.localStorage.getItem(CLE_PARAMETRES);
+    if (brut) {
+      const parametres = JSON.parse(brut) as ParametresPlateforme;
+      // Écrits avant que remise, quotas et avantages ne se paramètrent : on
+      // garde les prix saisis et on complète avec les valeurs de départ.
+      parametres.tarifs = parametres.tarifs.map((tarif) => {
+        const catalogue = PLANS_DISPONIBLES.find((plan) => plan.code === tarif.plan_code);
+        return {
+          ...tarif,
+          libelle: tarif.libelle ?? LIBELLES_INITIAUX[tarif.plan_code],
+          remise_annuelle_pourcent:
+            tarif.remise_annuelle_pourcent ??
+            remiseDeduite(tarif.prix_mensuel_centimes, tarif.prix_annuel_centimes),
+          limite_chantiers:
+            tarif.limite_chantiers === undefined
+              ? (catalogue?.limite_chantiers ?? null)
+              : tarif.limite_chantiers,
+          limite_utilisateurs:
+            tarif.limite_utilisateurs === undefined
+              ? (catalogue?.limite_utilisateurs ?? null)
+              : tarif.limite_utilisateurs,
+          limite_stockage_go: tarif.limite_stockage_go ?? catalogue?.limite_stockage_go ?? 0,
+          avantages: tarif.avantages ?? AVANTAGES_INITIAUX[tarif.plan_code],
+        };
+      });
+      return parametres;
+    }
+  } catch {
+    // On repart des valeurs du catalogue.
+  }
+  return parametresInitiaux();
+}
+
+function ecrireParametres(parametres: ParametresPlateforme): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(CLE_PARAMETRES, JSON.stringify(parametres));
+  } catch {
+    // Quota dépassé : le plus souvent un logo trop lourd, déjà refusé en amont.
+  }
+}
+
+/**
+ * Le tarif mensuel d'un plan, **lu dans les tarifs paramétrés** : un
+ * changement de plan au back-office facture le prix affiché sur la page de
+ * tarifs de l'espace entreprise, jamais une grille parallèle.
+ */
+function tarifMensuel(planCode: string): number | undefined {
+  return lireParametres().tarifs.find((tarif) => tarif.plan_code === planCode)
+    ?.prix_mensuel_centimes;
+}
+
+/**
+ * Les paramètres publics de la plateforme, lus sans jeton par l'espace
+ * entreprise — `GET /plateforme/tarifs/` et `GET /plateforme/identite/`.
+ *
+ * Séparés de `simulationAdministration` parce qu'ils n'en ont pas le droit
+ * d'accès : la page de tarifs d'un client ne présente aucun jeton
+ * d'administration.
+ */
+export const simulationParametresPublics = {
+  async lireTarifs(): Promise<ChargeTarifPlan[]> {
+    return attendre(lireParametres().tarifs, 300);
+  },
+
+  async lireIdentite(): Promise<ChargeIdentitePlateforme> {
+    return attendre(lireParametres().identite, 200);
+  },
+
+  /** Lecture synchrone, pour la souscription simulée qui facture le prix affiché. */
+  tarifsCourants(): ChargeTarifPlan[] {
+    return lireParametres().tarifs;
+  },
+};
 
 export const simulationAdministration = {
   /**
@@ -450,7 +716,7 @@ export const simulationAdministration = {
     const client = clients.find((c) => c.id === id);
     if (!client) refuser("introuvable", "Client introuvable.", 404);
 
-    const montant = TARIFS_MENSUELS[planCode];
+    const montant = tarifMensuel(planCode);
     if (montant === undefined) {
       refuser("validation", "Plan inconnu.", 422, { plan_code: ["Plan inconnu."] });
     }
@@ -460,5 +726,149 @@ export const simulationAdministration = {
     ecrireClients(clients);
 
     return attendre(client, 500);
+  },
+  /**
+   * `GET /admins/comptes/`
+   *
+   * L'agent connecté est ajouté à la liste s'il n'y figure pas : il vient du
+   * vrai serveur (la connexion est réelle), dont la simulation ignore les
+   * identifiants. Sans cela, la liste des comptes ne contiendrait pas celui
+   * de la personne qui la regarde.
+   */
+  async listerComptes(
+    moi: ChargeCompteAdministrateur | null,
+  ): Promise<ChargeCompteAdministrateur[]> {
+    const comptes = lireComptes();
+    if (moi && !comptes.some((compte) => compte.id === moi.id)) {
+      comptes.unshift(moi);
+    }
+    ecrireComptes(comptes);
+    return attendre(comptes, 400);
+  },
+
+  /** `POST /admins/comptes/` */
+  async creerCompte(corps: {
+    prenom: string;
+    nom: string;
+    email: string;
+    role: "SUPERVISEUR" | "SUPPORT";
+  }): Promise<ChargeCompteAdministrateur> {
+    const comptes = lireComptes();
+    if (emailPris(comptes, corps.email)) {
+      refuser("conflit", "Un compte existe déjà pour cette adresse.", 409, {
+        email: ["Un compte existe déjà pour cette adresse."],
+      });
+    }
+
+    const compte: ChargeCompteAdministrateur = {
+      id: `adm-${Date.now()}`,
+      email: corps.email,
+      nom: corps.nom,
+      prenom: corps.prenom,
+      telephone: "",
+      role: corps.role,
+      statut: "ACTIF",
+      cree_le: new Date().toISOString(),
+      derniere_connexion: null,
+    };
+    comptes.push(compte);
+    ecrireComptes(comptes);
+    return attendre(compte, 500);
+  },
+
+  /** `POST /admins/comptes/{id}/suspendre/` */
+  async suspendreCompte(
+    id: string,
+    demandeur: string | null,
+  ): Promise<ChargeCompteAdministrateur> {
+    const comptes = lireComptes();
+    const compte = comptes.find((c) => c.id === id);
+    if (!compte) refuser("introuvable", "Compte introuvable.", 404);
+    if (compte.id === demandeur) {
+      refuser("regle_metier", "Vous ne pouvez pas suspendre votre propre compte.", 422);
+    }
+    if (compte.statut === "SUSPENDU") refuser("conflit", "Ce compte est déjà suspendu.", 409);
+
+    compte.statut = "SUSPENDU";
+    ecrireComptes(comptes);
+    return attendre(compte, 500);
+  },
+
+  /** `POST /admins/comptes/{id}/reactiver/` */
+  async reactiverCompte(id: string): Promise<ChargeCompteAdministrateur> {
+    const comptes = lireComptes();
+    const compte = comptes.find((c) => c.id === id);
+    if (!compte) refuser("introuvable", "Compte introuvable.", 404);
+    if (compte.statut !== "SUSPENDU") refuser("conflit", "Ce compte n'est pas suspendu.", 409);
+
+    compte.statut = "ACTIF";
+    ecrireComptes(comptes);
+    return attendre(compte, 500);
+  },
+
+  /** `PATCH /admins/moi/` */
+  async modifierProfil(
+    id: string,
+    corps: { prenom: string; nom: string; email: string; telephone: string },
+  ): Promise<{ prenom: string; nom: string; email: string; telephone: string }> {
+    const comptes = lireComptes();
+    if (emailPris(comptes, corps.email, id)) {
+      refuser("conflit", "Un autre compte utilise déjà cette adresse.", 409, {
+        email: ["Un autre compte utilise déjà cette adresse."],
+      });
+    }
+
+    const compte = comptes.find((c) => c.id === id);
+    if (compte) {
+      Object.assign(compte, corps);
+      ecrireComptes(comptes);
+    }
+    return attendre(corps, 500);
+  },
+
+  /**
+   * `PATCH /admins/moi/photo/` — la photo arrive déjà lue en `data:` URL.
+   *
+   * Rien à garder ici : le profil de l'agent connecté vit dans le cache local
+   * de l'adaptateur, qui l'y réécrit.
+   */
+  async modifierPhoto(photo: string | null): Promise<{ photo_url: string | null }> {
+    return attendre({ photo_url: photo }, 500);
+  },
+
+  /**
+   * `POST /admins/moi/mot-de-passe/`
+   *
+   * La simulation ne connaît pas le vrai mot de passe (la connexion est
+   * réelle) : elle ne peut pas vérifier l'ancien. Elle rejoue le seul refus
+   * qu'elle sait décider, et celui qu'on veut voir à l'écran — un nouveau mot
+   * de passe trop court.
+   */
+  async changerMotDePasse(corps: {
+    ancien_mot_de_passe: string;
+    nouveau_mot_de_passe: string;
+  }): Promise<void> {
+    if (corps.nouveau_mot_de_passe.length < 8) {
+      refuser("validation", "Le mot de passe est trop court.", 400, {
+        nouveau_mot_de_passe: ["Ce mot de passe doit contenir au moins 8 caractères."],
+      });
+    }
+    await attendre(null, 600);
+  },
+
+  /** `PUT /admins/parametres/tarifs/` */
+  async modifierTarifs(tarifs: ChargeTarifPlan[]): Promise<ChargeTarifPlan[]> {
+    const parametres = lireParametres();
+    parametres.tarifs = tarifs;
+    ecrireParametres(parametres);
+    return attendre(tarifs, 500);
+  },
+
+  /** `PATCH /admins/parametres/identite/` — le logo arrive déjà lu en `data:` URL. */
+  async modifierIdentite(identite: ChargeIdentitePlateforme): Promise<ChargeIdentitePlateforme> {
+    const parametres = lireParametres();
+    parametres.identite = identite;
+    ecrireParametres(parametres);
+    return attendre(identite, 500);
   },
 };

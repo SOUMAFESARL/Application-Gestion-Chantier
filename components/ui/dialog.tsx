@@ -2,9 +2,11 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { XIcon } from "lucide-react"
+import { X } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Dialog as DialogPrimitive } from "radix-ui"
+
+import { Button } from "@/components/ui/button"
 
 /**
  * Primitive `dialog` de shadcn, posée par `npx shadcn@latest add dialog`.
@@ -74,9 +76,17 @@ function DialogContent({
       >
         {children}
         {showCloseButton && (
-          <DialogPrimitive.Close className="absolute top-4 right-4 rounded-xs opacity-70 outline-none transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
-            <XIcon />
-            <span className="sr-only">{t("fermer")}</span>
+          // Le même bouton que celui du tiroir (`sheet.tsx`) : une seule croix
+          // de fermeture dans tout le produit.
+          <DialogPrimitive.Close asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="absolute top-4 right-4 text-neutral-500 hover:text-neutral-900"
+              aria-label={t("fermer")}
+            >
+              <X className="size-5" />
+            </Button>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>

@@ -1,13 +1,22 @@
 "use client";
 
-import { Building2, CreditCard, LayoutDashboard, LogOut, ShieldCheck } from "lucide-react";
+import {
+  Building2,
+  CreditCard,
+  LayoutDashboard,
+  LogOut,
+  Settings,
+  ShieldCheck,
+  UserRound,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { LogoPlateforme } from "@/components/layout/LogoPlateforme";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +36,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSousMenu,
+  SidebarMenuSousMenuLien,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
@@ -36,6 +47,7 @@ import {
   seDeconnecter,
 } from "@/features/administration/adaptateur";
 import type { ProfilAdministrateur } from "@/features/administration";
+import { useIdentitePlateforme } from "@/features/plateforme/hooks";
 import { EVENEMENT_SESSION_ADMIN_EXPIREE, sessionOuverte } from "@/lib/api";
 import { SurveillantSessionAdmin } from "@/lib/auth/SurveillantSessionAdmin";
 
@@ -43,6 +55,20 @@ import { CLES_ADMINISTRATION } from "./cles";
 import { FournisseurAdministrateur } from "./ContexteAdministrateur";
 
 const ECRAN_CONNEXION = "/admin/connexion";
+
+/**
+ * Le sous-menu « Paramétrage » : une entrée, une page chacune.
+ *
+ * Trois pages et non trois onglets d'une même page : chaque section a sa propre
+ * adresse, son propre titre d'onglet, et s'atteint en un geste depuis n'importe
+ * quel écran du back-office — sans passer par une page d'accueil de rubrique
+ * qui n'aurait rien à montrer.
+ */
+const SOUS_MENU_PARAMETRAGE = [
+  { href: "/admin/parametres/comptes", cle: "parametrageComptes" },
+  { href: "/admin/parametres/tarifs", cle: "parametrageTarifs" },
+  { href: "/admin/parametres/identite", cle: "parametrageIdentite" },
+] as const;
 
 const abonnementSession = (rappel: () => void) => {
   if (typeof window === "undefined") return () => {};
@@ -116,6 +142,7 @@ export default function LayoutAdministration({
   });
 
   const profil: ProfilAdministrateur | null = requeteProfil.data ?? null;
+  const identite = useIdentitePlateforme().data;
 
   if (estAuthentifie !== true) return null;
 
@@ -129,6 +156,8 @@ export default function LayoutAdministration({
     { href: "/admin/clients", icone: Building2, libelle: t("navigation.clients") },
     { href: "/admin/abonnements", icone: CreditCard, libelle: t("navigation.abonnements") },
   ];
+
+  const estSurParametrage = pathname.startsWith("/admin/parametres");
 
   const estActive = (href: string) =>
     href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
@@ -148,12 +177,18 @@ export default function LayoutAdministration({
               <SidebarMenuItem>
                 <SidebarMenuButton size="lg" asChild>
                   <Link href="/admin">
-                    <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-secondary-800 text-neutral-0">
-                      <ShieldCheck size={16} aria-hidden="true" />
-                    </span>
+                    {/* Le logo paramétré s'il y en a un ; sinon le bouclier,
+                        plus sobre que le signe de l'espace entreprise. */}
+                    {identite?.logo ? (
+                      <LogoPlateforme logo={identite.logo} taille={28} />
+                    ) : (
+                      <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-secondary-800 text-neutral-0">
+                        <ShieldCheck size={16} aria-hidden="true" />
+                      </span>
+                    )}
                     <span className="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
                       <span className="truncate text-base font-bold tracking-tight">
-                        {t("marque")}
+                        {identite?.nom || t("marque")}
                       </span>
                       <span className="truncate text-xs text-muted-foreground">
                         {t("espaceCourt")}
@@ -179,6 +214,25 @@ export default function LayoutAdministration({
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
+                  {/* Panneau volant au survol, comme « Projets » côté
+                      entreprise : pas d'infobulle, elle doublerait le panneau. */}
+                  <SidebarMenuSousMenu
+                    libelle={t("navigation.parametrage")}
+                    declencheur={
+                      <SidebarMenuButton asChild isActive={estSurParametrage} sousMenu>
+                        <Link href={SOUS_MENU_PARAMETRAGE[0].href}>
+                          <Settings />
+                          <span>{t("navigation.parametrage")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    }
+                  >
+                    {SOUS_MENU_PARAMETRAGE.map(({ href, cle }) => (
+                      <SidebarMenuSousMenuLien key={href} isActive={pathname.startsWith(href)}>
+                        <Link href={href}>{t(`navigation.${cle}`)}</Link>
+                      </SidebarMenuSousMenuLien>
+                    ))}
+                  </SidebarMenuSousMenu>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -198,6 +252,13 @@ export default function LayoutAdministration({
                     className="flex items-center gap-2 rounded-full border-0 bg-transparent px-2 py-1 hover:bg-accent"
                   >
                     <Avatar className="size-8 rounded-full">
+                      {profil?.photo && (
+                        <AvatarImage
+                          src={profil.photo}
+                          alt=""
+                          className="rounded-full object-cover"
+                        />
+                      )}
                       <AvatarFallback className="rounded-full bg-secondary-800 text-xs font-semibold text-neutral-0">
                         {initiales}
                       </AvatarFallback>
@@ -227,6 +288,13 @@ export default function LayoutAdministration({
                       </span>
                     </span>
                   </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/profil">
+                      <UserRound />
+                      {t("navigation.profil")}
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem variant="destructive" onClick={deconnexion}>
                     <LogOut />

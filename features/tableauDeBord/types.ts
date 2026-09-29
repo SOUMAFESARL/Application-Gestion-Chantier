@@ -1,136 +1,178 @@
 /**
- * Les types du domaine Tableau de bord — plan de refonte, lot 4, couche 1.
+ * Les types du domaine Tableau de bord — vue du Directeur Général.
  *
  * Le tableau de bord ne renvoie pas des chantiers complets : il renvoie des
  * **lignes de pilotage**, c'est-à-dire ce qu'il faut pour décider, et rien de
  * plus. D'où un type distinct de `Projet` plutôt qu'un `Partial<Projet>` :
  * un type partiel dirait « les mêmes champs, parfois absents », alors que la
- * réalité est « d'autres champs, tous présents » — dont l'indice de santé,
- * que la fiche chantier ne porte pas.
+ * réalité est « d'autres champs, tous présents » — dont l'indice de santé et
+ * la marge, que la fiche chantier ne porte pas.
+ *
+ * **Ce que le DG ne voit plus ici** (docs/PLAN_INTERFACES_DG.md §1.1) : le
+ * rapport journalier, les réceptions de matériaux, le comptage des effectifs.
+ * Ce sont des contrôles de saisie terrain, pas des décisions de direction.
+ *
+ * **Les indicateurs ne sont pas transmis, ils sont déduits.** Les quatre
+ * tuiles, la liste « à surveiller » et le graphique dérivent des lignes par
+ * `regles.ts` : un chiffre envoyé à part finirait par ne plus correspondre au
+ * tableau qu'il résume.
  */
 
-import type { AlerteIntemperies } from "@/features/projets/types";
+import type { StatutProjet } from "@/features/projets/types";
 
-/** L'état du rapport journalier d'un chantier. */
-export type StatutRapportJour = "SOUMIS" | "EN_ATTENTE" | string;
+/* ------------------------------------------------------------------ *
+ * Le portefeuille.
+ * ------------------------------------------------------------------ */
 
-/** Une ligne de la liste des chantiers, sur le tableau de bord. */
+/**
+ * Le niveau de l'indice de santé — CDC module 1, « Indice de Santé du
+ * Projet » : vert, orange, rouge. Les seuils sont dans `regles.ts`.
+ */
+export type NiveauSante = "BON" | "VIGILANCE" | "CRITIQUE";
+
+/** Une ligne du portefeuille de chantiers. */
 export interface LigneChantier {
   id: string;
   reference: string;
   nom: string;
-  description: string;
   clientNom: string;
   ville: string;
   quartier: string;
-  statut: string;
+  statut: StatutProjet;
+  chefProjetNom: string;
   /** Un pourcentage, de 0 à 100. */
   avancementReel: number;
   /** Un pourcentage, de 0 à 100. */
   avancementTheorique: number;
   /**
-   * L'écart d'avancement, en points.
-   *
-   * Il est **calculé par le serveur** et repris tel quel : lui seul connaît
-   * le planning détaillé dont il dérive. `regles.ecartAvancement` sert quand
-   * on ne dispose que des deux avancements — sur la fiche chantier, ou pour
-   * un chantier qui vient d'être créé.
+   * L'écart d'avancement, en points. Négatif quand le chantier glisse.
+   * Calculé par le serveur, qui seul connaît le planning détaillé.
    */
   ecart: number;
   /** En centimes. `null` tant que le budget n'est pas défini. */
   budgetInitial: number | null;
   /** En centimes. */
   budgetConsomme: number;
-  rapportJourStatut: StatutRapportJour;
-  /** De 0 à 100. */
+  /**
+   * Le montant du marché signé avec le maître d'ouvrage, avenants compris —
+   * ce que le chantier rapporte. En centimes, `null` tant qu'il n'est pas saisi.
+   */
+  montantMarche: number | null;
+  /**
+   * La marge prévisionnelle à terminaison, en pourcentage du marché.
+   * Négative quand le chantier coûtera plus qu'il ne rapporte.
+   */
+  margePrevisionnelle: number | null;
+  /** Date ISO (`AAAA-MM-JJ`). */
+  dateFinPrevue: string | null;
+  /** De 0 à 100 — calculé par le serveur (délais, coûts, sécurité, qualité). */
   indiceSante: number;
-  chefProjetNom: string;
-  conducteurTravauxNom: string;
 }
 
-/** Le détail de l'indice de santé, par axe. */
-export interface DetailSante {
-  securite: number;
-  delais: number;
-  budget: number;
-}
+/* ------------------------------------------------------------------ *
+ * Ce qui attend le DG.
+ * ------------------------------------------------------------------ */
 
-export interface EffectifsSurSite {
-  total: number;
-  regie: number;
-  tacherons: number;
-}
+/** Ce que le DG signe : paiements, achats au-delà de son seuil, avenants. */
+export type TypeValidation = "BON_PAIEMENT" | "DEMANDE_ACHAT" | "AVENANT";
 
-export interface RapportsJournaliers {
-  soumis: number;
-  attendus: number;
-}
-
-/** Les compteurs d'en-tête du tableau de bord. */
-export interface MetriquesPilotage {
-  chantiersActifs: number;
-  chantiersConformes: number;
-  chantiersEnRetard: number;
-  santeGlobale: number;
-  santeDetails: DetailSante;
-  /** En centimes. */
-  budgetTotal: number;
-  /** En centimes. */
-  budgetEngage: number;
-  bonsASignerNombre: number;
-  /** En centimes. */
-  bonsASignerMontant: number;
-  effectifsSurSite: EffectifsSurSite;
-  rapportsJournaliers: RapportsJournaliers;
-}
-
-/** Un bon de paiement en attente de signature. */
-export interface BonAPayer {
+export interface ElementAValider {
   id: string;
+  type: TypeValidation;
   reference: string;
-  beneficiaire: string;
-  corpsEtat: string;
-  /** En centimes. */
+  /** Le bénéficiaire, l'article acheté ou l'objet de l'avenant. */
+  objet: string;
+  chantierNom: string;
+  /** En centimes. Pour un avenant, son impact sur le marché. */
   montant: number;
-  statut: string;
+  demandeur: string;
+  /** Date ISO. */
+  demandeLe: string;
 }
 
-export interface ReceptionMateriau {
+/* ------------------------------------------------------------------ *
+ * Les événements qui remontent.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Les alertes **événementielles** — CDC module 3 « alertes financières
+ * automatiques », modules 8 et 9.
+ *
+ * Celles qui se lisent dans les chiffres d'un chantier (budget à 80 %,
+ * dépassement, marge négative, retard) n'en font pas partie : elles sont
+ * déduites des lignes par `motifsAttention`, et s'afficheraient sinon deux
+ * fois.
+ */
+export type TypeAlerte =
+  | "PAIEMENT_RETARD"
+  | "DEPENSE_INHABITUELLE"
+  | "DEPENSE_SEUIL"
+  | "INCIDENT_SECURITE"
+  | "ECHEANCE_CONTRAT"
+  | "RUPTURE_STOCK"
+  | "INTEMPERIES";
+
+export type GraviteAlerte = "CRITIQUE" | "ATTENTION";
+
+export interface AlertePilotage {
   id: string;
-  projet: string;
-  description: string;
-  conforme: boolean;
-  dateReception: string | null;
+  type: TypeAlerte;
+  gravite: GraviteAlerte;
+  chantierId: string | null;
+  chantierNom: string | null;
+  /** Le fournisseur, l'article, la ville… — une donnée, pas un libellé. */
+  sujet: string;
+  /** En centimes, quand l'alerte porte sur un montant. */
+  montant: number | null;
+  /** Un nombre de jours (retard de paiement, échéance), quand il y a lieu. */
+  jours: number | null;
+  /** Date ISO. */
+  survenueLe: string;
 }
 
-/** La météo telle que l'affiche le bandeau du tableau de bord. */
-export interface MeteoPilotage {
-  ville: string;
-  temperature: number;
-  description: string;
-  praticable: boolean;
-  alerteIntemperies: AlerteIntemperies | null;
+/** Ce qui arrive dans les semaines qui viennent. */
+export type TypeEcheance =
+  | "RECEPTION_TRAVAUX"
+  | "LIVRAISON_CHANTIER"
+  | "FIN_CONTRAT"
+  | "CAUTION"
+  | "SITUATION_TRAVAUX";
+
+export interface Echeance {
+  id: string;
+  type: TypeEcheance;
+  /** Une donnée du chantier (« Lot gros œuvre », « Caution de bonne fin »). */
+  libelle: string;
+  chantierId: string | null;
+  chantierNom: string;
+  /** Date ISO (`AAAA-MM-JJ`). */
+  date: string;
 }
+
+/** La sécurité et la qualité, à l'échelle de l'entreprise — CDC module 8. */
+export interface SyntheseQhse {
+  joursSansAccident: number;
+  accidentsMois: number;
+  presqueAccidentsMois: number;
+  nonConformitesOuvertes: number;
+  /** Celles dont l'action corrective a dépassé son délai. */
+  nonConformitesEnRetard: number;
+}
+
+/* ------------------------------------------------------------------ *
+ * L'écran.
+ * ------------------------------------------------------------------ */
 
 export interface TableauDeBord {
-  metriques: MetriquesPilotage;
   chantiers: LigneChantier[];
-  bonsAPayer: BonAPayer[];
-  receptionsMateriaux: ReceptionMateriau[];
-  meteo: MeteoPilotage;
-  alerteIntemperies: AlerteIntemperies | null;
-  /**
-   * L'entreprise n'a aucun chantier — ce qui n'est pas la même chose qu'une
-   * liste vide par filtrage. L'écran d'accueil n'est pas le même.
-   */
-  aucunChantier: boolean;
+  validations: ElementAValider[];
+  alertes: AlertePilotage[];
+  echeances: Echeance[];
+  qhse: SyntheseQhse;
 }
 
-/** Le résultat d'une signature de bon de paiement. */
-export interface SignatureBon {
-  succes: boolean;
+/** Le résultat d'une validation. */
+export interface ResultatValidation {
   id: string;
-  numero: string | null;
-  statut: string;
-  signeLe: string | null;
+  valideLe: string | null;
 }

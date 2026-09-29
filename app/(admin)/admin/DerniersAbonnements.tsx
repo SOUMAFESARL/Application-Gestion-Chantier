@@ -17,6 +17,7 @@ import { aideColonnes, DataTable } from "@/components/ui/data-table";
 import { derniersAbonnements } from "@/features/administration";
 import type { ClientPlateforme } from "@/features/administration";
 import { formaterDate, formaterMontant, nomDePays } from "@/lib/format";
+import { useLibellePlan } from "@/features/plateforme/hooks";
 
 import { BADGE, TON_STATUT_ABONNEMENT } from "./tons";
 
@@ -42,6 +43,7 @@ const BORD_DROIT = "pr-6 text-right";
 
 export function DerniersAbonnements({ clients }: { clients: ClientPlateforme[] }) {
   const t = useTranslations("administration");
+  const libellePlan = useLibellePlan();
 
   const lignes = useMemo(() => derniersAbonnements(clients), [clients]);
 
@@ -74,7 +76,7 @@ export function DerniersAbonnements({ clients }: { clients: ClientPlateforme[] }
           id: "plan",
           header: t("derniersAbonnements.colonnePlan"),
           meta: { classe: "text-neutral-700" },
-          cell: ({ getValue }) => t(`plan.${getValue()}`),
+          cell: ({ getValue }) => libellePlan(getValue()),
         }),
         colonne.accessor((client) => client.abonnement.statut, {
           id: "statut",
@@ -98,7 +100,7 @@ export function DerniersAbonnements({ clients }: { clients: ClientPlateforme[] }
           cell: ({ getValue }) => formaterDate(getValue()),
         }),
       ]),
-    [t],
+    [t, libellePlan],
   );
 
   return (

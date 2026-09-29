@@ -9,6 +9,10 @@
  * serveur distant à une requête sans jeton valable — au lieu de la matrice de
  * démonstration.
  *
+ * **Ce qu'il sert encore.** `GET`, `POST` et `PATCH /parametres/roles/` sont
+ * branchés sur le serveur (voir `api.ts`) : `lister`, `creer` et `modifier` ne
+ * sont plus appelés. Restent simulés la suppression et la matrice par chantier.
+ *
  * **Ce qu'il n'est pas.** Il ne remplace pas le serveur. Les vrais appels
  * restent à leur place définitive dans `api.ts`, juste à côté de l'aiguillage :
  * le jour où les routes existent, `NEXT_PUBLIC_API_SIMULE` passe à `0` et

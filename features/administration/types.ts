@@ -37,8 +37,75 @@ export interface ProfilAdministrateur {
   prenom: string;
   /** Prénom et nom déjà assemblés, ou l'adresse quand les deux manquent. */
   nomComplet: string;
+  /** Vide tant que l'agent n'en a pas renseigné — la connexion ne le renvoie pas. */
+  telephone: string;
+  /** L'URL de la photo de profil, ou `null` : l'avatar retombe alors sur les initiales. */
+  photo: string | null;
   role: RoleAdministrateur;
 }
+
+/**
+ * Le changement de mot de passe de l'agent connecté.
+ *
+ * **L'ancien mot de passe est exigé** : une session laissée ouverte sur un
+ * poste partagé ne doit pas suffire à s'approprier le compte. La confirmation
+ * n'y figure pas — c'est une vérification d'écran, le serveur n'a rien à
+ * comparer.
+ */
+export interface DemandeChangementMotDePasse {
+  actuel: string;
+  nouveau: string;
+}
+
+/**
+ * Ce qu'un agent peut changer de son propre profil.
+ *
+ * **Le rôle n'y est pas** : on ne s'accorde pas soi-même la supervision. Il se
+ * change depuis la gestion des comptes, par un autre superviseur.
+ */
+export interface DemandeModificationProfil {
+  prenom: string;
+  nom: string;
+  email: string;
+  telephone: string;
+}
+
+/**
+ * Un compte d'agent, vu depuis la gestion des comptes du back-office.
+ *
+ * Un compte suspendu n'est pas supprimé : ses actions passées restent
+ * attribuées dans le journal d'audit, ce qu'une suppression effacerait.
+ */
+export type StatutCompteAdministrateur = "ACTIF" | "SUSPENDU";
+
+export interface CompteAdministrateur {
+  id: string;
+  email: string;
+  nom: string;
+  prenom: string;
+  nomComplet: string;
+  telephone: string;
+  role: RoleAdministrateur;
+  statut: StatutCompteAdministrateur;
+  creeLe: Date;
+  /** `null` pour un compte créé qui ne s'est encore jamais connecté. */
+  derniereConnexion: Date | null;
+}
+
+/** La création d'un compte d'agent — le mot de passe est choisi par l'invité. */
+export interface DemandeCreationAdministrateur {
+  prenom: string;
+  nom: string;
+  email: string;
+  role: RoleAdministrateur;
+}
+
+/**
+ * Les tarifs et l'identité de la plateforme appartiennent au domaine
+ * `plateforme`, que l'espace entreprise lit aussi : le back-office les écrit,
+ * il n'en est pas le propriétaire.
+ */
+export type { AvantagePlan, IdentitePlateforme, TarifPlan } from "@/features/plateforme/types";
 
 /**
  * L'état d'une entreprise cliente, vu de la plateforme.
@@ -47,8 +114,11 @@ export interface ProfilAdministrateur {
  * compte : son schéma existe, personne ne s'y est connecté. Le distinguer
  * d'un client actif sans utilisateur est le seul moyen de voir les
  * inscriptions qui n'aboutissent pas.
+ *
+ * `ESSAI` est le client en période d'essai : Django le porte sur le client
+ * lui-même, pas seulement sur son abonnement.
  */
-export type StatutClient = "EN_ATTENTE" | "ACTIF" | "SUSPENDU" | "RESILIE";
+export type StatutClient = "EN_ATTENTE" | "ESSAI" | "ACTIF" | "SUSPENDU" | "RESILIE";
 
 /** L'état de l'abonnement, indépendant de celui du client. */
 export type StatutAbonnement = "ESSAI" | "ACTIF" | "IMPAYE" | "SUSPENDU" | "RESILIE";

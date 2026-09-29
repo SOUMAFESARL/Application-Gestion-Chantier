@@ -7,6 +7,8 @@
  * l'écran de tarifs et l'historique puissent être parcourus dès maintenant.
  */
 
+import { simulationParametresPublics } from "@/lib/api/simulationAdministration";
+
 import { decomposerTva, planParCode, prixPeriode } from "./regles";
 import { PAYS_FISCAUX, PLANS_DISPONIBLES } from "./types";
 import type { DemandeSouscription, LignePaiement, RecuPaiement } from "./types";
@@ -99,7 +101,23 @@ function ecrireHistorique(lignes: LignePaiement[]): void {
 }
 
 export async function simulerSouscription(demande: DemandeSouscription): Promise<RecuPaiement> {
-  const plan = planParCode(PLANS_DISPONIBLES, demande.plan);
+  // Le prix débité est celui que la plateforme a paramétré — celui que la page
+  // de tarifs vient d'afficher —, pas celui du catalogue d'origine.
+  const catalogue = planParCode(PLANS_DISPONIBLES, demande.plan);
+  const tarif = simulationParametresPublics
+    .tarifsCourants()
+    .find((candidat) => candidat.plan_code === demande.plan);
+  const plan =
+    catalogue && tarif
+      ? {
+          ...catalogue,
+          prix_mensuel_centimes: tarif.prix_mensuel_centimes,
+          prix_annuel_centimes: tarif.prix_annuel_centimes,
+          limite_chantiers: tarif.limite_chantiers,
+          limite_utilisateurs: tarif.limite_utilisateurs,
+          limite_stockage_go: tarif.limite_stockage_go,
+        }
+      : catalogue;
   const paysFiscal = PAYS_FISCAUX.find((pays) => pays.code === demande.facturation.pays_fiscal);
   const montant = plan ? prixPeriode(plan, demande.periodicite) : 0;
   // Le taux ne sert qu'à décomposer HT/TVA à l'écran : il n'affecte jamais

@@ -8,10 +8,13 @@ import { EnTetePage } from "@/components/layout/EnTetePage";
 import { Badge, Carte, EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import type { VarianteBadge } from "@/components/ui";
 import { aideColonnes, DataTable } from "@/components/ui/data-table";
+import { MenuExport } from "@/components/ui/export-tableau";
+import type { ExportTableau } from "@/components/ui/export-tableau";
 import { listerHistoriquePaiements } from "@/features/abonnement/api";
 import type { LignePaiement, StatutPaiement } from "@/features/abonnement/api";
 import { ErreurApi } from "@/lib/api";
 import { formaterDateHeure, formaterMontant } from "@/lib/format";
+import { useLibellePlan } from "@/features/plateforme/hooks";
 
 const CLE_HISTORIQUE_PAIEMENTS = ["abonnement", "historique"] as const;
 
@@ -35,7 +38,7 @@ const colonne = aideColonnes<LignePaiement>();
 export function HistoriquePaiements() {
   const t = useTranslations("abonnement.historique");
   const tMode = useTranslations("abonnement.mode");
-  const tPlan = useTranslations("abonnement.plan");
+  const libellePlan = useLibellePlan();
 
   const requete = useQuery({
     queryKey: CLE_HISTORIQUE_PAIEMENTS,
@@ -63,7 +66,7 @@ export function HistoriquePaiements() {
         colonne.accessor("plan", {
           header: t("colonnePlan"),
           meta: { classe: "text-neutral-700" },
-          cell: ({ getValue }) => tPlan(`${getValue()}.libelle`),
+          cell: ({ getValue }) => libellePlan(getValue()),
         }),
         colonne.accessor("mode_paiement", {
           header: t("colonneMode"),
@@ -85,12 +88,41 @@ export function HistoriquePaiements() {
           cell: ({ getValue }) => formaterMontant(getValue()),
         }),
       ]),
-    [t, tMode, tPlan],
+    [t, tMode, libellePlan],
+  );
+
+  /** Le montant sort en francs entiers : un fichier se somme, un « 25 000 FCFA » non. */
+  const exporter = useMemo<ExportTableau<LignePaiement>>(
+    () => ({
+      titre: t("titre"),
+      nomFichier: t("exportNomFichier"),
+      colonnes: [
+        { entete: t("colonneDate"), valeur: (ligne) => formaterDateHeure(ligne.date_heure) },
+        { entete: t("colonneReference"), valeur: (ligne) => ligne.reference_transaction },
+        { entete: t("colonneFacture"), valeur: (ligne) => ligne.numero_facture },
+        { entete: t("colonnePlan"), valeur: (ligne) => libellePlan(ligne.plan) },
+        { entete: t("colonneMode"), valeur: (ligne) => tMode(ligne.mode_paiement) },
+        {
+          entete: t("colonneStatut"),
+          valeur: (ligne) => (ligne.statut === "REUSSI" ? t("statutReussi") : t("statutEchoue")),
+        },
+        {
+          entete: t("exportMontant"),
+          valeur: (ligne) => Math.round(ligne.montant_centimes / 100),
+        },
+      ],
+    }),
+    [t, tMode, libellePlan],
   );
 
   return (
     <div className="flex flex-col gap-5">
-      <EnTetePage titre={t("titre")} description={t("sousTitre")} />
+      {/* Pas de `TableauListe` ici (liste courte, sans filtre) : l'export va dans l'en-tête. */}
+      <EnTetePage
+        titre={t("titre")}
+        description={t("sousTitre")}
+        actions={requete.isSuccess && <MenuExport exporter={exporter} lignes={lignes} />}
+      />
 
       {requete.isPending && <EtatChargement />}
 

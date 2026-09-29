@@ -7,13 +7,12 @@
  * dédiée (progression, étapes, récapitulatif). Le produit n'impose plus ce
  * parcours forcé à la première connexion — la configuration de l'entreprise
  * est un écran de paramètres ordinaire, accessible à tout moment, qui relit
- * et réécrit directement `/entreprise/`. Le premier projet et l'invitation
+ * et réécrit directement `/parametres/configuration/`. Le premier projet et l'invitation
  * de l'équipe se font depuis leurs propres écrans (Projets, Paramètres →
  * Collaborateurs).
  */
 
 import { api } from "@/lib/api";
-import { SIMULATION_ACTIVE, simulationConfiguration } from "@/lib/api/simulation";
 
 /**
  * Émis quand le profil de l'entreprise change — logo, nom.
@@ -90,9 +89,7 @@ export interface ReponseEntreprise extends DonneesEntreprise {
 }
 
 export function lireEntreprise(): Promise<DonneesEntreprise> {
-  if (SIMULATION_ACTIVE)
-    return simulationConfiguration.lireEntreprise() as unknown as Promise<DonneesEntreprise>;
-  return api.lire<DonneesEntreprise>("/entreprise/");
+  return api.lire<DonneesEntreprise>("/parametres/configuration/");
 }
 
 /**
@@ -100,7 +97,7 @@ export function lireEntreprise(): Promise<DonneesEntreprise> {
  *
  * Il est demandé par tous les écrans qui proposent une ville ou un indicatif —
  * la configuration de l'entreprise, la création de chantier depuis le tableau
- * de bord. Sans mémoire, chacun rappellerait `/entreprise/` pour un code de
+ * de bord. Sans mémoire, chacun rappellerait `/parametres/configuration/` pour un code de
  * deux lettres qui ne change jamais : le pays est **en lecture seule** côté
  * serveur, il n'y a donc rien à invalider.
  */
@@ -124,11 +121,6 @@ export function enregistrerEntreprise(
   donnees: DonneesEntreprise,
   fichierLogo?: File | null,
 ): Promise<ReponseEntreprise> {
-  if (SIMULATION_ACTIVE)
-    return simulationConfiguration
-      .enregistrerEntreprise({ ...donnees })
-      .then(() => ({ ...donnees }));
-
   if (fichierLogo) {
     const formData = new FormData();
     formData.append("fichier_logo", fichierLogo);
@@ -137,13 +129,13 @@ export function enregistrerEntreprise(
         formData.append(cle, String(valeur));
       }
     }
-    return api.modifier<ReponseEntreprise>("/entreprise/", formData).then((r) => {
+    return api.modifier<ReponseEntreprise>("/parametres/configuration/", formData).then((r) => {
       signalerEntrepriseModifiee();
       return r;
     });
   }
 
-  return api.modifier<ReponseEntreprise>("/entreprise/", donnees).then((r) => {
+  return api.modifier<ReponseEntreprise>("/parametres/configuration/", donnees).then((r) => {
     signalerEntrepriseModifiee();
     return r;
   });

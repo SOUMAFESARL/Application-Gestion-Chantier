@@ -30,7 +30,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
-import { LogoCCD } from "@/components/layout/MarqueCCD";
+import { LogoPlateforme } from "@/components/layout/LogoPlateforme";
 import { FilAriane } from "@/components/layout/FilAriane";
 import { BadgeEssai } from "@/components/metier/BadgeEssai";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -56,6 +56,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSousMenu,
+  SidebarMenuSousMenuLien,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
@@ -69,12 +71,26 @@ import { EVENEMENT_ENTREPRISE_MODIFIEE, lireEntreprise } from "@/features/config
 import type { DonneesEntreprise } from "@/features/configuration/api";
 import { obtenirMeteo } from "@/features/projets/adaptateur";
 import type { MeteoProjet } from "@/features/projets/types";
+import { useIdentitePlateforme } from "@/features/plateforme/hooks";
 
 interface LayoutAppProps {
   children: React.ReactNode;
 }
 
-const abonnementSession = (rappel: () => void) => {
+/** Les entrées du sous-menu « Projets », dans l'ordre d'affichage. */
+const SOUS_MENU_PROJETS = [
+  { href: "/projets", cle: "projetsListe" },
+  { href: "/projets/lots-activites", cle: "projetsLots" },
+  { href: "/projets/equipe-affectations", cle: "projetsEquipe" },
+] as const;
+
+/**
+ * Les segments de `/projets/*` qui sont des écrans, pas des identifiants de
+ * projet : sans ce filtre, la météo serait demandée pour le projet « lots-activites ».
+ */
+const SEGMENTS_PROJETS_STATIQUES = new Set(["lots-activites", "equipe-affectations"]);
+
+const abonnementSession =(rappel: () => void) => {
   if (typeof window === "undefined") return () => {};
   window.addEventListener(EVENEMENT_SESSION_EXPIREE, rappel);
   window.addEventListener("storage", rappel);
@@ -178,6 +194,8 @@ export default function LayoutApp({ children }: LayoutAppProps) {
   const [profil, setProfil] = useState<ProfilUtilisateur | null>(null);
   const [entreprise, setEntreprise] = useState<DonneesEntreprise | null>(null);
   const [meteo, setMeteo] = useState<MeteoProjet | null>(null);
+  // Le nom et le logo de la plateforme, paramétrés au back-office.
+  const identitePlateforme = useIdentitePlateforme().data;
 
   // Garde de session : redirection immédiate vers la connexion si aucune session
   useEffect(() => {
@@ -194,7 +212,8 @@ export default function LayoutApp({ children }: LayoutAppProps) {
     segments[0] === "projets" &&
     segments[1] &&
     segments[1] !== "page" &&
-    !segments[1].startsWith("creer")
+    !segments[1].startsWith("creer") &&
+    !SEGMENTS_PROJETS_STATIQUES.has(segments[1])
       ? segments[1]
       : undefined;
 
@@ -258,6 +277,12 @@ export default function LayoutApp({ children }: LayoutAppProps) {
 
   const estSurTableauDeBord = pathname.startsWith("/tableau-de-bord");
   const estSurProjets = pathname.startsWith("/projets");
+  // Un seul sous-menu actif : les deux écrans dédiés d'abord, la liste sinon
+  // (elle couvre aussi les fiches `/projets/[id]`).
+  const sousMenuProjetsActif = estSurProjets
+    ? (SOUS_MENU_PROJETS.find(({ href }) => href !== "/projets" && pathname.startsWith(href))
+        ?.href ?? "/projets")
+    : null;
   const estSurChantier = pathname.startsWith("/rapports");
   const estSurPlanning = pathname.startsWith("/planning");
   const estSurFinance = pathname.startsWith("/finance");
@@ -390,12 +415,12 @@ export default function LayoutApp({ children }: LayoutAppProps) {
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
                 <Link href="/tableau-de-bord">
-                  <LogoCCD taille={28} />
+                  <LogoPlateforme logo={identitePlateforme?.logo} taille={28} />
                   {/* Le nom de marque est le seul texte encre de la barre —
                       comme sur `docs/interface.jpg`, où le signe porte la
                       couleur et le mot reste noir. */}
                   <span className="truncate text-base leading-tight font-bold tracking-tight text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden">
-                    {tMarque("nom")}
+                    {identitePlateforme?.nom || tMarque("nom")}
                   </span>
                 </Link>
               </SidebarMenuButton>
@@ -415,14 +440,25 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurProjets} tooltip={t("projets")}>
-                    <Link href="/projets">
-                      <Building2 />
-                      <span>{t("projets")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {/* Panneau volant au survol : pas d'infobulle ici, elle
+                    doublerait le panneau quand la barre est repliée. */}
+                <SidebarMenuSousMenu
+                  libelle={t("projets")}
+                  declencheur={
+                    <SidebarMenuButton asChild isActive={estSurProjets} sousMenu>
+                      <Link href="/projets">
+                        <Building2 />
+                        <span>{t("projets")}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  }
+                >
+                  {SOUS_MENU_PROJETS.map(({ href, cle }) => (
+                    <SidebarMenuSousMenuLien key={href} isActive={sousMenuProjetsActif === href}>
+                      <Link href={href}>{t(cle)}</Link>
+                    </SidebarMenuSousMenuLien>
+                  ))}
+                </SidebarMenuSousMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={estSurChantier} tooltip={t("chantier")}>
                     <Link href="/rapports">

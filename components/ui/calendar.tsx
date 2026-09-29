@@ -11,9 +11,17 @@ import {
   DayPicker,
   getDefaultClassNames,
   type DayButton,
+  type DropdownProps,
 } from "react-day-picker"
 
 import { Button, buttonVariants } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { LOCALE_CALENDRIER } from "@/i18n/langue"
 
 /**
@@ -28,6 +36,11 @@ import { LOCALE_CALENDRIER } from "@/i18n/langue"
  * 3. Les tailles de texte arbitraires du fichier généré (`text-[0.8rem]`)
  *    reviennent à l'échelle de Tailwind (règle 4 du plan : aucune valeur
  *    en dur).
+ *
+ * 4. **Les listes mois / année passent par le `Select` de la charte**
+ *    (`CalendarDropdown`) au lieu du `<select>` natif : la liste native est
+ *    dessinée par le système — surlignage bleu, ascenseur large et foncé
+ *    sous Windows — et aucune classe ne l'atteint.
  *
  * `react-day-picker` est en v10, dont l'API de composants et de classes est
  * celle de la v9 que cible shadcn.
@@ -56,8 +69,10 @@ function Calendar({
       defaultClassNames.months
     ),
     month: cn("flex w-full flex-col gap-4", defaultClassNames.month),
+    // La barre des flèches couvre toute la largeur de l'en-tête, donc les
+    // listes mois / année : seules les flèches doivent recevoir les clics.
     nav: cn(
-      "absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1",
+      "pointer-events-none absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1 [&>button]:pointer-events-auto",
       defaultClassNames.nav
     ),
     button_previous: cn(
@@ -181,6 +196,7 @@ function Calendar({
           )
         },
         DayButton: CalendarDayButton,
+        Dropdown: CalendarDropdown,
         WeekNumber: ({ children, ...props }) => {
           return (
             <td {...props}>
@@ -194,6 +210,51 @@ function Calendar({
       }}
       {...props}
     />
+  )
+}
+
+/**
+ * La liste mois ou année de l'en-tête. `react-day-picker` attend l'événement
+ * d'un `<select>` et n'en lit que `target.value` : c'est tout ce qu'on lui
+ * transmet.
+ */
+function CalendarDropdown({
+  options,
+  value,
+  onChange,
+  disabled,
+  "aria-label": libelle,
+}: DropdownProps) {
+  return (
+    <Select
+      value={value === undefined ? undefined : String(value)}
+      disabled={disabled}
+      onValueChange={(choix) =>
+        onChange?.({
+          target: { value: choix },
+        } as React.ChangeEvent<HTMLSelectElement>)
+      }
+    >
+      <SelectTrigger
+        size="sm"
+        aria-label={libelle}
+        className="gap-1 bg-card px-2 font-medium first-letter:uppercase"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="max-h-64 [scrollbar-width:thin] [scrollbar-color:var(--color-neutral-200)_transparent]">
+        {options?.map((option) => (
+          <SelectItem
+            key={option.value}
+            value={String(option.value)}
+            disabled={option.disabled}
+            className="capitalize focus:bg-primary-100 focus:text-primary-800 data-[state=checked]:bg-primary-50 data-[state=checked]:font-medium data-[state=checked]:text-primary-700"
+          >
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 

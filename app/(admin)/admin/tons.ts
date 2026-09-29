@@ -17,8 +17,10 @@ import type {
   AlerteClient,
   CleIndicateur,
   EtatCommercial,
+  RoleAdministrateur,
   StatutAbonnement,
   StatutClient,
+  StatutCompteAdministrateur,
   TonVariation,
 } from "@/features/administration";
 
@@ -33,6 +35,7 @@ const INFO = "border border-information/30 bg-information-fond text-information"
 
 export const TON_STATUT_CLIENT: Record<StatutClient, string> = {
   EN_ATTENTE: NEUTRE,
+  ESSAI: INFO,
   ACTIF: BON,
   SUSPENDU: GRAVE,
   RESILIE: NEUTRE,
@@ -44,6 +47,17 @@ export const TON_STATUT_ABONNEMENT: Record<StatutAbonnement, string> = {
   IMPAYE: GRAVE,
   SUSPENDU: GRAVE,
   RESILIE: NEUTRE,
+};
+
+/** Le superviseur se distingue d'un coup d'oeil : c'est lui qui peut agir. */
+export const TON_ROLE_ADMINISTRATEUR: Record<RoleAdministrateur, string> = {
+  SUPERVISEUR: "border border-secondary-200 bg-secondary-50 text-secondary-800",
+  SUPPORT: NEUTRE,
+};
+
+export const TON_STATUT_COMPTE: Record<StatutCompteAdministrateur, string> = {
+  ACTIF: BON,
+  SUSPENDU: GRAVE,
 };
 
 export const TON_ALERTE: Record<NonNullable<AlerteClient>, string> = {

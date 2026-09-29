@@ -14,6 +14,8 @@ interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, "id"> {
   iconeDroite?: ReactNode;
   /** Bouton à droite du champ — l'œil qui révèle un mot de passe. */
   actionDroite?: ReactNode;
+  /** `md` (40 px) pour les formulaires denses — modales, tiroirs. */
+  taille?: "lg" | "md";
 }
 
 /**
@@ -24,7 +26,7 @@ interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, "id"> {
  * couleur n'est jamais le seul porteur de l'information (charte §8.4).
  */
 export const Champ = forwardRef<HTMLInputElement, Props>(function Champ(
-  { libelle, erreur, aide, iconeDroite, actionDroite, required, className, ...reste },
+  { libelle, erreur, aide, iconeDroite, actionDroite, taille = "lg", required, className, ...reste },
   ref,
 ) {
   const identifiant = useId();
@@ -47,7 +49,8 @@ export const Champ = forwardRef<HTMLInputElement, Props>(function Champ(
           ref={ref}
           id={identifiant}
           className={cn(
-            "h-[var(--input-height)] w-full rounded-md border border-neutral-300 bg-neutral-0 px-[var(--input-padding-x)]",
+            taille === "md" ? "h-[var(--input-height-md)]" : "h-[var(--input-height)]",
+            "w-full rounded-md border border-neutral-300 bg-neutral-0 px-[var(--input-padding-x)]",
             "text-neutral-700 outline-none transition-[border-color,box-shadow]",
             "placeholder:text-neutral-500",
             "not-disabled:not-focus:hover:border-neutral-400",

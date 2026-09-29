@@ -28,6 +28,7 @@ import { schemaSuspension } from "@/features/administration/validations";
 import type { SaisieSuspension, ValeursSuspension } from "@/features/administration/validations";
 import { ErreurApi } from "@/lib/api";
 import { ABSENT, formaterDate, formaterMontant, nomDePays } from "@/lib/format";
+import { useLibellePlan } from "@/features/plateforme/hooks";
 
 import { useAdministrateur } from "../../ContexteAdministrateur";
 import { CLES_ADMINISTRATION } from "../../cles";
@@ -81,6 +82,7 @@ function Ligne({ libelle, valeur }: { libelle: string; valeur: React.ReactNode }
  */
 export function FicheClient({ id }: { id: string }) {
   const t = useTranslations("administration");
+  const libellePlan = useLibellePlan();
   const profil = useAdministrateur();
   const cache = useQueryClient();
 
@@ -230,7 +232,7 @@ export function FicheClient({ id }: { id: string }) {
 
         <section className={CARTE}>
           <h2 className={CARTE_TITRE}>{t("fiche.abonnement")}</h2>
-          <Ligne libelle={t("fiche.plan")} valeur={t(`plan.${client.abonnement.plan}`)} />
+          <Ligne libelle={t("fiche.plan")} valeur={libellePlan(client.abonnement.plan)} />
           <Ligne
             libelle={t("fiche.montantMensuel")}
             valeur={formaterMontant(client.abonnement.montantMensuelCentimes)}
@@ -375,7 +377,7 @@ export function FicheClient({ id }: { id: string }) {
                   onChange={() => setPlan(code)}
                   disabled={changement.isPending}
                 />
-                {t(`plan.${code}`)}
+                {libellePlan(code)}
               </label>
             ))}
           </fieldset>

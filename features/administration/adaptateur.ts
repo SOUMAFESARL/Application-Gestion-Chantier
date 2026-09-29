@@ -32,7 +32,10 @@ import {
   lireJetonRenouvellement,
 } from "@/lib/api";
 import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
-import { simulationAdministration } from "@/lib/api/simulationAdministration";
+import {
+  simulationAdministration,
+  simulationParametresPublics,
+} from "@/lib/api/simulationAdministration";
 import { texte } from "@/i18n/horsReact";
 
 import { indicateurs } from "./regles";
@@ -41,12 +44,18 @@ import type {
   CleIndicateur,
   ClientPlateforme,
   CodePlan,
+  CompteAdministrateur,
+  DemandeChangementMotDePasse,
+  DemandeCreationAdministrateur,
+  DemandeModificationProfil,
   IndicateursPlateforme,
   PointEvolutionAbonnements,
   ProfilAdministrateur,
   RoleAdministrateur,
   StatutAbonnement,
   StatutClient,
+  StatutCompteAdministrateur,
+  TarifPlan,
   TendanceIndicateur,
 } from "./types";
 
@@ -95,6 +104,21 @@ interface ChargeUtilisateurSuperAdmin {
   is_staff: boolean;
   langue: string;
   schema: string;
+  /** Absent de la réponse de connexion ; présent dans celle de `PATCH /admins/moi/`. */
+  telephone?: string;
+  photo_url?: string | null;
+}
+
+interface ChargeCompteAdministrateur {
+  id: string;
+  email: string;
+  nom: string;
+  prenom: string;
+  telephone: string;
+  role: RoleAdministrateur;
+  statut: StatutCompteAdministrateur;
+  cree_le: string;
+  derniere_connexion: string | null;
 }
 
 interface ChargeConnexion {
@@ -170,7 +194,25 @@ function versProfil(charge: ChargeUtilisateurSuperAdmin): ProfilAdministrateur {
     nom: charge.nom,
     prenom: charge.prenom,
     nomComplet: nomComplet || charge.email,
+    telephone: charge.telephone ?? "",
+    photo: charge.photo_url ?? null,
     role: versRole(charge),
+  };
+}
+
+function versCompte(charge: ChargeCompteAdministrateur): CompteAdministrateur {
+  const nomComplet = `${charge.prenom} ${charge.nom}`.trim();
+  return {
+    id: charge.id,
+    email: charge.email,
+    nom: charge.nom,
+    prenom: charge.prenom,
+    nomComplet: nomComplet || charge.email,
+    telephone: charge.telephone,
+    role: charge.role,
+    statut: charge.statut,
+    creeLe: new Date(charge.cree_le),
+    derniereConnexion: charge.derniere_connexion ? new Date(charge.derniere_connexion) : null,
   };
 }
 
@@ -224,7 +266,14 @@ export function lireProfilLocal(): ProfilAdministrateur | null {
   if (typeof window === "undefined") return null;
   try {
     const brut = window.localStorage.getItem(CLE_PROFIL);
-    return brut ? (JSON.parse(brut) as ProfilAdministrateur) : null;
+    if (!brut) return null;
+    // Un profil gardé avant l'arrivée du téléphone n'en porte pas : on le
+    // complète plutôt que de laisser un `undefined` traverser les écrans.
+    return {
+      telephone: "",
+      photo: null,
+      ...(JSON.parse(brut) as Partial<ProfilAdministrateur>),
+    } as ProfilAdministrateur;
   } catch {
     return null;
   }
@@ -325,6 +374,265 @@ export async function obtenirProfil(): Promise<ProfilAdministrateur> {
   const local = lireProfilLocal();
   if (local) return local;
   throw new ErreurApi("non_authentifie", texte("administration.erreurs.action"), 401);
+}
+
+/**
+ * Modifie le profil de l'agent connecté — `PATCH /admins/moi/`.
+ *
+ * Le profil gardé en local est réécrit avec la réponse : c'est lui que
+ * l'en-tête affiche, et un nom corrigé qui ne s'y verrait qu'après une
+ * reconnexion donnerait l'impression que l'enregistrement a échoué.
+ */
+export async function modifierProfil(
+  demande: DemandeModificationProfil,
+): Promise<ProfilAdministrateur> {
+  const actuel = lireProfilLocal();
+  if (!actuel) {
+    throw new ErreurApi("non_authentifie", texte("administration.erreurs.action"), 401);
+  }
+
+  const corps = {
+    prenom: demande.prenom,
+    nom: demande.nom,
+    email: demande.email,
+    telephone: demande.telephone,
+  };
+
+  let profil: ProfilAdministrateur;
+  if (SIMULATION_ACTIVE) {
+    const reponse = await simulationAdministration.modifierProfil(actuel.id, corps);
+    const nomComplet = `${reponse.prenom} ${reponse.nom}`.trim();
+    profil = { ...actuel, ...reponse, nomComplet: nomComplet || reponse.email };
+  } else {
+    profil = versProfil(
+      await apiAdministration.modifier<ChargeUtilisateurSuperAdmin>("/admins/moi/", corps),
+    );
+  }
+
+  ecrireProfilLocal(profil);
+  return profil;
+}
+
+/**
+ * Remplace ou retire la photo de profil — `PATCH /admins/moi/photo/`, en
+ * `multipart`.
+ *
+ * `null` retire la photo : l'avatar retombe sur les initiales. Séparé de
+ * `modifierProfil` parce que c'est un geste à part — on change sa photo sans
+ * toucher au formulaire, et l'envoi d'un fichier ne passe pas par du JSON.
+ */
+export async function modifierPhotoProfil(
+  fichier: File | null,
+): Promise<ProfilAdministrateur> {
+  const actuel = lireProfilLocal();
+  if (!actuel) {
+    throw new ErreurApi("non_authentifie", texte("administration.erreurs.action"), 401);
+  }
+
+  let profil: ProfilAdministrateur;
+  if (SIMULATION_ACTIVE) {
+    const photo = fichier ? await lireEnDataUrl(fichier) : null;
+    await simulationAdministration.modifierPhoto(photo);
+    profil = { ...actuel, photo };
+  } else {
+    const formulaire = new FormData();
+    if (fichier) formulaire.append("photo", fichier);
+    else formulaire.append("retirer_photo", "true");
+    profil = versProfil(
+      await apiAdministration.modifier<ChargeUtilisateurSuperAdmin>(
+        "/admins/moi/photo/",
+        formulaire,
+      ),
+    );
+  }
+
+  ecrireProfilLocal(profil);
+  return profil;
+}
+
+/**
+ * Change le mot de passe de l'agent connecté —
+ * `POST /admins/moi/mot-de-passe/`.
+ *
+ * Un ancien mot de passe erroné revient en `400` sur le champ
+ * `ancien_mot_de_passe` : l'erreur est renommée vers `actuel`, le nom du champ
+ * de l'écran, pour qu'elle s'affiche sous la bonne saisie.
+ */
+export async function changerMotDePasse(demande: DemandeChangementMotDePasse): Promise<void> {
+  const corps = {
+    ancien_mot_de_passe: demande.actuel,
+    nouveau_mot_de_passe: demande.nouveau,
+  };
+
+  try {
+    if (SIMULATION_ACTIVE) {
+      await simulationAdministration.changerMotDePasse(corps);
+    } else {
+      await apiAdministration.creer<void>("/admins/moi/mot-de-passe/", corps);
+    }
+  } catch (cause) {
+    if (cause instanceof ErreurApi) {
+      const { ancien_mot_de_passe: ancien, nouveau_mot_de_passe: nouveau } = cause.details;
+      if (ancien || nouveau) {
+        const details: Record<string, string[] | string> = {};
+        if (ancien) details.actuel = ancien;
+        if (nouveau) details.nouveau = nouveau;
+        throw new ErreurApi(cause.code, cause.message, cause.statut, details, cause.traceId);
+      }
+    }
+    throw cause;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Comptes des agents
+ * ------------------------------------------------------------------ */
+
+/** Le profil connecté, sous la forme d'un compte — pour la simulation seulement. */
+function compteDuProfil(profil: ProfilAdministrateur | null): ChargeCompteAdministrateur | null {
+  if (!profil) return null;
+  return {
+    id: profil.id,
+    email: profil.email,
+    nom: profil.nom,
+    prenom: profil.prenom,
+    telephone: profil.telephone,
+    role: profil.role,
+    statut: "ACTIF",
+    cree_le: new Date().toISOString(),
+    derniere_connexion: new Date().toISOString(),
+  };
+}
+
+/** `GET /admins/comptes/` — les agents de la plateforme, suspendus compris. */
+export async function listerAdministrateurs(
+  signal?: AbortSignal,
+): Promise<CompteAdministrateur[]> {
+  const charges: ChargeCompteAdministrateur[] = SIMULATION_ACTIVE
+    ? await simulationAdministration.listerComptes(compteDuProfil(lireProfilLocal()))
+    : await apiAdministration.lire<ChargeCompteAdministrateur[]>(
+        "/admins/comptes/",
+        undefined,
+        signal,
+      );
+
+  return charges.map(versCompte);
+}
+
+/**
+ * `POST /admins/comptes/` — le serveur envoie l'invitation, l'agent choisit
+ * son mot de passe.
+ */
+export async function creerAdministrateur(
+  demande: DemandeCreationAdministrateur,
+): Promise<CompteAdministrateur> {
+  const corps = {
+    prenom: demande.prenom,
+    nom: demande.nom,
+    email: demande.email,
+    role: demande.role,
+  };
+
+  const charge: ChargeCompteAdministrateur = SIMULATION_ACTIVE
+    ? await simulationAdministration.creerCompte(corps)
+    : await apiAdministration.creer<ChargeCompteAdministrateur>("/admins/comptes/", corps);
+
+  return versCompte(charge);
+}
+
+export async function suspendreAdministrateur(id: string): Promise<CompteAdministrateur> {
+  const charge: ChargeCompteAdministrateur = SIMULATION_ACTIVE
+    ? await simulationAdministration.suspendreCompte(id, lireProfilLocal()?.id ?? null)
+    : await apiAdministration.creer<ChargeCompteAdministrateur>(
+        `/admins/comptes/${id}/suspendre/`,
+        {},
+      );
+
+  return versCompte(charge);
+}
+
+export async function reactiverAdministrateur(id: string): Promise<CompteAdministrateur> {
+  const charge: ChargeCompteAdministrateur = SIMULATION_ACTIVE
+    ? await simulationAdministration.reactiverCompte(id)
+    : await apiAdministration.creer<ChargeCompteAdministrateur>(
+        `/admins/comptes/${id}/reactiver/`,
+        {},
+      );
+
+  return versCompte(charge);
+}
+
+/* ------------------------------------------------------------------ *
+ * Paramètres de la plateforme
+ * ------------------------------------------------------------------ *
+ * Seules les **écritures** vivent ici. La lecture est publique et appartient
+ * à `features/plateforme/adaptateur.ts`, que l'espace entreprise appelle
+ * aussi : le back-office relit donc exactement ce que les clients verront.
+ */
+
+/** `PUT /admins/parametres/tarifs/` — tous les plans d'un coup : prix, remise, quotas, avantages. */
+export async function modifierTarifs(tarifs: TarifPlan[]): Promise<void> {
+  const corps = tarifs.map((tarif) => ({
+    plan_code: tarif.code,
+    libelle: tarif.libelle,
+    prix_mensuel_centimes: tarif.prixMensuelCentimes,
+    prix_annuel_centimes: tarif.prixAnnuelCentimes,
+    remise_annuelle_pourcent: tarif.remiseAnnuellePourcent,
+    limite_chantiers: tarif.limiteChantiers,
+    limite_utilisateurs: tarif.limiteUtilisateurs,
+    limite_stockage_go: tarif.limiteStockageGo,
+    avantages: tarif.avantages.map((avantage) => ({
+      libelle: avantage.libelle,
+      inclus: avantage.inclus,
+    })),
+  }));
+
+  if (SIMULATION_ACTIVE) {
+    await simulationAdministration.modifierTarifs(corps);
+    return;
+  }
+
+  await apiAdministration.modifier<void>("/admins/parametres/tarifs/", { tarifs: corps });
+}
+
+/** Lit un fichier en `data:` URL — la simulation n'a pas de stockage de fichiers. */
+function lireEnDataUrl(fichier: File): Promise<string> {
+  return new Promise((resoudre, rejeter) => {
+    const lecteur = new FileReader();
+    lecteur.onload = () => resoudre(String(lecteur.result));
+    lecteur.onerror = () => rejeter(lecteur.error);
+    lecteur.readAsDataURL(fichier);
+  });
+}
+
+/**
+ * `PATCH /admins/parametres/identite/` — en `multipart`, pour le logo.
+ *
+ * Trois cas pour le logo : un nouveau fichier le remplace, `retirerLogo`
+ * revient au signe CCD, et ni l'un ni l'autre le laisse tel quel.
+ */
+export async function modifierIdentite(demande: {
+  nom: string;
+  logo: File | null;
+  retirerLogo: boolean;
+}): Promise<void> {
+  if (SIMULATION_ACTIVE) {
+    const actuelle = await simulationParametresPublics.lireIdentite();
+    const logo = demande.logo
+      ? await lireEnDataUrl(demande.logo)
+      : demande.retirerLogo
+        ? null
+        : actuelle.logo_url;
+    await simulationAdministration.modifierIdentite({ nom: demande.nom, logo_url: logo });
+    return;
+  }
+
+  const formulaire = new FormData();
+  formulaire.append("nom", demande.nom);
+  if (demande.logo) formulaire.append("logo", demande.logo);
+  if (demande.retirerLogo) formulaire.append("retirer_logo", "true");
+
+  await apiAdministration.modifier<void>("/admins/parametres/identite/", formulaire);
 }
 
 /* ------------------------------------------------------------------ *

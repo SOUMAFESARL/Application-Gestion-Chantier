@@ -7,7 +7,12 @@
 import { api } from "@/lib/api";
 import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
 
+import { obtenirProfilMoi } from "@/features/auth/api";
+
+import { collaborateurDepuisInvitation, collaborateurDepuisProfil } from "./regles";
+import { COLLABORATEURS_SIMULES } from "./simulationCollaborateurs";
 import { simulationInvitations } from "./simulationInvitations";
+import type { Collaborateur } from "./types";
 
 export interface ContenuInvitation {
   email: string;
@@ -99,3 +104,26 @@ export async function creerInvitation(
   if (SIMULATION_ACTIVE) return simulationInvitations.creer(payload);
   return api.creer<InvitationDetail>("/invitations/", payload);
 }
+
+/**
+ * Les collaborateurs de l'entreprise, pour les choisir ailleurs que sur leur
+ * écran (la constitution d'une équipe de chantier) : le compte connecté, les
+ * invitations, et l'équipe de démonstration sous simulation.
+ *
+ * Même assemblage que l'écran « Collaborateurs », en attendant une route
+ * `GET /collaborateurs/` qui le fasse côté serveur. Chaque source échoue
+ * seule : un profil illisible ne vide pas la liste.
+ */
+export async function listerCollaborateurs(): Promise<Collaborateur[]> {
+  const [profil, invitations] = await Promise.allSettled([obtenirProfilMoi(), listerInvitations()]);
+  return [
+    ...(profil.status === "fulfilled" ? [collaborateurDepuisProfil(profil.value)] : []),
+    ...(invitations.status === "fulfilled"
+      ? invitations.value.map(collaborateurDepuisInvitation)
+      : []),
+    ...(SIMULATION_ACTIVE ? COLLABORATEURS_SIMULES : []),
+  ];
+}
+
+/** La clé de cache de la liste des collaborateurs. */
+export const CLE_COLLABORATEURS = ["collaborateurs"] as const;

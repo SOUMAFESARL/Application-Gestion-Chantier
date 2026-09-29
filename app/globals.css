@@ -98,6 +98,8 @@
   --color-avertissement-fond: var(--color-semantic-warning-bg);
   --color-information: var(--color-semantic-info);
   --color-information-fond: var(--color-semantic-info-bg);
+  --color-whatsapp: var(--color-whatsapp);
+  --color-whatsapp-survol: var(--color-whatsapp-survol);
 
   /* --- Alias attendus par les composants shadcn --------------------- */
   /* Blanc, et non `neutral-50` : la zone de contenu de `docs/interface.jpg`
@@ -290,5 +292,25 @@
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* L'impression d'un document (rapport journalier, synthèse) : le navigateur
+   produit le PDF, comme pour la fiche projet. Le cadre de l'application — menu,
+   en-tête — n'a rien à faire sur le papier ; un écran marque ce qui ne s'imprime
+   pas avec `print:hidden`. */
+@media print {
+  [data-slot="sidebar"],
+  [data-slot="sidebar-gap"],
+  [data-slot="sidebar-inset"] > header {
+    display: none !important;
+  }
+
+  [data-slot="sidebar-inset"] > main {
+    padding: 0 !important;
+  }
+
+  @page {
+    margin: 12mm;
   }
 }

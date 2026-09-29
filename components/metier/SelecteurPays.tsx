@@ -73,7 +73,7 @@ export function SelecteurPays({
               <span className="text-muted-foreground">{t("champPaysChoisir")}</span>
             )}
           </span>
-          <ChevronsUpDown className="shrink-0 text-neutral-500" />
+          <ChevronsUpDown className="shrink-0 text-primary" />
         </Button>
       </PopoverTrigger>
 

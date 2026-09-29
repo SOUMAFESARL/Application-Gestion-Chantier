@@ -1,19 +1,23 @@
-import { useTranslations } from "next-intl";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 
-import { EnTetePage } from "@/components/layout/EnTetePage";
+import { JournalChantier } from "./JournalChantier";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("journal");
+  return { title: t("titre") };
+}
 
 /**
- * Écran « Journal de chantier »
+ * Écran « Journal de chantier » — vue du Directeur Général
+ * (docs/PLAN_INTERFACES_DG.md §3).
  *
  * Motif d'interface : Liste filtrable
  *
- * Squelette posé par la tâche T-005. Le contenu réel est développé
- * au sprint qui porte la fonctionnalité correspondante.
+ * La page ne porte que le gabarit : le journal est lu côté navigateur
+ * (React Query), donc tout ce qui dépend de la réponse vit dans
+ * `JournalChantier`.
  */
 export default function Page() {
-  const t = useTranslations("squelettes");
-
-  return (
-    <EnTetePage titre={t("journalDeChantier.titre")} description={t("aConstruire", { motif: t("journalDeChantier.motif") })} />
-  );
+  return <JournalChantier />;
 }

@@ -15,11 +15,17 @@ import { cn } from "@/lib/utils";
  * Un écart au fichier généré : le preflight de Tailwind étant coupé
  * (`app/globals.css`), `border-collapse` et l'alignement des cellules sont
  * posés explicitement — sans quoi le navigateur garde ses valeurs par défaut.
+ *
+ * La barre de défilement horizontale est fine et claire, comme celle de la
+ * barre latérale : deux propriétés standard, pas de `::-webkit-scrollbar`.
  */
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto">
+    <div
+      data-slot="table-container"
+      className="relative w-full overflow-x-auto [scrollbar-width:thin] [scrollbar-color:var(--color-neutral-200)_transparent]"
+    >
       <table
         data-slot="table"
         className={cn("w-full border-collapse caption-bottom text-sm", className)}

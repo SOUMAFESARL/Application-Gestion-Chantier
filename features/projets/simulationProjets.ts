@@ -29,7 +29,15 @@
 import type { TiersOption } from "@/features/tiers/types";
 import { attendre, refuser } from "@/lib/api/simulation";
 
-import type { ClientProjet, CreationProjet, Intervenant, Projet } from "./types";
+import { INDICE_SANTE_INITIAL, peutReprendre, peutSuspendre } from "./regles";
+import { simulationLots } from "./simulationLots";
+import type {
+  ClientProjet,
+  CreationProjet,
+  Intervenant,
+  ModificationProjet,
+  Projet,
+} from "./types";
 
 const CLE_ETAT = "ccd.simulation.projets";
 
@@ -127,12 +135,14 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     reference: "PRJ-2026-001",
     nom: "Résidence Les Merveilles",
     description: "Programme immobilier R+4 de 16 logements avec sous-sol parking.",
+    typeProjet: "BATIMENT_RESIDENTIEL",
     client: CLIENTS_DEMONSTRATION[0],
     ville: "Abidjan",
     quartier: "Cocody Angré",
     statut: "EN_COURS",
     avancementReel: 22.5,
     avancementTheorique: 25,
+    indiceSante: 82,
     budgetInitial: 650_000_000_00,
     budgetConsomme: 146_250_000_00,
     dateDebutPrevue: "2026-01-12",
@@ -141,18 +151,23 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateFinReelle: null,
     chefProjet: COLLABORATEURS_DEMONSTRATION[0],
     conducteurTravaux: COLLABORATEURS_DEMONSTRATION[0],
+    maitreOeuvre: "Cabinet Archi-Lagune",
+    chefsChantier: [COLLABORATEURS_DEMONSTRATION[1], COLLABORATEURS_DEMONSTRATION[2]],
+    directeurFinancier: COLLABORATEURS_DEMONSTRATION[2],
   },
   {
     id: "c2c83f62-5fb4-4a5c-932c-d02a12eeeb13",
     reference: "PRJ-2026-002",
     nom: "Siège Banque Atlantique",
     description: "Réhabilitation lourde du siège social, façade et lots techniques.",
+    typeProjet: "BATIMENT_TERTIAIRE",
     client: CLIENTS_DEMONSTRATION[1],
     ville: "Abidjan",
     quartier: "Plateau",
     statut: "EN_RETARD",
     avancementReel: 41,
     avancementTheorique: 58,
+    indiceSante: 54,
     budgetInitial: 1_200_000_000_00,
     budgetConsomme: 612_000_000_00,
     dateDebutPrevue: "2025-09-01",
@@ -161,18 +176,23 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateFinReelle: null,
     chefProjet: COLLABORATEURS_DEMONSTRATION[1],
     conducteurTravaux: COLLABORATEURS_DEMONSTRATION[1],
+    maitreOeuvre: "BNETD",
+    chefsChantier: [COLLABORATEURS_DEMONSTRATION[2]],
+    directeurFinancier: COLLABORATEURS_DEMONSTRATION[0],
   },
   {
     id: "d3d94073-6fc5-4b6d-a43d-e13b23fffc24",
     reference: "PRJ-2026-003",
     nom: "Entrepôt logistique Sifca",
     description: "Construction d'un entrepôt de 4 200 m² et de ses voiries.",
+    typeProjet: "INDUSTRIEL",
     client: CLIENTS_DEMONSTRATION[2],
     ville: "Yamoussoukro",
     quartier: "Zone industrielle",
     statut: "CRITIQUE",
     avancementReel: 12,
     avancementTheorique: 34,
+    indiceSante: 28,
     budgetInitial: 480_000_000_00,
     budgetConsomme: 511_000_000_00,
     dateDebutPrevue: "2026-02-03",
@@ -181,18 +201,23 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateFinReelle: null,
     chefProjet: COLLABORATEURS_DEMONSTRATION[2],
     conducteurTravaux: COLLABORATEURS_DEMONSTRATION[2],
+    maitreOeuvre: null,
+    chefsChantier: [COLLABORATEURS_DEMONSTRATION[0]],
+    directeurFinancier: null,
   },
   {
     id: "e4ea5184-70d6-4c7e-b54e-f24c34000d35",
     reference: "PRJ-2026-004",
     nom: "École primaire de Bingerville",
     description: "Six classes, bloc administratif et bloc sanitaire.",
+    typeProjet: "BATIMENT_TERTIAIRE",
     client: CLIENTS_DEMONSTRATION[0],
     ville: "Bingerville",
     quartier: "Centre",
     statut: "EN_ATTENTE",
     avancementReel: 0,
     avancementTheorique: 0,
+    indiceSante: null,
     budgetInitial: null,
     budgetConsomme: 0,
     dateDebutPrevue: "2026-10-05",
@@ -201,18 +226,23 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateFinReelle: null,
     chefProjet: null,
     conducteurTravaux: null,
+    maitreOeuvre: null,
+    chefsChantier: [],
+    directeurFinancier: null,
   },
   {
     id: "f5fb6295-81e7-4d8f-c65f-035d45111e46",
     reference: "PRJ-2025-018",
     nom: "Villa duplex Riviera Golf",
     description: "Villa individuelle R+1 avec piscine et local technique.",
+    typeProjet: "BATIMENT_RESIDENTIEL",
     client: CLIENTS_DEMONSTRATION[0],
     ville: "Abidjan",
     quartier: "Riviera Golf",
     statut: "TERMINE",
     avancementReel: 100,
     avancementTheorique: 100,
+    indiceSante: 96,
     budgetInitial: 185_000_000_00,
     budgetConsomme: 179_400_000_00,
     dateDebutPrevue: "2025-01-08",
@@ -221,18 +251,23 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateFinReelle: "2025-12-02",
     chefProjet: COLLABORATEURS_DEMONSTRATION[0],
     conducteurTravaux: COLLABORATEURS_DEMONSTRATION[0],
+    maitreOeuvre: "Atelier Kouadio Architectes",
+    chefsChantier: [COLLABORATEURS_DEMONSTRATION[1]],
+    directeurFinancier: null,
   },
   {
     id: "a6ac73a6-92f8-4e90-d760-146e56222f57",
     reference: "PRJ-2026-005",
     nom: "Extension clinique Sainte-Anne",
     description: "Extension d'un niveau sur bâtiment existant, en site occupé.",
+    typeProjet: "REHABILITATION",
     client: CLIENTS_DEMONSTRATION[1],
     ville: "Bouaké",
     quartier: "Air France",
     statut: "SUSPENDU",
     avancementReel: 31,
     avancementTheorique: 33,
+    indiceSante: 61,
     budgetInitial: 320_000_000_00,
     budgetConsomme: 264_000_000_00,
     dateDebutPrevue: "2026-03-16",
@@ -241,6 +276,9 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateFinReelle: null,
     chefProjet: COLLABORATEURS_DEMONSTRATION[1],
     conducteurTravaux: COLLABORATEURS_DEMONSTRATION[1],
+    maitreOeuvre: "Cabinet Archi-Lagune",
+    chefsChantier: [COLLABORATEURS_DEMONSTRATION[2]],
+    directeurFinancier: COLLABORATEURS_DEMONSTRATION[0],
   },
 ];
 
@@ -248,11 +286,26 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
  * L'état, conservé le temps de l'onglet.
  * ------------------------------------------------------------------ */
 
+/**
+ * Un chantier conservé par un onglet ouvert avant que la fiche ne porte le
+ * maître d'œuvre et l'équipe élargie : on complète avec les défauts de
+ * `versProjet`, pour que la simulation ne rende pas une forme que le serveur
+ * ne rendrait jamais.
+ */
+function completer(projet: Projet): Projet {
+  return {
+    ...projet,
+    maitreOeuvre: projet.maitreOeuvre ?? null,
+    chefsChantier: projet.chefsChantier ?? [],
+    directeurFinancier: projet.directeurFinancier ?? null,
+  };
+}
+
 function lireEtat(): Projet[] {
   if (typeof window === "undefined") return [...PORTEFEUILLE_INITIAL];
   try {
     const brut = window.sessionStorage.getItem(CLE_ETAT);
-    return brut ? (JSON.parse(brut) as Projet[]) : [...PORTEFEUILLE_INITIAL];
+    return brut ? (JSON.parse(brut) as Projet[]).map(completer) : [...PORTEFEUILLE_INITIAL];
   } catch {
     return [...PORTEFEUILLE_INITIAL];
   }
@@ -296,41 +349,42 @@ function identifiant(): string {
   return `sim-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
 
-/** Le client du formulaire, ou le premier de la liste si l'identifiant est inconnu. */
-function resoudreClient(clientId: string): ClientProjet {
+/**
+ * Le maître d'ouvrage saisi en clair. Un nom déjà connu du jeu de
+ * démonstration retrouve sa fiche ; sinon, une fiche minimale est créée —
+ * le serveur fera de même avec un tiers inconnu.
+ */
+function resoudreClient(maitreOuvrage: string): ClientProjet {
+  const connu = CLIENTS_DEMONSTRATION.find(
+    (client) => client.raisonSociale.toLowerCase() === maitreOuvrage.toLowerCase(),
+  );
   return (
-    CLIENTS_DEMONSTRATION.find((client) => client.id === clientId) ?? CLIENTS_DEMONSTRATION[0]
+    connu ?? { id: identifiant(), raisonSociale: maitreOuvrage, telephone: null, email: null, ville: null }
   );
 }
 
-/**
- * Le responsable désigné : un collaborateur existant, ou la personne invitée.
- *
- * L'invitée ressort en `INVITE`, comme côté serveur — c'est ce statut que la
- * fiche chantier peint différemment, et l'ignorer ici ferait mentir l'écran.
- */
-function resoudreResponsable(creation: CreationProjet): Intervenant | null {
-  if (creation.conducteurTravauxId || creation.chefProjetId) {
-    const id = creation.conducteurTravauxId ?? creation.chefProjetId;
-    return COLLABORATEURS_DEMONSTRATION.find((personne) => personne.id === id) ?? null;
+function resoudreCollaborateur(id: string | undefined): Intervenant | null {
+  if (!id) return null;
+  return COLLABORATEURS_DEMONSTRATION.find((personne) => personne.id === id) ?? null;
+}
+
+/** Remplace un projet dans l'état, ou refuse comme le serveur s'il n'existe pas. */
+function remplacer(id: string, transformer: (projet: Projet) => Projet): Projet {
+  const projets = lireEtat();
+  const rang = projets.findIndex((candidat) => candidat.id === id);
+  if (rang === -1) {
+    refuser("introuvable", "Ce chantier n'existe pas ou a été archivé.", 404);
   }
-
-  const invitation = creation.conducteurTravauxInvite ?? creation.chefProjetInvite;
-  if (!invitation) return null;
-
-  return {
-    id: identifiant(),
-    nom: invitation.nom,
-    prenom: invitation.prenom,
-    nomComplet: `${invitation.prenom} ${invitation.nom}`.trim() || invitation.email,
-    email: invitation.email,
-    telephone: invitation.telephone,
-    statut: "INVITE",
-    lienWhatsApp: null,
-  };
+  const modifie = transformer(projets[rang]);
+  ecrireEtat(projets.map((projet, i) => (i === rang ? modifie : projet)));
+  return modifie;
 }
 
 export const simulationProjets = {
+  async referenceSuivante(): Promise<string> {
+    return referenceSuivante(lireEtat());
+  },
+
   /** Le portefeuille, le plus récemment créé en tête. */
   async lister(): Promise<Projet[]> {
     return attendre(lireEtat(), LATENCE_LECTURE);
@@ -352,30 +406,91 @@ export const simulationProjets = {
    */
   async creer(creation: CreationProjet): Promise<Projet> {
     const projets = lireEtat();
-    const responsable = resoudreResponsable(creation);
+    const reference = creation.reference || referenceSuivante(projets);
+    // Même garde que le serveur : une référence est unique dans l'entreprise.
+    if (projets.some((projet) => projet.reference === reference)) {
+      refuser("reference_existante", "Cette référence est déjà utilisée par un autre projet.", 400);
+    }
 
     const projet: Projet = {
       id: identifiant(),
-      reference: referenceSuivante(projets),
+      reference,
       nom: creation.nom,
       description: creation.description ?? "",
-      client: resoudreClient(creation.clientId),
+      typeProjet: creation.typeProjet,
+      client: resoudreClient(creation.maitreOuvrage),
       ville: creation.ville,
-      quartier: creation.quartier ?? "",
+      quartier: "",
       statut: "EN_ATTENTE",
       avancementReel: 0,
       avancementTheorique: 0,
-      budgetInitial: creation.budgetInitial ?? null,
+      indiceSante: INDICE_SANTE_INITIAL,
+      budgetInitial: creation.budgetInitial,
       budgetConsomme: 0,
       dateDebutPrevue: creation.dateDebutPrevue,
       dateFinPrevue: creation.dateFinPrevue,
       dateDebutReelle: null,
       dateFinReelle: null,
-      chefProjet: responsable,
-      conducteurTravaux: responsable,
+      chefProjet: resoudreCollaborateur(creation.equipe.chefProjetId),
+      conducteurTravaux: resoudreCollaborateur(creation.equipe.conducteurTravauxId),
+      maitreOeuvre: creation.maitreOeuvre || null,
+      chefsChantier: creation.equipe.chefsChantierIds
+        .map(resoudreCollaborateur)
+        .filter((personne): personne is Intervenant => personne !== null),
+      directeurFinancier: resoudreCollaborateur(creation.equipe.directeurFinancierId),
     };
 
     ecrireEtat([projet, ...projets]);
+    simulationLots.enregistrerLotsCreation(projet.id, creation.lots);
     return attendre(projet, LATENCE_ECRITURE);
+  },
+
+  async modifier(id: string, modification: ModificationProjet): Promise<Projet> {
+    const modifie = remplacer(id, (projet) => ({
+      ...projet,
+      nom: modification.nom,
+      typeProjet: modification.typeProjet,
+      ville: modification.ville,
+      client:
+        projet.client.raisonSociale === modification.maitreOuvrage
+          ? projet.client
+          : resoudreClient(modification.maitreOuvrage),
+      maitreOeuvre: modification.maitreOeuvre || null,
+      dateDebutPrevue: modification.dateDebutPrevue,
+      dateFinPrevue: modification.dateFinPrevue,
+      budgetInitial: modification.budgetInitial,
+      description: modification.description ?? "",
+      chefProjet: resoudreCollaborateur(modification.equipe.chefProjetId),
+      conducteurTravaux: resoudreCollaborateur(modification.equipe.conducteurTravauxId),
+      chefsChantier: modification.equipe.chefsChantierIds
+        .map(resoudreCollaborateur)
+        .filter((personne): personne is Intervenant => personne !== null),
+      directeurFinancier: resoudreCollaborateur(modification.equipe.directeurFinancierId),
+    }));
+    return attendre(modifie, LATENCE_ECRITURE);
+  },
+
+  async suspendre(id: string): Promise<Projet> {
+    const modifie = remplacer(id, (projet) => {
+      if (!peutSuspendre(projet)) {
+        refuser("transition_invalide", "Ce projet ne peut pas être suspendu dans son état actuel.", 400);
+      }
+      return { ...projet, statut: "SUSPENDU" };
+    });
+    return attendre(modifie, LATENCE_ECRITURE);
+  },
+
+  /**
+   * Le serveur recalculera le statut depuis le planning ; la simulation s'en
+   * tient à la distinction qu'elle peut faire sans lui : démarré ou non.
+   */
+  async reprendre(id: string): Promise<Projet> {
+    const modifie = remplacer(id, (projet) => {
+      if (!peutReprendre(projet)) {
+        refuser("transition_invalide", "Ce projet n'est pas suspendu.", 400);
+      }
+      return { ...projet, statut: projet.dateDebutReelle ? "EN_COURS" : "EN_ATTENTE" };
+    });
+    return attendre(modifie, LATENCE_ECRITURE);
   },
 };

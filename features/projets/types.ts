@@ -62,6 +62,8 @@ export interface Projet {
   reference: string;
   nom: string;
   description: string;
+  /** `null` pour un projet ouvert avant que le type ne soit demandé. */
+  typeProjet: TypeProjet | null;
   client: ClientProjet;
   ville: string;
   quartier: string;
@@ -70,6 +72,8 @@ export interface Projet {
   avancementReel: number;
   /** Un pourcentage, de 0 à 100. */
   avancementTheorique: number;
+  /** L'indice de santé calculé par le serveur, de 0 à 100. `null` : pas encore calculé. */
+  indiceSante: number | null;
   /** En centimes. `null` tant que le budget n'est pas défini. */
   budgetInitial: number | null;
   /** En centimes. */
@@ -80,36 +84,93 @@ export interface Projet {
   dateFinReelle: string | null;
   chefProjet: Intervenant | null;
   conducteurTravaux: Intervenant | null;
+  /** Le maître d'œuvre, en clair. `null` : pas de maîtrise d'œuvre désignée. */
+  maitreOeuvre: string | null;
+  /** Au moins un dès la création ; vide pour un projet ouvert avant l'étape « Équipe ». */
+  chefsChantier: Intervenant[];
+  directeurFinancier: Intervenant | null;
 }
 
-/** Ce qu'il faut fournir pour ouvrir un chantier. */
+/** La nature d'un projet, choisie à sa création. */
+export type TypeProjet =
+  | "BATIMENT_RESIDENTIEL"
+  | "BATIMENT_TERTIAIRE"
+  | "INDUSTRIEL"
+  | "GENIE_CIVIL"
+  | "VRD"
+  | "REHABILITATION"
+  | "AUTRE";
+
+/** Qui exécute un lot : l'entreprise elle-même, ou un sous-traitant. */
+export type ModeExecutionLot =
+  | "REGIE_DIRECTE"
+  | "SOUS_TRAITANCE_STRUCTUREE"
+  | "SOUS_TRAITANCE_INFORMELLE";
+
+/** Comment le lot est rémunéré. */
+export type TypeBordereau = "FORFAIT_GLOBAL" | "PRIX_UNITAIRE";
+
+/** Un lot déclaré à la création du projet — ses activités viennent après. */
+export interface CreationLot {
+  /** `L-01`, `L-02`… : l'ordre de saisie. */
+  numero: string;
+  nom: string;
+  modeExecution: ModeExecutionLot;
+  typeBordereau: TypeBordereau;
+  dateDebut?: string;
+  dateFin?: string;
+}
+
+/** Les affectations de l'équipe projet, par identifiant de collaborateur. */
+export interface EquipeProjet {
+  chefProjetId: string;
+  conducteurTravauxId: string;
+  /** Au moins un. */
+  chefsChantierIds: string[];
+  directeurFinancierId?: string;
+  visiteursIds: string[];
+  bailleursIds: string[];
+}
+
+/** Ce qu'il faut fournir pour ouvrir un projet — les trois étapes du tiroir. */
 export interface CreationProjet {
   nom: string;
-  /** L'identifiant du tiers maître d'ouvrage. */
-  clientId: string;
+  /** Absente : le serveur engendre la référence. */
+  reference?: string;
+  typeProjet: TypeProjet;
   ville: string;
-  quartier?: string;
+  /** Le maître d'ouvrage, en clair : entreprise ou particulier. */
+  maitreOuvrage: string;
+  maitreOeuvre?: string;
   dateDebutPrevue: string;
   dateFinPrevue: string;
-  /** En centimes. Absent quand le budget sera défini plus tard. */
-  budgetInitial?: number | null;
+  /** En centimes. */
+  budgetInitial: number;
   description?: string;
-  /**
-   * Le responsable est soit une personne déjà enregistrée, soit une personne
-   * à inviter — jamais les deux. La règle est dans `regles.ts`.
-   */
-  chefProjetId?: string;
-  chefProjetInvite?: InvitationIntervenant;
-  conducteurTravauxId?: string;
-  conducteurTravauxInvite?: InvitationIntervenant;
+  lots: CreationLot[];
+  equipe: EquipeProjet;
 }
 
-/** Les quatre champs nécessaires pour inviter un intervenant inconnu. */
-export interface InvitationIntervenant {
+/**
+ * Ce que la modification d'un projet peut changer.
+ *
+ * Ni la référence (unique, engendrée à la création), ni les lots (ils se
+ * gèrent dans « Lots & activités »), ni les visiteurs et bailleurs : la fiche
+ * ne les lit pas, et un formulaire qui renverrait une liste qu'il n'a jamais
+ * reçue l'effacerait côté serveur. La modification est un `PATCH`.
+ */
+export interface ModificationProjet {
   nom: string;
-  prenom: string;
-  email: string;
-  telephone: string;
+  typeProjet: TypeProjet;
+  ville: string;
+  maitreOuvrage: string;
+  maitreOeuvre?: string;
+  dateDebutPrevue: string;
+  dateFinPrevue: string;
+  /** En centimes. */
+  budgetInitial: number;
+  description?: string;
+  equipe: Omit<EquipeProjet, "visiteursIds" | "bailleursIds">;
 }
 
 /** La portée d'un relevé météo : l'entreprise, ou un chantier précis. */
@@ -169,4 +230,151 @@ export interface MeteoProjet {
   raison: RaisonMeteoIndisponible | string | null;
   description: string;
   alerteIntemperies: AlerteIntemperies | null;
+}
+
+/* ------------------------------------------------------------------ *
+ * Lots et activités — la structure d'un chantier.
+ * ------------------------------------------------------------------ */
+
+/**
+ * L'unité dans laquelle une activité se mesure. Liste fermée : une quantité
+ * se cumule d'un rapport journalier à l'autre, ce qu'une unité saisie en
+ * clair (« m2 », « m² », « M2 ») ne permettrait plus.
+ */
+export type UniteActivite = "M" | "ML" | "M2" | "M3" | "KG" | "T" | "U" | "ENS" | "FFT";
+
+/**
+ * L'état d'une activité. Il est **calculé** (voir `statutActivite` dans
+ * `regles.ts`) à partir des dates et de l'avancement, jamais saisi : une
+ * activité ne se déclare pas « en retard », elle l'est.
+ */
+export type StatutActivite = "A_VENIR" | "EN_COURS" | "EN_RETARD" | "TERMINE";
+
+/** Une équipe de chantier, telle qu'on l'affecte à une activité. */
+export interface EquipeChantier {
+  id: string;
+  nom: string;
+  /** Le nombre de personnes de l'équipe. */
+  effectif: number;
+}
+
+/** Qui compose une équipe : des salariés de l'entreprise, ou un sous-traitant. */
+export type NatureEquipe = "INTERNE" | "SOUS_TRAITANT";
+
+/**
+ * La place d'une personne dans son équipe. `CHEF_EQUIPE` n'appartient qu'au
+ * chef (`Equipe.chef`) : une équipe n'en a qu'un.
+ */
+export type RoleMembreEquipe =
+  | "CHEF_EQUIPE"
+  | "OUVRIER_QUALIFIE"
+  | "OUVRIER"
+  | "MANOEUVRE"
+  | "CONDUCTEUR_ENGIN"
+  | "APPRENTI";
+
+/** Une personne d'une équipe de chantier. */
+export interface MembreEquipe {
+  id: string;
+  prenom: string;
+  nom: string;
+  role: RoleMembreEquipe;
+  /**
+   * Le collaborateur de l'entreprise que cette personne est, s'il en est un.
+   * `null` : une personne saisie sur le chantier, sans compte — un ouvrier
+   * journalier, le compagnon d'un sous-traitant.
+   */
+  collaborateurId: string | null;
+}
+
+/** Une personne à ajouter à une équipe : l'identifiant vient du serveur. */
+export type SaisieMembreEquipe = Omit<MembreEquipe, "id">;
+
+/**
+ * Une équipe constituée sur un chantier, dans son détail.
+ *
+ * Elle prolonge `EquipeChantier` — la forme courte qu'une activité porte —
+ * sans la remplacer : une activité n'a besoin que du nom et de l'effectif de
+ * son équipe, pas de la liste de ses membres. `effectif` compte le chef.
+ */
+export interface Equipe extends EquipeChantier {
+  projetId: string;
+  nature: NatureEquipe;
+  /** Le corps d'état : « Maçonnerie / coffrage », « Électricité »… */
+  specialite: string;
+  /** `null` : chef d'équipe pas encore désigné. */
+  chef: MembreEquipe | null;
+  /** Les autres membres, chef exclu. */
+  membres: MembreEquipe[];
+}
+
+/** Ce qu'il faut fournir pour constituer une équipe sur un chantier. */
+export interface CreationEquipe {
+  nom: string;
+  nature: NatureEquipe;
+  specialite: string;
+  chef: SaisieMembreEquipe;
+  membres: SaisieMembreEquipe[];
+}
+
+/** Une tâche mesurable du chantier, rattachée à un lot. */
+export interface Activite {
+  id: string;
+  lotId: string;
+  /** `03.02` : le code du lot, puis le rang de l'activité dans le lot. */
+  code: string;
+  libelle: string;
+  /** `null` : activité suivie au pourcentage, sans quantité. */
+  quantitePrevue: number | null;
+  unite: UniteActivite | null;
+  dateDebutPrevue: string;
+  dateFinPrevue: string;
+  /** En centimes. `null` tant que le budget n'est pas défini. */
+  budget: number | null;
+  /** Un pourcentage, de 0 à 100, alimenté par le journal de chantier. */
+  avancement: number;
+  /** Calculé par le serveur à partir des dépendances. */
+  surCheminCritique: boolean;
+  /** L'activité qui doit être terminée avant que celle-ci commence. */
+  dependanceId: string | null;
+  /** `null` : équipe encore à affecter. */
+  equipe: EquipeChantier | null;
+}
+
+/** Un lot d'un chantier, avec ses activités. */
+export interface Lot {
+  id: string;
+  projetId: string;
+  /** `03` : l'ordre du lot dans le chantier. */
+  code: string;
+  nom: string;
+  modeExecution: ModeExecutionLot;
+  typeBordereau: TypeBordereau;
+  /** Les dates saisies sur le lot ; celles de ses activités priment à l'affichage. */
+  dateDebut: string | null;
+  dateFin: string | null;
+  activites: Activite[];
+}
+
+/** Ce qu'il faut fournir pour ajouter un lot à un chantier existant. */
+export interface CreationLotProjet {
+  nom: string;
+  modeExecution: ModeExecutionLot;
+  typeBordereau: TypeBordereau;
+  dateDebut?: string;
+  dateFin?: string;
+}
+
+/** Ce qu'il faut fournir pour ajouter (ou modifier) une activité. */
+export interface SaisieActiviteDomaine {
+  lotId: string;
+  libelle: string;
+  quantitePrevue: number | null;
+  unite: UniteActivite | null;
+  dateDebutPrevue: string;
+  dateFinPrevue: string;
+  /** En centimes. */
+  budget: number | null;
+  dependanceId: string | null;
+  equipeId: string | null;
 }
