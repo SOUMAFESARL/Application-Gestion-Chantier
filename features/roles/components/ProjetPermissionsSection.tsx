@@ -2,7 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
-import { Alerte, EtatChargement, EtatErreur } from "@/components/ui";
+import { toast } from "sonner";
+import { EtatChargement, EtatErreur } from "@/components/ui";
 import {
   listerRoles,
   obtenirMatriceProjet,
@@ -23,7 +24,6 @@ export function ProjetPermissionsSection({ projetId, nomProjet }: Props) {
   const [matriceProjet, setMatriceProjet] = useState<ProjetRoleMatrice[]>([]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let vivant = true;
@@ -51,7 +51,7 @@ export function ProjetPermissionsSection({ projetId, nomProjet }: Props) {
     try {
       const maj = await sauvegarderMatriceProjet(projetId, [{ role_id: roleId, module, acces }]);
       setMatriceProjet(maj);
-      setMessage(t("surchargeChantier"));
+      toast.success(t("surchargeChantier"));
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "");
     }
@@ -115,12 +115,6 @@ export function ProjetPermissionsSection({ projetId, nomProjet }: Props) {
           </span>
         )}
       </div>
-
-      {message && (
-        <Alerte type="succes">
-          {message}
-        </Alerte>
-      )}
 
       <div
         style={{

@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
+import { toast } from "sonner";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { ChampTelephone } from "@/components/metier/ChampTelephone";
@@ -104,7 +105,6 @@ export function ConfigurationEntreprise() {
   const [erreurs, setErreurs] = useState<Record<string, string>>({});
   const [envoi, setEnvoi] = useState(false);
   const [echec, setEchec] = useState<string | null>(null);
-  const [succes, setSucces] = useState(false);
   const [pays, setPays] = useState("");
 
   useEffect(() => {
@@ -150,7 +150,6 @@ export function ConfigurationEntreprise() {
 
   function modifier(champ: keyof DonneesEntreprise, valeur: string | boolean) {
     setDonnees((precedent) => ({ ...precedent, [champ]: valeur }));
-    setSucces(false);
     if (champ in erreurs) {
       const reste = { ...erreurs };
       delete reste[champ];
@@ -215,7 +214,6 @@ export function ConfigurationEntreprise() {
 
     setEnvoi(true);
     setEchec(null);
-    setSucces(false);
     try {
       const reponse = await enregistrerEntreprise(donnees, fichierLogo);
       setFondNonDetoure(reponse.fond_retire === false);
@@ -228,7 +226,7 @@ export function ConfigurationEntreprise() {
         setLogo({ nom: t("logoActuel"), taille: 0 });
       }
       setFichierLogo(null);
-      setSucces(true);
+      toast.success(t("succesTitre"), { description: t("succes") });
     } catch (cause) {
       setEchec((cause as ErreurApi).message);
     } finally {
@@ -270,12 +268,6 @@ export function ConfigurationEntreprise() {
         {echec && (
           <Alerte type="erreur" titre={t("echecTitre")}>
             {echec}
-          </Alerte>
-        )}
-
-        {succes && (
-          <Alerte type="succes" titre={t("succesTitre")}>
-            {t("succes")}
           </Alerte>
         )}
 

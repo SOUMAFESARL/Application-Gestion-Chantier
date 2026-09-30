@@ -6,6 +6,7 @@ import { Ban, Play, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 
 import { Alerte, Bouton, Champ, EtatChargement, EtatErreur, Modale } from "@/components/ui";
 import { aideColonnes } from "@/components/ui/data-table";
@@ -89,7 +90,6 @@ export function ListeComptes() {
   const [criteres, setCriteres] = useState<CriteresComptes>(CRITERES_COMPTES_VIDES);
   const [action, setAction] = useState<Action>(null);
   const [erreurAction, setErreurAction] = useState<string | null>(null);
-  const [annonce, setAnnonce] = useState<string | null>(null);
 
   const requete = useQuery({
     queryKey: CLES_ADMINISTRATION.comptes(),
@@ -127,7 +127,7 @@ export function ListeComptes() {
     mutationFn: (valeurs: ValeursCreationAdministrateur) => creerAdministrateur(valeurs),
     onSuccess: (compte) => {
       remplacer(compte);
-      setAnnonce(t("parametres.comptes.creation.succes", { nom: compte.nomComplet }));
+      toast.success(t("parametres.comptes.creation.succes", { nom: compte.nomComplet }));
       fermer();
     },
     onError: (cause) => {
@@ -289,7 +289,6 @@ export function ListeComptes() {
 
   return (
     <>
-      {annonce && <Alerte type="succes">{annonce}</Alerte>}
 
       <TableauListe
         colonnes={colonnes}

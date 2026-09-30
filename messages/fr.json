@@ -204,6 +204,7 @@
       "filtrePlan": "Filtrer par plan",
       "filtrePlanTous": "Tous les plans",
       "filtreStatut": "Filtrer par statut",
+      "filtreSuspendus": "Suspendus",
       "filtreStatutAbonnement": "Filtrer par statut d’abonnement",
       "filtreStatutAbonnementTous": "Tous les abonnements",
       "filtreStatutTous": "Tous les statuts",
@@ -318,6 +319,7 @@
       "titreMotDePasseOublie": "Mot de passe oublié — Administration",
       "titreProfil": "Mon profil — Administration",
       "titreComptes": "Comptes administrateurs — Administration",
+      "titreModules": "Modules — Administration",
       "titreTarifs": "Tarifs — Administration",
       "titreIdentite": "Nom et logo — Administration"
     },
@@ -348,8 +350,9 @@
       "profil": "Mon profil",
       "parametrage": "Paramétrage",
       "parametrageComptes": "Comptes administrateurs",
-      "parametrageTarifs": "Tarifs",
-      "parametrageIdentite": "Nom et logo"
+      "parametrageModules": "Modules & accès",
+      "parametrageTarifs": "Tarifs abonnements",
+      "parametrageIdentite": "Paramètres globaux"
     },
     "plan": {
       "BATISSEUR": "Bâtisseur",
@@ -520,6 +523,69 @@
           "prenom": "Prénom",
           "nom": "Nom",
           "email": "Adresse"
+        }
+      },
+      "modules": {
+        "titre": "Modules",
+        "description": "Le catalogue des modules du produit et l’accès accordé par défaut aux rôles des entreprises, qui l’ajustent ensuite.",
+        "colonneModule": "Module",
+        "colonneCode": "Code",
+        "colonneDescription": "Description",
+        "colonneAccesParDefaut": "Accès par défaut",
+        "colonneStatut": "Statut",
+        "colonneCreeLe": "Créé le",
+        "colonneActions": "Actions",
+        "ajouter": "Ajouter un module",
+        "recherche": "Rechercher un module",
+        "recherchePlaceholder": "Libellé, code…",
+        "filtreStatut": "Filtrer par statut",
+        "filtreStatutTous": "Tous les statuts",
+        "aucun": "Aucun module ne correspond à ces critères.",
+        "modifier": "Modifier",
+        "desactiver": "Désactiver",
+        "reactiver": "Réactiver",
+        "statut": {
+          "ACTIF": "Actif",
+          "INACTIF": "Inactif"
+        },
+        "formulaire": {
+          "titreCreation": "Ajouter un module",
+          "titreModification": "Modifier le module {libelle}",
+          "descriptionCreation": "Son code technique est dérivé du libellé à la création, puis ne change plus.",
+          "descriptionModification": "Renommer le module ne change pas son code ({code}) : les droits déjà attribués restent valables.",
+          "libelle": "Libellé",
+          "libellePlaceholder": "Planning",
+          "description": "Description",
+          "descriptionPlaceholder": "Ce que le module couvre, en une phrase.",
+          "accesParDefaut": "Accès par défaut",
+          "annuler": "Annuler",
+          "confirmerCreation": "Créer le module",
+          "confirmerModification": "Enregistrer",
+          "enCours": "Enregistrement…",
+          "succesCreation": "Le module {libelle} a été créé.",
+          "succesModification": "Le module {libelle} a été modifié."
+        },
+        "desactivation": {
+          "titre": "Désactiver le module {libelle}",
+          "description": "Il sort de l’offre : les entreprises ne peuvent plus l’utiliser, mais les droits déjà attribués sont conservés et reviennent s’il est réactivé.",
+          "annuler": "Annuler",
+          "confirmer": "Désactiver",
+          "enCours": "Désactivation…"
+        },
+        "reactivation": {
+          "titre": "Réactiver le module {libelle}",
+          "description": "Le module revient dans l’offre, avec les droits qui y étaient attribués.",
+          "annuler": "Annuler",
+          "confirmer": "Réactiver",
+          "enCours": "Réactivation…"
+        },
+        "erreurLibelleRequis": "Le libellé est requis.",
+        "erreurLibelleLong": "Le libellé ne doit pas dépasser {max} caractères.",
+        "erreurDescriptionRequise": "La description est requise.",
+        "erreurDescriptionLongue": "La description ne doit pas dépasser {max} caractères.",
+        "export": {
+          "titre": "Modules",
+          "nomFichier": "modules"
         }
       },
       "tarifs": {
@@ -925,6 +991,11 @@
     "champTelephone": "Numéro de téléphone",
     "chargement": "Chargement des collaborateurs…",
     "collaborateurInvite": "Collaborateur invité",
+    "actionConsulter": "Voir la fiche de {nom}",
+    "actionReactiver": "Réactiver {nom}",
+    "actionSupprimer": "Supprimer {nom}",
+    "actionSuspendre": "Suspendre {nom}",
+    "colonneActions": "Actions",
     "colonneDate": "Date",
     "colonneNom": "Collaborateur",
     "colonneRole": "Rôle attribué",
@@ -961,7 +1032,7 @@
     "sousTitre": "Gérez les membres de votre entreprise et invitez de nouveaux collaborateurs.",
     "statut": {
       "ACTIF": "Actif",
-      "DESACTIVE": "Désactivé",
+      "DESACTIVE": "Suspendu",
       "INVITE": "En attente (invité)"
     },
     "statutDesactive": "Désactivé",
@@ -973,6 +1044,63 @@
       "titre": "Collaborateurs",
       "nomFichier": "collaborateurs",
       "email": "Adresse email"
+    },
+    "gestes": {
+      "annuler": "Annuler",
+      "fermer": "Fermer",
+      "erreur": "L’opération n’a pas abouti. Réessayez dans un instant.",
+      "suspension": {
+        "titre": "Suspendre {nom} ?",
+        "description": "Son accès à la plateforme est coupé immédiatement. Ses saisies, validations et affectations sont conservées, et vous pourrez le réactiver à tout moment.",
+        "confirmer": "Suspendre",
+        "enCours": "Suspension…",
+        "succes": "{nom} a été suspendu."
+      },
+      "reactivation": {
+        "titre": "Réactiver {nom} ?",
+        "description": "Il retrouve son accès à la plateforme avec son rôle et ses affectations actuels.",
+        "confirmer": "Réactiver",
+        "enCours": "Réactivation…",
+        "succes": "{nom} a été réactivé."
+      },
+      "suppression": {
+        "titre": "Supprimer {nom} ?",
+        "description": "Le compte est retiré de l’entreprise et ne pourra plus se connecter. Pour une invitation en attente, le lien d’activation cesse de fonctionner. Cette action est irréversible : pour un simple retrait temporaire, préférez la suspension.",
+        "confirmer": "Supprimer définitivement",
+        "enCours": "Suppression…",
+        "succes": "{nom} a été supprimé."
+      }
+    },
+    "fiche": {
+      "retour": "Retour aux collaborateurs",
+      "chargement": "Chargement de la fiche…",
+      "erreurChargement": "Impossible de charger ce collaborateur.",
+      "introuvable": "Collaborateur introuvable",
+      "introuvableAide": "Ce compte n’existe pas ou a été supprimé.",
+      "suspendre": "Suspendre",
+      "reactiver": "Réactiver",
+      "supprimer": "Supprimer",
+      "proprietaire": "Propriétaire du compte",
+      "sectionInfos": "Informations personnelles",
+      "sectionInfosAide": "Le collaborateur met à jour son nom et son téléphone depuis son propre profil.",
+      "membreDepuis": "Membre depuis",
+      "derniereConnexion": "Dernière connexion",
+      "jamaisConnecte": "Jamais connecté",
+      "sectionProjets": "Projets attribués ({nombre})",
+      "sectionProjetsAide": "Les chantiers où il est désigné dans l’équipe projet, regroupés par statut.",
+      "chargementProjets": "Chargement des projets…",
+      "erreurProjets": "Impossible de charger les projets.",
+      "aucunProjet": "Aucun projet attribué",
+      "aucunProjetAide": "Il n’est désigné dans l’équipe d’aucun chantier pour le moment.",
+      "compteStatut": "{statut} · {nombre}",
+      "avancement": "Avancement",
+      "echeance": "Fin prévue le {date}",
+      "fonction": {
+        "CHEF_PROJET": "Chef de projet",
+        "CONDUCTEUR_TRAVAUX": "Conducteur de travaux",
+        "CHEF_CHANTIER": "Chef de chantier",
+        "DIRECTEUR_FINANCIER": "Directeur financier"
+      }
     }
   },
   "inscription": {

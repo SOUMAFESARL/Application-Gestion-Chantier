@@ -8,6 +8,7 @@
 
 import { z } from "zod";
 
+import { ACCES_MODULE } from "@/features/roles/types";
 import { texte } from "@/i18n/horsReact";
 import { chaineNonVide, email } from "@/lib/validations/champs";
 
@@ -127,6 +128,38 @@ export const schemaCreationAdministrateur = z.object({
 
 export type SaisieCreationAdministrateur = z.input<typeof schemaCreationAdministrateur>;
 export type ValeursCreationAdministrateur = z.output<typeof schemaCreationAdministrateur>;
+
+/** Au-delà, ce n'est plus un nom de module mais une phrase : il ne tiendrait pas dans la nav. */
+const LIBELLE_MODULE_MAX = 60;
+/** Une ligne de tableau, pas une notice : la description se lit dans une cellule. */
+const DESCRIPTION_MODULE_MAX = 240;
+
+/**
+ * La création ou la modification d'un module du catalogue.
+ *
+ * Libellé et description sont requis : un module sans description est un
+ * module dont personne, côté entreprise, ne comprend ce qu'il couvre au
+ * moment d'y attribuer des droits. L'accès par défaut, lui, peut être vide.
+ */
+export const schemaModule = z.object({
+  libelle: chaineNonVide(texte("administration.parametres.modules.erreurLibelleRequis")).max(
+    LIBELLE_MODULE_MAX,
+    texte("administration.parametres.modules.erreurLibelleLong", { max: LIBELLE_MODULE_MAX }),
+  ),
+  description: chaineNonVide(
+    texte("administration.parametres.modules.erreurDescriptionRequise"),
+  ).max(
+    DESCRIPTION_MODULE_MAX,
+    texte("administration.parametres.modules.erreurDescriptionLongue", {
+      max: DESCRIPTION_MODULE_MAX,
+    }),
+  ),
+  /** Une liste vide est une réponse valide : « Aucun ». */
+  accesParDefaut: z.array(z.enum(ACCES_MODULE)),
+});
+
+export type SaisieModule = z.input<typeof schemaModule>;
+export type ValeursModule = z.output<typeof schemaModule>;
 
 /**
  * Un prix saisi **en francs**, entier et strictement positif.

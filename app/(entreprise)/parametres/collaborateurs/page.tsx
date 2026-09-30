@@ -2,7 +2,8 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Clock, LoaderCircle, UserPlus } from "lucide-react";
+import { Ban, CheckCircle2, Clock, Eye, LoaderCircle, Pause, Play, Trash2, UserPlus } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
@@ -12,7 +13,6 @@ import { toast } from "sonner";
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { ChampTelephone } from "@/components/metier/ChampTelephone";
 import { Badge, Bouton, EtatChargement } from "@/components/ui";
-import type { VarianteBadge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { aideColonnes } from "@/components/ui/data-table";
@@ -43,6 +43,7 @@ import {
 import { obtenirProfilMoi } from "@/features/auth/api";
 import type { ProfilUtilisateur } from "@/features/auth/api";
 import { paysEntreprise } from "@/features/configuration/api";
+import { useGestionCollaborateur } from "@/features/invitations/components/GestionCollaborateur";
 import {
   ajouterCollaborateur,
   CLE_COLLABORATEURS,
@@ -52,6 +53,9 @@ import {
 import {
   filtrerCollaborateurs,
   initiales,
+  reactivationPossible,
+  suppressionPossible,
+  suspensionPossible,
   type FiltreCollaborateurs,
 } from "@/features/invitations/regles";
 import type { Collaborateur, StatutCollaborateur } from "@/features/invitations/types";
@@ -68,6 +72,8 @@ import { afficherTelephone } from "@/features/referentiels/telephone";
 import { ErreurApi } from "@/lib/api";
 import { formaterDate } from "@/lib/format";
 
+import { TON_STATUT } from "./tons";
+
 const FORM_AJOUT_ID = "form-ajout-collaborateur";
 
 /** L'astérisque des champs obligatoires — décoratif, le schéma fait foi. */
@@ -78,12 +84,6 @@ function Requis() {
     </span>
   );
 }
-
-const TON_STATUT: Record<StatutCollaborateur, VarianteBadge> = {
-  ACTIF: "succes",
-  INVITE: "avertissement",
-  DESACTIVE: "erreur",
-};
 
 const colonne = aideColonnes<Collaborateur>();
 
@@ -100,6 +100,9 @@ export default function PageCollaborateurs() {
   const [modaleOuverte, setModaleOuverte] = useState(false);
   // Vide tant que le serveur ne l'a pas dit : l'indicatif proposé en dépend.
   const [pays, setPays] = useState("");
+
+  const { suspendre, reactiver, supprimer, modaux } = useGestionCollaborateur();
+  const moiId = moi?.id ?? null;
 
   const requete = useQuery({
     queryKey: CLE_COLLABORATEURS,
@@ -204,7 +207,12 @@ export default function PageCollaborateurs() {
                 {initiales(nom)}
               </div>
               <div className="flex min-w-0 flex-col">
-                <span className="font-semibold text-neutral-900">{nom}</span>
+                <Link
+                  href={`/parametres/collaborateurs/${row.original.id}`}
+                  className="font-semibold text-neutral-900 no-underline hover:text-primary-600 hover:underline"
+                >
+                  {nom}
+                </Link>
                 <span className="text-xs text-neutral-500">{row.original.email}</span>
               </div>
             </div>
@@ -226,17 +234,76 @@ export default function PageCollaborateurs() {
           <Badge variante={TON_STATUT[getValue()]}>
             {getValue() === "ACTIF" && <CheckCircle2 size={14} aria-hidden="true" />}
             {getValue() === "INVITE" && <Clock size={14} aria-hidden="true" />}
+            {getValue() === "DESACTIVE" && <Ban size={14} aria-hidden="true" />}
             {t(`statut.${getValue()}`)}
           </Badge>
         ),
       }),
       colonne.accessor("creeLe", {
         header: t("colonneDate"),
-        meta: { classe: `${BORD_DROIT_TABLEAU} tabular-nums whitespace-nowrap text-neutral-600` },
+        meta: { classe: "tabular-nums whitespace-nowrap text-neutral-600" },
         cell: ({ getValue }) => formaterDate(getValue()),
       }),
+      colonne.display({
+        id: "actions",
+        header: t("colonneActions"),
+        meta: { classe: BORD_DROIT_TABLEAU },
+        cell: ({ row }) => {
+          const c = row.original;
+          const nom = c.nomComplet || c.email;
+          return (
+            <span className="flex items-center gap-1">
+              <Button variant="ghost" size="icon-sm" asChild>
+                <Link
+                  href={`/parametres/collaborateurs/${c.id}`}
+                  aria-label={t("actionConsulter", { nom })}
+                  title={t("actionConsulter", { nom })}
+                >
+                  <Eye />
+                </Link>
+              </Button>
+              {suspensionPossible(c, moiId) && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => suspendre(c)}
+                  aria-label={t("actionSuspendre", { nom })}
+                  title={t("actionSuspendre", { nom })}
+                  className="text-avertissement hover:text-avertissement"
+                >
+                  <Pause />
+                </Button>
+              )}
+              {reactivationPossible(c, moiId) && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => reactiver(c)}
+                  aria-label={t("actionReactiver", { nom })}
+                  title={t("actionReactiver", { nom })}
+                  className="text-succes hover:text-succes"
+                >
+                  <Play />
+                </Button>
+              )}
+              {suppressionPossible(c, moiId) && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => supprimer(c)}
+                  aria-label={t("actionSupprimer", { nom })}
+                  title={t("actionSupprimer", { nom })}
+                  className="text-erreur hover:text-erreur"
+                >
+                  <Trash2 />
+                </Button>
+              )}
+            </span>
+          );
+        },
+      }),
     ]);
-  }, [t]);
+  }, [t, moiId, suspendre, reactiver, supprimer]);
 
   if (requete.isPending) {
     return (
@@ -257,6 +324,7 @@ export default function PageCollaborateurs() {
   }[] = [
     { valeur: "ACTIFS", libelle: t("filtreActifs"), nombre: compte("ACTIF") },
     { valeur: "INVITES", libelle: t("filtreInvites"), nombre: compte("INVITE") },
+    { valeur: "SUSPENDUS", libelle: t("filtreSuspendus"), nombre: compte("DESACTIVE") },
   ];
 
   const exporter: ExportTableau<Collaborateur> = {
@@ -325,6 +393,8 @@ export default function PageCollaborateurs() {
           </>
         }
       />
+
+      {modaux}
 
       {/* Modale d'ajout */}
       <Dialog

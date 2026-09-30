@@ -31,6 +31,7 @@ import {
   ErreurApi,
   lireJetonRenouvellement,
 } from "@/lib/api";
+import { accesNormalises } from "@/features/roles/regles";
 import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
 import {
   simulationAdministration,
@@ -48,13 +49,16 @@ import type {
   DemandeChangementMotDePasse,
   DemandeCreationAdministrateur,
   DemandeModificationProfil,
+  DemandeModule,
   IndicateursPlateforme,
+  ModulePlateforme,
   PointEvolutionAbonnements,
   ProfilAdministrateur,
   RoleAdministrateur,
   StatutAbonnement,
   StatutClient,
   StatutCompteAdministrateur,
+  StatutModule,
   TarifPlan,
   TendanceIndicateur,
 } from "./types";
@@ -119,6 +123,16 @@ interface ChargeCompteAdministrateur {
   statut: StatutCompteAdministrateur;
   cree_le: string;
   derniere_connexion: string | null;
+}
+
+interface ChargeModule {
+  id: string;
+  code: string;
+  libelle: string;
+  description: string;
+  acces_par_defaut: string[];
+  statut: StatutModule;
+  cree_le: string;
 }
 
 interface ChargeConnexion {
@@ -213,6 +227,27 @@ function versCompte(charge: ChargeCompteAdministrateur): CompteAdministrateur {
     statut: charge.statut,
     creeLe: new Date(charge.cree_le),
     derniereConnexion: charge.derniere_connexion ? new Date(charge.derniere_connexion) : null,
+  };
+}
+
+function versModule(charge: ChargeModule): ModulePlateforme {
+  return {
+    id: charge.id,
+    code: charge.code,
+    libelle: charge.libelle,
+    description: charge.description,
+    // Un accès que le front ne connaît pas ne s'accorde pas par défaut.
+    accesParDefaut: accesNormalises(charge.acces_par_defaut),
+    statut: charge.statut,
+    creeLe: new Date(charge.cree_le),
+  };
+}
+
+function corpsModule(demande: DemandeModule) {
+  return {
+    libelle: demande.libelle,
+    description: demande.description,
+    acces_par_defaut: demande.accesParDefaut,
   };
 }
 
@@ -560,6 +595,60 @@ export async function reactiverAdministrateur(id: string): Promise<CompteAdminis
       );
 
   return versCompte(charge);
+}
+
+/* ------------------------------------------------------------------ *
+ * Catalogue des modules
+ * ------------------------------------------------------------------ */
+
+/** `GET /admins/modules/` — le catalogue, modules inactifs compris. */
+export async function listerModules(signal?: AbortSignal): Promise<ModulePlateforme[]> {
+  const charges: ChargeModule[] = SIMULATION_ACTIVE
+    ? await simulationAdministration.listerModules()
+    : await apiAdministration.lire<ChargeModule[]>("/admins/modules/", undefined, signal);
+
+  return charges.map(versModule);
+}
+
+/** `POST /admins/modules/` — le serveur dérive le code du libellé. */
+export async function creerModule(demande: DemandeModule): Promise<ModulePlateforme> {
+  const corps = corpsModule(demande);
+
+  const charge: ChargeModule = SIMULATION_ACTIVE
+    ? await simulationAdministration.creerModule(corps)
+    : await apiAdministration.creer<ChargeModule>("/admins/modules/", corps);
+
+  return versModule(charge);
+}
+
+/** `PATCH /admins/modules/{id}/` — libellé, description, accès par défaut ; le code reste. */
+export async function modifierModule(
+  id: string,
+  demande: DemandeModule,
+): Promise<ModulePlateforme> {
+  const corps = corpsModule(demande);
+
+  const charge: ChargeModule = SIMULATION_ACTIVE
+    ? await simulationAdministration.modifierModule(id, corps)
+    : await apiAdministration.modifier<ChargeModule>(`/admins/modules/${id}/`, corps);
+
+  return versModule(charge);
+}
+
+export async function desactiverModule(id: string): Promise<ModulePlateforme> {
+  const charge: ChargeModule = SIMULATION_ACTIVE
+    ? await simulationAdministration.desactiverModule(id)
+    : await apiAdministration.creer<ChargeModule>(`/admins/modules/${id}/desactiver/`, {});
+
+  return versModule(charge);
+}
+
+export async function reactiverModule(id: string): Promise<ModulePlateforme> {
+  const charge: ChargeModule = SIMULATION_ACTIVE
+    ? await simulationAdministration.reactiverModule(id)
+    : await apiAdministration.creer<ChargeModule>(`/admins/modules/${id}/reactiver/`, {});
+
+  return versModule(charge);
 }
 
 /* ------------------------------------------------------------------ *

@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { toast } from "sonner";
 
 import { LogoPlateforme } from "@/components/layout/LogoPlateforme";
 import { Alerte, Bouton, Champ, EtatChargement, EtatErreur } from "@/components/ui";
@@ -57,7 +58,6 @@ export function EcranIdentite() {
 
   const [choix, setChoix] = useState<ChoixLogo>({ type: "inchange" });
   const [erreurLogo, setErreurLogo] = useState<string | null>(null);
-  const [succes, setSucces] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
   const requete = useIdentitePlateforme();
@@ -90,10 +90,9 @@ export function EcranIdentite() {
       await cache.invalidateQueries({ queryKey: CLES_PLATEFORME.identite() });
       setChoix({ type: "inchange" });
       setErreur(null);
-      setSucces(true);
+      toast.success(t("parametres.identite.succes"));
     },
     onError: (cause) => {
-      setSucces(false);
       setErreur(cause instanceof ErreurApi ? cause.message : t("erreurs.action"));
     },
   });
@@ -125,7 +124,6 @@ export function EcranIdentite() {
       return;
     }
     setErreurLogo(null);
-    setSucces(false);
     setChoix({ type: "nouveau", fichier, apercu: URL.createObjectURL(fichier) });
   }
 
@@ -140,7 +138,6 @@ export function EcranIdentite() {
       noValidate
       className="flex flex-col gap-4"
       onSubmit={formulaire.handleSubmit((valeurs) => {
-        setSucces(false);
         setErreur(null);
         enregistrement.mutate(valeurs);
       })}
@@ -189,7 +186,6 @@ export function EcranIdentite() {
                     iconeGauche={<RotateCcw size={16} aria-hidden="true" />}
                     onClick={() => {
                       setErreurLogo(null);
-                      setSucces(false);
                       setChoix({ type: "retire" });
                     }}
                   >
@@ -219,7 +215,6 @@ export function EcranIdentite() {
         </section>
       </div>
 
-      {succes && !modifie && <Alerte type="succes">{t("parametres.identite.succes")}</Alerte>}
       {erreur && <Alerte type="erreur">{erreur}</Alerte>}
 
       {peutAgir && (

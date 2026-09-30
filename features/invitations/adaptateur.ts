@@ -7,6 +7,9 @@
  */
 
 import { api, ErreurApi } from "@/lib/api";
+import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
+
+import { simulationCollaborateurs } from "./simulationCollaborateurs";
 
 import type {
   Collaborateur,
@@ -32,6 +35,9 @@ interface ChargeCollaborateur {
   is_owner: boolean;
   cree_le: string;
   lien_activation: string | null;
+  /** Absents des réponses les plus anciennes : ils se lisent `null`. */
+  avatar_url?: string | null;
+  derniere_connexion?: string | null;
 }
 
 interface ChargeCreationCollaborateur {
@@ -64,6 +70,8 @@ function versCollaborateur(charge: ChargeCollaborateur): Collaborateur {
     statut: versStatut(charge.statut),
     estProprietaire: Boolean(charge.is_owner),
     creeLe: charge.cree_le,
+    avatarUrl: charge.avatar_url || null,
+    derniereConnexion: charge.derniere_connexion ?? null,
   };
 }
 
@@ -111,10 +119,56 @@ const RESSOURCE = "/parametres/collaborateurs/";
 /** La clé de cache de la liste des collaborateurs. */
 export const CLE_COLLABORATEURS = ["collaborateurs"] as const;
 
-/** Tous les collaborateurs du tenant : comptes et invitations en cours. */
+/** La clé de cache de la fiche d'un collaborateur. */
+export function cleCollaborateur(id: string) {
+  return ["collaborateurs", id] as const;
+}
+
+/**
+ * Tous les collaborateurs du tenant : comptes et invitations en cours.
+ *
+ * La liste vient toujours du serveur. Sous `NEXT_PUBLIC_API_SIMULE`, les
+ * suspensions et suppressions — dont les routes n'existent pas encore — y
+ * sont rejouées par `simulationCollaborateurs.ts`.
+ */
 export async function listerCollaborateurs(): Promise<Collaborateur[]> {
   const charges = await api.lire<ChargeCollaborateur[]>(RESSOURCE);
-  return charges.map(versCollaborateur);
+  const collaborateurs = charges.map(versCollaborateur);
+  return SIMULATION_ACTIVE ? simulationCollaborateurs.appliquer(collaborateurs) : collaborateurs;
+}
+
+/** Un collaborateur dans son détail, pour sa fiche. */
+export async function lireCollaborateur(id: string): Promise<Collaborateur> {
+  if (SIMULATION_ACTIVE) {
+    return simulationCollaborateurs.lire(await listerCollaborateurs(), id);
+  }
+  return versCollaborateur(await api.lire<ChargeCollaborateur>(`${RESSOURCE}${id}/`));
+}
+
+/**
+ * Coupe l'accès d'un compte actif sans rien effacer : ses saisies, ses
+ * validations et ses affectations restent, et il se réactive d'un geste.
+ */
+export async function suspendreCollaborateur(id: string): Promise<Collaborateur> {
+  if (SIMULATION_ACTIVE) {
+    return simulationCollaborateurs.suspendre(await listerCollaborateurs(), id);
+  }
+  return versCollaborateur(await api.creer<ChargeCollaborateur>(`${RESSOURCE}${id}/suspendre/`, {}));
+}
+
+export async function reactiverCollaborateur(id: string): Promise<Collaborateur> {
+  if (SIMULATION_ACTIVE) {
+    return simulationCollaborateurs.reactiver(await listerCollaborateurs(), id);
+  }
+  return versCollaborateur(await api.creer<ChargeCollaborateur>(`${RESSOURCE}${id}/reactiver/`, {}));
+}
+
+/** Supprime le compte, ou l'invitation — son lien d'activation cesse de valoir. */
+export async function supprimerCollaborateur(id: string): Promise<void> {
+  if (SIMULATION_ACTIVE) {
+    return simulationCollaborateurs.supprimer(await listerCollaborateurs(), id);
+  }
+  await api.supprimer(`${RESSOURCE}${id}/`);
 }
 
 /** Crée le compte au statut « invité » et envoie l'email d'activation. */

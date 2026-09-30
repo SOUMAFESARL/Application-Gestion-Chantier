@@ -17,6 +17,7 @@
  */
 
 import type { CodePlan as CodePlanCatalogue } from "@/features/abonnement/types";
+import type { AccesModule } from "@/features/roles/types";
 
 /**
  * Ce qu'un agent de la plateforme a le droit de faire.
@@ -98,6 +99,45 @@ export interface DemandeCreationAdministrateur {
   nom: string;
   email: string;
   role: RoleAdministrateur;
+}
+
+/**
+ * Un module du catalogue de la plateforme — Projets, Finance, QHSE…
+ *
+ * **Le catalogue, pas le droit d'accès.** Le back-office décrit ici ce que le
+ * produit contient ; ce qu'un utilisateur peut y faire se décide dans chaque
+ * entreprise, par ses rôles (`features/roles`), avec le vocabulaire fixe
+ * lecture / saisie / validation.
+ *
+ * `accesParDefaut` n'y déroge pas : c'est une **valeur de départ**, dans ce
+ * même vocabulaire, que le serveur pose sur les rôles non système d'une
+ * entreprise quand le module lui arrive (ou quand elle crée un rôle). Chaque
+ * entreprise la change ensuite comme elle l'entend ; la modifier ici ne
+ * réécrit pas les rôles existants.
+ *
+ * `code` est l'identifiant stable que le serveur et les rôles des entreprises
+ * utilisent (`projets`, `finance`…) : dérivé du libellé à la création, il ne
+ * change plus ensuite, même si le libellé est renommé — sans quoi chaque
+ * renommage orphelinerait les permissions déjà accordées.
+ */
+export type StatutModule = "ACTIF" | "INACTIF";
+
+export interface ModulePlateforme {
+  id: string;
+  code: string;
+  libelle: string;
+  description: string;
+  /** Vide : « Aucun » — le module arrive fermé, chaque entreprise l'ouvre. */
+  accesParDefaut: AccesModule[];
+  statut: StatutModule;
+  creeLe: Date;
+}
+
+/** Ce que le back-office saisit d'un module : le code, lui, vient du serveur. */
+export interface DemandeModule {
+  libelle: string;
+  description: string;
+  accesParDefaut: AccesModule[];
 }
 
 /**

@@ -51,6 +51,11 @@ interface Props {
   estSurcharge?: boolean;
   libelleAria?: string;
   disabled?: boolean;
+  /**
+   * Classe ajoutée à la liste déroulante. Sert dans une `Modale` (`z-100`) :
+   * la liste, portée hors de la modale en `z-50`, s'ouvrirait derrière elle.
+   */
+  classeListe?: string;
 }
 
 /**
@@ -65,6 +70,7 @@ export function SelecteurAcces({
   estSurcharge = false,
   libelleAria,
   disabled = false,
+  classeListe,
 }: Props) {
   const t = useTranslations("roles");
   const [ouvert, setOuvert] = useState(false);
@@ -107,7 +113,11 @@ export function SelecteurAcces({
       </PopoverTrigger>
 
       <PopoverContent
-        className={cn("p-0", variante === "champ" ? "w-(--radix-popover-trigger-width)" : "w-44")}
+        className={cn(
+          "p-0",
+          variante === "champ" ? "w-(--radix-popover-trigger-width)" : "w-44",
+          classeListe,
+        )}
         align="start"
       >
         <Command>

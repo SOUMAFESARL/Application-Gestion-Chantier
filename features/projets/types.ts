@@ -91,6 +91,23 @@ export interface Projet {
   directeurFinancier: Intervenant | null;
 }
 
+/**
+ * La place qu'un collaborateur tient dans l'équipe projet d'un chantier — les
+ * quatre désignations que porte la fiche (`Projet`).
+ */
+export type FonctionProjet =
+  | "CHEF_PROJET"
+  | "CONDUCTEUR_TRAVAUX"
+  | "CHEF_CHANTIER"
+  | "DIRECTEUR_FINANCIER";
+
+/** Un chantier attribué à un collaborateur, et ce qu'il y fait. */
+export interface AffectationProjet {
+  projet: Projet;
+  /** Au moins une : un chef de projet peut aussi y conduire les travaux. */
+  fonctions: FonctionProjet[];
+}
+
 /** La nature d'un projet, choisie à sa création. */
 export type TypeProjet =
   | "BATIMENT_RESIDENTIEL"

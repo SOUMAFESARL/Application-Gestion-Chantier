@@ -3,6 +3,7 @@
 import { Plus } from "@phosphor-icons/react/dist/ssr";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { Alerte, Bouton, EtatChargement, EtatErreur } from "@/components/ui";
 import {
@@ -25,7 +26,6 @@ export default function ParametresRolesPage() {
   const [roles, setRoles] = useState<RoleItem[]>([]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [succesMessage, setSuccesMessage] = useState<string | null>(null);
   const [profil, setProfil] = useState<ProfilUtilisateur | null>(null);
 
   const [modalNouveauOuverte, setModalNouveauOuverte] = useState(false);
@@ -76,7 +76,7 @@ export default function ParametresRolesPage() {
     try {
       await creerRole(payload);
       setModalNouveauOuverte(false);
-      setSuccesMessage(t("succesCreation", { role: payload.libelle }));
+      toast.success(t("succesCreation", { role: payload.libelle }));
       await chargerDonnees();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "");
@@ -114,7 +114,7 @@ export default function ParametresRolesPage() {
     try {
       await modifierRole(roleId, payload);
       setRoleAEditer(null);
-      setSuccesMessage(t("succesModification", { role: payload.libelle }));
+      toast.success(t("succesModification", { role: payload.libelle }));
       await chargerDonnees();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "");
@@ -138,7 +138,7 @@ export default function ParametresRolesPage() {
         reassigner_vers_role_id: roleCibleId,
       });
       setRoleASupprimer(null);
-      setSuccesMessage(
+      toast.success(
         t("succesSuppression", {
           users: res.utilisateurs_reassignes,
           aff: res.affectations_reassignees,
@@ -197,12 +197,6 @@ export default function ParametresRolesPage() {
         {!estDG && (
           <Alerte type="avertissement">
             {t("restrictionDgMessage")}
-          </Alerte>
-        )}
-
-        {succesMessage && (
-          <Alerte type="succes">
-            {succesMessage}
           </Alerte>
         )}
 

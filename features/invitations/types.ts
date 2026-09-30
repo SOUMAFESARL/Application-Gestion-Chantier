@@ -23,6 +23,10 @@ export interface Collaborateur {
   estProprietaire: boolean;
   /** Date ISO de création du compte ou de l'invitation. */
   creeLe: string;
+  /** URL absolue de la photo ; `null` : l'avatar prend les initiales. */
+  avatarUrl: string | null;
+  /** Date ISO ; `null` : jamais connecté (toujours le cas d'un invité). */
+  derniereConnexion: string | null;
 }
 
 /** Ce qu'il faut pour inviter un collaborateur. */

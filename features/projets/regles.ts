@@ -15,7 +15,9 @@ import type { Collaborateur } from "@/features/invitations/types";
 
 import type {
   Activite,
+  AffectationProjet,
   Equipe,
+  FonctionProjet,
   Lot,
   MembreEquipe,
   ModeExecutionLot,
@@ -1362,4 +1364,57 @@ export function niveauConformite(taux: number | null): NiveauConformite | null {
   if (taux >= SEUIL_CONFORMITE) return "conforme";
   if (taux >= SEUIL_CONFORMITE_CRITIQUE) return "alerte";
   return "critique";
+}
+
+/* ------------------------------------------------------------------ *
+ * Les chantiers d'un collaborateur — sa fiche dans les paramètres.
+ * ------------------------------------------------------------------ */
+
+/** L'ordre dans lequel les fonctions d'une même personne se lisent. */
+export const ORDRE_FONCTIONS: FonctionProjet[] = [
+  "CHEF_PROJET",
+  "CONDUCTEUR_TRAVAUX",
+  "CHEF_CHANTIER",
+  "DIRECTEUR_FINANCIER",
+];
+
+/** Les fonctions que la personne tient dans l'équipe projet d'un chantier. */
+export function fonctionsDansProjet(projet: Projet, collaborateurId: string): FonctionProjet[] {
+  const fonctions: FonctionProjet[] = [];
+  if (projet.chefProjet?.id === collaborateurId) fonctions.push("CHEF_PROJET");
+  if (projet.conducteurTravaux?.id === collaborateurId) fonctions.push("CONDUCTEUR_TRAVAUX");
+  if (projet.chefsChantier.some((chef) => chef.id === collaborateurId)) {
+    fonctions.push("CHEF_CHANTIER");
+  }
+  if (projet.directeurFinancier?.id === collaborateurId) fonctions.push("DIRECTEUR_FINANCIER");
+  return fonctions;
+}
+
+/**
+ * Les chantiers où la personne est désignée dans l'équipe projet.
+ *
+ * La correspondance se fait sur l'**identifiant du compte**, jamais sur le
+ * nom : deux « Koné » ne sont pas la même personne. Les membres des équipes
+ * de terrain n'y figurent pas — ils se lisent chantier par chantier.
+ */
+export function affectationsDuCollaborateur(
+  projets: Projet[],
+  collaborateurId: string,
+): AffectationProjet[] {
+  return projets
+    .map((projet) => ({ projet, fonctions: fonctionsDansProjet(projet, collaborateurId) }))
+    .filter((affectation) => affectation.fonctions.length > 0);
+}
+
+/**
+ * Les affectations rangées par statut du chantier, dans l'ordre de
+ * `ORDRE_STATUTS` — l'urgent d'abord. Un statut sans chantier n'apparaît pas.
+ */
+export function affectationsParStatut(
+  affectations: AffectationProjet[],
+): { statut: StatutProjet; affectations: AffectationProjet[] }[] {
+  return ORDRE_STATUTS.map((statut) => ({
+    statut,
+    affectations: affectations.filter((affectation) => affectation.projet.statut === statut),
+  })).filter((groupe) => groupe.affectations.length > 0);
 }
