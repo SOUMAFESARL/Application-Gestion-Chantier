@@ -2042,7 +2042,8 @@
       "tarifs": "Tarifs",
       "tiers": "Tiers",
       "chantierSynthese": "Synthèse périodique",
-      "chantierRapport": "Rapport journalier"
+      "chantierRapport": "Rapport journalier",
+      "monProfil": "Mon profil"
     },
     "portefeuille": {
       "budgetNonDefini": "Non défini",
@@ -2712,6 +2713,59 @@
         "signeLeVide": "Signé le :",
         "page": "Page {page}/{total}"
       }
+    }
+  },
+  "profil": {
+    "metaTitre": "Mon profil",
+    "titre": "Mon profil",
+    "sousTitre": "Vos informations personnelles et vos droits dans l’entreprise.",
+    "chargement": "Chargement du profil…",
+    "erreurChargement": "Le profil n’a pas pu être chargé. Vérifiez votre connexion puis réessayez.",
+    "reessayer": "Réessayer",
+    "erreurAction": "L’opération n’a pas abouti. Réessayez dans un instant.",
+    "sectionIdentite": "Informations personnelles",
+    "sectionIdentiteAide": "Elles apparaissent auprès de vos collaborateurs et dans l’historique des actions.",
+    "prenom": "Prénom",
+    "nom": "Nom",
+    "email": "Adresse e-mail",
+    "emailAide": "C’est votre identifiant de connexion : elle ne se modifie pas ici.",
+    "telephone": "Téléphone",
+    "enregistrer": "Enregistrer",
+    "enCours": "Enregistrement…",
+    "annuler": "Annuler les modifications",
+    "succes": "Votre profil a été mis à jour.",
+    "erreurPrenomRequis": "Le prénom est requis.",
+    "erreurNomRequis": "Le nom est requis.",
+    "erreurTelephoneInvalide": "Ce numéro n’est pas complet pour son pays.",
+    "sectionCompte": "Compte",
+    "role": "Rôle",
+    "entreprise": "Entreprise",
+    "statut": "Statut",
+    "derniereConnexion": "Dernière connexion",
+    "membreDepuis": "Membre depuis",
+    "doubleAuthentification": "Double authentification",
+    "active": "Activée",
+    "inactive": "Désactivée",
+    "roleAide": "Le rôle se change depuis la gestion des collaborateurs.",
+    "statuts": {
+      "ACTIF": "Actif",
+      "INACTIF": "Inactif",
+      "SUSPENDU": "Suspendu",
+      "EN_ATTENTE": "En attente"
+    },
+    "sectionHabilitations": "Mes habilitations",
+    "sectionHabilitationsAide": "Ce que votre rôle vous permet de faire, module par module.",
+    "aucuneHabilitation": "Aucune habilitation n’est attachée à votre rôle.",
+    "photo": {
+      "changer": "Changer la photo",
+      "ajouter": "Ajouter une photo",
+      "retirer": "Retirer la photo",
+      "contrainte": "PNG, JPEG ou WebP — 2 Mo au plus.",
+      "enCours": "Envoi de la photo…",
+      "succes": "Votre photo de profil a été mise à jour.",
+      "retiree": "Votre photo de profil a été retirée.",
+      "formatInvalide": "Ce format n’est pas accepté.",
+      "tropLourde": "Cette photo dépasse 2 Mo."
     }
   }
 }

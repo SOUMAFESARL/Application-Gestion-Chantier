@@ -45,6 +45,57 @@ export interface ProfilUtilisateur {
   is_owner: boolean;
   langue?: string;
   doit_changer_mot_de_passe?: boolean;
+  /*
+   * Ce qui suit n'arrive que de `GET /auth/profil/` : la réponse de connexion
+   * ne le porte pas. D'où le `?` — un profil tiré de la connexion reste valide.
+   */
+  nom_complet?: string;
+  telephone?: string | null;
+  /** URL absolue de la photo ; `null` quand il n'y en a pas (l'avatar prend les initiales). */
+  avatar_url?: string | null;
+  initiales?: string;
+  role_personnalise?: string | null;
+  statut?: string;
+  double_authentification_active?: boolean;
+  entreprise?: EntrepriseProfil;
+  /** Les droits effectifs, par module : le libellé du niveau est rendu par le serveur. */
+  habilitations?: Record<string, HabilitationModule>;
+  derniere_connexion?: string | null;
+  cree_le?: string;
+  modifie_le?: string;
+}
+
+export interface EntrepriseProfil {
+  id: string;
+  raison_sociale: string;
+  schema_name: string;
+  logo_url: string | null;
+}
+
+export interface HabilitationModule {
+  libelle: string;
+  niveau: number;
+}
+
+/** Ce que `PATCH /auth/profil/` accepte de l'utilisateur lui-même. */
+export interface DemandeModificationProfil {
+  prenom: string;
+  nom: string;
+  telephone: string;
+}
+
+/**
+ * Émis sur `window` quand le profil change (formulaire, photo) — `detail`
+ * porte le nouveau profil. La coquille l'écoute : le nom et l'avatar de la
+ * barre latérale suivent sans rechargement.
+ */
+export const EVENEMENT_PROFIL_MODIFIE = "ccd:profil-modifie";
+
+function annoncerProfil(profil: ProfilUtilisateur): void {
+  ecrireProfilLocal(profil);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(EVENEMENT_PROFIL_MODIFIE, { detail: profil }));
+  }
 }
 
 const CLE_PROFIL = "ccd.profil_utilisateur";
@@ -87,7 +138,7 @@ export function ecrireProfilLocal(profil: ProfilUtilisateur | null): void {
  */
 export async function obtenirProfilMoi(): Promise<ProfilUtilisateur> {
   try {
-    const data = await api.lire<ProfilUtilisateur>("/utilisateurs/moi/");
+    const data = await api.lire<ProfilUtilisateur>("/auth/profil/");
     ecrireProfilLocal(data);
     return data;
   } catch (cause) {
@@ -95,6 +146,54 @@ export async function obtenirProfilMoi(): Promise<ProfilUtilisateur> {
     if (local) return local;
     throw cause;
   }
+}
+
+/**
+ * Relit le profil **sans repli local** : après une écriture, un profil d'avant
+ * l'écriture ferait croire qu'elle n'a pas eu lieu.
+ */
+async function relireProfil(): Promise<ProfilUtilisateur> {
+  const profil = await api.lire<ProfilUtilisateur>("/auth/profil/");
+  annoncerProfil(profil);
+  return profil;
+}
+
+/**
+ * Met à jour son propre profil — `PATCH /auth/profil/`.
+ *
+ * L'adresse n'en fait pas partie : c'est l'identifiant de connexion, et le
+ * rôle se donne depuis la gestion des collaborateurs, pas depuis son profil.
+ * Un téléphone vidé part en `""` — c'est ce qui l'efface côté serveur.
+ */
+export async function modifierProfilMoi(
+  demande: DemandeModificationProfil,
+): Promise<ProfilUtilisateur> {
+  const profil = await api.modifier<ProfilUtilisateur>("/auth/profil/", {
+    prenom: demande.prenom,
+    nom: demande.nom,
+    telephone: demande.telephone,
+  });
+  annoncerProfil(profil);
+  return profil;
+}
+
+/**
+ * Téléverse une photo de profil — `POST /auth/profil/avatar/`, en `multipart`.
+ *
+ * Le profil est relu ensuite plutôt que déduit de la réponse : l'URL de la
+ * photo est construite par le serveur, et c'est elle qu'on veut afficher.
+ */
+export async function televerserAvatar(fichier: File): Promise<ProfilUtilisateur> {
+  const formulaire = new FormData();
+  formulaire.append("avatar", fichier);
+  await api.creer<unknown>("/auth/profil/avatar/", formulaire);
+  return relireProfil();
+}
+
+/** Retire la photo de profil — `DELETE /auth/profil/avatar/`. L'avatar retombe sur les initiales. */
+export async function supprimerAvatar(): Promise<ProfilUtilisateur> {
+  await api.supprimer("/auth/profil/avatar/");
+  return relireProfil();
 }
 
 interface ReponseConnexion extends Jetons {

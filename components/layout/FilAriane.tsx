@@ -53,6 +53,7 @@ const CARTE_SEGMENTS: Record<string, string> = {
   "/documents": "documents",
   "/tiers": "tiers",
   "/notifications": "notifications",
+  "/profil": "monProfil",
   "/parametres": "parametres",
   "/parametres/collaborateurs": "collaborateurs",
   "/parametres/roles": "roles",

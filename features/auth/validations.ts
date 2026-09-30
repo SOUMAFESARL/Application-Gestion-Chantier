@@ -10,6 +10,7 @@
 import { z } from "zod";
 
 import { texte } from "@/i18n/horsReact";
+import { PAYS_TELEPHONE_DEFAUT, telephoneValide } from "@/features/referentiels/telephone";
 import { chaineNonVide, email } from "@/lib/validations/champs";
 
 /**
@@ -55,3 +56,23 @@ export const schemaOubli = z.object({
 
 export type SaisieOubli = z.input<typeof schemaOubli>;
 export type ValeursOubli = z.output<typeof schemaOubli>;
+
+/**
+ * Son propre profil, espace entreprise. Ni l'adresse (identifiant de
+ * connexion) ni le rôle : ils ne se changent pas depuis ici.
+ *
+ * Le téléphone est facultatif, mais s'il est saisi il doit être complet pour
+ * son pays — `ChampTelephone` stocke du E.164, l'indicatif y est donc lisible.
+ */
+export const schemaProfil = z.object({
+  prenom: chaineNonVide(texte("profil.erreurPrenomRequis")),
+  nom: chaineNonVide(texte("profil.erreurNomRequis")),
+  telephone: z
+    .string()
+    .refine((valeur) => !valeur || telephoneValide(valeur, PAYS_TELEPHONE_DEFAUT), {
+      message: texte("profil.erreurTelephoneInvalide"),
+    }),
+});
+
+export type SaisieProfil = z.input<typeof schemaProfil>;
+export type ValeursProfil = z.output<typeof schemaProfil>;

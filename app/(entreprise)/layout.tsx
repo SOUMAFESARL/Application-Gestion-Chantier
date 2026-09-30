@@ -23,6 +23,7 @@ import {
   Sun,
   Tag,
   Truck,
+  UserRound,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -33,7 +34,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { LogoPlateforme } from "@/components/layout/LogoPlateforme";
 import { FilAriane } from "@/components/layout/FilAriane";
 import { BadgeEssai } from "@/components/metier/BadgeEssai";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -62,10 +63,11 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { seDeconnecter } from "@/features/auth/api";
+import { initialesProfil } from "@/features/auth/reglesProfil";
 import { EVENEMENT_SESSION_EXPIREE, sessionOuverte } from "@/lib/api";
 import { lireAbonnement } from "@/features/abonnement/api";
 import type { Abonnement } from "@/features/abonnement/api";
-import { obtenirProfilMoi } from "@/features/auth/api";
+import { EVENEMENT_PROFIL_MODIFIE, obtenirProfilMoi } from "@/features/auth/api";
 import type { ProfilUtilisateur } from "@/features/auth/api";
 import { EVENEMENT_ENTREPRISE_MODIFIEE, lireEntreprise } from "@/features/configuration/api";
 import type { DonneesEntreprise } from "@/features/configuration/api";
@@ -246,6 +248,14 @@ export default function LayoutApp({ children }: LayoutAppProps) {
     };
   }, [chargerEntreprise]);
 
+  // Le profil modifié depuis « Mon profil » : nom et photo suivent sans rechargement.
+  useEffect(() => {
+    const surProfil = (evenement: Event) =>
+      setProfil((evenement as CustomEvent<ProfilUtilisateur>).detail);
+    window.addEventListener(EVENEMENT_PROFIL_MODIFIE, surProfil);
+    return () => window.removeEventListener(EVENEMENT_PROFIL_MODIFIE, surProfil);
+  }, []);
+
   useEffect(() => {
     window.addEventListener(EVENEMENT_ENTREPRISE_MODIFIEE, chargerEntreprise);
     return () => window.removeEventListener(EVENEMENT_ENTREPRISE_MODIFIEE, chargerEntreprise);
@@ -402,10 +412,7 @@ export default function LayoutApp({ children }: LayoutAppProps) {
     return null;
   }
 
-  const initiales =
-    `${profil?.prenom?.[0] || ""}${profil?.nom?.[0] || ""}`.toUpperCase() ||
-    profil?.email[0]?.toUpperCase() ||
-    "?";
+  const initiales = initialesProfil(profil);
 
   return (
     <SidebarProvider>
@@ -632,7 +639,9 @@ export default function LayoutApp({ children }: LayoutAppProps) {
           </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter>
+        {/* Filet de séparation corps / pied, symétrique de celui que
+            `SidebarHeader` porte sous l'en-tête. */}
+        <SidebarFooter className="border-t border-sidebar-border">
           <SidebarMenu>
             <SidebarMenuItem>
               <DropdownMenu>
@@ -641,8 +650,13 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                       `docs/interface.jpg` : pas de filet, une ombre courte
                       suffit à la décoller du béton clair du fond. */}
                   <SidebarMenuButton size="lg" className="bg-sidebar-accent shadow-sm">
-                    <Avatar className="size-7 rounded-md">
-                      <AvatarFallback className="rounded-md bg-primary text-xs font-semibold text-primary-foreground">
+                    <Avatar className="size-7 rounded-full">
+                      {/* `object-top` : une photo de profil est cadrée sur
+                          le visage, qui se trouve en haut de l'image. */}
+                      {profil?.avatar_url && (
+                        <AvatarImage src={profil.avatar_url} alt="" className="rounded-full object-cover object-top" />
+                      )}
+                      <AvatarFallback className="rounded-full bg-primary text-xs font-semibold text-primary-foreground">
                         {initiales}
                       </AvatarFallback>
                     </Avatar>
@@ -667,6 +681,13 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                       <span className="truncate text-xs text-muted-foreground">{profil?.email}</span>
                     </span>
                   </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/profil">
+                      <UserRound />
+                      {t("monProfil")}
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem variant="destructive" onClick={deconnexion}>
                     <LogOut />
