@@ -35,8 +35,10 @@ import type {
   ModificationRolePayload,
   ResultatSuppressionRole,
   SuppressionRolePayload,
+  SurchargeAccesProjet,
 } from "./api";
-import type { NiveauAcces, ProjetRoleMatrice, RoleDetailItem, RoleItem } from "./types";
+import { accesNormalises, permissionsNormalisees } from "./regles";
+import type { AccesModule, NiveauAcces, ProjetRoleMatrice, RoleDetailItem, RoleItem } from "./types";
 import { MODULES_CCD } from "./types";
 
 const CLE_ETAT = "ccd.simulation.roles";
@@ -52,11 +54,19 @@ function toutesPermissions(niveau: NiveauAcces): Record<string, NiveauAcces> {
 }
 
 /**
+ * Le jeu initial reste écrit en niveaux, plus lisibles ici qu'une liste
+ * d'accès par module ; il est traduit en accès à la lecture de l'état.
+ */
+type RoleInitial = Omit<RoleItem, "permissions_modules"> & {
+  permissions_modules: Record<string, NiveauAcces>;
+};
+
+/**
  * Cinq rôles choisis pour couvrir les cas que l'écran doit montrer : un rôle
  * système inamovible (DG), et quatre rôles personnalisés aux permissions
  * contrastées d'un module à l'autre.
  */
-const ROLES_INITIAUX: RoleItem[] = [
+const ROLES_INITIAUX: RoleInitial[] = [
   {
     id: "10b1a001-1111-4a11-8a11-000000000001",
     code: "DG",
@@ -168,13 +178,18 @@ function identifiant(): string {
   return `sim-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
 
+/** Un état stocké avant le passage aux listes d'accès porte encore des niveaux. */
+function normaliser(roles: (RoleItem | RoleInitial)[]): RoleItem[] {
+  return roles.map((role) => ({ ...role, permissions_modules: permissionsNormalisees(role.permissions_modules) }));
+}
+
 function lireEtat(): RoleItem[] {
-  if (typeof window === "undefined") return [...ROLES_INITIAUX];
+  if (typeof window === "undefined") return normaliser(ROLES_INITIAUX);
   try {
     const brut = window.sessionStorage.getItem(CLE_ETAT);
-    return brut ? (JSON.parse(brut) as RoleItem[]) : [...ROLES_INITIAUX];
+    return normaliser(brut ? (JSON.parse(brut) as RoleItem[]) : ROLES_INITIAUX);
   } catch {
-    return [...ROLES_INITIAUX];
+    return normaliser(ROLES_INITIAUX);
   }
 }
 
@@ -187,8 +202,8 @@ function ecrireEtat(roles: RoleItem[]): void {
   }
 }
 
-/** Les surcharges par chantier : `{ [projetId]: { [roleId]: { [module]: niveau } } }`. */
-type SurchargesProjets = Record<string, Record<string, Partial<Record<string, NiveauAcces>>>>;
+/** Les surcharges par chantier : `{ [projetId]: { [roleId]: { [module]: accès } } }`. */
+type SurchargesProjets = Record<string, Record<string, Partial<Record<string, AccesModule[]>>>>;
 
 function lireSurcharges(): SurchargesProjets {
   if (typeof window === "undefined") return {};
@@ -233,7 +248,7 @@ export const simulationRoles = {
 
   async creer(payload: CreationRolePayload): Promise<RoleDetailItem> {
     const roles = lireEtat();
-    const permissions: Record<string, NiveauAcces> = { ...toutesPermissions(0), ...payload.permissions_modules };
+    const permissions = permissionsNormalisees(payload.permissions_modules);
 
     const role: RoleItem = {
       id: identifiant(),
@@ -308,7 +323,8 @@ export const simulationRoles = {
       for (const code of MODULES_CCD) {
         const surcharge = surcharges[role.id]?.[code];
         modules[code] = {
-          niveau: surcharge ?? role.permissions_modules[code] ?? 0,
+          // Une surcharge stockée avant le passage aux listes est un niveau.
+          acces: surcharge !== undefined ? accesNormalises(surcharge) : role.permissions_modules[code] ?? [],
           est_surcharge: surcharge !== undefined,
         };
       }
@@ -326,17 +342,17 @@ export const simulationRoles = {
 
   async sauvegarderMatriceProjet(
     projetId: string,
-    surchargesEnvoyees: { role_id: string; module: string; niveau: NiveauAcces | null }[],
+    surchargesEnvoyees: SurchargeAccesProjet[],
   ): Promise<ProjetRoleMatrice[]> {
     const surcharges = lireSurcharges();
     const surchargesProjet = { ...(surcharges[projetId] ?? {}) };
 
-    for (const { role_id, module: code, niveau } of surchargesEnvoyees) {
+    for (const { role_id, module: code, acces } of surchargesEnvoyees) {
       const surchargesRole = { ...(surchargesProjet[role_id] ?? {}) };
-      if (niveau === null) {
+      if (acces === null) {
         delete surchargesRole[code];
       } else {
-        surchargesRole[code] = niveau;
+        surchargesRole[code] = acces;
       }
       surchargesProjet[role_id] = surchargesRole;
     }

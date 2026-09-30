@@ -4,25 +4,71 @@
 
 import { api, appeler } from "@/lib/api";
 import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
+import { accesNormalises, permissionsNormalisees } from "./regles";
 import { simulationRoles } from "./simulationRoles";
 import type {
+  AccesModule,
   NiveauAcces,
+  PermissionsModules,
   ProjetRoleMatrice,
   RoleDetailItem,
   RoleItem,
 } from "./types";
 
+/**
+ * **Écriture** : chaque module part en liste d'accès indépendants (`[]` =
+ * aucun) — un rôle peut valider sans saisir. Le serveur doit accepter ce
+ * format ; il stocke aujourd'hui un seul niveau cumulatif par module.
+ *
+ * **Lecture** : tant que le serveur renvoie des niveaux, `versRole` les
+ * traduit en accès équivalents ; il accepte déjà les listes, pour que le jour
+ * où Django bascule, aucun écran ne change.
+ */
 export interface CreationRolePayload {
   code: string;
   libelle: string;
   description?: string;
-  permissions_modules?: Record<string, NiveauAcces>;
+  permissions_modules?: PermissionsModules;
 }
 
 export interface ModificationRolePayload {
   libelle?: string;
   description?: string;
-  permissions_modules?: Record<string, NiveauAcces>;
+  permissions_modules?: PermissionsModules;
+}
+
+/** Un module tel que le serveur le renvoie : un niveau aujourd'hui, une liste demain. */
+type ChargeAcces = NiveauAcces | AccesModule[];
+
+type ChargeRole<T extends RoleItem> = Omit<T, "permissions_modules"> & {
+  permissions_modules?: Record<string, ChargeAcces> | null;
+};
+
+interface ChargeProjetRoleMatrice extends Omit<ProjetRoleMatrice, "modules"> {
+  modules: Record<string, { niveau?: NiveauAcces; acces?: AccesModule[]; est_surcharge: boolean }>;
+}
+
+function versRole<T extends RoleItem>(charge: ChargeRole<T>): T {
+  return { ...charge, permissions_modules: permissionsNormalisees(charge.permissions_modules) } as T;
+}
+
+function versMatriceProjet(charge: ChargeProjetRoleMatrice[]): ProjetRoleMatrice[] {
+  return charge.map((role) => ({
+    ...role,
+    modules: Object.fromEntries(
+      Object.entries(role.modules).map(([code, m]) => [
+        code,
+        { acces: accesNormalises(m.acces ?? m.niveau), est_surcharge: m.est_surcharge },
+      ]),
+    ),
+  }));
+}
+
+/** `acces: null` retire la surcharge : le module revient aux droits du rôle. */
+export interface SurchargeAccesProjet {
+  role_id: string;
+  module: string;
+  acces: AccesModule[] | null;
 }
 
 export interface SuppressionRolePayload {
@@ -44,12 +90,13 @@ export interface ResultatSuppressionRole {
  * pagination), déjà à la forme de `RoleItem`.
  */
 export async function listerRoles(): Promise<RoleItem[]> {
-  return api.lire<RoleItem[]>("/parametres/roles/");
+  const charge = await api.lire<ChargeRole<RoleItem>[]>("/parametres/roles/");
+  return charge.map(versRole);
 }
 
 export async function obtenirRole(roleId: string): Promise<RoleDetailItem> {
   if (SIMULATION_ACTIVE) return simulationRoles.obtenir(roleId);
-  return api.lire<RoleDetailItem>(`/roles/${roleId}/`);
+  return versRole(await api.lire<ChargeRole<RoleDetailItem>>(`/roles/${roleId}/`));
 }
 
 /**
@@ -59,7 +106,7 @@ export async function obtenirRole(roleId: string): Promise<RoleDetailItem> {
  * qu'elle porte le `comptage` du détail, et l'écran ne la lit pas.
  */
 export async function creerRole(payload: CreationRolePayload): Promise<RoleItem> {
-  return api.creer<RoleItem>("/parametres/roles/", payload);
+  return versRole(await api.creer<ChargeRole<RoleItem>>("/parametres/roles/", payload));
 }
 
 /**
@@ -71,7 +118,7 @@ export async function modifierRole(
   roleId: string,
   payload: ModificationRolePayload,
 ): Promise<RoleItem> {
-  return api.modifier<RoleItem>(`/parametres/roles/${roleId}/`, payload);
+  return versRole(await api.modifier<ChargeRole<RoleItem>>(`/parametres/roles/${roleId}/`, payload));
 }
 
 export async function supprimerRole(
@@ -84,16 +131,19 @@ export async function supprimerRole(
 
 export async function obtenirMatriceProjet(projetId: string): Promise<ProjetRoleMatrice[]> {
   if (SIMULATION_ACTIVE) return simulationRoles.obtenirMatriceProjet(projetId);
-  return api.lire<ProjetRoleMatrice[]>(`/projets/${projetId}/permissions-roles/`);
+  return versMatriceProjet(
+    await api.lire<ChargeProjetRoleMatrice[]>(`/projets/${projetId}/permissions-roles/`),
+  );
 }
 
 export async function sauvegarderMatriceProjet(
   projetId: string,
-  surcharges: { role_id: string; module: string; niveau: NiveauAcces | null }[],
+  surcharges: SurchargeAccesProjet[],
 ): Promise<ProjetRoleMatrice[]> {
   if (SIMULATION_ACTIVE) return simulationRoles.sauvegarderMatriceProjet(projetId, surcharges);
-  return appeler<ProjetRoleMatrice[]>(`/projets/${projetId}/permissions-roles/`, {
+  const charge = await appeler<ChargeProjetRoleMatrice[]>(`/projets/${projetId}/permissions-roles/`, {
     methode: "PUT",
     corps: { surcharges },
   });
+  return versMatriceProjet(charge);
 }

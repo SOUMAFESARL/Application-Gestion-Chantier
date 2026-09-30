@@ -13,10 +13,10 @@ import {
   ModalNouveauRole,
   ModalReassignationRole,
   modifierRole,
-  SelecteurNiveau,
+  LegendeAcces,
   supprimerRole,
 } from "@/features/roles";
-import type { NiveauAcces, RoleItem } from "@/features/roles";
+import type { AccesModule, CreationRolePayload, ModificationRolePayload, RoleItem } from "@/features/roles";
 import { obtenirProfilMoi } from "@/features/auth/api";
 import type { ProfilUtilisateur } from "@/features/auth/api";
 
@@ -71,12 +71,7 @@ export default function ParametresRolesPage() {
     };
   }, [t]);
 
-  async function handleCreationRole(payload: {
-    code: string;
-    libelle: string;
-    description: string;
-    permissions_modules: Record<string, NiveauAcces>;
-  }) {
+  async function handleCreationRole(payload: CreationRolePayload) {
     setActionEnCours(true);
     try {
       await creerRole(payload);
@@ -90,14 +85,14 @@ export default function ParametresRolesPage() {
     }
   }
 
-  async function handleChangementNiveau(roleId: string, module: string, nouveauNiveau: NiveauAcces) {
+  async function handleChangementAcces(roleId: string, module: string, acces: AccesModule[]) {
     const role = roles.find((r) => r.id === roleId);
     if (!role) return;
 
     // La matrice **complète** du rôle part au serveur, pas le seul module
     // touché : un `PATCH` qui remplace le champ JSON au lieu de le fusionner
     // effacerait sinon les onze autres modules.
-    const permissions = { ...role.permissions_modules, [module]: nouveauNiveau };
+    const permissions = { ...role.permissions_modules, [module]: acces };
 
     setRoles((prev) =>
       prev.map((r) => (r.id === roleId ? { ...r, permissions_modules: permissions } : r))
@@ -113,7 +108,7 @@ export default function ParametresRolesPage() {
 
   async function handleModificationRole(
     roleId: string,
-    payload: { libelle: string; description: string },
+    payload: Required<ModificationRolePayload>,
   ) {
     setActionEnCours(true);
     try {
@@ -177,46 +172,49 @@ export default function ParametresRolesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <EnTetePage
-        titre={t("titre")}
-        description={t("sousTitre")}
-        actions={
-          estDG && (
-            <Bouton
-              variante="primaire"
-              iconeGauche={<Plus size={16} weight="bold" />}
-              onClick={() => setModalNouveauOuverte(true)}
-            >
-              {t("nouveauRole")}
-            </Bouton>
-          )
-        }
-      />
+      {/* En-tête, alertes et légende restent sous la barre du haut (`h-16`)
+          pendant que la matrice défile : la légende sert à lire chaque
+          cellule. Les marges négatives reprennent le padding du `<main>` pour
+          que le fond couvre toute la largeur. Pas sous `md` : sur téléphone,
+          le bloc mangerait l'écran. */}
+      <div className="flex flex-col gap-6 bg-background md:sticky md:top-16 md:z-30 md:-mx-6 md:-mt-6 md:px-6 md:pt-6 md:pb-4">
+        <EnTetePage
+          titre={t("titre")}
+          description={t("sousTitre")}
+          actions={
+            estDG && (
+              <Bouton
+                variante="primaire"
+                iconeGauche={<Plus size={16} weight="bold" />}
+                onClick={() => setModalNouveauOuverte(true)}
+              >
+                {t("nouveauRole")}
+              </Bouton>
+            )
+          }
+        />
 
-      {!estDG && (
-        <Alerte type="avertissement">
-          {t("restrictionDgMessage")}
-        </Alerte>
-      )}
+        {!estDG && (
+          <Alerte type="avertissement">
+            {t("restrictionDgMessage")}
+          </Alerte>
+        )}
 
-      {succesMessage && (
-        <Alerte type="succes">
-          {succesMessage}
-        </Alerte>
-      )}
+        {succesMessage && (
+          <Alerte type="succes">
+            {succesMessage}
+          </Alerte>
+        )}
 
-      <div className="flex flex-wrap items-center gap-4 rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3 text-xs">
-        <span style={{ fontWeight: "var(--font-weight-semibold)" }}>{t("legendeTitre")}</span>
-        {([0, 1, 2, 3] as NiveauAcces[]).map((niv) => (
-          <div key={niv} className="flex items-center gap-2">
-            <SelecteurNiveau valeur={niv} lectureSeule />
-          </div>
-        ))}
+        <div className="flex flex-wrap items-center gap-4 rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3 text-xs">
+          <span style={{ fontWeight: "var(--font-weight-semibold)" }}>{t("legendeTitre")}</span>
+          <LegendeAcces />
+        </div>
       </div>
 
       <MatricePermissionsTable
         roles={roles}
-        onChangeNiveau={estDG ? handleChangementNiveau : undefined}
+        onChangeAcces={estDG ? handleChangementAcces : undefined}
         onEditerRole={estDG ? setRoleAEditer : undefined}
         onSupprimerRole={estDG ? handleDemandeSuppression : undefined}
       />

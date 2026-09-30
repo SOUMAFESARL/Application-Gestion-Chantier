@@ -1642,6 +1642,18 @@
     "utiliserSaisie": "Utiliser « {saisie} »"
   },
   "roles": {
+    "acces": {
+      "aucun": "Aucun",
+      "court": {
+        "aucun": "—",
+        "lecture": "L",
+        "saisie": "S",
+        "validation": "V"
+      },
+      "lecture": "Lecture",
+      "saisie": "Saisie",
+      "validation": "Validation"
+    },
     "actions": "Actions",
     "annuler": "Annuler",
     "avertissementSuppression": "Attention : ce rôle est actuellement attribué à {n} collaborateur(s) ou affectation(s) de chantier. Pour garantir la continuité de l’accès sans interruption, vous devez obligatoirement sélectionner un rôle de substitution.",
@@ -1653,6 +1665,7 @@
     "chargement": "Chargement de la matrice des rôles et permissions…",
     "choisirModele": "-- Choisir un modèle optionnel --",
     "choisirRemplacement": "-- Choisissez un rôle de remplacement --",
+    "colonneAcces": "Accès",
     "confirmationSuppressionSimple": "Êtes-vous sûr de vouloir supprimer ce rôle ? Cette action retirera ce rôle du catalogue de l’entreprise.",
     "confirmerSuppression": "Confirmer la réassignation et supprimer",
     "copierDroitsDe": "Copier les droits de : {role}",
@@ -1666,8 +1679,9 @@
     "erreurDgUnique": "Le rôle de Directeur Général est unique et immuable.",
     "erreurIntituleRequis": "L’intitulé du rôle est requis.",
     "exceptionsChantier": "{n, plural, =1 {1 exception sur ce chantier} other {# exceptions sur ce chantier}}",
-    "legendeTitre": "Légende des 4 niveaux d’accès :",
+    "legendeTitre": "Légende des accès :",
     "matriceDroitsTitre": "Matrice des droits par module",
+    "module": "Module",
     "modules": {
       "achats": {
         "description": "Demandes d’achat et bons de commande",
@@ -1718,10 +1732,6 @@
         "nom": "Parties Prenantes"
       }
     },
-    "niveauAucun": "0 — Aucun",
-    "niveauEcriture": "2 — Saisie",
-    "niveauLecture": "1 — Lecture",
-    "niveauValidation": "3 — Validation",
     "nouveauRole": "Nouveau rôle",
     "personnalise": "Personnalisé",
     "personnaliseSurChantier": "= Personnalisé sur ce chantier",
@@ -1731,7 +1741,8 @@
     "restrictionDgMessage": "Seul le Directeur Général a autorité pour créer, modifier ou supprimer des rôles de l’entreprise.",
     "restrictionDgTitre": "Accès restreint",
     "role": "Rôle",
-    "sousTitre": "Personnalisez les rôles de votre entreprise et configurez la matrice d’accès aux 12 modules CCD Digital. Ces habilitations constituent le standard par défaut appliqué à l’ensemble de vos chantiers.",
+    "sousTitre": "Personnalisez les rôles de votre entreprise et configurez la matrice d’accès. Ces habilitations constituent le standard par défaut appliqué à l’ensemble de vos chantiers.",
+    "sousTitreModification": "Modifiez l’intitulé, la description et les accès par module de ce rôle.",
     "sousTitreCreation": "Définissez l’intitulé, le code et les droits par module de ce nouveau rôle.",
     "succesCreation": "Le rôle « {role} » a été créé avec succès.",
     "succesModification": "Le rôle « {role} » a été modifié avec succès.",

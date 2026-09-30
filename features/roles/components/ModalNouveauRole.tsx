@@ -21,22 +21,21 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { MODULES_CCD } from "../types";
-import type { NiveauAcces, RoleItem } from "../types";
-import { SelecteurNiveau } from "./SelecteurNiveau";
+import type { CreationRolePayload } from "../api";
+import { ACCES_MODULE, MODULES_CCD } from "../types";
+import type { AccesModule, RoleItem } from "../types";
+import { SelecteurAcces } from "./SelecteurAcces";
 
 /** Ascenseur fin, dans le ton du contenu qu'il défile — même recette que `sidebar.tsx`. */
 const ASCENSEUR_FIN = "[scrollbar-width:thin] [scrollbar-color:var(--color-neutral-300)_transparent]";
 
+/** Des exemples, pas des valeurs : le texte indicatif s'efface devant la saisie. */
+const INDICATIF_LEGER = "placeholder:font-normal placeholder:text-neutral-400";
+
 interface Props {
   ouverte: boolean;
   rolesExistant: RoleItem[];
-  onEnregistrer: (data: {
-    code: string;
-    libelle: string;
-    description: string;
-    permissions_modules: Record<string, NiveauAcces>;
-  }) => Promise<void>;
+  onEnregistrer: (data: CreationRolePayload) => Promise<void>;
   onFermer: () => void;
   enCours?: boolean;
 }
@@ -62,10 +61,10 @@ export function ModalNouveauRole({
   const [libelle, setLibelle] = useState("");
   const [description, setDescription] = useState("");
   const [modele, setModele] = useState("");
-  const [permissions, setPermissions] = useState<Record<string, NiveauAcces>>(() => {
-    const init: Record<string, NiveauAcces> = {};
+  const [permissions, setPermissions] = useState<Record<string, AccesModule[]>>(() => {
+    const init: Record<string, AccesModule[]> = {};
     for (const code of MODULES_CCD) {
-      init[code] = 3;
+      init[code] = [...ACCES_MODULE];
     }
     return init;
   });
@@ -88,10 +87,6 @@ export function ModalNouveauRole({
     if (modele) {
       setPermissions({ ...modele.permissions_modules });
     }
-  }
-
-  function changerNiveauModule(module: string, niveau: NiveauAcces) {
-    setPermissions((prev) => ({ ...prev, [module]: niveau }));
   }
 
   async function valider() {
@@ -154,6 +149,7 @@ export function ModalNouveauRole({
                 value={libelle}
                 placeholder={t("placeholderIntitule")}
                 onChange={(e) => handleLibelleChange(e.target.value)}
+                className={INDICATIF_LEGER}
                 aria-invalid={Boolean(erreurs.libelle)}
               />
               {erreurs.libelle && <span className="text-xs text-erreur">{erreurs.libelle}</span>}
@@ -169,7 +165,7 @@ export function ModalNouveauRole({
                 value={code}
                 placeholder={t("placeholderCode")}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
-                className="font-mono"
+                className={`font-mono ${INDICATIF_LEGER}`}
                 aria-invalid={Boolean(erreurs.code)}
               />
               {erreurs.code && <span className="text-xs text-erreur">{erreurs.code}</span>}
@@ -186,6 +182,7 @@ export function ModalNouveauRole({
               rows={2}
               placeholder={t("placeholderDescription")}
               onChange={(e) => setDescription(e.target.value)}
+              className={INDICATIF_LEGER}
             />
           </div>
 
@@ -194,7 +191,7 @@ export function ModalNouveauRole({
               {t("champModele")}
             </Label>
             <Select value={modele} onValueChange={copierDepuis}>
-              <SelectTrigger id="role-modele" className="w-full">
+              <SelectTrigger id="role-modele" className="w-full data-placeholder:text-neutral-400">
                 <SelectValue placeholder={t("choisirModele")} />
               </SelectTrigger>
               <SelectContent>
@@ -213,8 +210,8 @@ export function ModalNouveauRole({
               <table className="w-full border-collapse text-sm">
                 <thead className="sticky top-0 bg-neutral-50">
                   <tr>
-                    <th className="p-2 text-left font-normal text-neutral-600">{t("role")}</th>
-                    <th className="p-2 text-right font-normal text-neutral-600">{t("actions")}</th>
+                    <th className="p-2 text-left font-normal text-neutral-600">{t("module")}</th>
+                    <th className="w-[200px] p-2 text-left font-normal text-neutral-600">{t("colonneAcces")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -224,11 +221,13 @@ export function ModalNouveauRole({
                         <span className="font-medium text-neutral-900">{t(`modules.${code}.nom`)}</span>
                         <div className="text-xs text-neutral-500">{t(`modules.${code}.description`)}</div>
                       </td>
-                      <td className="p-2 text-right">
-                        <SelecteurNiveau
-                          valeur={permissions[code] ?? 0}
-                          onChange={(nouveau) => changerNiveauModule(code, nouveau)}
+                      <td className="p-2">
+                        <SelecteurAcces
+                          variante="champ"
+                          valeur={permissions[code] ?? []}
+                          onChange={(acces) => setPermissions((prev) => ({ ...prev, [code]: acces }))}
                           libelleAria={t(`modules.${code}.nom`)}
+                          disabled={enCours}
                         />
                       </td>
                     </tr>

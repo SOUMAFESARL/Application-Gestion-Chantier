@@ -8,9 +8,9 @@ import {
   obtenirMatriceProjet,
   sauvegarderMatriceProjet,
 } from "../api";
-import type { NiveauAcces, ProjetRoleMatrice, RoleItem } from "../types";
+import type { AccesModule, ProjetRoleMatrice, RoleItem } from "../types";
 import { MatricePermissionsTable } from "./MatricePermissionsTable";
-import { SelecteurNiveau } from "./SelecteurNiveau";
+import { LegendeAcces, SelecteurAcces } from "./SelecteurAcces";
 
 interface Props {
   projetId: string;
@@ -47,19 +47,9 @@ export function ProjetPermissionsSection({ projetId, nomProjet }: Props) {
     };
   }, [projetId, t]);
 
-  async function handleChangementNiveau(
-    roleId: string,
-    module: string,
-    nouveauNiveau: NiveauAcces
-  ) {
+  async function handleChangementAcces(roleId: string, module: string, acces: AccesModule[]) {
     try {
-      const maj = await sauvegarderMatriceProjet(projetId, [
-        {
-          role_id: roleId,
-          module,
-          niveau: nouveauNiveau,
-        },
-      ]);
+      const maj = await sauvegarderMatriceProjet(projetId, [{ role_id: roleId, module, acces }]);
       setMatriceProjet(maj);
       setMessage(t("surchargeChantier"));
     } catch (err: unknown) {
@@ -145,13 +135,9 @@ export function ProjetPermissionsSection({ projetId, nomProjet }: Props) {
         }}
       >
         <span style={{ fontWeight: "var(--font-weight-medium)" }}>{t("legendeTitre")}</span>
-        {([0, 1, 2, 3] as NiveauAcces[]).map((niv) => (
-          <div key={niv} style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
-            <SelecteurNiveau valeur={niv} lectureSeule />
-          </div>
-        ))}
+        <LegendeAcces />
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
-          <SelecteurNiveau valeur={2} lectureSeule estSurcharge />
+          <SelecteurAcces valeur={["lecture", "saisie"]} estSurcharge />
           <span>{t("personnaliseSurChantier")}</span>
         </div>
       </div>
@@ -160,7 +146,7 @@ export function ProjetPermissionsSection({ projetId, nomProjet }: Props) {
         roles={roles}
         estProjet
         matriceProjet={matriceProjet}
-        onChangeNiveau={handleChangementNiveau}
+        onChangeAcces={handleChangementAcces}
       />
     </div>
   );

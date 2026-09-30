@@ -4,14 +4,14 @@ import { Pencil, Trash } from "@phosphor-icons/react/dist/ssr";
 import { useTranslations } from "next-intl";
 import { Badge, Bouton } from "@/components/ui";
 import { MODULES_CCD } from "../types";
-import type { NiveauAcces, ProjetRoleMatrice, RoleItem } from "../types";
-import { SelecteurNiveau } from "./SelecteurNiveau";
+import type { AccesModule, ProjetRoleMatrice, RoleItem } from "../types";
+import { SelecteurAcces } from "./SelecteurAcces";
 
 interface Props {
   roles: RoleItem[];
   onEditerRole?: (role: RoleItem) => void;
   onSupprimerRole?: (role: RoleItem) => void;
-  onChangeNiveau?: (roleId: string, module: string, niveau: NiveauAcces) => void;
+  onChangeAcces?: (roleId: string, module: string, acces: AccesModule[]) => void;
   estProjet?: boolean;
   matriceProjet?: ProjetRoleMatrice[];
 }
@@ -20,7 +20,7 @@ export function MatricePermissionsTable({
   roles,
   onEditerRole,
   onSupprimerRole,
-  onChangeNiveau,
+  onChangeAcces,
   estProjet = false,
   matriceProjet,
 }: Props) {
@@ -65,21 +65,20 @@ export function MatricePermissionsTable({
                 </td>
 
                 {MODULES_CCD.map((code) => {
-                  let niveau: NiveauAcces = role.permissions_modules?.[code] ?? 0;
+                  let acces: AccesModule[] = role.permissions_modules?.[code] ?? [];
                   let estSurcharge = false;
 
                   if (estProjet && roleProjetInfo?.modules[code]) {
-                    niveau = roleProjetInfo.modules[code].niveau;
+                    acces = roleProjetInfo.modules[code].acces;
                     estSurcharge = roleProjetInfo.modules[code].est_surcharge;
                   }
 
                   return (
                     <td key={code} className="p-2 text-center">
-                      <SelecteurNiveau
-                        valeur={niveau}
+                      <SelecteurAcces
+                        valeur={acces}
                         estSurcharge={estSurcharge}
-                        lectureSeule={!onChangeNiveau}
-                        onChange={(nouveau) => onChangeNiveau?.(role.id, code, nouveau)}
+                        onChange={onChangeAcces && ((nouveaux) => onChangeAcces(role.id, code, nouveaux))}
                         libelleAria={`${role.libelle} — ${t(`modules.${code}.nom`)}`}
                       />
                     </td>
