@@ -1,15 +1,18 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { FileText, RefreshCw } from "lucide-react";
+import { FileText, FolderPlus, RefreshCw } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
-import { Bouton, EtatChargement, EtatErreur } from "@/components/ui";
+import { Bouton, EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import { situationDuJour, tauxSoumission, validationsEnAttente } from "@/features/chantier";
 import { lireJournal } from "@/features/chantier/adaptateur";
 import { CLE_JOURNAL } from "@/features/chantier/cles";
+import { listerProjets } from "@/features/projets/adaptateur";
+import { CLE_LISTE_PROJETS } from "@/features/projets/cles";
 
 import { Indicateur, Onglets } from "../projets/EnteteChantier";
 import { fondSiAlerte } from "./classes";
@@ -45,11 +48,24 @@ const JOURS_TAUX = 5;
 export function JournalChantier() {
   const t = useTranslations("journal");
   const format = useFormatter();
+  const router = useRouter();
   const [onglet, setOnglet] = useState<Onglet>("jour");
+
+  // Pas de projet, pas de journal : sans chantier ouvert, aucun rapport ne
+  // peut exister. La liste (même cache que l'écran Projets) est lue d'abord,
+  // et le journal n'est demandé que s'il y a de quoi en tenir un — sinon un
+  // espace neuf afficherait une erreur là où il n'y a simplement rien.
+  const requeteProjets = useQuery({
+    queryKey: CLE_LISTE_PROJETS,
+    queryFn: ({ signal }) => listerProjets(signal),
+  });
+  const sansProjet = requeteProjets.isSuccess && requeteProjets.data.length === 0;
 
   const requete = useQuery({
     queryKey: CLE_JOURNAL,
     queryFn: ({ signal }) => lireJournal(signal),
+    // Un échec de la liste ne bloque pas le journal : il garde sa propre erreur.
+    enabled: !requeteProjets.isPending && !sansProjet,
     // Les chefs de chantier déposent tout l'après-midi : le jour se relit seul.
     refetchInterval: 60_000,
   });
@@ -69,7 +85,28 @@ export function JournalChantier() {
     };
   }, [journal, maintenant]);
 
-  if (requete.isPending) return <EtatChargement />;
+  if (sansProjet) {
+    return (
+      <div className="flex flex-col gap-6">
+        <EnTetePage titre={t("titre")} description={t("sansProjet.resume")} />
+        <EtatVide
+          titre={t("sansProjet.titre")}
+          description={t("sansProjet.description")}
+          action={
+            <Bouton
+              variante="primaire"
+              iconeGauche={<FolderPlus size={16} aria-hidden="true" />}
+              onClick={() => router.push("/projets")}
+            >
+              {t("sansProjet.action")}
+            </Bouton>
+          }
+        />
+      </div>
+    );
+  }
+
+  if (requeteProjets.isPending || requete.isPending) return <EtatChargement />;
   if (requete.isError || !journal || !chiffres || !maintenant) {
     return <EtatErreur message={t("erreurChargement")} onReessayer={() => void requete.refetch()} />;
   }

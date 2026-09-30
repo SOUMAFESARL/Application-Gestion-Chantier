@@ -1,17 +1,18 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, CircleX, Clock, LoaderCircle, UserPlus } from "lucide-react";
-import Link from "next/link";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CheckCircle2, Clock, LoaderCircle, UserPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { ChampTelephone } from "@/components/metier/ChampTelephone";
-import { Alerte, Badge, Bouton, EtatChargement } from "@/components/ui";
+import { Badge, Bouton, EtatChargement } from "@/components/ui";
 import type { VarianteBadge } from "@/components/ui";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { aideColonnes } from "@/components/ui/data-table";
@@ -43,31 +44,28 @@ import { obtenirProfilMoi } from "@/features/auth/api";
 import type { ProfilUtilisateur } from "@/features/auth/api";
 import { paysEntreprise } from "@/features/configuration/api";
 import {
-  creerInvitation,
-  listerInvitations,
-} from "@/features/invitations/api";
-import type { InvitationDetail } from "@/features/invitations/api";
+  ajouterCollaborateur,
+  CLE_COLLABORATEURS,
+  erreursCreationParChamp,
+  listerCollaborateurs,
+} from "@/features/invitations/adaptateur";
 import {
-  collaborateurDepuisInvitation,
-  collaborateurDepuisProfil,
   filtrerCollaborateurs,
   initiales,
   type FiltreCollaborateurs,
 } from "@/features/invitations/regles";
-import { COLLABORATEURS_SIMULES } from "@/features/invitations/simulationCollaborateurs";
 import type { Collaborateur, StatutCollaborateur } from "@/features/invitations/types";
 import {
   CODES_ROLES,
-  LONGUEUR_MAX_NOM_COMPLET,
+  LONGUEUR_MAX_NOM,
   saisieAjoutVide,
   schemaAjoutCollaborateur,
-  versCreationInvitation,
+  versCreationCollaborateur,
   type SaisieAjoutCollaborateur,
   type ValeursAjoutCollaborateur,
 } from "@/features/invitations/validations";
 import { afficherTelephone } from "@/features/referentiels/telephone";
-import type { ErreurApi } from "@/lib/api";
-import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
+import { ErreurApi } from "@/lib/api";
 import { formaterDate } from "@/lib/format";
 
 const FORM_AJOUT_ID = "form-ajout-collaborateur";
@@ -84,17 +82,17 @@ function Requis() {
 const TON_STATUT: Record<StatutCollaborateur, VarianteBadge> = {
   ACTIF: "succes",
   INVITE: "avertissement",
-  EXPIREE: "erreur",
+  DESACTIVE: "erreur",
 };
 
 const colonne = aideColonnes<Collaborateur>();
 
 export default function PageCollaborateurs() {
   const t = useTranslations("gestionCollaborateurs");
+  const router = useRouter();
+  const cache = useQueryClient();
 
   const [moi, setMoi] = useState<ProfilUtilisateur | null>(null);
-  const [invites, setInvites] = useState<Collaborateur[]>([]);
-  const [chargement, setChargement] = useState(true);
   const [filtre, setFiltre] = useState<FiltreCollaborateurs>("TOUS");
   const [recherche, setRecherche] = useState("");
 
@@ -102,31 +100,27 @@ export default function PageCollaborateurs() {
   const [modaleOuverte, setModaleOuverte] = useState(false);
   // Vide tant que le serveur ne l'a pas dit : l'indicatif proposé en dépend.
   const [pays, setPays] = useState("");
-  const [succesMsg, setSuccesMsg] = useState<string | null>(null);
-  const [erreurAjout, setErreurAjout] = useState<string | null>(null);
-  // Tant que `POST /invitations/` n'existe pas, la simulation renvoie le
-  // jeton créé (un vrai serveur ne le ferait jamais — il ne voyage que par
-  // email) : ce lien permet de dérouler l'écran du collaborateur sans y avoir
-  // accès autrement.
-  const [lienDemo, setLienDemo] = useState<string | null>(null);
+
+  const requete = useQuery({
+    queryKey: CLE_COLLABORATEURS,
+    queryFn: listerCollaborateurs,
+  });
 
   const form = useForm<SaisieAjoutCollaborateur, unknown, ValeursAjoutCollaborateur>({
     resolver: zodResolver(schemaAjoutCollaborateur),
     defaultValues: saisieAjoutVide(),
   });
-  const ajoutEnCours = form.formState.isSubmitting;
 
   useEffect(() => {
     let vivant = true;
 
-    // Chaque source échoue seule : sans API, le profil et les invitations
-    // manquent, mais l'équipe de démonstration reste lisible.
-    Promise.allSettled([obtenirProfilMoi(), listerInvitations()]).then(([profil, liste]) => {
-      if (!vivant) return;
-      if (profil.status === "fulfilled") setMoi(profil.value);
-      if (liste.status === "fulfilled") setInvites(liste.value.map(collaborateurDepuisInvitation));
-      setChargement(false);
-    });
+    // Le profil ne sert qu'à savoir si « Administrateur » peut être proposé :
+    // illisible, il ne bloque pas l'écran.
+    obtenirProfilMoi()
+      .then((profil) => {
+        if (vivant) setMoi(profil);
+      })
+      .catch(() => undefined);
 
     paysEntreprise().then((code) => {
       if (vivant) setPays(code);
@@ -137,110 +131,114 @@ export default function PageCollaborateurs() {
     };
   }, []);
 
-  function ouvrirModale() {
-    setErreurAjout(null);
-    setLienDemo(null);
-    setModaleOuverte(true);
-  }
+  useEffect(() => {
+    if (requete.isError) toast.error(t("erreurChargement"));
+  }, [requete.isError, t]);
 
   /**
    * La saisie n'est remise à zéro qu'après un ajout réussi : un abandon
    * involontaire de la modale ne doit pas effacer ce qui a été tapé.
    */
-  async function ajouterCollaborateur(valeurs: ValeursAjoutCollaborateur) {
-    setErreurAjout(null);
-    try {
-      const nouvelle = await creerInvitation(versCreationInvitation(valeurs));
-      // L'invitation renvoyée ne porte pas le téléphone : on garde celui saisi.
-      setInvites((prev) => [
-        { ...collaborateurDepuisInvitation(nouvelle), telephone: valeurs.telephone },
-        ...prev,
+  const ajout = useMutation({
+    mutationFn: (valeurs: ValeursAjoutCollaborateur) =>
+      ajouterCollaborateur(versCreationCollaborateur(valeurs)),
+    onSuccess: ({ collaborateur, lienActivation }) => {
+      // Un email déjà invité est réinvité : même identifiant, ligne remplacée.
+      cache.setQueryData<Collaborateur[]>(CLE_COLLABORATEURS, (liste = []) => [
+        collaborateur,
+        ...liste.filter((c) => c.id !== collaborateur.id),
       ]);
-      setSuccesMsg(t("succesAjout", { nom: valeurs.nomComplet, email: valeurs.email }));
-      const jetonDemo = (nouvelle as InvitationDetail & { jeton?: string }).jeton;
-      setLienDemo(jetonDemo ? `/invitation#jeton=${jetonDemo}` : null);
+      // Le serveur ne renvoie le lien qu'en développement : il permet de
+      // dérouler l'écran d'activation sans passer par la boîte mail.
+      toast.success(
+        t("succesAjout", { nom: collaborateur.nomComplet, email: collaborateur.email }),
+        lienActivation
+          ? {
+              action: {
+                label: t("lienActivation"),
+                onClick: () => router.push(lienActivation),
+              },
+            }
+          : undefined,
+      );
       form.reset(saisieAjoutVide());
       setModaleOuverte(false);
-    } catch (err) {
-      const cause = err as ErreurApi;
-      setErreurAjout(cause.message || t("erreurAjout"));
-    }
-  }
+    },
+    onError: (cause) => {
+      // Une erreur rattachée à un champ s'affiche sous ce champ ; les autres
+      // (quota, email déjà pris, droits) passent par un toast.
+      const parChamp = Object.entries(erreursCreationParChamp(cause));
+      for (const [champ, message] of parChamp) {
+        form.setError(champ as keyof SaisieAjoutCollaborateur, { message });
+      }
+      if (parChamp.length > 0) return;
+      toast.error(cause instanceof ErreurApi && cause.message ? cause.message : t("erreurAjout"));
+    },
+  });
+  const ajoutEnCours = ajout.isPending;
 
   const optionsRoles = CODES_ROLES.filter(
-    (code) => code !== "AD" || Boolean(moi?.is_dg || moi?.role_global === "DG"),
+    (code) => code !== "AD" || Boolean(moi?.is_dg || moi?.is_owner || moi?.role_global === "DG"),
   ).map((code) => ({ valeur: code, libelle: t(`roleOptions.${code}`) }));
 
-  const collaborateurs = useMemo(
-    () => [
-      ...(moi ? [collaborateurDepuisProfil(moi)] : []),
-      ...invites,
-      ...(SIMULATION_ACTIVE ? COLLABORATEURS_SIMULES : []),
-    ],
-    [moi, invites],
-  );
+  const collaborateurs = useMemo(() => requete.data ?? [], [requete.data]);
 
   const collaborateursFiltres = useMemo(
     () => filtrerCollaborateurs(collaborateurs, filtre, recherche),
     [collaborateurs, filtre, recherche],
   );
 
-  const colonnes = useMemo(
-    () =>
-      colonne.columns([
-        colonne.accessor("nomComplet", {
-          header: t("colonneNom"),
-          cell: ({ row }) => {
-            const nom = row.original.nomComplet || t("collaborateurInvite");
-            return (
-              <div className="flex items-center gap-3">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-[13px] font-bold text-primary-700">
-                  {initiales(nom)}
-                </div>
-                <div className="flex min-w-0 flex-col">
-                  <span className="font-semibold text-neutral-900">{nom}</span>
-                  <span className="text-xs text-neutral-500">{row.original.email}</span>
-                </div>
-              </div>
-            );
-          },
-        }),
-        colonne.accessor("telephone", {
-          header: t("colonneTelephone"),
-          meta: { classe: "tabular-nums whitespace-nowrap text-neutral-700" },
-          cell: ({ getValue }) => afficherTelephone(getValue()) || t("telephoneInconnu"),
-        }),
-        colonne.accessor("role", {
-          header: t("colonneRole"),
-          cell: ({ getValue }) => (
-            <Badge variante="neutre">
-              {t.has(`roleOptions.${getValue()}`) ? t(`roleOptions.${getValue()}`) : getValue()}
-            </Badge>
-          ),
-        }),
-        colonne.accessor("statut", {
-          header: t("colonneStatut"),
-          cell: ({ getValue }) => (
-            <Badge variante={TON_STATUT[getValue()]}>
-              {getValue() === "ACTIF" && <CheckCircle2 size={14} aria-hidden="true" />}
-              {getValue() === "INVITE" && <Clock size={14} aria-hidden="true" />}
-              {t(`statut.${getValue()}`)}
-            </Badge>
-          ),
-        }),
-        colonne.accessor("creeLe", {
-          header: t("colonneDate"),
-          meta: { classe: `${BORD_DROIT_TABLEAU} tabular-nums whitespace-nowrap text-neutral-600` },
-          cell: ({ getValue }) => {
-            const date = getValue();
-            return date ? formaterDate(date) : t("comptePrincipal");
-          },
-        }),
-      ]),
-    [t],
-  );
+  const colonnes = useMemo(() => {
+    // Le catalogue d'abord ; un code qu'il ne connaît pas garde le libellé du serveur.
+    const libelleRole = (c: Collaborateur) =>
+      t.has(`roleOptions.${c.role}`) ? t(`roleOptions.${c.role}`) : c.roleLibelle;
 
-  if (chargement) {
+    return colonne.columns([
+      colonne.accessor("nomComplet", {
+        header: t("colonneNom"),
+        cell: ({ row }) => {
+          const nom = row.original.nomComplet || t("collaborateurInvite");
+          return (
+            <div className="flex items-center gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-[13px] font-bold text-primary-700">
+                {initiales(nom)}
+              </div>
+              <div className="flex min-w-0 flex-col">
+                <span className="font-semibold text-neutral-900">{nom}</span>
+                <span className="text-xs text-neutral-500">{row.original.email}</span>
+              </div>
+            </div>
+          );
+        },
+      }),
+      colonne.accessor("telephone", {
+        header: t("colonneTelephone"),
+        meta: { classe: "tabular-nums whitespace-nowrap text-neutral-700" },
+        cell: ({ getValue }) => afficherTelephone(getValue()) || t("telephoneInconnu"),
+      }),
+      colonne.accessor("role", {
+        header: t("colonneRole"),
+        cell: ({ row }) => <Badge variante="neutre">{libelleRole(row.original)}</Badge>,
+      }),
+      colonne.accessor("statut", {
+        header: t("colonneStatut"),
+        cell: ({ getValue }) => (
+          <Badge variante={TON_STATUT[getValue()]}>
+            {getValue() === "ACTIF" && <CheckCircle2 size={14} aria-hidden="true" />}
+            {getValue() === "INVITE" && <Clock size={14} aria-hidden="true" />}
+            {t(`statut.${getValue()}`)}
+          </Badge>
+        ),
+      }),
+      colonne.accessor("creeLe", {
+        header: t("colonneDate"),
+        meta: { classe: `${BORD_DROIT_TABLEAU} tabular-nums whitespace-nowrap text-neutral-600` },
+        cell: ({ getValue }) => formaterDate(getValue()),
+      }),
+    ]);
+  }, [t]);
+
+  if (requete.isPending) {
     return (
       <div className="flex flex-col gap-8">
         <EtatChargement message={t("chargement")} />
@@ -270,38 +268,16 @@ export default function PageCollaborateurs() {
       { entete: t("colonneTelephone"), valeur: (c) => afficherTelephone(c.telephone) },
       {
         entete: t("colonneRole"),
-        valeur: (c) => (t.has(`roleOptions.${c.role}`) ? t(`roleOptions.${c.role}`) : c.role),
+        valeur: (c) => (t.has(`roleOptions.${c.role}`) ? t(`roleOptions.${c.role}`) : c.roleLibelle),
       },
       { entete: t("colonneStatut"), valeur: (c) => t(`statut.${c.statut}`) },
-      {
-        entete: t("colonneDate"),
-        valeur: (c) => (c.creeLe ? formaterDate(c.creeLe) : t("comptePrincipal")),
-      },
+      { entete: t("colonneDate"), valeur: (c) => formaterDate(c.creeLe) },
     ],
   };
 
   return (
     <div className="flex flex-col gap-5">
-      <EnTetePage
-        titre={t("titre")}
-        description={t("sousTitre")}
-      />
-
-      {succesMsg && (
-        <Alerte
-          type="succes"
-          action={
-            lienDemo ? (
-              <Link href={lienDemo} className="font-semibold underline">
-                {t("simulationLienInvitation")}
-              </Link>
-            ) : undefined
-          }
-        >
-          <CheckCircle2 size={20} />
-          {succesMsg}
-        </Alerte>
-      )}
+      <EnTetePage titre={t("titre")} description={t("sousTitre")} />
 
       <TableauListe
         colonnes={colonnes}
@@ -320,7 +296,7 @@ export default function PageCollaborateurs() {
             variante="primaire"
             taille="sm"
             iconeGauche={<UserPlus size={16} aria-hidden="true" />}
-            onClick={ouvrirModale}
+            onClick={() => setModaleOuverte(true)}
           >
             {t("boutonAjouter")}
           </Bouton>
@@ -364,38 +340,53 @@ export default function PageCollaborateurs() {
           <Form {...form}>
             <form
               id={FORM_AJOUT_ID}
-              onSubmit={form.handleSubmit(ajouterCollaborateur)}
+              onSubmit={form.handleSubmit((valeurs) => ajout.mutate(valeurs))}
               noValidate
               className="flex flex-col gap-5"
             >
-              {erreurAjout && (
-                <Alert variant="erreur">
-                  <CircleX />
-                  <AlertDescription>{erreurAjout}</AlertDescription>
-                </Alert>
-              )}
+              <div className="grid gap-5 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="prenom"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("champPrenom")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          autoComplete="off"
+                          maxLength={LONGUEUR_MAX_NOM}
+                          placeholder={t("placeholderPrenom")}
+                          disabled={ajoutEnCours}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="nomComplet"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t("champNom")} <Requis />
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        autoComplete="off"
-                        maxLength={LONGUEUR_MAX_NOM_COMPLET}
-                        placeholder={t("placeholderNom")}
-                        disabled={ajoutEnCours}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="nom"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t("champNom")} <Requis />
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          autoComplete="off"
+                          maxLength={LONGUEUR_MAX_NOM}
+                          placeholder={t("placeholderNom")}
+                          disabled={ajoutEnCours}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}

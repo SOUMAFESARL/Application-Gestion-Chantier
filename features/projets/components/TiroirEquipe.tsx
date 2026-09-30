@@ -34,7 +34,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { CLE_COLLABORATEURS, listerCollaborateurs } from "@/features/invitations/api";
+import { CLE_COLLABORATEURS, listerCollaborateurs } from "@/features/invitations/adaptateur";
 import { creerEquipe } from "@/features/projets/adaptateur";
 import {
   collaborateursDisponibles,

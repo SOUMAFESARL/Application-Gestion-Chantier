@@ -1,18 +1,9 @@
 /**
- * Appels d'API pour les invitations de collaborateurs.
- *
- * Conforme au contrat T-017 et au parcours T-015.
+ * Appels d'API de l'activation d'un compte invité (contrat T-017, parcours
+ * T-015). La liste et l'ajout des collaborateurs sont dans `adaptateur.ts`.
  */
 
 import { api } from "@/lib/api";
-import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
-
-import { obtenirProfilMoi } from "@/features/auth/api";
-
-import { collaborateurDepuisInvitation, collaborateurDepuisProfil } from "./regles";
-import { COLLABORATEURS_SIMULES } from "./simulationCollaborateurs";
-import { simulationInvitations } from "./simulationInvitations";
-import type { Collaborateur } from "./types";
 
 export interface ContenuInvitation {
   email: string;
@@ -47,33 +38,10 @@ export interface ReponseAccepterInvitation {
   };
 }
 
-export interface InvitationDetail {
-  id: string;
-  email: string;
-  nom: string;
-  role_propose: string;
-  emetteur: string | null;
-  expire_le: string;
-  utilise_le: string | null;
-  statut: "ENVOYEE" | "ACCEPTEE" | "EXPIREE" | "REVOQUEE";
-  est_expiree: boolean;
-  cree_le: string;
-  modifie_le: string;
-}
-
-export interface CreerInvitationPayload {
-  email: string;
-  role_propose: string;
-  nom?: string;
-  /** Numéro international E.164 (`+2250700000000`). */
-  telephone?: string;
-}
-
 /**
  * Vérifie un jeton d'invitation sans le consommer (MLD §5.2).
  */
 export async function verifierInvitation(jeton: string): Promise<ContenuInvitation> {
-  if (SIMULATION_ACTIVE) return simulationInvitations.verifier(jeton);
   return api.creer<ContenuInvitation>("/invitations/verifier/", { jeton });
 }
 
@@ -83,47 +51,5 @@ export async function verifierInvitation(jeton: string): Promise<ContenuInvitati
 export async function accepterInvitation(
   payload: AccepterInvitationPayload,
 ): Promise<ReponseAccepterInvitation> {
-  if (SIMULATION_ACTIVE) return simulationInvitations.accepter(payload);
   return api.creer<ReponseAccepterInvitation>("/invitations/accepter/", payload);
 }
-
-/**
- * Liste les invitations du tenant.
- */
-export async function listerInvitations(): Promise<InvitationDetail[]> {
-  if (SIMULATION_ACTIVE) return simulationInvitations.lister();
-  return api.lire<InvitationDetail[]>("/invitations/");
-}
-
-/**
- * Crée et envoie une nouvelle invitation.
- */
-export async function creerInvitation(
-  payload: CreerInvitationPayload,
-): Promise<InvitationDetail> {
-  if (SIMULATION_ACTIVE) return simulationInvitations.creer(payload);
-  return api.creer<InvitationDetail>("/invitations/", payload);
-}
-
-/**
- * Les collaborateurs de l'entreprise, pour les choisir ailleurs que sur leur
- * écran (la constitution d'une équipe de chantier) : le compte connecté, les
- * invitations, et l'équipe de démonstration sous simulation.
- *
- * Même assemblage que l'écran « Collaborateurs », en attendant une route
- * `GET /collaborateurs/` qui le fasse côté serveur. Chaque source échoue
- * seule : un profil illisible ne vide pas la liste.
- */
-export async function listerCollaborateurs(): Promise<Collaborateur[]> {
-  const [profil, invitations] = await Promise.allSettled([obtenirProfilMoi(), listerInvitations()]);
-  return [
-    ...(profil.status === "fulfilled" ? [collaborateurDepuisProfil(profil.value)] : []),
-    ...(invitations.status === "fulfilled"
-      ? invitations.value.map(collaborateurDepuisInvitation)
-      : []),
-    ...(SIMULATION_ACTIVE ? COLLABORATEURS_SIMULES : []),
-  ];
-}
-
-/** La clé de cache de la liste des collaborateurs. */
-export const CLE_COLLABORATEURS = ["collaborateurs"] as const;

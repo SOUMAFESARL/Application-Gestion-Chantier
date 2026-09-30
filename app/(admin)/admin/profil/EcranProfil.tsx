@@ -88,7 +88,12 @@ export function EcranProfil() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Même gabarit que le profil de l'espace entreprise : collant sur grand
+          écran, sous la barre du haut (`h-16`), et débordant sur la gouttière
+          de `<main>` (`p-6`) pour que les cartes passent dessous plutôt que de
+          se montrer entre lui et la barre. */}
       <EnTetePage
+        className="bg-background lg:sticky lg:top-16 lg:z-30 lg:-mx-6 lg:-mt-6 lg:px-6 lg:pt-6 lg:pb-4"
         titre={<span className="text-primary-600">{t("profil.titre")}</span>}
         description={t("profil.sousTitre")}
       />
@@ -106,7 +111,9 @@ export function EcranProfil() {
 }
 
 /**
- * La carte de gauche : la photo, et ce qui ne se modifie pas ici.
+ * La carte de gauche : la photo, et ce qui ne se modifie pas ici. Collante sur
+ * grand écran, sous l'en-tête de page lui-même collant (`top-16` + 104 px
+ * d'en-tête + 16 px d'écart = `top-46`), comme dans l'espace entreprise.
  *
  * La photo part **dès qu'elle est choisie** : il n'y a rien d'autre à saisir
  * avec elle, et un bouton « Enregistrer » de plus ne servirait qu'à être oublié.
@@ -148,7 +155,9 @@ function BlocIdentiteCompte({ profil }: { profil: ProfilAdministrateur }) {
   }
 
   return (
-    <section className={`${CARTE_PROFIL} flex flex-col gap-5 overflow-hidden p-0`}>
+    <section
+      className={`${CARTE_PROFIL} flex flex-col gap-5 overflow-hidden p-0 lg:sticky lg:top-46`}
+    >
       {/* Le bandeau ne porte rien : il donne sa couleur à la carte et un fond à la photo. */}
       <div
         aria-hidden="true"

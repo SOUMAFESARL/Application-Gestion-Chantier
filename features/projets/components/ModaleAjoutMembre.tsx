@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Form, FormField } from "@/components/ui/form";
-import { CLE_COLLABORATEURS, listerCollaborateurs } from "@/features/invitations/api";
+import { CLE_COLLABORATEURS, listerCollaborateurs } from "@/features/invitations/adaptateur";
 import { ajouterMembreEquipe } from "@/features/projets/adaptateur";
 import { collaborateursDisponibles, membresEquipe } from "@/features/projets/regles";
 import type { Equipe } from "@/features/projets/types";

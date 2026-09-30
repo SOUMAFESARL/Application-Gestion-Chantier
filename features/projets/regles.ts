@@ -1045,7 +1045,7 @@ export function collaborateursDisponibles(
   const pris = new Set(dejaPris);
   return collaborateurs.filter(
     (collaborateur) =>
-      collaborateur.statut !== "EXPIREE" &&
+      collaborateur.statut !== "DESACTIVE" &&
       (collaborateur.id === garde || !pris.has(collaborateur.id)),
   );
 }
