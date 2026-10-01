@@ -271,6 +271,15 @@ export async function telechargerDocumentPdf(contenu: DocumentPdf): Promise<void
   (await dessinerDocumentPdf(contenu)).save(contenu.nomFichier);
 }
 
+/**
+ * Le PDF dessiné, sans le sortir : de quoi l'afficher en aperçu (dans un
+ * cadre, par une URL `blob:`) avant que l'utilisateur ne choisisse de le
+ * télécharger ou de l'imprimer. C'est le même document que les deux sorties.
+ */
+export async function genererDocumentPdf(contenu: DocumentPdf): Promise<Blob> {
+  return (await dessinerDocumentPdf(contenu)).output("blob");
+}
+
 /** Le délai avant de libérer le PDF imprimé : la boîte d'impression doit l'avoir lu. */
 const DELAI_LIBERATION_MS = 60_000;
 

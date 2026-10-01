@@ -4,14 +4,18 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 
 import { CLE_LISTE_PROJETS, cleProjet } from "@/features/projets/cles";
-import type { Projet } from "@/features/projets/types";
+import type { FonctionProjet, Projet } from "@/features/projets/types";
 
+import { ModaleAjoutEncadrement } from "./ModaleAjoutEncadrement";
+import { ModaleCadrageProjet, type ObjetCadrage } from "./ModaleCadrageProjet";
+import { ModaleRetraitEncadrement, type RetraitEncadrement } from "./ModaleRetraitEncadrement";
 import { ModaleSuspensionProjet } from "./ModaleSuspensionProjet";
 import { TiroirCreationProjet } from "./TiroirCreationProjet";
 
 /**
- * Les deux gestes qu'on fait sur un projet existant — le modifier, le
- * suspendre ou le reprendre — pour la liste comme pour la fiche.
+ * Les gestes qu'on fait sur un projet existant — le modifier, le suspendre
+ * ou le reprendre, compléter son équipe d'encadrement, fixer son planning et
+ * son budget — pour la liste comme pour la fiche.
  *
  * Réunis ici parce que les deux écrans doivent laisser **le même cache**
  * dans le même état après coup : le projet modifié est posé dans la liste et
@@ -35,6 +39,15 @@ export function useGestionProjet() {
     rang: number;
   } | null>(null);
   const [suspension, setSuspension] = useState<Projet | null>(null);
+  const [encadrement, setEncadrement] = useState<{
+    projet: Projet;
+    fonction: FonctionProjet;
+    fonctionsAutorisees: FonctionProjet[];
+    ouverte: boolean;
+    rang: number;
+  } | null>(null);
+  const [retrait, setRetrait] = useState<RetraitEncadrement | null>(null);
+  const [cadrage, setCadrage] = useState<{ projet: Projet; objet: ObjetCadrage } | null>(null);
 
   const actualiser = useCallback(
     (projet: Projet) => {
@@ -54,6 +67,26 @@ export function useGestionProjet() {
 
   const basculerSuspension = useCallback((projet: Projet) => setSuspension(projet), []);
 
+  const encadrer = useCallback(
+    (projet: Projet, fonction: FonctionProjet, fonctionsAutorisees: FonctionProjet[]) => {
+      setEncadrement((courant) => ({
+        projet,
+        fonction,
+        fonctionsAutorisees,
+        ouverte: true,
+        rang: (courant?.rang ?? 0) + 1,
+      }));
+    },
+    [],
+  );
+
+  const retirerEncadrement = useCallback((cible: RetraitEncadrement) => setRetrait(cible), []);
+
+  const cadrer = useCallback(
+    (projet: Projet, objet: ObjetCadrage) => setCadrage({ projet, objet }),
+    [],
+  );
+
   const modaux = (
     <>
       {modification && (
@@ -70,8 +103,29 @@ export function useGestionProjet() {
         onFermer={() => setSuspension(null)}
         onTermine={actualiser}
       />
+      {encadrement && (
+        <ModaleAjoutEncadrement
+          key={encadrement.rang}
+          ouverte={encadrement.ouverte}
+          onFermer={() => setEncadrement((courant) => courant && { ...courant, ouverte: false })}
+          projet={encadrement.projet}
+          fonctionInitiale={encadrement.fonction}
+          fonctionsAutorisees={encadrement.fonctionsAutorisees}
+          onModifie={actualiser}
+        />
+      )}
+      <ModaleRetraitEncadrement
+        retrait={retrait}
+        onFermer={() => setRetrait(null)}
+        onModifie={actualiser}
+      />
+      <ModaleCadrageProjet
+        cadrage={cadrage}
+        onFermer={() => setCadrage(null)}
+        onModifie={actualiser}
+      />
     </>
   );
 
-  return { modifier, basculerSuspension, modaux };
+  return { modifier, basculerSuspension, encadrer, retirerEncadrement, cadrer, modaux };
 }

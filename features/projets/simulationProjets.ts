@@ -30,12 +30,16 @@ import type { TiersOption } from "@/features/tiers/types";
 import { attendre, refuser } from "@/lib/api/simulation";
 
 import { INDICE_SANTE_INITIAL, peutReprendre, peutSuspendre } from "./regles";
-import { simulationLots } from "./simulationLots";
 import type {
+  AjoutEncadrement,
+  AutreMembreProjet,
+  ChefChantierProjet,
   ClientProjet,
   CreationProjet,
+  FonctionProjet,
   Intervenant,
   ModificationProjet,
+  PlanningProjet,
   Projet,
 } from "./types";
 
@@ -150,10 +154,13 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateDebutReelle: "2026-01-15",
     dateFinReelle: null,
     chefProjet: COLLABORATEURS_DEMONSTRATION[0],
-    conducteurTravaux: COLLABORATEURS_DEMONSTRATION[0],
+    conducteursTravaux: [COLLABORATEURS_DEMONSTRATION[0]],
     maitreOeuvre: "Cabinet Archi-Lagune",
-    chefsChantier: [COLLABORATEURS_DEMONSTRATION[1], COLLABORATEURS_DEMONSTRATION[2]],
-    directeurFinancier: COLLABORATEURS_DEMONSTRATION[2],
+    chefsChantier: [
+      { intervenant: COLLABORATEURS_DEMONSTRATION[1], zone: "Bâtiment A" },
+      { intervenant: COLLABORATEURS_DEMONSTRATION[2], zone: "Bâtiment B" },
+    ],
+    autresMembres: [{ intervenant: COLLABORATEURS_DEMONSTRATION[2], fonction: "FINANCIER" }],
   },
   {
     id: "c2c83f62-5fb4-4a5c-932c-d02a12eeeb13",
@@ -175,10 +182,10 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateDebutReelle: "2025-09-22",
     dateFinReelle: null,
     chefProjet: COLLABORATEURS_DEMONSTRATION[1],
-    conducteurTravaux: COLLABORATEURS_DEMONSTRATION[1],
+    conducteursTravaux: [COLLABORATEURS_DEMONSTRATION[1]],
     maitreOeuvre: "BNETD",
-    chefsChantier: [COLLABORATEURS_DEMONSTRATION[2]],
-    directeurFinancier: COLLABORATEURS_DEMONSTRATION[0],
+    chefsChantier: [{ intervenant: COLLABORATEURS_DEMONSTRATION[2], zone: null }],
+    autresMembres: [{ intervenant: COLLABORATEURS_DEMONSTRATION[0], fonction: "FINANCIER" }],
   },
   {
     id: "d3d94073-6fc5-4b6d-a43d-e13b23fffc24",
@@ -200,10 +207,10 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateDebutReelle: "2026-02-10",
     dateFinReelle: null,
     chefProjet: COLLABORATEURS_DEMONSTRATION[2],
-    conducteurTravaux: COLLABORATEURS_DEMONSTRATION[2],
+    conducteursTravaux: [COLLABORATEURS_DEMONSTRATION[2]],
     maitreOeuvre: null,
-    chefsChantier: [COLLABORATEURS_DEMONSTRATION[0]],
-    directeurFinancier: null,
+    chefsChantier: [{ intervenant: COLLABORATEURS_DEMONSTRATION[0], zone: null }],
+    autresMembres: [],
   },
   {
     id: "e4ea5184-70d6-4c7e-b54e-f24c34000d35",
@@ -225,10 +232,10 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateDebutReelle: null,
     dateFinReelle: null,
     chefProjet: null,
-    conducteurTravaux: null,
+    conducteursTravaux: [],
     maitreOeuvre: null,
     chefsChantier: [],
-    directeurFinancier: null,
+    autresMembres: [],
   },
   {
     id: "f5fb6295-81e7-4d8f-c65f-035d45111e46",
@@ -250,10 +257,10 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateDebutReelle: "2025-01-08",
     dateFinReelle: "2025-12-02",
     chefProjet: COLLABORATEURS_DEMONSTRATION[0],
-    conducteurTravaux: COLLABORATEURS_DEMONSTRATION[0],
+    conducteursTravaux: [COLLABORATEURS_DEMONSTRATION[0]],
     maitreOeuvre: "Atelier Kouadio Architectes",
-    chefsChantier: [COLLABORATEURS_DEMONSTRATION[1]],
-    directeurFinancier: null,
+    chefsChantier: [{ intervenant: COLLABORATEURS_DEMONSTRATION[1], zone: null }],
+    autresMembres: [],
   },
   {
     id: "a6ac73a6-92f8-4e90-d760-146e56222f57",
@@ -275,10 +282,10 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
     dateDebutReelle: "2026-03-16",
     dateFinReelle: null,
     chefProjet: COLLABORATEURS_DEMONSTRATION[1],
-    conducteurTravaux: COLLABORATEURS_DEMONSTRATION[1],
+    conducteursTravaux: [COLLABORATEURS_DEMONSTRATION[1]],
     maitreOeuvre: "Cabinet Archi-Lagune",
-    chefsChantier: [COLLABORATEURS_DEMONSTRATION[2]],
-    directeurFinancier: COLLABORATEURS_DEMONSTRATION[0],
+    chefsChantier: [{ intervenant: COLLABORATEURS_DEMONSTRATION[2], zone: null }],
+    autresMembres: [{ intervenant: COLLABORATEURS_DEMONSTRATION[0], fonction: "FINANCIER" }],
   },
 ];
 
@@ -287,17 +294,35 @@ const PORTEFEUILLE_INITIAL: Projet[] = [
  * ------------------------------------------------------------------ */
 
 /**
+ * La forme qu'un onglet ouvert avant l'équipe d'encadrement a pu conserver :
+ * un seul conducteur, des chefs de chantier sans zone, un directeur financier.
+ */
+interface ProjetAncien extends Omit<Projet, "conducteursTravaux" | "chefsChantier" | "autresMembres"> {
+  conducteurTravaux?: Intervenant | null;
+  conducteursTravaux?: Intervenant[];
+  chefsChantier?: (Intervenant | ChefChantierProjet)[];
+  directeurFinancier?: Intervenant | null;
+  autresMembres?: AutreMembreProjet[];
+}
+
+/**
  * Un chantier conservé par un onglet ouvert avant que la fiche ne porte le
- * maître d'œuvre et l'équipe élargie : on complète avec les défauts de
+ * maître d'œuvre et l'équipe d'encadrement : on le ramène à la forme de
  * `versProjet`, pour que la simulation ne rende pas une forme que le serveur
  * ne rendrait jamais.
  */
-function completer(projet: Projet): Projet {
+function completer(ancien: ProjetAncien): Projet {
+  const { conducteurTravaux, directeurFinancier, ...projet } = ancien;
   return {
     ...projet,
     maitreOeuvre: projet.maitreOeuvre ?? null,
-    chefsChantier: projet.chefsChantier ?? [],
-    directeurFinancier: projet.directeurFinancier ?? null,
+    conducteursTravaux: projet.conducteursTravaux ?? (conducteurTravaux ? [conducteurTravaux] : []),
+    chefsChantier: (projet.chefsChantier ?? []).map((chef) =>
+      "intervenant" in chef ? chef : { intervenant: chef, zone: null },
+    ),
+    autresMembres:
+      projet.autresMembres ??
+      (directeurFinancier ? [{ intervenant: directeurFinancier, fonction: "FINANCIER" }] : []),
   };
 }
 
@@ -305,7 +330,7 @@ function lireEtat(): Projet[] {
   if (typeof window === "undefined") return [...PORTEFEUILLE_INITIAL];
   try {
     const brut = window.sessionStorage.getItem(CLE_ETAT);
-    return brut ? (JSON.parse(brut) as Projet[]).map(completer) : [...PORTEFEUILLE_INITIAL];
+    return brut ? (JSON.parse(brut) as ProjetAncien[]).map(completer) : [...PORTEFEUILLE_INITIAL];
   } catch {
     return [...PORTEFEUILLE_INITIAL];
   }
@@ -361,11 +386,6 @@ function resoudreClient(maitreOuvrage: string): ClientProjet {
   return (
     connu ?? { id: identifiant(), raisonSociale: maitreOuvrage, telephone: null, email: null, ville: null }
   );
-}
-
-function resoudreCollaborateur(id: string | undefined): Intervenant | null {
-  if (!id) return null;
-  return COLLABORATEURS_DEMONSTRATION.find((personne) => personne.id === id) ?? null;
 }
 
 /** Remplace un projet dans l'état, ou refuse comme le serveur s'il n'existe pas. */
@@ -425,23 +445,22 @@ export const simulationProjets = {
       avancementReel: 0,
       avancementTheorique: 0,
       indiceSante: INDICE_SANTE_INITIAL,
-      budgetInitial: creation.budgetInitial,
+      // Facultatifs à la création : sinon le chef de projet les fixe ensuite.
+      budgetInitial: creation.budgetInitial ?? null,
       budgetConsomme: 0,
-      dateDebutPrevue: creation.dateDebutPrevue,
-      dateFinPrevue: creation.dateFinPrevue,
+      dateDebutPrevue: creation.dateDebutPrevue ?? null,
+      dateFinPrevue: creation.dateFinPrevue ?? null,
       dateDebutReelle: null,
       dateFinReelle: null,
-      chefProjet: resoudreCollaborateur(creation.equipe.chefProjetId),
-      conducteurTravaux: resoudreCollaborateur(creation.equipe.conducteurTravauxId),
+      // L'équipe et les lots s'affectent après la création, depuis le projet.
+      chefProjet: null,
+      conducteursTravaux: [],
       maitreOeuvre: creation.maitreOeuvre || null,
-      chefsChantier: creation.equipe.chefsChantierIds
-        .map(resoudreCollaborateur)
-        .filter((personne): personne is Intervenant => personne !== null),
-      directeurFinancier: resoudreCollaborateur(creation.equipe.directeurFinancierId),
+      chefsChantier: [],
+      autresMembres: [],
     };
 
     ecrireEtat([projet, ...projets]);
-    simulationLots.enregistrerLotsCreation(projet.id, creation.lots);
     return attendre(projet, LATENCE_ECRITURE);
   },
 
@@ -456,17 +475,62 @@ export const simulationProjets = {
           ? projet.client
           : resoudreClient(modification.maitreOuvrage),
       maitreOeuvre: modification.maitreOeuvre || null,
-      dateDebutPrevue: modification.dateDebutPrevue,
-      dateFinPrevue: modification.dateFinPrevue,
-      budgetInitial: modification.budgetInitial,
-      description: modification.description ?? "",
-      chefProjet: resoudreCollaborateur(modification.equipe.chefProjetId),
-      conducteurTravaux: resoudreCollaborateur(modification.equipe.conducteurTravauxId),
-      chefsChantier: modification.equipe.chefsChantierIds
-        .map(resoudreCollaborateur)
-        .filter((personne): personne is Intervenant => personne !== null),
-      directeurFinancier: resoudreCollaborateur(modification.equipe.directeurFinancierId),
     }));
+    return attendre(modifie, LATENCE_ECRITURE);
+  },
+
+  async definirPlanning(id: string, planning: PlanningProjet): Promise<Projet> {
+    const modifie = remplacer(id, (projet) => ({ ...projet, ...planning }));
+    return attendre(modifie, LATENCE_ECRITURE);
+  },
+
+  async definirBudget(id: string, budgetInitial: number): Promise<Projet> {
+    const modifie = remplacer(id, (projet) => ({ ...projet, budgetInitial }));
+    return attendre(modifie, LATENCE_ECRITURE);
+  },
+
+  /**
+   * Mêmes gardes que celles attendues du serveur : un seul chef de projet
+   * (le désigner remplace le précédent), et pas deux fois la même personne
+   * à la même place.
+   */
+  async ajouterEncadrement(id: string, ajout: AjoutEncadrement): Promise<Projet> {
+    const modifie = remplacer(id, (projet) => {
+      const { intervenant } = ajout;
+      const deja = (liste: { id: string }[]) => liste.some((membre) => membre.id === intervenant.id);
+      switch (ajout.fonction) {
+        case "CHEF_PROJET":
+          return { ...projet, chefProjet: intervenant };
+        case "CONDUCTEUR_TRAVAUX":
+          if (deja(projet.conducteursTravaux)) refuser("membre_existant", "Cette personne est déjà conducteur de travaux sur ce projet.", 400);
+          return { ...projet, conducteursTravaux: [...projet.conducteursTravaux, intervenant] };
+        case "CHEF_CHANTIER":
+          if (deja(projet.chefsChantier.map((chef) => chef.intervenant))) refuser("membre_existant", "Cette personne est déjà chef de chantier sur ce projet.", 400);
+          return { ...projet, chefsChantier: [...projet.chefsChantier, { intervenant, zone: ajout.zone }] };
+        case "AUTRE_MEMBRE":
+          if (deja(projet.autresMembres.map((membre) => membre.intervenant))) refuser("membre_existant", "Cette personne fait déjà partie des autres membres de ce projet.", 400);
+          return {
+            ...projet,
+            autresMembres: [...projet.autresMembres, { intervenant, fonction: ajout.fonctionMembre }],
+          };
+      }
+    });
+    return attendre(modifie, LATENCE_ECRITURE);
+  },
+
+  async retirerEncadrement(id: string, fonction: FonctionProjet, utilisateurId: string): Promise<Projet> {
+    const modifie = remplacer(id, (projet) => {
+      switch (fonction) {
+        case "CHEF_PROJET":
+          return projet.chefProjet?.id === utilisateurId ? { ...projet, chefProjet: null } : projet;
+        case "CONDUCTEUR_TRAVAUX":
+          return { ...projet, conducteursTravaux: projet.conducteursTravaux.filter((membre) => membre.id !== utilisateurId) };
+        case "CHEF_CHANTIER":
+          return { ...projet, chefsChantier: projet.chefsChantier.filter((chef) => chef.intervenant.id !== utilisateurId) };
+        case "AUTRE_MEMBRE":
+          return { ...projet, autresMembres: projet.autresMembres.filter((membre) => membre.intervenant.id !== utilisateurId) };
+      }
+    });
     return attendre(modifie, LATENCE_ECRITURE);
   },
 

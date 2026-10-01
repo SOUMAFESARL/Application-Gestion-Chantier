@@ -25,12 +25,17 @@ import { simulationProjets } from "./simulationProjets";
 
 import type {
   Activite,
+  AjoutEncadrement,
   AlerteIntemperies,
+  AutreMembreProjet,
+  ChefChantierProjet,
   ClientProjet,
   CreationEquipe,
   CreationLotProjet,
   CreationProjet,
   Equipe,
+  FonctionAutreMembre,
+  FonctionProjet,
   EquipeChantier,
   Intervenant,
   Lot,
@@ -39,6 +44,7 @@ import type {
   ModeExecutionLot,
   ModificationProjet,
   NatureEquipe,
+  PlanningProjet,
   Projet,
   RoleMembreEquipe,
   SaisieActiviteDomaine,
@@ -87,15 +93,25 @@ interface ChargeProjet {
   indice_sante?: number | null;
   budget_initial_montant: number | null;
   budget_consomme_montant?: number;
-  date_debut_prevue: string;
-  date_fin_prevue: string;
+  date_debut_prevue?: string | null;
+  date_fin_prevue?: string | null;
   date_debut_reelle?: string | null;
   date_fin_reelle?: string | null;
-  chef_projet?: ChargeIntervenant | null;
-  conducteur_travaux?: ChargeIntervenant | null;
   maitre_oeuvre?: string | null;
-  chefs_chantier?: ChargeIntervenant[];
-  directeur_financier?: ChargeIntervenant | null;
+  chef_projet?: ChargeIntervenant | null;
+  conducteurs_travaux?: ChargeIntervenant[];
+  chefs_chantier?: ChargeChefChantier[];
+  autres_membres?: ChargeAutreMembre[];
+}
+
+interface ChargeChefChantier {
+  utilisateur: ChargeIntervenant;
+  zone?: string | null;
+}
+
+interface ChargeAutreMembre {
+  utilisateur: ChargeIntervenant;
+  fonction: FonctionAutreMembre;
 }
 
 /** L'enveloppe de pagination de DRF, quand elle est activée sur la ressource. */
@@ -137,26 +153,10 @@ interface ChargeCreationProjet {
   ville: string;
   maitre_ouvrage: string;
   maitre_oeuvre?: string;
-  date_debut_prevue: string;
-  date_fin_prevue: string;
-  budget_initial_montant: number;
+  date_debut_prevue?: string;
+  date_fin_prevue?: string;
+  budget_initial_montant?: number;
   description?: string;
-  lots: ChargeCreationLot[];
-  chef_projet_id: string;
-  conducteur_travaux_id: string;
-  chefs_chantier_ids: string[];
-  directeur_financier_id?: string;
-  visiteurs_ids: string[];
-  bailleurs_ids: string[];
-}
-
-interface ChargeCreationLot {
-  numero: string;
-  nom: string;
-  mode_execution: string;
-  type_bordereau: string;
-  date_debut?: string;
-  date_fin?: string;
 }
 
 /* ------------------------------------------------------------------ *
@@ -180,6 +180,22 @@ function versIntervenant(charge: ChargeIntervenant | null | undefined): Interven
     statut: charge.statut ?? null,
     lienWhatsApp: charge.lien_whatsapp ?? null,
   };
+}
+
+function intervenants(charges: ChargeIntervenant[] | undefined): Intervenant[] {
+  return (charges ?? [])
+    .map(versIntervenant)
+    .filter((intervenant): intervenant is Intervenant => intervenant !== null);
+}
+
+function versChefChantier(charge: ChargeChefChantier): ChefChantierProjet | null {
+  const intervenant = versIntervenant(charge.utilisateur);
+  return intervenant ? { intervenant, zone: charge.zone || null } : null;
+}
+
+function versAutreMembre(charge: ChargeAutreMembre): AutreMembreProjet | null {
+  const intervenant = versIntervenant(charge.utilisateur);
+  return intervenant ? { intervenant, fonction: charge.fonction } : null;
 }
 
 function versClient(charge: ChargeClient): ClientProjet {
@@ -215,17 +231,19 @@ export function versProjet(charge: ChargeProjet): Projet {
     indiceSante: charge.indice_sante ?? null,
     budgetInitial: charge.budget_initial_montant ?? null,
     budgetConsomme: charge.budget_consomme_montant ?? 0,
-    dateDebutPrevue: charge.date_debut_prevue,
-    dateFinPrevue: charge.date_fin_prevue,
+    dateDebutPrevue: charge.date_debut_prevue ?? null,
+    dateFinPrevue: charge.date_fin_prevue ?? null,
     dateDebutReelle: charge.date_debut_reelle ?? null,
     dateFinReelle: charge.date_fin_reelle ?? null,
-    chefProjet: versIntervenant(charge.chef_projet),
-    conducteurTravaux: versIntervenant(charge.conducteur_travaux),
     maitreOeuvre: charge.maitre_oeuvre || null,
+    chefProjet: versIntervenant(charge.chef_projet),
+    conducteursTravaux: intervenants(charge.conducteurs_travaux),
     chefsChantier: (charge.chefs_chantier ?? [])
-      .map(versIntervenant)
-      .filter((intervenant): intervenant is Intervenant => intervenant !== null),
-    directeurFinancier: versIntervenant(charge.directeur_financier),
+      .map(versChefChantier)
+      .filter((chef): chef is ChefChantierProjet => chef !== null),
+    autresMembres: (charge.autres_membres ?? [])
+      .map(versAutreMembre)
+      .filter((membre): membre is AutreMembreProjet => membre !== null),
   };
 }
 
@@ -267,7 +285,6 @@ function versMeteo(charge: ChargeMeteo): MeteoProjet {
 
 /** Traduction domaine vers serveur — le seul sens où l'on écrit du `snake_case`. */
 function versChargeCreation(creation: CreationProjet): ChargeCreationProjet {
-  const { equipe } = creation;
   return {
     nom: creation.nom,
     reference: creation.reference,
@@ -279,40 +296,17 @@ function versChargeCreation(creation: CreationProjet): ChargeCreationProjet {
     date_fin_prevue: creation.dateFinPrevue,
     budget_initial_montant: creation.budgetInitial,
     description: creation.description,
-    lots: creation.lots.map((lot) => ({
-      numero: lot.numero,
-      nom: lot.nom,
-      mode_execution: lot.modeExecution,
-      type_bordereau: lot.typeBordereau,
-      date_debut: lot.dateDebut,
-      date_fin: lot.dateFin,
-    })),
-    chef_projet_id: equipe.chefProjetId,
-    conducteur_travaux_id: equipe.conducteurTravauxId,
-    chefs_chantier_ids: equipe.chefsChantierIds,
-    directeur_financier_id: equipe.directeurFinancierId,
-    visiteurs_ids: equipe.visiteursIds,
-    bailleurs_ids: equipe.bailleursIds,
   };
 }
 
 /** La charge de `PATCH /projets/{id}/` — même proposition que la création. */
 function versChargeModification(modification: ModificationProjet) {
-  const { equipe } = modification;
   return {
     nom: modification.nom,
     type_projet: modification.typeProjet,
     ville: modification.ville,
     maitre_ouvrage: modification.maitreOuvrage,
     maitre_oeuvre: modification.maitreOeuvre,
-    date_debut_prevue: modification.dateDebutPrevue,
-    date_fin_prevue: modification.dateFinPrevue,
-    budget_initial_montant: modification.budgetInitial,
-    description: modification.description,
-    chef_projet_id: equipe.chefProjetId,
-    conducteur_travaux_id: equipe.conducteurTravauxId,
-    chefs_chantier_ids: equipe.chefsChantierIds,
-    directeur_financier_id: equipe.directeurFinancierId,
   };
 }
 
@@ -394,13 +388,64 @@ export async function proposerReferenceProjet(): Promise<string> {
   return "";
 }
 
+/*
+ * Le cadrage d'un projet — planning contractuel et budget prévisionnel. Ni
+ * l'un ni l'autre ne se demande plus à la création : c'est le chef de projet
+ * désigné qui les fixe, depuis la fiche. Deux écritures distinctes, pour que
+ * fixer l'un ne renvoie pas (et n'écrase pas) l'autre.
+ */
+
+export async function definirPlanningProjet(id: string, planning: PlanningProjet): Promise<Projet> {
+  if (SIMULATION_ACTIVE) return simulationProjets.definirPlanning(id, planning);
+  return versProjet(
+    await api.modifier<ChargeProjet>(`/projets/${id}/`, {
+      date_debut_prevue: planning.dateDebutPrevue,
+      date_fin_prevue: planning.dateFinPrevue,
+    }),
+  );
+}
+
 /** `budgetInitial` est en **centimes**, comme partout dans le domaine. */
 export async function definirBudgetProjet(id: string, budgetInitial: number): Promise<Projet> {
+  if (SIMULATION_ACTIVE) return simulationProjets.definirBudget(id, budgetInitial);
   return versProjet(
     await api.modifier<ChargeProjet>(`/projets/${id}/`, {
       budget_initial_montant: budgetInitial,
     }),
   );
+}
+
+/*
+ * L'équipe d'encadrement et de gestion du projet. Routes proposées par le
+ * frontend, servies par `simulationProjets.ts` en attendant Django. Chaque
+ * écriture renvoie **le projet entier** : désigner un chef de projet en
+ * remplace un autre, et l'écran repart de ce que le serveur a retenu.
+ */
+
+export async function ajouterMembreEncadrement(
+  projetId: string,
+  ajout: AjoutEncadrement,
+): Promise<Projet> {
+  if (SIMULATION_ACTIVE) return simulationProjets.ajouterEncadrement(projetId, ajout);
+  return versProjet(
+    await api.creer<ChargeProjet>(`/projets/${projetId}/encadrement/`, {
+      fonction: ajout.fonction,
+      utilisateur_id: ajout.intervenant.id,
+      zone: ajout.fonction === "CHEF_CHANTIER" ? ajout.zone : undefined,
+      fonction_membre: ajout.fonction === "AUTRE_MEMBRE" ? ajout.fonctionMembre : undefined,
+    }),
+  );
+}
+
+/** Le retrait ne renvoie rien (204) : le projet est relu derrière. */
+export async function retirerMembreEncadrement(
+  projetId: string,
+  fonction: FonctionProjet,
+  utilisateurId: string,
+): Promise<Projet> {
+  if (SIMULATION_ACTIVE) return simulationProjets.retirerEncadrement(projetId, fonction, utilisateurId);
+  await api.supprimer(`/projets/${projetId}/encadrement/${fonction}/${utilisateurId}/`);
+  return lireProjet(projetId);
 }
 
 export async function obtenirMeteo(params?: {

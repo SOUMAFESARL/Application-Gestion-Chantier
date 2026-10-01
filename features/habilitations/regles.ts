@@ -6,7 +6,7 @@
  * seulement de proposer un geste que le serveur refuserait.
  */
 
-import { fonctionsDansProjet } from "@/features/projets/regles";
+import { fonctionsDansProjet, projetModifiable } from "@/features/projets/regles";
 import type { Projet } from "@/features/projets/types";
 import { ACCES_MODULE, MODULES_CCD } from "@/features/roles/types";
 
@@ -103,4 +103,35 @@ export function projetsVisibles(projets: Projet[], droits: Droits | null): Proje
 
 export function projetVisible(projet: Projet, droits: Droits | null): boolean {
   return projetsVisibles([projet], droits).length === 1;
+}
+
+/**
+ * Le compte est-il le chef de projet désigné de ce chantier ? La direction
+ * voit tout mais n'est la personne de personne : sa portée ne porte pas
+ * d'identifiant.
+ */
+export function estChefDuProjet(projet: Projet, droits: Droits | null): boolean {
+  if (!droits || droits.portee.type !== "PERSONNE") return false;
+  return projet.chefProjet !== null && projet.chefProjet.id === droits.portee.collaborateurId;
+}
+
+/** Désigner (ou remplacer) le chef de projet : un acte de direction. */
+export function peutDesignerChefProjet(projet: Projet, droits: Droits | null): boolean {
+  return projetModifiable(projet) && (droits?.estDirection ?? false);
+}
+
+/**
+ * Compléter l'équipe d'encadrement — conducteurs, chefs de chantier, autres
+ * membres : la direction, ou le chef de projet du chantier, qui en a la main.
+ */
+export function peutGererEncadrement(projet: Projet, droits: Droits | null): boolean {
+  return projetModifiable(projet) && ((droits?.estDirection ?? false) || estChefDuProjet(projet, droits));
+}
+
+/**
+ * Fixer le planning contractuel et le budget prévisionnel : le chef de
+ * projet du chantier, et lui seul. Ils ne se saisissent plus à la création.
+ */
+export function peutCadrerProjet(projet: Projet, droits: Droits | null): boolean {
+  return projetModifiable(projet) && estChefDuProjet(projet, droits);
 }

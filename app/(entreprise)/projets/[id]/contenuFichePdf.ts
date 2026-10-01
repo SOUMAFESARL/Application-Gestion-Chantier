@@ -8,6 +8,7 @@ import {
   echeancierProjet,
   effectifProjet,
   estEnRetard,
+  financierDuProjet,
   niveauBudget,
   niveauConformite,
   pointsDeVigilance,
@@ -17,7 +18,7 @@ import {
   tauxRespectDelais,
 } from "@/features/projets/regles";
 import type { NiveauConformite, PointVigilance, StatutLot } from "@/features/projets/regles";
-import type { Equipe, Intervenant, Lot, Projet } from "@/features/projets/types";
+import type { Equipe, FonctionAutreMembre, Intervenant, Lot, Projet } from "@/features/projets/types";
 import { afficherTelephone } from "@/features/referentiels/telephone";
 import {
   ABSENT,
@@ -73,6 +74,7 @@ export interface DonneesFiche {
     modeExecution: (mode: Lot["modeExecution"]) => string;
     typeBordereau: (type: Lot["typeBordereau"]) => string;
     statutActivite: (statut: Exclude<StatutLot, "SANS_ACTIVITE">) => string;
+    fonctionAutreMembre: (fonction: FonctionAutreMembre) => string;
   };
   maintenant: Date;
 }
@@ -382,15 +384,28 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
     blocs: [{ type: "liste", elements: points, vide: t("vigilance.vide") }],
   };
 
-  /* --- 6. Équipe projet --- */
+  /* --- 6. Équipe d'encadrement et de gestion --- */
 
+  // Le chef de projet et les conducteurs restent lisibles même non désignés :
+  // leur absence est une information. Les autres places ne s'impriment que pourvues.
   const membres: { role: string; intervenant: Intervenant | null }[] = [
     { role: t("equipe.chefProjet"), intervenant: projet.chefProjet },
-    { role: t("equipe.conducteurTravaux"), intervenant: projet.conducteurTravaux },
-    ...(projet.chefsChantier.length > 0
-      ? projet.chefsChantier.map((chef) => ({ role: t("equipe.chefChantier"), intervenant: chef }))
-      : [{ role: t("equipe.chefChantier"), intervenant: null }]),
-    { role: t("equipe.directeurFinancier"), intervenant: projet.directeurFinancier },
+    ...(projet.conducteursTravaux.length > 0
+      ? projet.conducteursTravaux.map((conducteur) => ({
+          role: t("equipe.conducteurTravaux"),
+          intervenant: conducteur,
+        }))
+      : [{ role: t("equipe.conducteurTravaux"), intervenant: null }]),
+    ...projet.chefsChantier.map((chef) => ({
+      role: chef.zone
+        ? t("equipe.chefChantierZone", { zone: chef.zone })
+        : t("equipe.chefChantier"),
+      intervenant: chef.intervenant,
+    })),
+    ...projet.autresMembres.map((membre) => ({
+      role: libelles.fonctionAutreMembre(membre.fonction),
+      intervenant: membre.intervenant,
+    })),
   ];
   const equipe: SectionPdf = {
     titre: t("sections.equipe"),
@@ -496,7 +511,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
           {
             role: t("signatures.directeurFinancier"),
             mention: t("signatures.signature"),
-            nom: projet.directeurFinancier ? nomOuAbsent(projet.directeurFinancier) : ABSENT,
+            nom: financierDuProjet(projet) ? nomOuAbsent(financierDuProjet(projet)) : ABSENT,
           },
         ],
       },

@@ -17,7 +17,7 @@ import type { Droits } from "@/features/habilitations/types";
 import { CLE_COLLABORATEURS, listerCollaborateurs } from "@/features/invitations/adaptateur";
 import { listerProjets } from "@/features/projets/adaptateur";
 import { CLE_LISTE_PROJETS } from "@/features/projets/cles";
-import { affectationsDuCollaborateur } from "@/features/projets/regles";
+import { ORDRE_FONCTIONS, affectationsDuCollaborateur, membresDeFonction } from "@/features/projets/regles";
 import { listerRoles } from "@/features/roles/api";
 
 import { useOutilsTest } from "./garde";
@@ -218,8 +218,8 @@ function ModaleIncarnation({ onFermer }: { onFermer: () => void }) {
     const noms = new Map<string, string>();
     for (const c of collaborateurs.data ?? []) noms.set(c.id, c.nomComplet || c.email);
     for (const p of projets.data ?? []) {
-      for (const i of [p.chefProjet, p.conducteurTravaux, p.directeurFinancier, ...p.chefsChantier]) {
-        if (i && !noms.has(i.id)) noms.set(i.id, i.nomComplet);
+      for (const i of ORDRE_FONCTIONS.flatMap((fonction) => membresDeFonction(p, fonction))) {
+        if (!noms.has(i.id)) noms.set(i.id, i.nomComplet);
       }
     }
     return [...noms.entries()]
