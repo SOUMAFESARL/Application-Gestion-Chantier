@@ -11,8 +11,7 @@ import { Bouton, EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import { situationDuJour, tauxSoumission, validationsEnAttente } from "@/features/chantier";
 import { lireJournal } from "@/features/chantier/adaptateur";
 import { CLE_JOURNAL } from "@/features/chantier/cles";
-import { listerProjets } from "@/features/projets/adaptateur";
-import { CLE_LISTE_PROJETS } from "@/features/projets/cles";
+import { useProjetsVisibles } from "@/features/habilitations";
 
 import { Indicateur, Onglets } from "../projets/EnteteChantier";
 import { fondSiAlerte } from "./classes";
@@ -55,10 +54,8 @@ export function JournalChantier() {
   // peut exister. La liste (même cache que l'écran Projets) est lue d'abord,
   // et le journal n'est demandé que s'il y a de quoi en tenir un — sinon un
   // espace neuf afficherait une erreur là où il n'y a simplement rien.
-  const requeteProjets = useQuery({
-    queryKey: CLE_LISTE_PROJETS,
-    queryFn: ({ signal }) => listerProjets(signal),
-  });
+  // Hors direction, seulement ses chantiers — et le journal de ceux-là.
+  const requeteProjets = useProjetsVisibles();
   const sansProjet = requeteProjets.isSuccess && requeteProjets.data.length === 0;
 
   const requete = useQuery({
@@ -70,7 +67,14 @@ export function JournalChantier() {
     refetchInterval: 60_000,
   });
 
-  const journal = requete.data;
+  const journal = useMemo(() => {
+    if (!requete.data || !requeteProjets.data) return requete.data;
+    const visibles = new Set(requeteProjets.data.map((projet) => projet.id));
+    return {
+      ...requete.data,
+      entrees: requete.data.entrees.filter((entree) => visibles.has(entree.lot.projetId)),
+    };
+  }, [requete.data, requeteProjets.data]);
   const maintenant = useMemo(() => (journal ? new Date(journal.luLe) : null), [journal]);
 
   const chiffres = useMemo(() => {

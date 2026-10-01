@@ -973,6 +973,11 @@
   "format": {
     "dateHeure": "{date} à {heure}"
   },
+  "habilitations": {
+    "accesRefuseTitre": "Accès non autorisé",
+    "accesRefuseDescription": "Votre rôle ne donne pas accès à cette page. Si vous en avez besoin, demandez au Directeur Général d’ajuster les accès de votre rôle.",
+    "retourAccueil": "Retour au tableau de bord"
+  },
   "gestionCollaborateurs": {
     "ajoutEnCours": "Ajout en cours…",
     "ajouterSousTitre": "Un email avec un lien d’activation valable 72h lui sera envoyé.",

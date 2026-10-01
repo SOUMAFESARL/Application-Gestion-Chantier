@@ -6,8 +6,9 @@ import { useMemo, useState } from "react";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
-import { listerLots, listerProjets } from "@/features/projets/adaptateur";
-import { CLE_LISTE_PROJETS, cleLots } from "@/features/projets/cles";
+import { useProjetsVisibles } from "@/features/habilitations";
+import { listerLots } from "@/features/projets/adaptateur";
+import { cleLots } from "@/features/projets/cles";
 import { TiroirActivite } from "@/features/projets/components/TiroirActivite";
 import { TiroirLot } from "@/features/projets/components/TiroirLot";
 import {
@@ -61,10 +62,8 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
    */
   const [ouverture, setOuverture] = useState(0);
 
-  const requeteProjets = useQuery({
-    queryKey: CLE_LISTE_PROJETS,
-    queryFn: ({ signal }) => listerProjets(signal),
-  });
+  // Hors direction, le sélecteur ne propose que ses chantiers.
+  const requeteProjets = useProjetsVisibles();
   const projets = useMemo(() => requeteProjets.data ?? [], [requeteProjets.data]);
   const projetId = projetChoisi ?? projetOuvert(projets, projetInitial)?.id ?? null;
 

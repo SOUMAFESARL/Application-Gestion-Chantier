@@ -46,7 +46,8 @@ const lirePrenom = () => lireProfilLocal()?.prenom?.trim() || null;
 
 interface Props {
   donnees: TableauDeBord;
-  onNouveauProjet: () => void;
+  /** Absent : le compte ne crée pas de projet, le bouton n'apparaît pas. */
+  onNouveauProjet?: () => void;
 }
 
 /**
@@ -93,14 +94,16 @@ export function EnTeteDirection({ donnees, onNouveauProjet }: Props) {
       })}
       actions={
         <>
-          <Bouton
-            variante="secondaire"
-            taille="sm"
-            iconeGauche={<Plus className="size-4" aria-hidden="true" />}
-            onClick={onNouveauProjet}
-          >
-            {t("actions.nouveauProjet")}
-          </Bouton>
+          {onNouveauProjet && (
+            <Bouton
+              variante="secondaire"
+              taille="sm"
+              iconeGauche={<Plus className="size-4" aria-hidden="true" />}
+              onClick={onNouveauProjet}
+            >
+              {t("actions.nouveauProjet")}
+            </Bouton>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Bouton

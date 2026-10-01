@@ -34,6 +34,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { AccesNonAutorise, projetVisible, useDroits } from "@/features/habilitations";
 import { lireProjet, listerEquipes, listerLots } from "@/features/projets/adaptateur";
 import { cleEquipes, cleLots, cleProjet } from "@/features/projets/cles";
 import { useGestionProjet } from "@/features/projets/components/GestionProjet";
@@ -154,6 +155,10 @@ export function FicheProjet({ projetId }: { projetId: string }) {
   const colle = useEstColle(entete);
   const { modifier, basculerSuspension, modaux } = useGestionProjet();
   const fichePdf = useGenerationFicheProjet(requete.data);
+  const { droits, peut } = useDroits();
+  const peutSaisir = peut("projets", "saisie");
+  const peutValider = peut("projets", "validation");
+  const voitFinance = peut("finance");
 
   const synthese = useMemo(
     () => syntheseLots(requeteLots.data ?? []),
@@ -192,6 +197,16 @@ export function FicheProjet({ projetId }: { projetId: string }) {
 
   const projet = requete.data;
   const lieu = [projet.quartier, projet.ville].filter(Boolean).join(", ");
+
+  // Hors direction, un chantier dont on n'est pas n'a pas de fiche à montrer.
+  if (!projetVisible(projet, droits)) {
+    return (
+      <div className="flex flex-col gap-6">
+        {retour}
+        <AccesNonAutorise />
+      </div>
+    );
+  }
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -245,7 +260,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="bottom" align="end" className="min-w-48">
-                {projetModifiable(projet) && (
+                {peutSaisir && projetModifiable(projet) && (
                   <DropdownMenuItem onSelect={() => modifier(projet)}>
                     <Pencil aria-hidden="true" />
                     {t("modifier")}
@@ -255,8 +270,10 @@ export function FicheProjet({ projetId }: { projetId: string }) {
                   <FileDown aria-hidden="true" />
                   {t("exporterPdf")}
                 </DropdownMenuItem>
-                {(peutSuspendre(projet) || peutReprendre(projet)) && <DropdownMenuSeparator />}
-                {peutSuspendre(projet) && (
+                {peutValider && (peutSuspendre(projet) || peutReprendre(projet)) && (
+                  <DropdownMenuSeparator />
+                )}
+                {peutValider && peutSuspendre(projet) && (
                   <DropdownMenuItem
                     onSelect={() => basculerSuspension(projet)}
                     className="text-avertissement focus:text-avertissement"
@@ -265,7 +282,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
                     {t("suspendre")}
                   </DropdownMenuItem>
                 )}
-                {peutReprendre(projet) && (
+                {peutValider && peutReprendre(projet) && (
                   <DropdownMenuItem
                     onSelect={() => basculerSuspension(projet)}
                     className="text-succes focus:text-succes"
@@ -281,9 +298,14 @@ export function FicheProjet({ projetId }: { projetId: string }) {
       </div>
 
       {/* Les trois chiffres qu'on vient chercher. */}
-      <section className="grid grid-cols-3 gap-4 max-lg:grid-cols-1">
+      <section
+        className={cn(
+          "grid gap-4 max-lg:grid-cols-1",
+          voitFinance ? "grid-cols-3" : "grid-cols-2",
+        )}
+      >
         <CarteCalendrier projet={projet} />
-        <CarteBudget projet={projet} />
+        {voitFinance && <CarteBudget projet={projet} />}
         <CarteAvancement projet={projet} />
       </section>
 

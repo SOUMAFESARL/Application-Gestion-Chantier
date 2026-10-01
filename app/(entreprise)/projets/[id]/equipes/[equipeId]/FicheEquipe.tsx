@@ -18,6 +18,7 @@ import {
   RechercheTableau,
   TableauListe,
 } from "@/components/ui/tableau-liste";
+import { AccesNonAutorise, projetVisible, useDroits } from "@/features/habilitations";
 import { listerEquipes, listerProjets } from "@/features/projets/adaptateur";
 import { CLE_LISTE_PROJETS, cleEquipes, cleLots } from "@/features/projets/cles";
 import { ModaleAjoutMembre } from "@/features/projets/components/ModaleAjoutMembre";
@@ -65,6 +66,9 @@ interface Props {
 export function FicheEquipe({ projetId, equipeId }: Props) {
   const t = useTranslations("projets.equipesAffectations");
   const tFiche = useTranslations("projets.equipesAffectations.fiche");
+  const { droits, peut } = useDroits();
+  // Gérer les membres d'une équipe, c'est saisir dans « chantier ».
+  const peutSaisir = peut("chantier", "saisie");
   const clientRequetes = useQueryClient();
 
   const [criteres, setCriteres] = useState<CriteresMembres>(CRITERES_MEMBRES_VIDES);
@@ -153,6 +157,7 @@ export function FicheEquipe({ projetId, equipeId }: Props) {
           header: tFiche("colonnes.actions"),
           meta: { classe: BORD_DROIT_TABLEAU },
           cell: ({ row }) => {
+            if (!peutSaisir) return null;
             const nom = t("nomComplet", { prenom: row.original.prenom, nom: row.original.nom });
             return (
               <span className="inline-flex gap-1">
@@ -180,7 +185,7 @@ export function FicheEquipe({ projetId, equipeId }: Props) {
           },
         }),
       ]),
-    [t, tFiche, equipe?.chef?.id],
+    [t, tFiche, equipe?.chef?.id, peutSaisir],
   );
 
   /** Prénom et nom séparés : le fichier se retrie seul. */
@@ -216,6 +221,8 @@ export function FicheEquipe({ projetId, equipeId }: Props) {
 
   if (requete.isPending) return <EtatChargement />;
   if (requete.isError) return <EtatErreur onReessayer={() => void requete.refetch()} />;
+  // Hors direction, l'équipe d'un chantier dont on n'est pas reste fermée.
+  if (projet && !projetVisible(projet, droits)) return <AccesNonAutorise />;
   if (!equipe) {
     return (
       <div className="flex flex-col gap-5">
@@ -263,14 +270,16 @@ export function FicheEquipe({ projetId, equipeId }: Props) {
         cleCriteres={`${criteres.recherche}|${criteres.role}`}
         exporter={exporter}
         actions={
-          <Bouton
-            variante="primaire"
-            taille="sm"
-            iconeGauche={<Plus size={16} aria-hidden="true" />}
-            onClick={() => ouvrir(() => setAjoutOuvert(true))}
-          >
-            {tFiche("actionAjouter")}
-          </Bouton>
+          peutSaisir && (
+            <Bouton
+              variante="primaire"
+              taille="sm"
+              iconeGauche={<Plus size={16} aria-hidden="true" />}
+              onClick={() => ouvrir(() => setAjoutOuvert(true))}
+            >
+              {tFiche("actionAjouter")}
+            </Bouton>
+          )
         }
         outils={
           <>

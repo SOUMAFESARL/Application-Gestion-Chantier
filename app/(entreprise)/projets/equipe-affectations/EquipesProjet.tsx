@@ -14,6 +14,7 @@ import {
   NATURES_EQUIPE,
   nomAbrege,
 } from "@/features/projets/regles";
+import { useDroits } from "@/features/habilitations";
 import type { Equipe, Lot, NatureEquipe } from "@/features/projets/types";
 import { cn } from "@/lib/utils";
 
@@ -45,11 +46,13 @@ interface Props {
 export function EquipesProjet({ equipes, lots, onConstituer, onMembres, onAffecter }: Props) {
   const t = useTranslations("projets.equipesAffectations");
   const [nature, setNature] = useState<NatureEquipe | "">("");
+  // Constituer une équipe, gérer ses membres, l'affecter : saisir dans « chantier ».
+  const peutSaisir = useDroits().peut("chantier", "saisie");
 
   const comptes = useMemo(() => compterEquipesParNature(equipes), [equipes]);
   const visibles = useMemo(() => filtrerEquipes(equipes, nature), [equipes, nature]);
 
-  const boutonConstituer = (
+  const boutonConstituer = peutSaisir && (
     <Bouton
       variante="primaire"
       taille="sm"
@@ -66,7 +69,7 @@ export function EquipesProjet({ equipes, lots, onConstituer, onMembres, onAffect
         <EtatVide
           titre={t("aucuneEquipeTitre")}
           description={t("aucuneEquipe")}
-          action={boutonConstituer}
+          action={boutonConstituer || undefined}
         />
       </div>
     );
@@ -137,6 +140,7 @@ function CarteEquipe({
   onAffecter: () => void;
 }) {
   const t = useTranslations("projets.equipesAffectations");
+  const peutSaisir = useDroits().peut("chantier", "saisie");
   const enCours = activitesEnCoursEquipe(equipe.id, lots);
   const caches = Math.max(equipe.membres.length - AVATARS_VISIBLES, 0);
 
@@ -205,6 +209,7 @@ function CarteEquipe({
           : t("aucuneActiviteEnCours")}
       </p>
 
+      {peutSaisir && (
       <div className="relative z-10 flex flex-wrap gap-2 self-start">
         <Bouton
           variante="secondaire"
@@ -225,6 +230,7 @@ function CarteEquipe({
           {t("actionAffecter")}
         </Bouton>
       </div>
+      )}
     </article>
   );
 }

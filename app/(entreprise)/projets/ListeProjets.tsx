@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Eye, Pause, Pencil, Play, Plus } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -18,7 +18,7 @@ import {
   RechercheTableau,
   TableauListe,
 } from "@/components/ui/tableau-liste";
-import { listerProjets } from "@/features/projets/adaptateur";
+import { useDroits, useProjetsVisibles } from "@/features/habilitations";
 import { useGestionProjet } from "@/features/projets/components/GestionProjet";
 import { TiroirCreationProjet } from "@/features/projets/components/TiroirCreationProjet";
 import {
@@ -94,10 +94,11 @@ export function ListeProjets() {
   const [criteres, setCriteres] = useState<CriteresProjets>(CRITERES_VIDES);
   const { modifier, basculerSuspension, modaux } = useGestionProjet();
 
-  const requete = useQuery({
-    queryKey: CLE_LISTE_PROJETS,
-    queryFn: ({ signal }) => listerProjets(signal),
-  });
+  // Hors direction, seulement ses chantiers ; les gestes selon les accès du module.
+  const requete = useProjetsVisibles();
+  const { peut } = useDroits();
+  const peutSaisir = peut("projets", "saisie");
+  const peutValider = peut("projets", "validation");
 
   // Le repli tient dans un `useMemo` : un `?? []` rend un tableau neuf à
   // chaque rendu, donc recalcule les trois dérivations qui en dépendent.
@@ -287,17 +288,19 @@ export function ListeProjets() {
                   <Eye />
                 </Link>
               </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => modifier(row.original)}
-                disabled={!projetModifiable(row.original)}
-                aria-label={t("actionModifier", { nom: row.original.nom })}
-                title={t("actionModifier", { nom: row.original.nom })}
-              >
-                <Pencil />
-              </Button>
-              {peutSuspendre(row.original) && (
+              {peutSaisir && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => modifier(row.original)}
+                  disabled={!projetModifiable(row.original)}
+                  aria-label={t("actionModifier", { nom: row.original.nom })}
+                  title={t("actionModifier", { nom: row.original.nom })}
+                >
+                  <Pencil />
+                </Button>
+              )}
+              {peutValider && peutSuspendre(row.original) && (
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -309,7 +312,7 @@ export function ListeProjets() {
                   <Pause />
                 </Button>
               )}
-              {peutReprendre(row.original) && (
+              {peutValider && peutReprendre(row.original) && (
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -325,7 +328,7 @@ export function ListeProjets() {
           ),
         }),
       ]),
-    [t, modifier, basculerSuspension],
+    [t, modifier, basculerSuspension, peutSaisir, peutValider],
   );
 
   return (
@@ -342,7 +345,7 @@ export function ListeProjets() {
       {requete.isSuccess &&
         (projets.length === 0 ? (
           // Un écran vide sans issue est un cul-de-sac : l'action y est reprise.
-          <EtatVide titre={t("aucunTitre")} description={t("aucun")} action={boutonNouveau} />
+          <EtatVide titre={t("aucunTitre")} description={t("aucun")} action={peutSaisir ? boutonNouveau : undefined} />
         ) : (
           <>
             {/*
@@ -381,7 +384,7 @@ export function ListeProjets() {
               onReinitialiser={() => setCriteres(CRITERES_VIDES)}
               cleCriteres={`${criteres.recherche}|${criteres.statut}|${criteres.chefProjetId}`}
               exporter={exporter}
-              actions={boutonNouveauCompact}
+              actions={peutSaisir ? boutonNouveauCompact : undefined}
               outils={
                 <>
                   <RechercheTableau
