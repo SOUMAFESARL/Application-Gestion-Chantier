@@ -1,6 +1,6 @@
 export * from "./types";
 export * from "./api";
-export { SelecteurNiveau } from "./components/SelecteurNiveau";
+export { LegendeAcces, SelecteurAcces } from "./components/SelecteurAcces";
 export { ModalNouveauRole } from "./components/ModalNouveauRole";
 export { ModalModificationRole } from "./components/ModalModificationRole";
 export { ModalReassignationRole } from "./components/ModalReassignationRole";

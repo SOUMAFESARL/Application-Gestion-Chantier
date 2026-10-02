@@ -12,7 +12,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { LogoPlateforme } from "@/components/layout/LogoPlateforme";
@@ -25,6 +25,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sidebar,
@@ -36,10 +41,11 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSousMenu,
+  SidebarMenuSousListe,
   SidebarMenuSousMenuLien,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   lireProfilLocal,
@@ -59,16 +65,86 @@ const ECRAN_CONNEXION = "/admin/connexion";
 /**
  * Le sous-menu « Paramétrage » : une entrée, une page chacune.
  *
- * Trois pages et non trois onglets d'une même page : chaque section a sa propre
+ * Des pages et non des onglets d'une même page : chaque section a sa propre
  * adresse, son propre titre d'onglet, et s'atteint en un geste depuis n'importe
  * quel écran du back-office — sans passer par une page d'accueil de rubrique
  * qui n'aurait rien à montrer.
  */
 const SOUS_MENU_PARAMETRAGE = [
   { href: "/admin/parametres/comptes", cle: "parametrageComptes" },
+  { href: "/admin/parametres/modules", cle: "parametrageModules" },
   { href: "/admin/parametres/tarifs", cle: "parametrageTarifs" },
-  { href: "/admin/parametres/identite", cle: "parametrageIdentite" },
+  { href: "/admin/parametres/globaux", cle: "parametrageIdentite" },
 ] as const;
+
+/**
+ * L'entrée « Paramétrage », **déroulante** (`Collapsible`) : ses pages
+ * s'affichent en liste sous elle, dans la barre, plutôt qu'en panneau volant.
+ *
+ * Elle s'ouvre d'elle-même quand on arrive sur une page du paramétrage — la
+ * page courante reste ainsi visible dans la nav — mais se referme à la
+ * demande, même depuis l'une d'elles.
+ *
+ * Repliée en icônes, la liste n'a pas la place : un clic sur l'engrenage
+ * rouvre alors la barre, sous-menu déplié. C'est aussi pourquoi l'entrée ne
+ * porte pas d'infobulle — le déclencheur du `Collapsible` s'y greffe par
+ * `asChild`, et l'infobulle, qui enveloppe le bouton, avalerait son clic.
+ *
+ * Composant à part parce que `useSidebar` exige d'être rendu **sous**
+ * `SidebarProvider`, que la coquille pose elle-même.
+ */
+function EntreeParametrage({ pathname }: { pathname: string }) {
+  const t = useTranslations("administration");
+  const { state, isMobile, setOpen } = useSidebar();
+  const estSurParametrage = pathname.startsWith("/admin/parametres");
+  const [ouvert, setOuvert] = useState(estSurParametrage);
+  // Ajustement pendant le rendu, pas dans un effet : arriver sur le
+  // paramétrage déplie la liste dès ce rendu-ci, sans clignotement.
+  const [cheminVu, setCheminVu] = useState(pathname);
+  if (pathname !== cheminVu) {
+    setCheminVu(pathname);
+    if (estSurParametrage) setOuvert(true);
+  }
+
+  return (
+    <Collapsible
+      asChild
+      open={ouvert}
+      onOpenChange={setOuvert}
+      className="group/collapsible"
+    >
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton
+            isActive={estSurParametrage}
+            sousMenu="deroulant"
+            onClick={(evenement) => {
+              if (state === "collapsed" && !isMobile) {
+                // Le clic rouvre la barre et garantit le sous-menu déplié,
+                // au lieu de basculer une liste qu'on ne verrait pas.
+                evenement.preventDefault();
+                setOpen(true);
+                setOuvert(true);
+              }
+            }}
+          >
+            <Settings />
+            <span>{t("navigation.parametrage")}</span>
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSousListe aria-label={t("navigation.parametrage")}>
+            {SOUS_MENU_PARAMETRAGE.map(({ href, cle }) => (
+              <SidebarMenuSousMenuLien key={href} isActive={pathname.startsWith(href)}>
+                <Link href={href}>{t(`navigation.${cle}`)}</Link>
+              </SidebarMenuSousMenuLien>
+            ))}
+          </SidebarMenuSousListe>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  );
+}
 
 const abonnementSession = (rappel: () => void) => {
   if (typeof window === "undefined") return () => {};
@@ -157,8 +233,6 @@ export default function LayoutAdministration({
     { href: "/admin/abonnements", icone: CreditCard, libelle: t("navigation.abonnements") },
   ];
 
-  const estSurParametrage = pathname.startsWith("/admin/parametres");
-
   const estActive = (href: string) =>
     href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
 
@@ -214,25 +288,7 @@ export default function LayoutAdministration({
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
-                  {/* Panneau volant au survol, comme « Projets » côté
-                      entreprise : pas d'infobulle, elle doublerait le panneau. */}
-                  <SidebarMenuSousMenu
-                    libelle={t("navigation.parametrage")}
-                    declencheur={
-                      <SidebarMenuButton asChild isActive={estSurParametrage} sousMenu>
-                        <Link href={SOUS_MENU_PARAMETRAGE[0].href}>
-                          <Settings />
-                          <span>{t("navigation.parametrage")}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    }
-                  >
-                    {SOUS_MENU_PARAMETRAGE.map(({ href, cle }) => (
-                      <SidebarMenuSousMenuLien key={href} isActive={pathname.startsWith(href)}>
-                        <Link href={href}>{t(`navigation.${cle}`)}</Link>
-                      </SidebarMenuSousMenuLien>
-                    ))}
-                  </SidebarMenuSousMenu>
+                  <EntreeParametrage pathname={pathname} />
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

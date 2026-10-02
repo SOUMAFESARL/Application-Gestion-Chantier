@@ -8,7 +8,7 @@ import { peutParametrerPlateforme } from "@/features/administration";
 
 import { useAdministrateur } from "../ContexteAdministrateur";
 
-export type SectionParametrage = "comptes" | "tarifs" | "identite";
+export type SectionParametrage = "comptes" | "modules" | "tarifs" | "identite";
 
 /**
  * L'en-tête d'une page du paramétrage : son titre, et l'avis de lecture seule.

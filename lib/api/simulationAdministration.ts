@@ -443,6 +443,106 @@ function emailPris(comptes: ChargeCompteAdministrateur[], email: string, sauf?: 
 }
 
 /* ------------------------------------------------------------------ *
+ * Catalogue des modules
+ * ------------------------------------------------------------------ */
+
+export interface ChargeModulePlateforme {
+  id: string;
+  code: string;
+  libelle: string;
+  description: string;
+  acces_par_defaut: string[];
+  statut: "ACTIF" | "INACTIF";
+  cree_le: string;
+}
+
+/** v2 : les modules portent désormais un accès par défaut. */
+const CLE_MODULES = "ccd.simulation.administration.modules.v2";
+
+/**
+ * Les douze modules du produit (`MODULES_CCD`), mêmes codes, mêmes libellés
+ * que ceux que l'espace entreprise affiche — plus un module inactif, pour
+ * voir la réactivation.
+ */
+function modulesInitiaux(): ChargeModulePlateforme[] {
+  const socle: [string, string, string][] = [
+    ["projets", "Projets", "Fiches projets, lots et activités"],
+    ["chantier", "Suivi Chantier", "Rapports journaliers, avancement et pointages"],
+    ["finance", "Finance", "Bons de paiement, situations et dépenses"],
+    ["achats", "Achats", "Demandes d’achat et bons de commande"],
+    ["stocks", "Stocks", "Entrées, sorties et inventaires chantier"],
+    ["rh", "Ressources Humaines", "Pointage des ouvriers et main d’œuvre"],
+    ["equipements", "Matériel", "Engins, maintenance et affectations"],
+    ["qhse", "QHSE", "Incidents sécurité et non-conformités"],
+    ["contrats", "Contrats", "Sous-traitance et avenants"],
+    ["tiers", "Parties Prenantes", "Clients, fournisseurs et bureaux de contrôle"],
+    ["ged", "Documents (GED)", "Plans, PV et classeurs documentaires"],
+    ["pilotage", "Pilotage BI", "Indicateurs de performance et tableaux de bord"],
+  ];
+  return [
+    ...socle.map(([code, libelle, description], rang) => ({
+      id: `mod-${rang + 1}`,
+      code,
+      libelle,
+      description,
+      acces_par_defaut: ["lecture"],
+      statut: "ACTIF" as const,
+      cree_le: jour(-420),
+    })),
+    {
+      id: "mod-13",
+      code: "planning",
+      libelle: "Planning",
+      description: "Diagramme de Gantt et jalons des chantiers",
+      acces_par_defaut: [],
+      statut: "INACTIF",
+      cree_le: jour(-40),
+    },
+  ];
+}
+
+function lireModules(): ChargeModulePlateforme[] {
+  if (typeof window === "undefined") return modulesInitiaux();
+  try {
+    const brut = window.sessionStorage.getItem(CLE_MODULES);
+    if (brut) return JSON.parse(brut) as ChargeModulePlateforme[];
+  } catch {
+    // On repart du jeu initial.
+  }
+  return modulesInitiaux();
+}
+
+function ecrireModules(modules: ChargeModulePlateforme[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(CLE_MODULES, JSON.stringify(modules));
+  } catch {
+    // Sans mémoire, une création ne survit pas au changement d'écran.
+  }
+}
+
+/** Le code que le serveur dériverait du libellé : minuscules, sans accent, `_` pour séparateur. */
+function codeDepuisLibelle(libelle: string): string {
+  return libelle
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function libellePris(modules: ChargeModulePlateforme[], libelle: string, sauf?: string): boolean {
+  const cible = libelle.trim().toLowerCase();
+  return modules.some((m) => m.id !== sauf && m.libelle.toLowerCase() === cible);
+}
+
+function refuserLibellePris(): never {
+  return refuser("conflit", "Un module porte déjà ce libellé.", 409, {
+    libelle: ["Un module porte déjà ce libellé."],
+  });
+}
+
+/* ------------------------------------------------------------------ *
  * Paramètres de la plateforme — tarifs et identité
  * ------------------------------------------------------------------ */
 
@@ -804,6 +904,78 @@ export const simulationAdministration = {
     compte.statut = "ACTIF";
     ecrireComptes(comptes);
     return attendre(compte, 500);
+  },
+
+  /** `GET /admins/modules/` — inactifs compris. */
+  async listerModules(): Promise<ChargeModulePlateforme[]> {
+    const modules = lireModules();
+    ecrireModules(modules);
+    return attendre(modules, 400);
+  },
+
+  /** `POST /admins/modules/` — le code est dérivé du libellé, puis figé. */
+  async creerModule(corps: {
+    libelle: string;
+    description: string;
+    acces_par_defaut: string[];
+  }): Promise<ChargeModulePlateforme> {
+    const modules = lireModules();
+    const code = codeDepuisLibelle(corps.libelle);
+    if (libellePris(modules, corps.libelle) || modules.some((m) => m.code === code)) {
+      refuserLibellePris();
+    }
+
+    const cible: ChargeModulePlateforme = {
+      id: `mod-${Date.now()}`,
+      code,
+      libelle: corps.libelle,
+      description: corps.description,
+      acces_par_defaut: corps.acces_par_defaut,
+      statut: "ACTIF",
+      cree_le: new Date().toISOString(),
+    };
+    modules.push(cible);
+    ecrireModules(modules);
+    return attendre(cible, 500);
+  },
+
+  /** `PATCH /admins/modules/{id}/` — le code ne suit pas le libellé. */
+  async modifierModule(
+    id: string,
+    corps: { libelle: string; description: string; acces_par_defaut: string[] },
+  ): Promise<ChargeModulePlateforme> {
+    const modules = lireModules();
+    const cible = modules.find((m) => m.id === id);
+    if (!cible) refuser("introuvable", "Module introuvable.", 404);
+    if (libellePris(modules, corps.libelle, id)) refuserLibellePris();
+
+    Object.assign(cible, corps);
+    ecrireModules(modules);
+    return attendre(cible, 500);
+  },
+
+  /** `POST /admins/modules/{id}/desactiver/` */
+  async desactiverModule(id: string): Promise<ChargeModulePlateforme> {
+    const modules = lireModules();
+    const cible = modules.find((m) => m.id === id);
+    if (!cible) refuser("introuvable", "Module introuvable.", 404);
+    if (cible.statut === "INACTIF") refuser("conflit", "Ce module est déjà désactivé.", 409);
+
+    cible.statut = "INACTIF";
+    ecrireModules(modules);
+    return attendre(cible, 500);
+  },
+
+  /** `POST /admins/modules/{id}/reactiver/` */
+  async reactiverModule(id: string): Promise<ChargeModulePlateforme> {
+    const modules = lireModules();
+    const cible = modules.find((m) => m.id === id);
+    if (!cible) refuser("introuvable", "Module introuvable.", 404);
+    if (cible.statut === "ACTIF") refuser("conflit", "Ce module est déjà actif.", 409);
+
+    cible.statut = "ACTIF";
+    ecrireModules(modules);
+    return attendre(cible, 500);
   },
 
   /** `PATCH /admins/moi/` */

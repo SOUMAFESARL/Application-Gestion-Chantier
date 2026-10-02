@@ -29,7 +29,6 @@ import {
 import type {
   Activite,
   CreationEquipe,
-  CreationLot,
   CreationLotProjet,
   Equipe,
   EquipeChantier,
@@ -608,27 +607,6 @@ export const simulationLots = {
     };
     ecrireEtat({ ...etat, [projetId]: [...lots, lot] });
     return attendre(lot, LATENCE_ECRITURE);
-  },
-
-  /**
-   * Les lots saisis à l'étape 2 de la création d'un projet : sans eux, un
-   * chantier tout juste ouvert s'afficherait ici sans structure alors qu'on
-   * vient de la lui donner.
-   */
-  enregistrerLotsCreation(projetId: string, lots: CreationLot[]): void {
-    const etat = lireEtat();
-    etat[projetId] = lots.map((creation, rang) => ({
-      id: identifiant(),
-      projetId,
-      code: codeLot(rang),
-      nom: creation.nom,
-      modeExecution: creation.modeExecution,
-      typeBordereau: creation.typeBordereau,
-      dateDebut: creation.dateDebut ?? null,
-      dateFin: creation.dateFin ?? null,
-      activites: [],
-    }));
-    ecrireEtat(etat);
   },
 
   async creerActivite(projetId: string, saisie: SaisieActiviteDomaine): Promise<Activite> {

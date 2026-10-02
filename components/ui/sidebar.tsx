@@ -450,8 +450,13 @@ function SidebarMenuButton({
   isActive?: boolean
   size?: keyof typeof sidebarMenuButtonSizes
   tooltip?: string | React.ComponentProps<typeof TooltipContent>
-  /** L'entrée ouvre un sous-menu : un « + » remplace la flèche, actif ou non. */
-  sousMenu?: boolean
+  /**
+   * L'entrée ouvre un sous-menu : un « + » remplace la flèche, actif ou non
+   * (`true`, panneau volant). `"deroulant"` pose à la place un chevron qui
+   * pivote quand le `Collapsible` parent est ouvert — voir
+   * `SidebarMenuSousListe`.
+   */
+  sousMenu?: boolean | "deroulant"
 }) {
   const Comp = asChild ? Slot.Root : "button"
   const { isMobile, state } = useSidebar()
@@ -459,7 +464,12 @@ function SidebarMenuButton({
   // Flèche posée à droite de l'item actif — repère de sélection en plus de la
   // pastille orange, y compris replié en icônes où le libellé disparaît.
   // Une entrée à sous-menu porte un « + » à la place, en permanence.
-  const fleche = sousMenu ? (
+  const fleche = sousMenu === "deroulant" ? (
+    <ChevronRight
+      aria-hidden="true"
+      className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden"
+    />
+  ) : sousMenu ? (
     <Plus aria-hidden="true" className="ml-auto group-data-[collapsible=icon]:hidden" />
   ) : isActive ? (
     <ChevronRight aria-hidden="true" className="ml-auto group-data-[collapsible=icon]:hidden" />
@@ -550,12 +560,7 @@ function SidebarMenuSousMenu({
     return (
       <SidebarMenuItem>
         {declencheur}
-        <ul
-          aria-label={libelle}
-          className="mx-3.5 mt-1 flex min-w-0 list-none flex-col gap-1 border-0 border-l border-solid border-sidebar-border py-0.5 pl-2.5"
-        >
-          {children}
-        </ul>
+        <SidebarMenuSousListe aria-label={libelle}>{children}</SidebarMenuSousListe>
       </SidebarMenuItem>
     )
   }
@@ -592,6 +597,28 @@ function SidebarMenuSousMenu({
         </ul>
       </PopoverContent>
     </Popover>
+  )
+}
+
+/**
+ * Le sous-menu **en liste**, sous l'entrée parente, filet à gauche.
+ *
+ * C'est la forme que prend `SidebarMenuSousMenu` sur téléphone, et celle d'un
+ * sous-menu déroulant (`Collapsible`) : on la pose alors dans un
+ * `CollapsibleContent`. Masquée replié en icônes, où elle n'aurait pas la
+ * place — l'entrée parente rouvre la barre (voir la coquille d'administration).
+ */
+function SidebarMenuSousListe({ className, ...props }: React.ComponentProps<"ul">) {
+  return (
+    <ul
+      data-slot="sidebar-menu-sous-liste"
+      className={cn(
+        "mx-3.5 mt-1 flex min-w-0 list-none flex-col gap-1 border-0 border-l border-solid border-sidebar-border py-0.5 pl-2.5",
+        "group-data-[collapsible=icon]:hidden",
+        className
+      )}
+      {...props}
+    />
   )
 }
 
@@ -636,6 +663,7 @@ export {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSousMenu,
+  SidebarMenuSousListe,
   SidebarMenuSousMenuLien,
   SidebarProvider,
   SidebarTrigger,

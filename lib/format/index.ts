@@ -117,6 +117,17 @@ export function saisieEnCentimes(saisie: string): number | null {
   return Number.parseInt(chiffres, 10) * 100;
 }
 
+/**
+ * Saisie d'un montant entier, regroupée par milliers pendant la frappe :
+ * « 1000000 » → « 1 000 000 ». Tout ce qui n'est pas un chiffre tombe, et
+ * les zéros de tête avec. Une espace ordinaire, et non insécable : c'est ce
+ * que `saisieEnCentimes` et les motifs de validation relisent.
+ */
+export function formaterSaisieMontant(saisie: string): string {
+  const chiffres = saisie.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+  return chiffres.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
 // ---------------------------------------------------------------------------
 // Dates
 // ---------------------------------------------------------------------------

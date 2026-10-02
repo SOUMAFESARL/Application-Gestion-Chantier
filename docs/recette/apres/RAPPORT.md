@@ -1,9 +1,17 @@
 # Recette visuelle — apres
 
-Base : http://demo.localhost:3000
-Date : 2026-09-17T11:17:20.230Z
+Base : http://demo.localhost:3003
+Date : 2026-09-30T15:21:44.780Z
 Largeurs : 1440, 768, 390
-Passe partielle : seuls les ecrans contenant « connexion »
 
-## Tous les ecrans du filtre ont ete captures
+## Ecrans non captures automatiquement
 
+- 1440/10-configuration-2-projet : locator.fill: Timeout 30000ms exceeded.
+- 1440/11-configuration-3-equipe : locator.fill: Timeout 30000ms exceeded.
+- 1440/12-configuration-4-confirmation : locator.fill: Timeout 30000ms exceeded.
+- 768/10-configuration-2-projet : locator.fill: Timeout 30000ms exceeded.
+- 768/11-configuration-3-equipe : locator.fill: Timeout 30000ms exceeded.
+- 768/12-configuration-4-confirmation : locator.fill: Timeout 30000ms exceeded.
+- 390/10-configuration-2-projet : locator.fill: Timeout 30000ms exceeded.
+- 390/11-configuration-3-equipe : locator.fill: Timeout 30000ms exceeded.
+- 390/12-configuration-4-confirmation : locator.fill: Timeout 30000ms exceeded.

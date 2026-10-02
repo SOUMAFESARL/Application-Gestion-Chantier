@@ -310,6 +310,22 @@
     padding: 0 !important;
   }
 
+  /* Le papier ne défile pas : un conteneur `overflow-x-auto` y rognerait
+     simplement les colonnes qui dépassent. On laisse le tableau s'étendre,
+     on répète son en-tête en haut de chaque page, et une ligne ne se coupe
+     pas entre deux pages. */
+  [data-slot="table-container"] {
+    overflow: visible !important;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    break-inside: avoid;
+  }
+
   @page {
     margin: 12mm;
   }

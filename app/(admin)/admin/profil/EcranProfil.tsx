@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { ChampsMotDePasse } from "@/components/metier/ChampsMotDePasse";
@@ -88,7 +89,12 @@ export function EcranProfil() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Même gabarit que le profil de l'espace entreprise : collant sur grand
+          écran, sous la barre du haut (`h-16`), et débordant sur la gouttière
+          de `<main>` (`p-6`) pour que les cartes passent dessous plutôt que de
+          se montrer entre lui et la barre. */}
       <EnTetePage
+        className="bg-background lg:sticky lg:top-16 lg:z-30 lg:-mx-6 lg:-mt-6 lg:px-6 lg:pt-6 lg:pb-4"
         titre={<span className="text-primary-600">{t("profil.titre")}</span>}
         description={t("profil.sousTitre")}
       />
@@ -106,7 +112,9 @@ export function EcranProfil() {
 }
 
 /**
- * La carte de gauche : la photo, et ce qui ne se modifie pas ici.
+ * La carte de gauche : la photo, et ce qui ne se modifie pas ici. Collante sur
+ * grand écran, sous l'en-tête de page lui-même collant (`top-16` + 104 px
+ * d'en-tête + 16 px d'écart = `top-46`), comme dans l'espace entreprise.
  *
  * La photo part **dès qu'elle est choisie** : il n'y a rien d'autre à saisir
  * avec elle, et un bouton « Enregistrer » de plus ne servirait qu'à être oublié.
@@ -115,17 +123,15 @@ function BlocIdentiteCompte({ profil }: { profil: ProfilAdministrateur }) {
   const t = useTranslations("administration");
   const cache = useQueryClient();
   const [erreur, setErreur] = useState<string | null>(null);
-  const [annonce, setAnnonce] = useState<string | null>(null);
 
   const envoi = useMutation({
     mutationFn: (fichier: File | null) => modifierPhotoProfil(fichier),
     onSuccess: (nouveau) => {
       cache.setQueryData(CLES_ADMINISTRATION.moi(), nouveau);
       setErreur(null);
-      setAnnonce(nouveau.photo ? t("profil.photo.succes") : t("profil.photo.retiree"));
+      toast.success(nouveau.photo ? t("profil.photo.succes") : t("profil.photo.retiree"));
     },
     onError: (cause) => {
-      setAnnonce(null);
       setErreur(messageDe(cause, t("erreurs.action")));
     },
   });
@@ -138,7 +144,6 @@ function BlocIdentiteCompte({ profil }: { profil: ProfilAdministrateur }) {
 
     const refus = refusPhotoProfil(fichier);
     if (refus) {
-      setAnnonce(null);
       setErreur(
         refus === "FORMAT" ? t("profil.photo.formatInvalide") : t("profil.photo.tropLourde"),
       );
@@ -148,7 +153,9 @@ function BlocIdentiteCompte({ profil }: { profil: ProfilAdministrateur }) {
   }
 
   return (
-    <section className={`${CARTE_PROFIL} flex flex-col gap-5 overflow-hidden p-0`}>
+    <section
+      className={`${CARTE_PROFIL} flex flex-col gap-5 overflow-hidden p-0 lg:sticky lg:top-46`}
+    >
       {/* Le bandeau ne porte rien : il donne sa couleur à la carte et un fond à la photo. */}
       <div
         aria-hidden="true"
@@ -207,7 +214,6 @@ function BlocIdentiteCompte({ profil }: { profil: ProfilAdministrateur }) {
         </div>
         <span className="text-xs text-neutral-500">{t("profil.photo.contrainte")}</span>
         {erreur && <p className="text-sm text-erreur">{erreur}</p>}
-        {annonce && <p className="text-sm font-medium text-succes">{annonce}</p>}
       </div>
 
       <div className="mx-5 mb-5 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
@@ -236,7 +242,6 @@ function BlocIdentiteCompte({ profil }: { profil: ProfilAdministrateur }) {
 function BlocInformations({ profil }: { profil: ProfilAdministrateur }) {
   const t = useTranslations("administration");
   const cache = useQueryClient();
-  const [succes, setSucces] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
   const formulaire = useForm<SaisieProfilAdministrateur, unknown, ValeursProfilAdministrateur>({
@@ -255,10 +260,9 @@ function BlocInformations({ profil }: { profil: ProfilAdministrateur }) {
     onSuccess: (nouveau) => {
       cache.setQueryData(CLES_ADMINISTRATION.moi(), nouveau);
       setErreur(null);
-      setSucces(true);
+      toast.success(t("profil.succes"));
     },
     onError: (cause) => {
-      setSucces(false);
       const champEmail = cause instanceof ErreurApi ? cause.erreursParChamp.email : undefined;
       if (champEmail) {
         setError("email", { message: champEmail });
@@ -287,7 +291,6 @@ function BlocInformations({ profil }: { profil: ProfilAdministrateur }) {
       <form
         noValidate
         onSubmit={formulaire.handleSubmit((valeurs) => {
-          setSucces(false);
           setErreur(null);
           enregistrement.mutate(valeurs);
         })}
@@ -330,7 +333,6 @@ function BlocInformations({ profil }: { profil: ProfilAdministrateur }) {
           />
         </div>
 
-        {succes && !isDirty && <Alerte type="succes">{t("profil.succes")}</Alerte>}
         {erreur && <Alerte type="erreur">{erreur}</Alerte>}
 
         <div className="mt-4 flex flex-wrap justify-end gap-2">
@@ -378,7 +380,6 @@ function BlocMotDePasse() {
   const [actuelVisible, setActuelVisible] = useState(false);
   const [erreurs, setErreurs] = useState<ErreursMotDePasse>({});
   const [erreur, setErreur] = useState<string | null>(null);
-  const [succes, setSucces] = useState(false);
 
   const { regles, complet } = useReglesMotDePasse(nouveau, confirmation);
 
@@ -390,10 +391,9 @@ function BlocMotDePasse() {
       setConfirmation("");
       setErreurs({});
       setErreur(null);
-      setSucces(true);
+      toast.success(t("profil.motDePasse.succes"));
     },
     onError: (cause) => {
-      setSucces(false);
       const parChamp = cause instanceof ErreurApi ? cause.erreursParChamp : {};
       if (parChamp.actuel || parChamp.nouveau) {
         setErreurs({ actuel: parChamp.actuel, nouveau: parChamp.nouveau });
@@ -405,7 +405,6 @@ function BlocMotDePasse() {
 
   function soumettre(evenement: FormEvent) {
     evenement.preventDefault();
-    setSucces(false);
     setErreur(null);
 
     const verification = schemaChangementMotDePasse.safeParse({ actuel, nouveau });
@@ -448,7 +447,6 @@ function BlocMotDePasse() {
           value={actuel}
           onChange={(evenement) => {
             setActuel(evenement.target.value);
-            setSucces(false);
             if (erreurs.actuel) setErreurs({ ...erreurs, actuel: undefined });
           }}
           disabled={changement.isPending}
@@ -474,22 +472,19 @@ function BlocMotDePasse() {
           confirmation={confirmation}
           onMotDePasse={(valeur) => {
             setNouveau(valeur);
-            setSucces(false);
             if (erreurs.nouveau) setErreurs({ ...erreurs, nouveau: undefined });
           }}
           onConfirmation={(valeur) => {
             setConfirmation(valeur);
-            setSucces(false);
           }}
           disabled={changement.isPending}
           regles={regles}
         />
         {erreurs.nouveau && <p className="mt-1 text-sm text-erreur">{erreurs.nouveau}</p>}
 
-        {(succes || erreur) && (
+        {erreur && (
           <div className="mt-4 flex flex-col gap-3">
-            {succes && <Alerte type="succes">{t("profil.motDePasse.succes")}</Alerte>}
-            {erreur && <Alerte type="erreur">{erreur}</Alerte>}
+            <Alerte type="erreur">{erreur}</Alerte>
           </div>
         )}
 

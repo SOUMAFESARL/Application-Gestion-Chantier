@@ -14,6 +14,7 @@ import type {
   ClientPlateforme,
   CodePlan,
   CompteAdministrateur,
+  ModulePlateforme,
   EtatCommercial,
   IndicateursPlateforme,
   PartParcClient,
@@ -23,6 +24,7 @@ import type {
   StatutAbonnement,
   StatutClient,
   StatutCompteAdministrateur,
+  StatutModule,
   TendanceIndicateur,
   TonVariation,
 } from "./types";
@@ -530,6 +532,62 @@ export function trierComptes(comptes: CompteAdministrateur[]): CompteAdministrat
   return [...comptes].sort((a, b) => {
     if (a.statut !== b.statut) return a.statut === "ACTIF" ? -1 : 1;
     return a.nomComplet.localeCompare(b.nomComplet, "fr");
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * Catalogue des modules
+ * ------------------------------------------------------------------ */
+
+/**
+ * **Désactiver, jamais supprimer** — comme un compte d'agent. Un module
+ * supprimé laisserait dans chaque entreprise des rôles pointant vers un code
+ * qui n'existe plus ; désactivé, il sort simplement de l'offre, et se
+ * réactive tel qu'il était.
+ */
+export function desactivationModulePossible(module: ModulePlateforme): boolean {
+  return module.statut === "ACTIF";
+}
+
+export function reactivationModulePossible(module: ModulePlateforme): boolean {
+  return module.statut === "INACTIF";
+}
+
+export const STATUTS_MODULE: StatutModule[] = ["ACTIF", "INACTIF"];
+
+export interface CriteresModules {
+  /** Recherche libre : libellé, code ou description. */
+  recherche: string;
+  statut: StatutModule | "";
+}
+
+export const CRITERES_MODULES_VIDES: CriteresModules = { recherche: "", statut: "" };
+
+export function criteresModulesActifs(criteres: CriteresModules): boolean {
+  return criteres.recherche.trim() !== "" || criteres.statut !== "";
+}
+
+export function filtrerModules(
+  modules: ModulePlateforme[],
+  criteres: CriteresModules,
+): ModulePlateforme[] {
+  const recherche = normaliser(criteres.recherche);
+
+  return modules.filter((module) => {
+    if (criteres.statut && module.statut !== criteres.statut) return false;
+    if (!recherche) return true;
+
+    return [module.libelle, module.code, module.description].some((champ) =>
+      normaliser(champ).includes(recherche),
+    );
+  });
+}
+
+/** Les modules actifs d'abord, puis par libellé. */
+export function trierModules(modules: ModulePlateforme[]): ModulePlateforme[] {
+  return [...modules].sort((a, b) => {
+    if (a.statut !== b.statut) return a.statut === "ACTIF" ? -1 : 1;
+    return a.libelle.localeCompare(b.libelle, "fr");
   });
 }
 

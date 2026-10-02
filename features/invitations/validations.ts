@@ -2,8 +2,8 @@
  * Le schéma zod de l'ajout d'un collaborateur.
  *
  * Même séparation que `projets/validations.ts` : ni React, ni réseau. Le
- * schéma dit ce qu'est une saisie acceptable ; `versCreationInvitation` la
- * traduit en charge utile. L'écran ne fait que relier les deux.
+ * schéma dit ce qu'est une saisie acceptable ; `versCreationCollaborateur`
+ * la traduit en objet du domaine. L'écran ne fait que relier les deux.
  */
 
 import { z } from "zod";
@@ -12,36 +12,28 @@ import { texte } from "@/i18n/horsReact";
 import { PAYS_TELEPHONE_DEFAUT, telephoneValide } from "@/features/referentiels/telephone";
 import { chaineNonVide, email } from "@/lib/validations/champs";
 
-import type { CreerInvitationPayload } from "./api";
+import type { CreationCollaborateur } from "./types";
 
-/** Au-delà, un nom ne tient plus sur une ligne du tableau des collaborateurs. */
-export const LONGUEUR_MAX_NOM_COMPLET = 150;
+/** La longueur des colonnes `nom` et `prenom` côté Django. */
+export const LONGUEUR_MAX_NOM = 100;
 
 /**
  * Les rôles proposés à l'ajout, **par leur code seul** — les libellés sont
  * dans `messages/fr.json`, sous `gestionCollaborateurs.roleOptions.<code>`.
+ *
+ * Ce sont les choix de `RoleGlobal` côté Django, moins `DG` : le serveur
+ * refuse tout autre code, et le rôle de DG n'est jamais attribuable.
  */
-export const CODES_ROLES = [
-  "AD",
-  "DP",
-  "CT",
-  "CC",
-  "IT",
-  "RF",
-  "RA",
-  "MAG",
-  "RH",
-  "ST",
-  "FRN",
-  "MOA",
-  "VI",
-] as const;
+export const CODES_ROLES = ["AD", "CP", "CT", "CC", "MOA", "MOE", "VI"] as const;
 
 export const schemaAjoutCollaborateur = z.object({
-  nomComplet: chaineNonVide(texte("gestionCollaborateurs.erreurNomRequis")).max(
-    LONGUEUR_MAX_NOM_COMPLET,
-    { message: texte("gestionCollaborateurs.erreurNomTropLong") },
-  ),
+  prenom: z
+    .string()
+    .trim()
+    .max(LONGUEUR_MAX_NOM, { message: texte("gestionCollaborateurs.erreurPrenomTropLong") }),
+  nom: chaineNonVide(texte("gestionCollaborateurs.erreurNomRequis")).max(LONGUEUR_MAX_NOM, {
+    message: texte("gestionCollaborateurs.erreurNomTropLong"),
+  }),
   email: email(
     texte("gestionCollaborateurs.erreurEmailRequis"),
     texte("gestionCollaborateurs.erreurEmailInvalide"),
@@ -67,16 +59,17 @@ export type ValeursAjoutCollaborateur = z.output<typeof schemaAjoutCollaborateur
  * à la place de l'utilisateur finit attribué sans qu'il l'ait décidé.
  */
 export function saisieAjoutVide(): SaisieAjoutCollaborateur {
-  return { nomComplet: "", email: "", telephone: "", role: "" };
+  return { prenom: "", nom: "", email: "", telephone: "", role: "" };
 }
 
-export function versCreationInvitation(
+export function versCreationCollaborateur(
   valeurs: ValeursAjoutCollaborateur,
-): CreerInvitationPayload {
+): CreationCollaborateur {
   return {
-    nom: valeurs.nomComplet,
+    prenom: valeurs.prenom,
+    nom: valeurs.nom,
     email: valeurs.email,
     telephone: valeurs.telephone,
-    role_propose: valeurs.role,
+    role: valeurs.role,
   };
 }

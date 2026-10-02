@@ -21,6 +21,7 @@ import type {
   StatutAbonnement,
   StatutClient,
   StatutCompteAdministrateur,
+  StatutModule,
   TonVariation,
 } from "@/features/administration";
 
@@ -58,6 +59,12 @@ export const TON_ROLE_ADMINISTRATEUR: Record<RoleAdministrateur, string> = {
 export const TON_STATUT_COMPTE: Record<StatutCompteAdministrateur, string> = {
   ACTIF: BON,
   SUSPENDU: GRAVE,
+};
+
+/** Un module inactif n'est pas une faute : il est sorti de l'offre, d'où le neutre. */
+export const TON_STATUT_MODULE: Record<StatutModule, string> = {
+  ACTIF: BON,
+  INACTIF: NEUTRE,
 };
 
 export const TON_ALERTE: Record<NonNullable<AlerteClient>, string> = {

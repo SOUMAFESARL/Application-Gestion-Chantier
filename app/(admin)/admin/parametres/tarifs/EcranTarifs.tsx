@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import type { UseFormReturn } from "react-hook-form";
+import { toast } from "sonner";
 
 import { Alerte, Badge, Bouton, Champ, EtatChargement, EtatErreur } from "@/components/ui";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -101,7 +102,6 @@ export function EcranTarifs() {
   const profil = useAdministrateur();
   const cache = useQueryClient();
   const peutAgir = peutParametrerPlateforme(profil);
-  const [succes, setSucces] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [periodicite, setPeriodicite] = useState<Periodicite>("MENSUELLE");
 
@@ -138,10 +138,9 @@ export function EcranTarifs() {
     onSuccess: async () => {
       await cache.invalidateQueries({ queryKey: CLES_PLATEFORME.tarifs() });
       setErreur(null);
-      setSucces(true);
+      toast.success(t("parametres.tarifs.succes"));
     },
     onError: (cause) => {
-      setSucces(false);
       setErreur(cause instanceof ErreurApi ? cause.message : t("erreurs.action"));
     },
   });
@@ -163,7 +162,6 @@ export function EcranTarifs() {
       noValidate
       className="flex flex-col gap-5"
       onSubmit={formulaire.handleSubmit((valeurs) => {
-        setSucces(false);
         setErreur(null);
         enregistrement.mutate(valeurs);
       })}
@@ -193,7 +191,6 @@ export function EcranTarifs() {
         ))}
       </div>
 
-      {succes && !isDirty && <Alerte type="succes">{t("parametres.tarifs.succes")}</Alerte>}
       {erreur && <Alerte type="erreur">{erreur}</Alerte>}
 
       {peutAgir && (

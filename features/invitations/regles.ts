@@ -2,45 +2,9 @@
  * Les règles de la liste des collaborateurs — pures, sans React.
  */
 
-import type { ProfilUtilisateur } from "@/features/auth/api";
+import type { Collaborateur } from "./types";
 
-import type { InvitationDetail } from "./api";
-import type { Collaborateur, StatutCollaborateur } from "./types";
-
-export type FiltreCollaborateurs = "TOUS" | "ACTIFS" | "INVITES";
-
-/** Le compte connecté, premier de la liste : il est toujours actif. */
-export function collaborateurDepuisProfil(profil: ProfilUtilisateur): Collaborateur {
-  return {
-    id: profil.id,
-    nomComplet: `${profil.prenom} ${profil.nom}`.trim() || profil.email,
-    email: profil.email,
-    telephone: "",
-    role: profil.role_global,
-    statut: "ACTIF",
-    creeLe: null,
-  };
-}
-
-/** Une invitation acceptée est un collaborateur actif ; une invitation échue, une expirée. */
-export function collaborateurDepuisInvitation(invitation: InvitationDetail): Collaborateur {
-  const statut: StatutCollaborateur =
-    invitation.statut === "ACCEPTEE"
-      ? "ACTIF"
-      : invitation.est_expiree || invitation.statut === "EXPIREE"
-        ? "EXPIREE"
-        : "INVITE";
-
-  return {
-    id: invitation.id,
-    nomComplet: invitation.nom,
-    email: invitation.email,
-    telephone: "",
-    role: invitation.role_propose,
-    statut,
-    creeLe: invitation.cree_le,
-  };
-}
+export type FiltreCollaborateurs = "TOUS" | "ACTIFS" | "INVITES" | "SUSPENDUS";
 
 /** Recherche sur le nom ou l'email, insensible à la casse. */
 export function filtrerCollaborateurs(
@@ -52,6 +16,7 @@ export function filtrerCollaborateurs(
   return collaborateurs.filter((c) => {
     if (filtre === "ACTIFS" && c.statut !== "ACTIF") return false;
     if (filtre === "INVITES" && c.statut !== "INVITE") return false;
+    if (filtre === "SUSPENDUS" && c.statut !== "DESACTIVE") return false;
     if (!requete) return true;
     return c.nomComplet.toLowerCase().includes(requete) || c.email.toLowerCase().includes(requete);
   });
@@ -66,4 +31,32 @@ export function initiales(nomComplet: string): string {
     .slice(0, 2)
     .join("")
     .toUpperCase();
+}
+
+/**
+ * Le compte peut-il être touché par un autre que lui-même ?
+ *
+ * Ni le propriétaire — il a créé l'entreprise, et une entreprise sans
+ * propriétaire n'a plus personne pour la paramétrer — ni soi-même : on ne se
+ * coupe pas l'accès depuis sa propre session. Le serveur le refuserait de
+ * toute façon ; l'écran ne propose pas un geste voué à l'échec.
+ */
+function compteGerable(collaborateur: Collaborateur, moiId: string | null): boolean {
+  return !collaborateur.estProprietaire && collaborateur.id !== moiId;
+}
+
+/**
+ * La suspension ne vise qu'un compte actif. Une invitation en attente ne se
+ * suspend pas : elle se supprime, ce qui invalide son lien d'activation.
+ */
+export function suspensionPossible(collaborateur: Collaborateur, moiId: string | null): boolean {
+  return collaborateur.statut === "ACTIF" && compteGerable(collaborateur, moiId);
+}
+
+export function reactivationPossible(collaborateur: Collaborateur, moiId: string | null): boolean {
+  return collaborateur.statut === "DESACTIVE" && compteGerable(collaborateur, moiId);
+}
+
+export function suppressionPossible(collaborateur: Collaborateur, moiId: string | null): boolean {
+  return compteGerable(collaborateur, moiId);
 }

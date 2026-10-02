@@ -15,7 +15,11 @@ import type { Collaborateur } from "@/features/invitations/types";
 
 import type {
   Activite,
+  AffectationProjet,
   Equipe,
+  FonctionAutreMembre,
+  FonctionProjet,
+  Intervenant,
   Lot,
   MembreEquipe,
   ModeExecutionLot,
@@ -151,6 +155,8 @@ export function niveauAvancement(projet: Projet): NiveauAvancement {
  */
 export function echeanceDepassee(projet: Projet, maintenant: Date = new Date()): boolean {
   if (projet.statut === "TERMINE" || projet.statut === "ARCHIVE") return false;
+  // Sans fin prévue, il n'y a pas d'échéance à dépasser.
+  if (!projet.dateFinPrevue) return false;
   return projet.dateFinPrevue < maintenant.toISOString().split("T")[0];
 }
 
@@ -179,8 +185,12 @@ export function budgetRestant(projet: Pick<Projet, "budgetInitial" | "budgetCons
   return projet.budgetInitial - projet.budgetConsomme;
 }
 
-/** Les jours calendaires d'une date ISO courte à une autre ; négatif si `fin` précède `debut`. */
-function joursEntre(debut: string, fin: string): number | null {
+/**
+ * Les jours calendaires d'une date ISO courte à une autre ; négatif si `fin`
+ * précède `debut`, `null` si l'une manque.
+ */
+function joursEntre(debut: string | null, fin: string | null): number | null {
+  if (!debut || !fin) return null;
   const depart = Date.parse(debut);
   const arrivee = Date.parse(fin);
   if (Number.isNaN(depart) || Number.isNaN(arrivee)) return null;
@@ -1045,7 +1055,7 @@ export function collaborateursDisponibles(
   const pris = new Set(dejaPris);
   return collaborateurs.filter(
     (collaborateur) =>
-      collaborateur.statut !== "EXPIREE" &&
+      collaborateur.statut !== "DESACTIVE" &&
       (collaborateur.id === garde || !pris.has(collaborateur.id)),
   );
 }
@@ -1222,4 +1232,261 @@ export function chevauchementsEquipe(
       autre.dateFinPrevue >= activite.dateDebutPrevue &&
       statutActivite(autre, maintenant) !== "TERMINE",
   );
+}
+
+/* ------------------------------------------------------------------ *
+ * La fiche projet générée (F1 §9).
+ * ------------------------------------------------------------------ */
+
+/** « Activités à démarrer dans les 14 prochains jours » (F1 §9.4, section 7). */
+export const HORIZON_PROCHAINES_ETAPES_JOURS = 14;
+
+/** La longueur maximale de la note du chef de projet, saisie à la génération. */
+export const LONGUEUR_MAX_NOTE_FICHE = 2000;
+
+/**
+ * L'état d'un lot : celui de ses activités. `SANS_ACTIVITE` n'est pas un
+ * zéro — F1 §10 : un lot sans activité est exclu du calcul et s'affiche « — ».
+ */
+export type StatutLot = StatutActivite | "SANS_ACTIVITE";
+
+export function statutLot(lot: Lot, maintenant: Date = new Date()): StatutLot {
+  if (lot.activites.length === 0) return "SANS_ACTIVITE";
+  const statuts = lot.activites.map((activite) => statutActivite(activite, maintenant));
+  if (statuts.every((statut) => statut === "TERMINE")) return "TERMINE";
+  if (statuts.includes("EN_RETARD")) return "EN_RETARD";
+  if (statuts.every((statut) => statut === "A_VENIR")) return "A_VENIR";
+  return "EN_COURS";
+}
+
+/** L'avancement d'un lot, pondéré par budget. `null` sans activité (F1 §10). */
+export function avancementLot(lot: Lot): number | null {
+  return lot.activites.length === 0 ? null : avancementPondere(lot.activites);
+}
+
+/** Une activité, lue avec le lot qui la porte. */
+export interface ActiviteDuLot {
+  activite: Activite;
+  lot: Lot;
+}
+
+/**
+ * Les activités pas encore commencées dont le début prévu tombe dans les
+ * `HORIZON_PROCHAINES_ETAPES_JOURS` prochains jours, la plus proche d'abord.
+ */
+export function prochainesEtapes(lots: Lot[], maintenant: Date = new Date()): ActiviteDuLot[] {
+  const debut = isoCourt(maintenant);
+  const fin = isoCourt(new Date(maintenant.getTime() + HORIZON_PROCHAINES_ETAPES_JOURS * JOUR_MS));
+  return lots
+    .flatMap((lot) => lot.activites.map((activite) => ({ activite, lot })))
+    .filter(
+      ({ activite }) =>
+        activite.avancement === 0 &&
+        activite.dateDebutPrevue >= debut &&
+        activite.dateDebutPrevue <= fin,
+    )
+    .sort((a, b) => a.activite.dateDebutPrevue.localeCompare(b.activite.dateDebutPrevue));
+}
+
+/**
+ * Le taux de respect des délais : la part des activités **attendues** — celles
+ * dont le début prévu est passé — qui ne sont pas en retard. `null` tant
+ * qu'aucune n'est attendue : 100 % se lirait comme une performance.
+ */
+export function tauxRespectDelais(lots: Lot[], maintenant: Date = new Date()): number | null {
+  const attendues = activitesDuProjet(lots).filter(
+    (activite) => avancementTheoriqueActivite(activite, maintenant) > 0,
+  );
+  if (attendues.length === 0) return null;
+  const aLHeure = attendues.filter(
+    (activite) => statutActivite(activite, maintenant) !== "EN_RETARD",
+  ).length;
+  return Math.round((aLHeure / attendues.length) * 100);
+}
+
+/**
+ * Un point de vigilance de la fiche (F1 §9.4, section 5). C'est un **code**
+ * et ses chiffres, pas une phrase : le libellé appartient à l'écran.
+ */
+export type PointVigilance =
+  | { code: "ECHEANCE_DEPASSEE"; jours: number }
+  | { code: "RETARD_AVANCEMENT"; ecart: number }
+  | { code: "BUDGET"; niveau: Exclude<NiveauBudget, "conforme">; ratio: number }
+  | { code: "LOT_EN_RETARD"; lot: Lot }
+  | { code: "ACTIVITE_EN_RETARD"; activite: Activite; lot: Lot; theorique: number };
+
+/**
+ * Ce qui réclame une décision, du plus large au plus fin : le projet (délai,
+ * avancement, budget), puis chaque lot en retard **suivi de ses propres
+ * activités en retard** — la fiche les hiérarchise lot par lot.
+ */
+export function pointsDeVigilance(
+  projet: Projet,
+  lots: Lot[],
+  maintenant: Date = new Date(),
+): PointVigilance[] {
+  const points: PointVigilance[] = [];
+
+  const { joursRestants } = echeancierProjet(projet, maintenant);
+  if (joursRestants !== null && joursRestants < 0) {
+    points.push({ code: "ECHEANCE_DEPASSEE", jours: Math.abs(joursRestants) });
+  }
+
+  const ecart = ecartAvancement(projet.avancementReel, projet.avancementTheorique);
+  if (estEnRetard(ecart)) points.push({ code: "RETARD_AVANCEMENT", ecart });
+
+  const ratio = ratioConsommationBudget(projet.budgetInitial, projet.budgetConsomme);
+  const niveau = niveauBudget(ratio);
+  if (ratio !== null && niveau && niveau !== "conforme") {
+    points.push({ code: "BUDGET", niveau, ratio });
+  }
+
+  // Chaque lot en retard, suivi aussitôt de ses activités en retard.
+  for (const lot of lots) {
+    if (statutLot(lot, maintenant) !== "EN_RETARD") continue;
+    points.push({ code: "LOT_EN_RETARD", lot });
+    for (const activite of lot.activites) {
+      if (statutActivite(activite, maintenant) === "EN_RETARD") {
+        points.push({
+          code: "ACTIVITE_EN_RETARD",
+          activite,
+          lot,
+          theorique: avancementTheoriqueActivite(activite, maintenant),
+        });
+      }
+    }
+  }
+  return points;
+}
+
+/** Comment se lit un taux de conformité : délais tenus, rapports remis. */
+export type NiveauConformite = "conforme" | "alerte" | "critique";
+
+/** Au-dessus : conforme. */
+export const SEUIL_CONFORMITE = 90;
+/** En dessous : critique. Entre les deux : alerte. */
+export const SEUIL_CONFORMITE_CRITIQUE = 70;
+
+export function niveauConformite(taux: number | null): NiveauConformite | null {
+  if (taux === null) return null;
+  if (taux >= SEUIL_CONFORMITE) return "conforme";
+  if (taux >= SEUIL_CONFORMITE_CRITIQUE) return "alerte";
+  return "critique";
+}
+
+/* ------------------------------------------------------------------ *
+ * Les chantiers d'un collaborateur — sa fiche dans les paramètres.
+ * ------------------------------------------------------------------ */
+
+/** L'ordre dans lequel les fonctions d'une même personne se lisent. */
+export const ORDRE_FONCTIONS: FonctionProjet[] = [
+  "CHEF_PROJET",
+  "CONDUCTEUR_TRAVAUX",
+  "CHEF_CHANTIER",
+  "AUTRE_MEMBRE",
+];
+
+/** Les fonctions que la personne tient dans l'équipe d'encadrement d'un chantier. */
+export function fonctionsDansProjet(projet: Projet, collaborateurId: string): FonctionProjet[] {
+  return ORDRE_FONCTIONS.filter((fonction) =>
+    membresDeFonction(projet, fonction).some((membre) => membre.id === collaborateurId),
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * L'équipe d'encadrement et de gestion du projet.
+ * ------------------------------------------------------------------ */
+
+/** Ce qu'un « autre membre » peut faire sur un projet, dans l'ordre du choix. */
+export const FONCTIONS_AUTRE_MEMBRE: readonly FonctionAutreMembre[] = [
+  "FINANCIER",
+  "INGENIEUR",
+  "DOCUMENTALISTE",
+  "METREUR",
+  "QHSE",
+  "AUTRE",
+];
+
+/** Les personnes qui tiennent une fonction de l'encadrement, sans ce qui précise leur place. */
+export function membresDeFonction(projet: Projet, fonction: FonctionProjet): Intervenant[] {
+  switch (fonction) {
+    case "CHEF_PROJET":
+      return projet.chefProjet ? [projet.chefProjet] : [];
+    case "CONDUCTEUR_TRAVAUX":
+      return projet.conducteursTravaux;
+    case "CHEF_CHANTIER":
+      return projet.chefsChantier.map((chef) => chef.intervenant);
+    case "AUTRE_MEMBRE":
+      return projet.autresMembres.map((membre) => membre.intervenant);
+  }
+}
+
+/** Le nombre de personnes distinctes dans l'encadrement — un cumul ne compte qu'une fois. */
+export function effectifEncadrement(projet: Projet): number {
+  const identifiants = new Set(
+    ORDRE_FONCTIONS.flatMap((fonction) => membresDeFonction(projet, fonction).map((membre) => membre.id)),
+  );
+  return identifiants.size;
+}
+
+/**
+ * Les utilisateurs du compte qu'on peut encore placer à cette fonction : un
+ * compte désactivé ne se désigne pas, et une personne n'occupe pas deux fois
+ * la même place — le chef de projet en place n'est donc pas reproposé.
+ */
+export function candidatsEncadrement(
+  utilisateurs: Collaborateur[],
+  projet: Projet,
+  fonction: FonctionProjet,
+): Collaborateur[] {
+  const pris = new Set(membresDeFonction(projet, fonction).map((membre) => membre.id));
+  return utilisateurs.filter((utilisateur) => utilisateur.statut !== "DESACTIVE" && !pris.has(utilisateur.id));
+}
+
+/** Un utilisateur du compte, vu comme un intervenant du projet. */
+export function intervenantDuCollaborateur(collaborateur: Collaborateur): Intervenant {
+  return {
+    id: collaborateur.id,
+    nom: collaborateur.nom,
+    prenom: collaborateur.prenom,
+    nomComplet: collaborateur.nomComplet,
+    email: collaborateur.email,
+    telephone: collaborateur.telephone,
+    statut: collaborateur.statut === "DESACTIVE" ? null : collaborateur.statut,
+    lienWhatsApp: null,
+  };
+}
+
+/** Le premier membre financier de l'encadrement — le signataire financier de la fiche. */
+export function financierDuProjet(projet: Projet): Intervenant | null {
+  return projet.autresMembres.find((membre) => membre.fonction === "FINANCIER")?.intervenant ?? null;
+}
+
+/**
+ * Les chantiers où la personne est désignée dans l'équipe projet.
+ *
+ * La correspondance se fait sur l'**identifiant du compte**, jamais sur le
+ * nom : deux « Koné » ne sont pas la même personne. Les membres des équipes
+ * de terrain n'y figurent pas — ils se lisent chantier par chantier.
+ */
+export function affectationsDuCollaborateur(
+  projets: Projet[],
+  collaborateurId: string,
+): AffectationProjet[] {
+  return projets
+    .map((projet) => ({ projet, fonctions: fonctionsDansProjet(projet, collaborateurId) }))
+    .filter((affectation) => affectation.fonctions.length > 0);
+}
+
+/**
+ * Les affectations rangées par statut du chantier, dans l'ordre de
+ * `ORDRE_STATUTS` — l'urgent d'abord. Un statut sans chantier n'apparaît pas.
+ */
+export function affectationsParStatut(
+  affectations: AffectationProjet[],
+): { statut: StatutProjet; affectations: AffectationProjet[] }[] {
+  return ORDRE_STATUTS.map((statut) => ({
+    statut,
+    affectations: affectations.filter((affectation) => affectation.projet.statut === statut),
+  })).filter((groupe) => groupe.affectations.length > 0);
 }

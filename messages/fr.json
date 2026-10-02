@@ -204,6 +204,7 @@
       "filtrePlan": "Filtrer par plan",
       "filtrePlanTous": "Tous les plans",
       "filtreStatut": "Filtrer par statut",
+      "filtreSuspendus": "Suspendus",
       "filtreStatutAbonnement": "Filtrer par statut d’abonnement",
       "filtreStatutAbonnementTous": "Tous les abonnements",
       "filtreStatutTous": "Tous les statuts",
@@ -318,6 +319,7 @@
       "titreMotDePasseOublie": "Mot de passe oublié — Administration",
       "titreProfil": "Mon profil — Administration",
       "titreComptes": "Comptes administrateurs — Administration",
+      "titreModules": "Modules — Administration",
       "titreTarifs": "Tarifs — Administration",
       "titreIdentite": "Nom et logo — Administration"
     },
@@ -348,8 +350,9 @@
       "profil": "Mon profil",
       "parametrage": "Paramétrage",
       "parametrageComptes": "Comptes administrateurs",
-      "parametrageTarifs": "Tarifs",
-      "parametrageIdentite": "Nom et logo"
+      "parametrageModules": "Modules & accès",
+      "parametrageTarifs": "Tarifs abonnements",
+      "parametrageIdentite": "Paramètres globaux"
     },
     "plan": {
       "BATISSEUR": "Bâtisseur",
@@ -520,6 +523,69 @@
           "prenom": "Prénom",
           "nom": "Nom",
           "email": "Adresse"
+        }
+      },
+      "modules": {
+        "titre": "Modules",
+        "description": "Le catalogue des modules du produit et l’accès accordé par défaut aux rôles des entreprises, qui l’ajustent ensuite.",
+        "colonneModule": "Module",
+        "colonneCode": "Code",
+        "colonneDescription": "Description",
+        "colonneAccesParDefaut": "Accès par défaut",
+        "colonneStatut": "Statut",
+        "colonneCreeLe": "Créé le",
+        "colonneActions": "Actions",
+        "ajouter": "Ajouter un module",
+        "recherche": "Rechercher un module",
+        "recherchePlaceholder": "Libellé, code…",
+        "filtreStatut": "Filtrer par statut",
+        "filtreStatutTous": "Tous les statuts",
+        "aucun": "Aucun module ne correspond à ces critères.",
+        "modifier": "Modifier",
+        "desactiver": "Désactiver",
+        "reactiver": "Réactiver",
+        "statut": {
+          "ACTIF": "Actif",
+          "INACTIF": "Inactif"
+        },
+        "formulaire": {
+          "titreCreation": "Ajouter un module",
+          "titreModification": "Modifier le module {libelle}",
+          "descriptionCreation": "Son code technique est dérivé du libellé à la création, puis ne change plus.",
+          "descriptionModification": "Renommer le module ne change pas son code ({code}) : les droits déjà attribués restent valables.",
+          "libelle": "Libellé",
+          "libellePlaceholder": "Planning",
+          "description": "Description",
+          "descriptionPlaceholder": "Ce que le module couvre, en une phrase.",
+          "accesParDefaut": "Accès par défaut",
+          "annuler": "Annuler",
+          "confirmerCreation": "Créer le module",
+          "confirmerModification": "Enregistrer",
+          "enCours": "Enregistrement…",
+          "succesCreation": "Le module {libelle} a été créé.",
+          "succesModification": "Le module {libelle} a été modifié."
+        },
+        "desactivation": {
+          "titre": "Désactiver le module {libelle}",
+          "description": "Il sort de l’offre : les entreprises ne peuvent plus l’utiliser, mais les droits déjà attribués sont conservés et reviennent s’il est réactivé.",
+          "annuler": "Annuler",
+          "confirmer": "Désactiver",
+          "enCours": "Désactivation…"
+        },
+        "reactivation": {
+          "titre": "Réactiver le module {libelle}",
+          "description": "Le module revient dans l’offre, avec les droits qui y étaient attribués.",
+          "annuler": "Annuler",
+          "confirmer": "Réactiver",
+          "enCours": "Réactivation…"
+        },
+        "erreurLibelleRequis": "Le libellé est requis.",
+        "erreurLibelleLong": "Le libellé ne doit pas dépasser {max} caractères.",
+        "erreurDescriptionRequise": "La description est requise.",
+        "erreurDescriptionLongue": "La description ne doit pas dépasser {max} caractères.",
+        "export": {
+          "titre": "Modules",
+          "nomFichier": "modules"
         }
       },
       "tarifs": {
@@ -697,8 +763,6 @@
   "ficheProjet": {
     "actionWhatsApp": "Contacter sur WhatsApp",
     "retourProjets": "Retour aux projets",
-    "titre": "Fiche projet : {nom}",
-    "sousTitre": "{reference} · {client} · {ville}",
     "points": "{valeur} pts",
     "calendrier": {
       "titre": "Calendrier",
@@ -753,22 +817,160 @@
       "voirEquipes": "Équipes & affectations",
       "collaborateurs": "{nombre, plural, =0 {Aucun collaborateur} one {<fort>#</fort> collaborateur} other {<fort>#</fort> collaborateurs}}"
     },
-    "equipe": {
-      "titre": "Équipe projet",
-      "conducteurTravaux": "Conducteur de travaux",
-      "chefProjet": "Chef de projet",
-      "chefChantier": "Chef de chantier",
-      "directeurFinancier": "Directeur financier",
-      "nonDesigne": "Non désigné",
-      "invite": "Invité",
-      "email": "Envoyer un email à {nom}"
-    },
     "modifier": "Modifier",
     "suspendre": "Suspendre",
-    "reprendre": "Reprendre"
+    "reprendre": "Reprendre",
+    "exporterPdf": "Imprimer",
+    "actions": "Actions",
+    "pdf": {
+      "generation": {
+        "titre": "Fiche projet PDF",
+        "enCours": "Génération de la fiche en cours…",
+        "echec": "La fiche n'a pas pu être générée.",
+        "erreur": "La fiche n'a pas pu être générée. Réessayez.",
+        "fermer": "Fermer",
+        "reessayer": "Réessayer",
+        "apercu": "Vérifiez la fiche avant de la télécharger ou de l'imprimer.",
+        "titreApercu": "Aperçu de la fiche projet",
+        "telecharger": "Télécharger",
+        "imprimer": "Imprimer"
+      },
+      "nomFichier": "fiche-projet-{reference}-{date}.pdf",
+      "titre": "Fiche projet",
+      "dateGeneration": "Date de génération : {date}",
+      "sante": "Indice de santé",
+      "santeValeur": "{valeur}/100",
+      "santeNiveau": {
+        "vert": "Bon",
+        "orange": "Passable",
+        "rouge": "Critique",
+        "inconnu": "Non calculé"
+      },
+      "sections": {
+        "identification": "1. Identification",
+        "calendrierBudget": "2. Calendrier & budget",
+        "avancement": "3. Avancement global",
+        "indicateurs": "4. Indicateurs clés",
+        "risques": "5. Risques et vigilance",
+        "equipe": "6. Équipe d'encadrement et de gestion",
+        "prochainesEtapes": "7. Prochaines étapes",
+        "note": "8. Note du chef de projet",
+        "signatures": "Validation et signatures"
+      },
+      "identification": {
+        "client": "Client (maître d'ouvrage)",
+        "contactClient": "Contact client",
+        "maitreOeuvre": "Maître d'œuvre",
+        "localisation": "Localisation",
+        "type": "Type d'ouvrage",
+        "reference": "Référence",
+        "description": "Description",
+        "nonRenseigne": "Non renseigné"
+      },
+      "calendrier": {
+        "debutPrevu": "Début prévu",
+        "finPrevue": "Fin prévue",
+        "duree": "Durée contractuelle",
+        "debutReel": "Démarrage réel",
+        "nonDemarre": "Pas encore démarré",
+        "delaiEcoule": "Délai écoulé",
+        "delaiEcouleValeur": "{valeur} %",
+        "echeance": "Échéance",
+        "joursRestants": "{jours, plural, =0 {Aujourd'hui} one {Dans # jour} other {Dans # jours}}",
+        "echeanceDepassee": "{jours, plural, one {Dépassée de # jour} other {Dépassée de # jours}}",
+        "termineLe": "Terminé le {date}",
+        "clos": "Projet clos"
+      },
+      "budget": {
+        "initial": "Budget prévisionnel",
+        "consomme": "Consommé",
+        "restant": "Reste à engager",
+        "depasse": "Dépassement",
+        "part": "{valeur} % du budget",
+        "nonDefini": "Non défini"
+      },
+      "avancement": {
+        "reel": "Avancement réel",
+        "theorique": "Avancement théorique",
+        "ecart": "Écart au théorique : {valeur} pts"
+      },
+      "lots": {
+        "numero": "N°",
+        "lot": "Lot",
+        "mode": "Mode d'exécution",
+        "bordereau": "Bordereau",
+        "avancement": "Avancement",
+        "budget": "Budget lot (FCFA)",
+        "statut": "Statut",
+        "sansActivite": "Aucune activité",
+        "vide": "Aucun lot n'est encore structuré sur ce projet."
+      },
+      "indicateurs": {
+        "respectDelais": "Respect des délais",
+        "respectDelaisDetail": "activités attendues à l'heure",
+        "soumission": "Rapports soumis",
+        "soumissionDetail": "{deposes} / {attendus} · 7 jours ouvrés",
+        "incidents": "Incidents",
+        "incidentsDetail": "{blocages, plural, =0 {aucun blocage} one {# blocage} other {# blocages}} · 9 semaines",
+        "ecart": "Avancement vs prévu",
+        "ecartDetail": "réel {reel} · prévu {theorique}",
+        "points": "{valeur} pts",
+        "journalIndisponible": "journal indisponible"
+      },
+      "vigilance": {
+        "ECHEANCE_DEPASSEE": "Échéance contractuelle dépassée de {jours, plural, one {# jour} other {# jours}}.",
+        "RETARD_AVANCEMENT": "Avancement en retard de {ecart} points sur le théorique.",
+        "BUDGET_alerte": "Budget consommé à {ratio} % : seuil d'alerte franchi.",
+        "BUDGET_depassement": "Budget dépassé : {ratio} % consommés.",
+        "LOT_EN_RETARD": "Lot {code} — {nom} : en retard.",
+        "ACTIVITE_EN_RETARD": "{code} {libelle} : {reel} réalisés pour {theorique} attendus, fin prévue le {fin}.",
+        "BLOCAGES": "{nombre, plural, one {# blocage signalé} other {# blocages signalés}} au journal de chantier sur les neuf dernières semaines.",
+        "vide": "Aucun point de vigilance à la date de génération."
+      },
+      "equipe": {
+        "role": "Rôle",
+        "nom": "Nom & prénom",
+        "telephone": "Téléphone",
+        "email": "Email",
+        "nonDesigne": "Non désigné",
+        "equipesChantier": "Sur le chantier : {equipes, plural, =0 {aucune équipe constituée} one {# équipe} other {# équipes}}, {personnes, plural, =0 {aucune personne} one {# personne} other {# personnes}}.",
+        "chefProjet": "Chef de projet",
+        "conducteurTravaux": "Conducteur de travaux",
+        "chefChantier": "Chef de chantier",
+        "chefChantierZone": "Chef de chantier — {zone}"
+      },
+      "etapes": {
+        "code": "Code",
+        "activite": "Activité",
+        "lot": "Lot",
+        "debut": "Début prévu",
+        "fin": "Fin prévue",
+        "equipe": "Équipe",
+        "aAffecter": "À affecter",
+        "vide": "Aucune activité ne démarre dans les 14 prochains jours."
+      },
+      "note": {
+        "auteur": "{nom} — Chef de projet · {date}",
+        "auteurSansNom": "Chef de projet · {date}"
+      },
+      "signatures": {
+        "chefProjet": "Chef de projet",
+        "directeurGeneral": "Directeur général",
+        "directeurFinancier": "Directeur financier",
+        "signature": "Signature"
+      },
+      "pied": {
+        "page": "Page {page}/{total}"
+      }
+    }
   },
   "format": {
     "dateHeure": "{date} à {heure}"
+  },
+  "habilitations": {
+    "accesRefuseTitre": "Accès non autorisé",
+    "accesRefuseDescription": "Votre rôle ne donne pas accès à cette page. Si vous en avez besoin, demandez au Directeur Général d’ajuster les accès de votre rôle.",
+    "retourAccueil": "Retour au tableau de bord"
   },
   "gestionCollaborateurs": {
     "ajoutEnCours": "Ajout en cours…",
@@ -779,7 +981,8 @@
     "boutonAnnuler": "Annuler",
     "boutonValider": "Ajouter le collaborateur",
     "champEmail": "Email",
-    "champNom": "Nom complet",
+    "champNom": "Nom",
+    "champPrenom": "Prénom",
     "champRole": "Rôle",
     "champRoleAucun": "Aucun rôle trouvé.",
     "champRoleChoisir": "Choisir un rôle…",
@@ -787,17 +990,23 @@
     "champTelephone": "Numéro de téléphone",
     "chargement": "Chargement des collaborateurs…",
     "collaborateurInvite": "Collaborateur invité",
+    "actionConsulter": "Voir la fiche de {nom}",
+    "actionReactiver": "Réactiver {nom}",
+    "actionSupprimer": "Supprimer {nom}",
+    "actionSuspendre": "Suspendre {nom}",
+    "colonneActions": "Actions",
     "colonneDate": "Date",
     "colonneNom": "Collaborateur",
     "colonneRole": "Rôle attribué",
     "colonneStatut": "Statut",
     "colonneTelephone": "Téléphone",
-    "comptePrincipal": "Compte principal",
     "erreurAjout": "Échec de l’ajout du collaborateur.",
+    "erreurChargement": "Impossible de charger les collaborateurs.",
     "erreurEmailInvalide": "Cette adresse email n’est pas valide.",
     "erreurEmailRequis": "L’email est requis.",
-    "erreurNomRequis": "Le nom complet est requis.",
-    "erreurNomTropLong": "Le nom complet ne doit pas dépasser 150 caractères.",
+    "erreurNomRequis": "Le nom est requis.",
+    "erreurNomTropLong": "Le nom ne doit pas dépasser 100 caractères.",
+    "erreurPrenomTropLong": "Le prénom ne doit pas dépasser 100 caractères.",
     "erreurRoleRequis": "Choisissez un rôle.",
     "erreurTelephoneInvalide": "Ce numéro de téléphone n’est pas valide.",
     "erreurTelephoneRequis": "Le numéro de téléphone est requis.",
@@ -807,38 +1016,90 @@
     "filtreStatut": "Filtrer par statut",
     "filtreTous": "Tous",
     "placeholderEmail": "collaborateur@entreprise.ci",
-    "placeholderNom": "Ex : Kouassi Yves",
+    "placeholderNom": "Ex : Kouassi",
+    "placeholderPrenom": "Ex : Yves",
     "recherchePlaceholder": "Rechercher par nom ou email…",
     "roleOptions": {
       "AD": "Administrateur",
       "CC": "Chef de Chantier",
+      "CP": "Chef de Projet",
       "CT": "Conducteur de Travaux",
-      "DP": "Directeur de Projet",
-      "FRN": "Fournisseur",
-      "IT": "Ingénieur / Technicien",
-      "MAG": "Magasinier",
       "MOA": "Maître d’Ouvrage (Client)",
-      "RA": "Responsable Achats",
-      "RF": "Responsable Financier",
-      "RH": "Responsable RH",
-      "ST": "Sous-traitant",
+      "MOE": "Maître d’Œuvre",
       "VI": "Visiteur / Consultation"
     },
-    "simulationLienInvitation": "Essayer l’écran d’activation du collaborateur (démo)",
     "sousTitre": "Gérez les membres de votre entreprise et invitez de nouveaux collaborateurs.",
     "statut": {
       "ACTIF": "Actif",
-      "EXPIREE": "Expiré",
+      "DESACTIVE": "Suspendu",
       "INVITE": "En attente (invité)"
     },
     "statutDesactive": "Désactivé",
     "succesAjout": "{nom} a été ajouté. Un email d’activation a été envoyé à {email}.",
+    "lienActivation": "Ouvrir le lien d’activation",
     "telephoneInconnu": "—",
     "titre": "Collaborateurs & Invitations",
     "export": {
       "titre": "Collaborateurs",
       "nomFichier": "collaborateurs",
       "email": "Adresse email"
+    },
+    "gestes": {
+      "annuler": "Annuler",
+      "fermer": "Fermer",
+      "erreur": "L’opération n’a pas abouti. Réessayez dans un instant.",
+      "suspension": {
+        "titre": "Suspendre {nom} ?",
+        "description": "Son accès à la plateforme est coupé immédiatement. Ses saisies, validations et affectations sont conservées, et vous pourrez le réactiver à tout moment.",
+        "confirmer": "Suspendre",
+        "enCours": "Suspension…",
+        "succes": "{nom} a été suspendu."
+      },
+      "reactivation": {
+        "titre": "Réactiver {nom} ?",
+        "description": "Il retrouve son accès à la plateforme avec son rôle et ses affectations actuels.",
+        "confirmer": "Réactiver",
+        "enCours": "Réactivation…",
+        "succes": "{nom} a été réactivé."
+      },
+      "suppression": {
+        "titre": "Supprimer {nom} ?",
+        "description": "Le compte est retiré de l’entreprise et ne pourra plus se connecter. Pour une invitation en attente, le lien d’activation cesse de fonctionner. Cette action est irréversible : pour un simple retrait temporaire, préférez la suspension.",
+        "confirmer": "Supprimer définitivement",
+        "enCours": "Suppression…",
+        "succes": "{nom} a été supprimé."
+      }
+    },
+    "fiche": {
+      "retour": "Retour aux collaborateurs",
+      "chargement": "Chargement de la fiche…",
+      "erreurChargement": "Impossible de charger ce collaborateur.",
+      "introuvable": "Collaborateur introuvable",
+      "introuvableAide": "Ce compte n’existe pas ou a été supprimé.",
+      "suspendre": "Suspendre",
+      "reactiver": "Réactiver",
+      "supprimer": "Supprimer",
+      "proprietaire": "Propriétaire du compte",
+      "sectionInfos": "Informations personnelles",
+      "sectionInfosAide": "Le collaborateur met à jour son nom et son téléphone depuis son propre profil.",
+      "membreDepuis": "Membre depuis",
+      "derniereConnexion": "Dernière connexion",
+      "jamaisConnecte": "Jamais connecté",
+      "sectionProjets": "Projets attribués ({nombre})",
+      "sectionProjetsAide": "Les chantiers où il est désigné dans l’équipe projet, regroupés par statut.",
+      "chargementProjets": "Chargement des projets…",
+      "erreurProjets": "Impossible de charger les projets.",
+      "aucunProjet": "Aucun projet attribué",
+      "aucunProjetAide": "Il n’est désigné dans l’équipe d’aucun chantier pour le moment.",
+      "compteStatut": "{statut} · {nombre}",
+      "avancement": "Avancement",
+      "echeance": "Fin prévue le {date}",
+      "fonction": {
+        "CHEF_PROJET": "Chef de projet",
+        "CONDUCTEUR_TRAVAUX": "Conducteur de travaux",
+        "CHEF_CHANTIER": "Chef de chantier",
+        "AUTRE_MEMBRE": "Autre membre de l’encadrement"
+      }
     }
   },
   "inscription": {
@@ -1030,25 +1291,9 @@
       "TERMINE": "Terminé"
     },
     "tiroirCreation": {
-      "ajouterLot": "Ajouter un lot",
       "annuler": "Annuler",
-      "aucunBailleur": "Aucun bailleur configuré",
-      "aucunCollaborateur": "Aucun collaborateur ne correspond.",
       "badgeAuto": "Auto",
-      "badgeCalculee": "Calculée",
-      "champBailleurs": "Bailleurs (accès lecture)",
-      "champBudget": "Montant total prévisionnel (FCFA)",
-      "champBudgetPlaceholder": "Ex : 485000000",
-      "champChefProjet": "Chef de Projet",
-      "champChefsChantier": "Chef(s) de Chantier",
-      "champConducteur": "Conducteur de Travaux",
       "champDateChoisir": "jj/mm/aaaa",
-      "champDateDebut": "Date de démarrage",
-      "champDateFin": "Date fin prévisionnelle",
-      "champDescription": "Description (optionnel)",
-      "champDescriptionPlaceholder": "Contexte, objectifs, remarques…",
-      "champDirecteurFinancier": "Directeur Financier",
-      "champDuree": "Durée",
       "champMaitreOeuvre": "Maître d'œuvre",
       "champMaitreOeuvrePlaceholder": "Cabinet ou bureau d'études (optionnel)",
       "champMaitreOuvrage": "Maître d'ouvrage",
@@ -1060,62 +1305,31 @@
       "champReferencePlaceholder": "Générée à la création",
       "champType": "Type de projet",
       "champVille": "Localisation (ville)",
-      "champVisiteurs": "Visiteurs (lecture seule)",
-      "colonneAction": "Action",
       "colonneDateDebut": "Date début",
       "colonneDateFin": "Date fin",
       "colonneModeExecution": "Mode d'exécution",
-      "colonneNomLot": "Nom du lot",
-      "colonneNumero": "N°",
       "colonneTypeBordereau": "Type de bordereau",
       "creationEnCours": "Création…",
       "creer": "Créer le projet",
-      "dureeJoursOuvres": "{jours, plural, one {# jour ouvré} other {# jours ouvrés}}",
-      "dureePlaceholder": "Renseignez les deux dates",
-      "erreurBudgetInvalide": "Saisissez un montant entier supérieur à zéro, sans décimales.",
-      "erreurBudgetRequis": "Le montant prévisionnel est requis.",
-      "erreurChefProjetRequis": "Sélectionnez le chef de projet.",
-      "erreurChefsChantierRequis": "Sélectionnez au moins un chef de chantier.",
-      "erreurConducteurRequis": "Sélectionnez le conducteur de travaux.",
-      "erreurDateDebutRequise": "La date de démarrage est requise.",
-      "erreurDateFinRequise": "La date de fin prévisionnelle est requise.",
       "erreurDatesIncoherentes": "La date de fin ne peut pas précéder la date de début.",
-      "erreurDescriptionTropLongue": "La description ne doit pas dépasser 1 000 caractères.",
       "erreurGenerique": "Une erreur est survenue lors de la création du projet.",
       "erreurLotBordereauRequis": "Choisissez le type de bordereau.",
       "erreurLotModeRequis": "Choisissez le mode d'exécution.",
       "erreurLotNomRequis": "Le nom du lot est requis.",
-      "erreurLotsRequis": "Déclarez au moins un lot.",
       "erreurMaitreOuvrageRequis": "Le maître d'ouvrage est requis.",
       "erreurNomRequis": "Le nom du projet est requis.",
       "erreurNomTropLong": "Le nom du projet ne doit pas dépasser 150 caractères.",
       "erreurTypeRequis": "Choisissez le type de projet.",
       "erreurVilleRequise": "La localisation du projet est requise.",
-      "etapeEquipe": "Équipe projet",
-      "etapeInformations": "Informations générales",
-      "etapeLots": "Lots & Bordereau",
-      "indicateurEtape": "Étape {numero} / {total} — {libelle}",
       "modeExecution": {
         "REGIE_DIRECTE": "Régie directe",
         "SOUS_TRAITANCE_INFORMELLE": "Ss-tr. informelle",
         "SOUS_TRAITANCE_STRUCTUREE": "Ss-tr. structurée"
       },
-      "rechercherBailleur": "Rechercher un bailleur…",
-      "rechercherCollaborateur": "Rechercher un collaborateur…",
-      "retirerLot": "Retirer le lot {numero}",
-      "retour": "Retour",
-      "sectionBudget": "Budget prévisionnel",
-      "sectionEquipe": "Affectation de l'équipe projet",
       "sectionIdentification": "Identification du projet",
-      "sectionLots": "Lots du projet",
-      "sectionPlanning": "Planning contractuel",
       "selectionner": "Sélectionner…",
-      "selectionnerUtilisateur": "Sélectionner un utilisateur…",
-      "sousTitre": "Trois étapes : informations générales, lots, puis équipe projet.",
-      "suivantEquipe": "Suivant — Équipe",
-      "suivantLots": "Suivant — Lots & Bordereau",
+      "sousTitre": "Les informations générales du projet. Le planning et le budget sont facultatifs ; les lots et l'équipe s'ajoutent ensuite, depuis le projet.",
       "titre": "Nouveau projet",
-      "toutEstPret": "Tout est prêt. La création du projet génère automatiquement : la fiche projet vierge, le calcul de l'avancement théorique, et l'indice de santé initial.",
       "typeBordereau": {
         "FORFAIT_GLOBAL": "Forfait global",
         "PRIX_UNITAIRE": "Prix unitaire"
@@ -1130,9 +1344,22 @@
         "VRD": "TP — Route / VRD"
       },
       "titreModification": "Modifier « {nom} »",
-      "sousTitreModification": "Informations générales et équipe projet. Les lots se modifient dans « Lots & activités ».",
+      "sousTitreModification": "L'identification du projet. Le planning et le budget se fixent depuis le projet, les lots dans « Lots & activités ».",
       "enregistrer": "Enregistrer les modifications",
-      "enregistrementEnCours": "Enregistrement…"
+      "enregistrementEnCours": "Enregistrement…",
+      "sectionCalendrierBudget": "Calendrier et budget",
+      "champDateDebut": "Date de démarrage",
+      "champDateFin": "Date fin prévisionnelle",
+      "champDuree": "Durée",
+      "badgeCalculee": "Calculée",
+      "dureeJoursOuvres": "{jours, plural, one {# jour ouvré} other {# jours ouvrés}}",
+      "dureePlaceholder": "Renseignez les deux dates",
+      "champBudget": "Montant total prévisionnel (FCFA)",
+      "champBudgetPlaceholder": "Ex : 485 000 000",
+      "champDescription": "Description (optionnel)",
+      "champDescriptionPlaceholder": "Contexte, objectifs, remarques…",
+      "erreurBudgetInvalide": "Saisissez un montant entier supérieur à zéro, sans décimales.",
+      "erreurDescriptionTropLongue": "La description ne doit pas dépasser 1 000 caractères."
     },
     "titre": "Projets",
     "lotsActivites": {
@@ -1491,6 +1718,105 @@
       "confirmerReprendre": "Reprendre le projet",
       "annuler": "Annuler",
       "erreurGenerique": "L'opération n'a pas pu aboutir. Réessayez."
+    },
+    "encadrement": {
+      "titre": "Équipe d'encadrement et de gestion",
+      "sousTitre": "Les responsables du projet. Le chef de projet en a la main : il complète l'équipe, fixe le planning et le budget.",
+      "fonction": {
+        "CHEF_PROJET": "Chef de projet responsable",
+        "CONDUCTEUR_TRAVAUX": "Conducteur(s) de travaux",
+        "CHEF_CHANTIER": "Chef(s) de chantier",
+        "AUTRE_MEMBRE": "Autres membres"
+      },
+      "fonctionUnitaire": {
+        "CHEF_PROJET": "Chef de projet",
+        "CONDUCTEUR_TRAVAUX": "Conducteur de travaux",
+        "CHEF_CHANTIER": "Chef de chantier",
+        "AUTRE_MEMBRE": "Autre membre"
+      },
+      "fonctionAutreMembre": {
+        "FINANCIER": "Financier",
+        "INGENIEUR": "Ingénieur",
+        "DOCUMENTALISTE": "Documentaliste",
+        "METREUR": "Métreur",
+        "QHSE": "Responsable QHSE",
+        "AUTRE": "Autre"
+      },
+      "obligatoire": "Obligatoire",
+      "aucun": "Personne pour le moment",
+      "toutLeChantier": "Tout le chantier",
+      "invite": "Invité",
+      "email": "Envoyer un email à {nom}",
+      "whatsapp": "Contacter sur WhatsApp",
+      "ajouterMembre": "Ajouter un membre",
+      "changerChefProjet": "Changer",
+      "retirer": "Retirer {nom}",
+      "ajout": {
+        "titre": "Ajouter un membre à l'encadrement",
+        "titreChefProjet": "Désigner le chef de projet",
+        "sousTitre": "Choisissez la place puis la personne, parmi les utilisateurs du compte.",
+        "champFonction": "Place dans l'équipe",
+        "champUtilisateur": "Utilisateur",
+        "utilisateurPlaceholder": "Sélectionner un utilisateur…",
+        "utilisateurRecherche": "Rechercher un utilisateur…",
+        "utilisateurAucun": "Aucun utilisateur disponible.",
+        "chargementUtilisateurs": "Chargement des utilisateurs…",
+        "erreurUtilisateurs": "Impossible de charger les utilisateurs du compte.",
+        "champZone": "Zone ou lot (optionnel)",
+        "zonePlaceholder": "Ex : Lot 02 — Gros œuvre, Bâtiment B",
+        "aideZone": "Un chef de chantier par zone ou par lot. Vide : tout le chantier.",
+        "champFonctionMembre": "Fonction",
+        "selectionner": "Sélectionner…",
+        "remplacement": "{nom} est aujourd'hui chef de projet : il sera remplacé.",
+        "erreurFonctionRequise": "Choisissez la place dans l'équipe.",
+        "erreurUtilisateurRequis": "Sélectionnez un utilisateur.",
+        "erreurZoneTropLongue": "La zone ne doit pas dépasser 80 caractères.",
+        "erreurFonctionMembreRequise": "Choisissez la fonction de ce membre.",
+        "erreurGenerique": "Le membre n'a pas pu être ajouté.",
+        "annuler": "Annuler",
+        "ajouter": "Ajouter",
+        "designer": "Désigner",
+        "succes": "{nom} a rejoint l'équipe d'encadrement.",
+        "succesChefProjet": "{nom} est désormais chef de projet."
+      },
+      "retrait": {
+        "titre": "Retirer {nom} ?",
+        "description": "{nom} ne sera plus {fonction} sur ce projet. Son compte utilisateur reste actif.",
+        "erreurGenerique": "Le membre n'a pas pu être retiré.",
+        "annuler": "Annuler",
+        "retirer": "Retirer",
+        "succes": "{nom} a été retiré de l'équipe d'encadrement."
+      }
+    },
+    "cadrage": {
+      "definir": "Définir",
+      "modifier": "Modifier",
+      "nonDefini": "Non défini",
+      "attenteChefProjet": "À fixer par le chef de projet",
+      "planning": {
+        "titre": "Planning contractuel",
+        "sousTitre": "Les dates de démarrage et de fin prévues du projet.",
+        "champDateDebut": "Date de démarrage",
+        "champDateFin": "Date de fin prévisionnelle",
+        "champDateChoisir": "jj/mm/aaaa",
+        "duree": "Durée : {duree}",
+        "succes": "Le planning du projet est enregistré."
+      },
+      "budget": {
+        "titre": "Budget prévisionnel",
+        "sousTitre": "Le montant total prévisionnel du projet, hors taxes.",
+        "champMontant": "Montant total prévisionnel (FCFA)",
+        "montantPlaceholder": "Ex : 485 000 000",
+        "succes": "Le budget du projet est enregistré."
+      },
+      "erreurDateDebutRequise": "La date de démarrage est requise.",
+      "erreurDateFinRequise": "La date de fin prévisionnelle est requise.",
+      "erreurBudgetRequis": "Le montant prévisionnel est requis.",
+      "erreurBudgetInvalide": "Saisissez un montant entier supérieur à zéro, sans décimales.",
+      "erreurGenerique": "L'enregistrement a échoué. Réessayez.",
+      "annuler": "Annuler",
+      "enregistrer": "Enregistrer",
+      "enregistrementEnCours": "Enregistrement…"
     }
   },
   "referentielVilles": {
@@ -1508,6 +1834,18 @@
     "utiliserSaisie": "Utiliser « {saisie} »"
   },
   "roles": {
+    "acces": {
+      "aucun": "Aucun",
+      "court": {
+        "aucun": "—",
+        "lecture": "L",
+        "saisie": "S",
+        "validation": "V"
+      },
+      "lecture": "Lecture",
+      "saisie": "Saisie",
+      "validation": "Validation"
+    },
     "actions": "Actions",
     "annuler": "Annuler",
     "avertissementSuppression": "Attention : ce rôle est actuellement attribué à {n} collaborateur(s) ou affectation(s) de chantier. Pour garantir la continuité de l’accès sans interruption, vous devez obligatoirement sélectionner un rôle de substitution.",
@@ -1519,6 +1857,7 @@
     "chargement": "Chargement de la matrice des rôles et permissions…",
     "choisirModele": "-- Choisir un modèle optionnel --",
     "choisirRemplacement": "-- Choisissez un rôle de remplacement --",
+    "colonneAcces": "Accès",
     "confirmationSuppressionSimple": "Êtes-vous sûr de vouloir supprimer ce rôle ? Cette action retirera ce rôle du catalogue de l’entreprise.",
     "confirmerSuppression": "Confirmer la réassignation et supprimer",
     "copierDroitsDe": "Copier les droits de : {role}",
@@ -1532,8 +1871,9 @@
     "erreurDgUnique": "Le rôle de Directeur Général est unique et immuable.",
     "erreurIntituleRequis": "L’intitulé du rôle est requis.",
     "exceptionsChantier": "{n, plural, =1 {1 exception sur ce chantier} other {# exceptions sur ce chantier}}",
-    "legendeTitre": "Légende des 4 niveaux d’accès :",
+    "legendeTitre": "Légende des accès :",
     "matriceDroitsTitre": "Matrice des droits par module",
+    "module": "Module",
     "modules": {
       "achats": {
         "description": "Demandes d’achat et bons de commande",
@@ -1584,10 +1924,6 @@
         "nom": "Parties Prenantes"
       }
     },
-    "niveauAucun": "0 — Aucun",
-    "niveauEcriture": "2 — Saisie",
-    "niveauLecture": "1 — Lecture",
-    "niveauValidation": "3 — Validation",
     "nouveauRole": "Nouveau rôle",
     "personnalise": "Personnalisé",
     "personnaliseSurChantier": "= Personnalisé sur ce chantier",
@@ -1597,7 +1933,8 @@
     "restrictionDgMessage": "Seul le Directeur Général a autorité pour créer, modifier ou supprimer des rôles de l’entreprise.",
     "restrictionDgTitre": "Accès restreint",
     "role": "Rôle",
-    "sousTitre": "Personnalisez les rôles de votre entreprise et configurez la matrice d’accès aux 12 modules CCD Digital. Ces habilitations constituent le standard par défaut appliqué à l’ensemble de vos chantiers.",
+    "sousTitre": "Personnalisez les rôles de votre entreprise et configurez la matrice d’accès. Ces habilitations constituent le standard par défaut appliqué à l’ensemble de vos chantiers.",
+    "sousTitreModification": "Modifiez l’intitulé, la description et les accès par module de ce rôle.",
     "sousTitreCreation": "Définissez l’intitulé, le code et les droits par module de ce nouveau rôle.",
     "succesCreation": "Le rôle « {role} » a été créé avec succès.",
     "succesModification": "Le rôle « {role} » a été modifié avec succès.",
@@ -1905,7 +2242,8 @@
       "tarifs": "Tarifs",
       "tiers": "Tiers",
       "chantierSynthese": "Synthèse périodique",
-      "chantierRapport": "Rapport journalier"
+      "chantierRapport": "Rapport journalier",
+      "monProfil": "Mon profil"
     },
     "portefeuille": {
       "budgetNonDefini": "Non défini",
@@ -1988,6 +2326,12 @@
   "journal": {
     "titre": "Journal de chantier",
     "erreurChargement": "Le journal de chantier n'a pas pu être chargé.",
+    "sansProjet": {
+      "resume": "Aucun projet suivi",
+      "titre": "Aucun journal pour le moment",
+      "description": "Le journal de chantier se remplit des rapports journaliers de vos projets. Votre entreprise n'en a encore ouvert aucun : il n'y a donc pas de journal à consulter.",
+      "action": "Aller aux projets"
+    },
     "resume": "{date} · {heure} — {deposes} rapport(s) déposé(s) sur {attendus} attendu(s), {manquants, plural, =0 {aucun manquant} one {# manquant} other {# manquants}}, {validations, plural, =0 {aucune validation en attente} one {# validation en attente} other {# validations en attente}}.",
     "synthese": {
       "titre": "Journal de chantier — rapport périodique",
@@ -2005,7 +2349,6 @@
         "MENSUELLE": "Synthèse mensuelle",
         "PERSONNALISEE": "Synthèse personnalisée"
       },
-      "genereLe": "Générée le {quand}",
       "periodeEnCours": "Période en cours — chiffres provisoires",
       "identification": "Identification",
       "projet": "Projet",
@@ -2067,14 +2410,11 @@
         "avancement": "Av. lot",
         "incidents": "Incidents",
         "blocages": "Blocages",
-        "reference": "Réf.",
         "vide": "Aucun rapport attendu sur cette période.",
         "nonDisponible": "Non disponible",
-        "absent": "Absent",
         "total": "Total",
         "totalValides": "{valides}/{attendus} validés",
-        "totalPresence": "Présence {taux} %",
-        "totalManquants": "{n, plural, one {# manquant} other {# manquants}}"
+        "totalPresence": "Présence {taux} %"
       },
       "avancement": {
         "activite": "Lot / activité",
@@ -2139,7 +2479,10 @@
         "vide": "Les objectifs de la période suivante sont fixés à la clôture."
       },
       "separateur": " · ",
-      "lotCouvert": "{code} {nom}"
+      "lotCouvert": "{code} {nom}",
+      "pdf": {
+        "nomFichier": "synthese-{reference}.pdf"
+      }
     },
     "pourcent": "{valeur} %",
     "actions": {
@@ -2242,10 +2585,6 @@
       "titre": "{code} {lot} — {chantier}",
       "horsDelai": "Hors délai",
       "details": "{date} · {chef} · effectifs {presents}/{prevus} ({taux} %) · avancement {avancement} % · {incidents, plural, =0 {aucun incident} one {# incident} other {# incidents}} · {blocages, plural, =0 {aucun blocage} one {# blocage} other {# blocages}}",
-      "note": "Note du chef de chantier : « {note} »",
-      "attendu": "Attendu : {role} ({nom})",
-      "echeance": "— avant {quand}",
-      "echeanceDepassee": "— délai dépassé ({quand})",
       "relancer": "Relancer le {role}",
       "voir": "Voir le rapport",
       "motif": "Rejeté par {nom} : {motif}"
@@ -2327,10 +2666,18 @@
       "raccourci": "Synthèse S{numero} · {reference}"
     },
     "document": {
-      "retour": "Journal de chantier",
-      "imprimer": "Imprimer / PDF",
-      "marque": "CCD Digital · Journal de chantier",
-      "pied": "CCD Digital — solution SaaS de gestion de chantier BTP"
+      "retour": "Retour au journal de chantier",
+      "actions": "Actions",
+      "imprimer": "Imprimer",
+      "telecharger": "Télécharger le PDF",
+      "generation": {
+        "enCours": "Génération du PDF en cours… Le téléchargement démarrera automatiquement.",
+        "enCoursImpression": "Préparation du document à imprimer… La fenêtre d'impression s'ouvrira automatiquement.",
+        "echec": "Le document n'a pas pu être généré.",
+        "erreur": "Le document n'a pas pu être généré. Réessayez.",
+        "fermer": "Fermer",
+        "reessayer": "Réessayer"
+      }
     },
     "enumerations": {
       "meteo": {
@@ -2390,15 +2737,11 @@
       "sousTitre": "Rapport journalier officiel — validé par le conducteur de travaux sous 24 h",
       "introuvable": "Ce rapport n'existe pas ou n'a pas encore été rédigé.",
       "erreurChargement": "Le rapport n'a pas pu être chargé.",
-      "statut": "Statut : {statut}",
-      "soumisLe": "Soumis le {quand} par {nom}",
-      "attente": "En attente : {role} — délai {quand}",
-      "attenteHorsDelai": "Hors délai : {role} — délai dépassé depuis le {quand}",
-      "rejet": "Motif du rejet : {motif}",
       "identification": "Identification",
       "projet": "Projet",
       "lot": "Lot",
       "lotValeur": "{code} — {nom}",
+      "titrePage": "Rapport du {jour}",
       "mode": "Mode d'exécution",
       "referenceProjet": "Référence projet",
       "numero": "N° de rapport",
@@ -2415,7 +2758,6 @@
       "neant": "—",
       "total": "Total",
       "quantiteUnite": "{quantite} {unite}",
-      "mention": "Données figées à la soumission — immuables après approbation du CP",
       "chiffres": {
         "avancement": "Avancement du lot",
         "retard": "Retard {points} pts · prévu {theorique} %",
@@ -2565,7 +2907,71 @@
       "note": {
         "auteur": "{nom} — chef de chantier · {quand}",
         "vide": "Aucune note."
+      },
+      "pdf": {
+        "nomFichier": "rapport-journalier-{reference}.pdf",
+        "dateGeneration": "Date de génération : {date}",
+        "identification": "Identification et chiffres du jour",
+        "retard": "Retard {points} pts",
+        "alHeure": "Dans le planning",
+        "photo": "{titre} — {legende} · {meta}",
+        "signeLe": "Signé le : {quand}",
+        "signeLeVide": "Signé le :",
+        "page": "Page {page}/{total}"
       }
+    }
+  },
+  "profil": {
+    "metaTitre": "Mon profil",
+    "titre": "Mon profil",
+    "sousTitre": "Vos informations personnelles et vos droits dans l’entreprise.",
+    "chargement": "Chargement du profil…",
+    "erreurChargement": "Le profil n’a pas pu être chargé. Vérifiez votre connexion puis réessayez.",
+    "reessayer": "Réessayer",
+    "erreurAction": "L’opération n’a pas abouti. Réessayez dans un instant.",
+    "sectionIdentite": "Informations personnelles",
+    "sectionIdentiteAide": "Elles apparaissent auprès de vos collaborateurs et dans l’historique des actions.",
+    "prenom": "Prénom",
+    "nom": "Nom",
+    "email": "Adresse e-mail",
+    "emailAide": "C’est votre identifiant de connexion : elle ne se modifie pas ici.",
+    "telephone": "Téléphone",
+    "enregistrer": "Enregistrer",
+    "enCours": "Enregistrement…",
+    "annuler": "Annuler les modifications",
+    "succes": "Votre profil a été mis à jour.",
+    "erreurPrenomRequis": "Le prénom est requis.",
+    "erreurNomRequis": "Le nom est requis.",
+    "erreurTelephoneInvalide": "Ce numéro n’est pas complet pour son pays.",
+    "sectionCompte": "Compte",
+    "role": "Rôle",
+    "entreprise": "Entreprise",
+    "statut": "Statut",
+    "derniereConnexion": "Dernière connexion",
+    "membreDepuis": "Membre depuis",
+    "doubleAuthentification": "Double authentification",
+    "active": "Activée",
+    "inactive": "Désactivée",
+    "roleAide": "Le rôle se change depuis la gestion des collaborateurs.",
+    "statuts": {
+      "ACTIF": "Actif",
+      "INACTIF": "Inactif",
+      "SUSPENDU": "Suspendu",
+      "EN_ATTENTE": "En attente"
+    },
+    "sectionHabilitations": "Mes habilitations",
+    "sectionHabilitationsAide": "Ce que votre rôle vous permet de faire, module par module.",
+    "aucuneHabilitation": "Aucune habilitation n’est attachée à votre rôle.",
+    "photo": {
+      "changer": "Changer la photo",
+      "ajouter": "Ajouter une photo",
+      "retirer": "Retirer la photo",
+      "contrainte": "PNG, JPEG ou WebP — 2 Mo au plus.",
+      "enCours": "Envoi de la photo…",
+      "succes": "Votre photo de profil a été mise à jour.",
+      "retiree": "Votre photo de profil a été retirée.",
+      "formatInvalide": "Ce format n’est pas accepté.",
+      "tropLourde": "Cette photo dépasse 2 Mo."
     }
   }
 }

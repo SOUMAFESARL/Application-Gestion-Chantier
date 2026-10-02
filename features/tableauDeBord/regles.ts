@@ -417,3 +417,28 @@ export function valeursExportPortefeuille(ligne: LigneChantier): (string | numbe
     ligne.indiceSante,
   ];
 }
+
+/**
+ * Le tableau de bord réduit aux chantiers qu'un compte voit — ses chantiers,
+ * hors direction (`null` : aucune restriction).
+ *
+ * Une alerte ou une échéance sans chantier est d'échelle entreprise : elle
+ * reste à la direction. Un élément à valider ne porte que le nom de son
+ * chantier : c'est par lui qu'il se rattache.
+ */
+export function restreindreTableauDeBord(
+  donnees: TableauDeBord,
+  chantiersVisibles: ReadonlySet<string> | null,
+): TableauDeBord {
+  if (!chantiersVisibles) return donnees;
+  const chantiers = donnees.chantiers.filter((ligne) => chantiersVisibles.has(ligne.id));
+  const noms = new Set(chantiers.map((ligne) => ligne.nom));
+  const rattache = (id: string | null) => id !== null && chantiersVisibles.has(id);
+  return {
+    ...donnees,
+    chantiers,
+    validations: donnees.validations.filter((element) => noms.has(element.chantierNom)),
+    alertes: donnees.alertes.filter((alerte) => rattache(alerte.chantierId)),
+    echeances: donnees.echeances.filter((echeance) => rattache(echeance.chantierId)),
+  };
+}

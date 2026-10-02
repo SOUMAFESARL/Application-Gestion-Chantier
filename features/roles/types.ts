@@ -2,15 +2,24 @@
  * Types pour la gestion dynamique des rôles et des habilitations par module (RBAC Hybride).
  */
 
+/**
+ * L'**ancien** format du serveur : un seul niveau cumulatif par module
+ * (0 aucun, 1 lecture, 2 saisie, 3 validation — chacun inclut les précédents).
+ * Il n'est plus que lu, par `api.ts`, le temps que le serveur passe aux listes
+ * d'accès ; aucun écran ne le manipule.
+ */
 export type NiveauAcces = 0 | 1 | 2 | 3;
 
-export const NIVEAU_ACCES = {
-  AUCUN: 0 as NiveauAcces,
-  LECTURE: 1 as NiveauAcces,
-  ECRITURE: 2 as NiveauAcces,
-  VALIDATION: 3 as NiveauAcces,
-};
+/**
+ * Les accès d'un module, **indépendants** les uns des autres : un rôle peut
+ * valider sans saisir. Une liste vide, c'est « Aucun ».
+ */
+export const ACCES_MODULE = ["lecture", "saisie", "validation"] as const;
 
+export type AccesModule = (typeof ACCES_MODULE)[number];
+
+/** Les accès d'un rôle, module par module. */
+export type PermissionsModules = Record<string, AccesModule[]>;
 
 /**
  * Les douze modules du produit, **par leur code seul**.
@@ -47,7 +56,7 @@ export interface RoleItem {
   est_systeme: boolean;
   est_actif: boolean;
   nb_utilisateurs: number;
-  permissions_modules: Record<string, NiveauAcces>;
+  permissions_modules: PermissionsModules;
 }
 
 export interface RoleDetailItem extends RoleItem {
@@ -63,5 +72,5 @@ export interface ProjetRoleMatrice {
   code: string;
   libelle: string;
   est_systeme: boolean;
-  modules: Record<string, { niveau: NiveauAcces; est_surcharge: boolean }>;
+  modules: Record<string, { acces: AccesModule[]; est_surcharge: boolean }>;
 }
