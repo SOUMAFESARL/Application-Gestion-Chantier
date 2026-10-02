@@ -310,6 +310,9 @@ const eslintConfig = defineConfig([
       // « manage.py generer_referentiel_villes ».
       "features/referentiels/villes.ts",
       "features/referentiels/telephone.ts",
+      // La liste indicative des lots par corps d'état : une nomenclature de
+      // marché, reprise du fichier remis par le client.
+      "features/referentiels/lots.ts",
       // Couche de simulation : elle imite les messages du serveur pour que les
       // écrans se relisent sans API. Rien n'en sort en production.
       "lib/api/simulation.ts",

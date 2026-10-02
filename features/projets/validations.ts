@@ -27,10 +27,12 @@ import {
   ROLE_MEMBRE_PAR_DEFAUT,
   ROLES_MEMBRE_EQUIPE,
   TYPES_BORDEREAU,
+  NOMBRE_MAX_CONTRATS,
   TYPES_PROJET,
   UNITES_ACTIVITE,
   budgetRecevable,
   datesChantierCoherentes,
+  refusContrat,
 } from "./regles";
 import type {
   Activite,
@@ -93,6 +95,16 @@ export const schemaProjet = z
     description: z.string().trim().max(LONGUEUR_MAX_DESCRIPTION, {
       message: texte("projets.tiroirCreation.erreurDescriptionTropLongue"),
     }),
+    // Facultatifs : la zone de dépôt refuse déjà un fichier non conforme, le
+    // schéma le revérifie pour ne pas dépendre d'elle.
+    contrats: z
+      .array(z.custom<File>())
+      .max(NOMBRE_MAX_CONTRATS, {
+        message: texte("projets.tiroirCreation.erreurContratsTropNombreux", { max: NOMBRE_MAX_CONTRATS }),
+      })
+      .refine((fichiers) => fichiers.every((fichier) => refusContrat(fichier) === null), {
+        message: texte("projets.tiroirCreation.erreurContratFormat"),
+      }),
   })
   .superRefine((saisie, ctx) => {
     if (!datesChantierCoherentes(saisie.dateDebut, saisie.dateFin)) {
@@ -116,6 +128,7 @@ export function saisieProjetVide(reference = ""): SaisieProjet {
     dateFin: "",
     budget: "",
     description: "",
+    contrats: [],
   };
 }
 
@@ -134,6 +147,7 @@ export function versCreationProjet(valeurs: ValeursProjet): CreationProjet {
     // Même conversion que partout ailleurs dans le produit (`lib/format`).
     budgetInitial: valeurs.budget ? (saisieEnCentimes(valeurs.budget) ?? undefined) : undefined,
     description: valeurs.description || undefined,
+    contrats: valeurs.contrats.length > 0 ? valeurs.contrats : undefined,
   };
 }
 
@@ -152,6 +166,7 @@ export function saisieDepuisProjet(projet: Projet): SaisieProjet {
     dateFin: "",
     budget: "",
     description: "",
+    contrats: [],
   };
 }
 
@@ -170,12 +185,24 @@ export function versModificationProjet(valeurs: ValeursProjet): ModificationProj
  * Un lot.
  * ------------------------------------------------------------------ */
 
-/** Un lot, ajouté sur un chantier ouvert depuis « Lots & activités ». */
+/**
+ * Un lot, ajouté sur un chantier ouvert depuis « Lots & activités ».
+ *
+ * Le budget se fixe ici, au lot — c'est l'unité du marché —, et non sur
+ * chaque activité. Budget et dates restent facultatifs : un lot se déclare
+ * souvent avant d'être chiffré ou planifié.
+ */
 export const schemaLot = z
   .object({
     nom: chaineNonVide(texte("projets.tiroirCreation.erreurLotNomRequis")),
     modeExecution: choixParmi(MODES_EXECUTION_LOT, texte("projets.tiroirCreation.erreurLotModeRequis")),
     typeBordereau: choixParmi(TYPES_BORDEREAU, texte("projets.tiroirCreation.erreurLotBordereauRequis")),
+    budget: z
+      .string()
+      .trim()
+      .refine((valeur) => valeur === "" || (MOTIF_MONTANT.test(valeur) && budgetRecevable(saisieEnCentimes(valeur))), {
+        message: texte("projets.lotsActivites.formLot.erreurBudgetInvalide"),
+      }),
     dateDebut: z.string(),
     dateFin: z.string(),
   })
@@ -193,7 +220,7 @@ export type SaisieLotProjet = z.input<typeof schemaLot>;
 
 /** Un lot vierge. */
 export function lotVide(): SaisieLotProjet {
-  return { nom: "", modeExecution: "", typeBordereau: "", dateDebut: "", dateFin: "" };
+  return { nom: "", modeExecution: "", typeBordereau: "", budget: "", dateDebut: "", dateFin: "" };
 }
 
 export function versCreationLotProjet(saisie: z.output<typeof schemaLot>): CreationLotProjet {
@@ -201,6 +228,7 @@ export function versCreationLotProjet(saisie: z.output<typeof schemaLot>): Creat
     nom: saisie.nom,
     modeExecution: saisie.modeExecution as ModeExecutionLot,
     typeBordereau: saisie.typeBordereau as TypeBordereau,
+    budget: saisie.budget ? (saisieEnCentimes(saisie.budget) ?? undefined) : undefined,
     dateDebut: saisie.dateDebut || undefined,
     dateFin: saisie.dateFin || undefined,
   };
@@ -238,14 +266,9 @@ export const schemaActivite = z
         message: texte("projets.lotsActivites.formActivite.erreurQuantiteInvalide"),
       }),
     unite: z.string(),
-    dateDebut: chaineNonVide(texte("projets.lotsActivites.formActivite.erreurDateDebutRequise")),
-    dateFin: chaineNonVide(texte("projets.lotsActivites.formActivite.erreurDateFinRequise")),
-    budget: z
-      .string()
-      .trim()
-      .refine((valeur) => valeur === "" || (MOTIF_MONTANT.test(valeur) && budgetRecevable(saisieEnCentimes(valeur))), {
-        message: texte("projets.lotsActivites.formActivite.erreurBudgetInvalide"),
-      }),
+    // Facultatives : une activité se déclare souvent avant d'être planifiée.
+    dateDebut: z.string(),
+    dateFin: z.string(),
     dependanceId: z.string(),
     equipeId: z.string(),
   })
@@ -275,7 +298,6 @@ export function saisieActiviteVide(lotId = ""): SaisieActivite {
     unite: "M2",
     dateDebut: "",
     dateFin: "",
-    budget: "",
     dependanceId: "",
     equipeId: "",
   };
@@ -288,9 +310,8 @@ export function saisieDepuisActivite(activite: Activite): SaisieActivite {
     libelle: activite.libelle,
     quantite: activite.quantitePrevue === null ? "" : String(activite.quantitePrevue),
     unite: activite.unite ?? "M2",
-    dateDebut: activite.dateDebutPrevue,
-    dateFin: activite.dateFinPrevue,
-    budget: activite.budget === null ? "" : String(Math.round(activite.budget / 100)),
+    dateDebut: activite.dateDebutPrevue ?? "",
+    dateFin: activite.dateFinPrevue ?? "",
     dependanceId: activite.dependanceId ?? "",
     equipeId: activite.equipe?.id ?? "",
   };
@@ -305,9 +326,8 @@ export function versSaisieActiviteDomaine(valeurs: ValeursActivite): SaisieActiv
     quantitePrevue,
     // Sans quantité, l'unité ne dit rien : elle n'est pas transmise.
     unite: quantitePrevue === null ? null : (valeurs.unite as UniteActivite),
-    dateDebutPrevue: valeurs.dateDebut,
-    dateFinPrevue: valeurs.dateFin,
-    budget: valeurs.budget === "" ? null : saisieEnCentimes(valeurs.budget),
+    dateDebutPrevue: valeurs.dateDebut || null,
+    dateFinPrevue: valeurs.dateFin || null,
     dependanceId: valeurs.dependanceId || null,
     equipeId: valeurs.equipeId || null,
   };

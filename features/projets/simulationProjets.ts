@@ -422,7 +422,8 @@ export const simulationProjets = {
    * Un chantier qui vient d'être ouvert n'a ni avancement ni consommation :
    * il part à zéro et en attente, comme le veut `regles.ts`. Le reproduire
    * autrement ici donnerait un chantier de démonstration qui ne ressemble à
-   * aucun chantier réel.
+   * aucun chantier réel. Les contrats joints ne sont pas conservés : l'état
+   * simulé vit dans `localStorage`, qui ne porte pas de PDF.
    */
   async creer(creation: CreationProjet): Promise<Projet> {
     const projets = lireEtat();

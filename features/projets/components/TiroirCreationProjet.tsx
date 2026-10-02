@@ -37,13 +37,21 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { ZoneDepotFichiers } from "@/components/ui/zone-depot-fichiers";
 import { paysEntreprise } from "@/features/configuration/api";
 import {
   creerProjet,
   modifierProjet,
   proposerReferenceProjet,
 } from "@/features/projets/adaptateur";
-import { TYPES_PROJET, joursOuvres } from "@/features/projets/regles";
+import {
+  FORMAT_CONTRAT,
+  NOMBRE_MAX_CONTRATS,
+  TAILLE_MAX_CONTRAT,
+  TYPES_PROJET,
+  joursOuvres,
+  refusContrat,
+} from "@/features/projets/regles";
 import type { Projet } from "@/features/projets/types";
 import {
   LONGUEUR_MAX_DESCRIPTION,
@@ -57,7 +65,7 @@ import {
   type ValeursProjet,
 } from "@/features/projets/validations";
 import type { ErreurApi } from "@/lib/api";
-import { formaterSaisieMontant } from "@/lib/format";
+import { formaterSaisieMontant, formaterTailleFichier } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const FORM_ID = "form-creation-projet";
@@ -196,6 +204,18 @@ export function TiroirCreationProjet({
   function reinitialiser() {
     form.reset(saisieProjetVide());
     setErreur(null);
+  }
+
+  /** Le motif affiché sous la zone de dépôt quand un fichier est écarté. */
+  function motifRefusContrat(fichier: File): string | null {
+    switch (refusContrat(fichier)) {
+      case "FORMAT":
+        return t("refusContratFormat");
+      case "TAILLE":
+        return t("refusContratTaille", { taille: formaterTailleFichier(TAILLE_MAX_CONTRAT) });
+      default:
+        return null;
+    }
   }
 
   async function soumettre(saisie: ValeursProjet) {
@@ -493,7 +513,7 @@ export function TiroirCreationProjet({
                     control={form.control}
                     name="description"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="col-span-full">
                         <FormLabel>{t("champDescription")}</FormLabel>
                         <FormControl>
                           <Textarea
@@ -509,6 +529,38 @@ export function TiroirCreationProjet({
                     )}
                   />
                 </div>
+
+                <TitreSection>{t("sectionContrat")}</TitreSection>
+
+                <FormField
+                  control={form.control}
+                  name="contrats"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("champContrats")}</FormLabel>
+                      <FormControl>
+                        <ZoneDepotFichiers
+                          fichiers={field.value}
+                          onChange={(fichiers) => {
+                            field.onChange(fichiers);
+                            field.onBlur();
+                          }}
+                          name={field.name}
+                          accept={`${FORMAT_CONTRAT},.pdf`}
+                          multiple
+                          maximum={NOMBRE_MAX_CONTRATS}
+                          refuser={motifRefusContrat}
+                          consigne={t("consigneContrats", {
+                            taille: formaterTailleFichier(TAILLE_MAX_CONTRAT),
+                            max: NOMBRE_MAX_CONTRATS,
+                          })}
+                          disabled={enCours}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </>
             )}
           </form>

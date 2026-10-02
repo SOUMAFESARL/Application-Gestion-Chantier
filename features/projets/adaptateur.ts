@@ -19,7 +19,7 @@
 import { api } from "@/lib/api";
 import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
 
-import { ROLE_MEMBRE_PAR_DEFAUT } from "./regles";
+import { lireLotsImportes, ROLE_MEMBRE_PAR_DEFAUT } from "./regles";
 import { simulationLots } from "./simulationLots";
 import { simulationProjets } from "./simulationProjets";
 
@@ -38,6 +38,7 @@ import type {
   FonctionProjet,
   EquipeChantier,
   Intervenant,
+  LigneImportLot,
   Lot,
   MembreEquipe,
   MeteoProjet,
@@ -344,9 +345,26 @@ export async function lireProjet(id: string): Promise<Projet> {
   return versProjet(await api.lire<ChargeProjet>(`/projets/${id}/`));
 }
 
+/**
+ * Sans contrat, la création part en JSON. Avec, elle part en `multipart` :
+ * les champs à plat, et un `contrats` répété par fichier — la forme que lit
+ * `request.FILES.getlist("contrats")` côté Django.
+ */
+function versCorpsCreation(creation: CreationProjet): ChargeCreationProjet | FormData {
+  const charge = versChargeCreation(creation);
+  if (!creation.contrats?.length) return charge;
+
+  const corps = new FormData();
+  for (const [cle, valeur] of Object.entries(charge)) {
+    if (valeur !== undefined && valeur !== "") corps.append(cle, String(valeur));
+  }
+  for (const contrat of creation.contrats) corps.append("contrats", contrat, contrat.name);
+  return corps;
+}
+
 export async function creerProjet(creation: CreationProjet): Promise<Projet> {
   if (SIMULATION_ACTIVE) return simulationProjets.creer(creation);
-  return versProjet(await api.creer<ChargeProjet>("/projets/", versChargeCreation(creation)));
+  return versProjet(await api.creer<ChargeProjet>("/projets/", versCorpsCreation(creation)));
 }
 
 export async function modifierProjet(
@@ -483,9 +501,8 @@ interface ChargeActivite {
   libelle: string;
   quantite_prevue?: number | null;
   unite?: UniteActivite | null;
-  date_debut_prevue: string;
-  date_fin_prevue: string;
-  budget_montant?: number | null;
+  date_debut_prevue?: string | null;
+  date_fin_prevue?: string | null;
   avancement?: number;
   sur_chemin_critique?: boolean;
   dependance_id?: string | null;
@@ -499,6 +516,7 @@ interface ChargeLot {
   nom: string;
   mode_execution: ModeExecutionLot;
   type_bordereau: TypeBordereau;
+  budget_montant?: number | null;
   date_debut?: string | null;
   date_fin?: string | null;
   activites?: ChargeActivite[];
@@ -516,9 +534,8 @@ function versActivite(charge: ChargeActivite): Activite {
     libelle: charge.libelle,
     quantitePrevue: charge.quantite_prevue ?? null,
     unite: charge.unite ?? null,
-    dateDebutPrevue: charge.date_debut_prevue,
-    dateFinPrevue: charge.date_fin_prevue,
-    budget: charge.budget_montant ?? null,
+    dateDebutPrevue: charge.date_debut_prevue ?? null,
+    dateFinPrevue: charge.date_fin_prevue ?? null,
     avancement: charge.avancement ?? 0,
     surCheminCritique: charge.sur_chemin_critique ?? false,
     dependanceId: charge.dependance_id ?? null,
@@ -534,6 +551,7 @@ function versLot(charge: ChargeLot): Lot {
     nom: charge.nom,
     modeExecution: charge.mode_execution,
     typeBordereau: charge.type_bordereau,
+    budget: charge.budget_montant ?? null,
     dateDebut: charge.date_debut ?? null,
     dateFin: charge.date_fin ?? null,
     activites: (charge.activites ?? []).map(versActivite),
@@ -548,7 +566,6 @@ function versChargeActivite(saisie: SaisieActiviteDomaine) {
     unite: saisie.unite,
     date_debut_prevue: saisie.dateDebutPrevue,
     date_fin_prevue: saisie.dateFinPrevue,
-    budget_montant: saisie.budget,
     dependance_id: saisie.dependanceId,
     equipe_id: saisie.equipeId,
   };
@@ -566,17 +583,46 @@ export async function listerLots(projetId: string, signal?: AbortSignal): Promis
   return charges.map(versLot);
 }
 
+function versChargeLot(creation: CreationLotProjet) {
+  return {
+    nom: creation.nom,
+    mode_execution: creation.modeExecution,
+    type_bordereau: creation.typeBordereau,
+    budget_montant: creation.budget,
+    date_debut: creation.dateDebut,
+    date_fin: creation.dateFin,
+  };
+}
+
 export async function creerLot(projetId: string, creation: CreationLotProjet): Promise<Lot> {
   if (SIMULATION_ACTIVE) return simulationLots.creerLot(projetId, creation);
-  return versLot(
-    await api.creer<ChargeLot>(`/projets/${projetId}/lots/`, {
-      nom: creation.nom,
-      mode_execution: creation.modeExecution,
-      type_bordereau: creation.typeBordereau,
-      date_debut: creation.dateDebut,
-      date_fin: creation.dateFin,
-    }),
-  );
+  return versLot(await api.creer<ChargeLot>(`/projets/${projetId}/lots/`, versChargeLot(creation)));
+}
+
+/**
+ * La première feuille d'un fichier Excel de lots, lue et interprétée par
+ * `lireLotsImportes`. La bibliothèque n'est chargée qu'ici, au premier
+ * import : elle n'a rien à faire dans le paquet des autres écrans.
+ *
+ * Rejette si le fichier n'est pas un `.xlsx` lisible.
+ */
+export async function lireFichierLots(fichier: File, lotsExistants: Lot[]): Promise<LigneImportLot[]> {
+  const { readSheet } = await import("read-excel-file/browser");
+  const feuille = await readSheet(fichier);
+  return lireLotsImportes(feuille as unknown[][], lotsExistants);
+}
+
+/**
+ * Plusieurs lots d'un coup — l'import d'un fichier. **Une seule requête** :
+ * le serveur les crée tous ou aucun, et un import ne s'arrête jamais à la
+ * moitié, avec des codes déjà pris et le reste à refaire à la main.
+ */
+export async function importerLots(projetId: string, creations: CreationLotProjet[]): Promise<Lot[]> {
+  if (SIMULATION_ACTIVE) return simulationLots.importerLots(projetId, creations);
+  const charge = await api.creer<ChargeLot[]>(`/projets/${projetId}/lots/import/`, {
+    lots: creations.map(versChargeLot),
+  });
+  return (charge ?? []).map(versLot);
 }
 
 export async function creerActivite(

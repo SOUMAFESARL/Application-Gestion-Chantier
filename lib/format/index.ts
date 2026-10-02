@@ -189,6 +189,18 @@ export function formaterQuantite(valeur: number | null | undefined): string {
     .replace(/\s/g, INSECABLE);
 }
 
+/**
+ * Une taille de fichier en octets → « 840 ko », « 2,4 Mo ». Les unités
+ * viennent d'`Intl`, comme les noms de pays : rien à traduire à la main.
+ */
+export function formaterTailleFichier(octets: number): string {
+  const [valeur, unite] =
+    octets >= 1024 * 1024 ? [octets / (1024 * 1024), "megabyte"] : [Math.max(octets / 1024, 1), "kilobyte"];
+  return new Intl.NumberFormat("fr-FR", { style: "unit", unit: unite, maximumFractionDigits: 1 })
+    .format(valeur)
+    .replace(/\s/g, INSECABLE);
+}
+
 /** `2026-08-25T07:12:04Z` → « 07:12 » (heure locale de l'utilisateur) */
 export function formaterHeure(valeur: string | Date | null | undefined): string {
   const date = versDate(valeur);

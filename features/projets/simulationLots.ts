@@ -41,10 +41,10 @@ import type {
 } from "./types";
 
 /**
- * `v2` : les équipes sont devenues propres à chaque chantier. Un état gardé
- * sous l'ancienne clé porterait des équipes qui n'existent plus.
+ * `v3` : le budget est passé de l'activité au lot. Un état gardé sous
+ * l'ancienne clé porterait des lots sans budget et des activités qui en ont.
  */
-const CLE_ETAT = "ccd.simulation.lots.v2";
+const CLE_ETAT = "ccd.simulation.lots.v3";
 /** `v2` : chaque membre porte désormais son rôle dans l'équipe. */
 const CLE_EQUIPES = "ccd.simulation.equipes.v2";
 
@@ -147,6 +147,7 @@ const EQUIPES_INITIALES: Record<string, Equipe[]> = {
 
 type GabaritActivite = Omit<Activite, "id" | "lotId" | "code">;
 type GabaritLot = Pick<Lot, "nom" | "modeExecution" | "typeBordereau"> & {
+  budgetMillions: number;
   activites: (GabaritActivite & { cle?: string; apres?: string })[];
 };
 
@@ -161,7 +162,6 @@ function activite(
   unite: Activite["unite"],
   dateDebutPrevue: string,
   dateFinPrevue: string,
-  budgetMillions: number,
   avancement: number,
   options: { equipe?: EquipeChantier; critique?: boolean; cle?: string; apres?: string } = {},
 ): GabaritActivite & { cle?: string; apres?: string } {
@@ -171,7 +171,6 @@ function activite(
     unite,
     dateDebutPrevue,
     dateFinPrevue,
-    budget: millions(budgetMillions),
     avancement,
     surCheminCritique: options.critique ?? false,
     dependanceId: null,
@@ -187,20 +186,22 @@ const STRUCTURE_RESIDENCE: GabaritLot[] = [
     nom: "Installation de chantier",
     modeExecution: "REGIE_DIRECTE",
     typeBordereau: "FORFAIT_GLOBAL",
+    budgetMillions: 10.5,
     activites: [
-      activite("Clôture et portail", 220, "ML", "2026-07-01", "2026-07-08", 4.5, 100),
-      activite("Base vie et bureaux", 1, "FFT", "2026-07-05", "2026-07-15", 6, 100),
+      activite("Clôture et portail", 220, "ML", "2026-07-01", "2026-07-08", 100),
+      activite("Base vie et bureaux", 1, "FFT", "2026-07-05", "2026-07-15", 100),
     ],
   },
   {
     nom: "Terrassement",
     modeExecution: "SOUS_TRAITANCE_STRUCTUREE",
     typeBordereau: "PRIX_UNITAIRE",
+    budgetMillions: 11,
     activites: [
-      activite("Décapage et fouilles en masse", 1800, "M3", "2026-07-10", "2026-07-24", 7, 100, {
+      activite("Décapage et fouilles en masse", 1800, "M3", "2026-07-10", "2026-07-24", 100, {
         equipe: resume(TERRASSEMENT),
       }),
-      activite("Remblais compactés", 950, "M3", "2026-07-22", "2026-08-02", 4, 100, {
+      activite("Remblais compactés", 950, "M3", "2026-07-22", "2026-08-02", 100, {
         equipe: resume(TERRASSEMENT),
       }),
     ],
@@ -209,29 +210,30 @@ const STRUCTURE_RESIDENCE: GabaritLot[] = [
     nom: "Gros œuvre",
     modeExecution: "REGIE_DIRECTE",
     typeBordereau: "PRIX_UNITAIRE",
+    budgetMillions: 176.5,
     activites: [
-      activite("Fondations (semelles)", 145, "M3", "2026-08-01", "2026-08-25", 38, 100, {
+      activite("Fondations (semelles)", 145, "M3", "2026-08-01", "2026-08-25", 100, {
         equipe: resume(MACONNERIE),
         critique: true,
         cle: "fondations",
       }),
-      activite("Poteaux et dalle RDC", 420, "M2", "2026-08-25", "2026-09-20", 52, 85, {
+      activite("Poteaux et dalle RDC", 420, "M2", "2026-08-25", "2026-09-20", 85, {
         equipe: resume(MACONNERIE),
         critique: true,
         cle: "dalleRdc",
         apres: "fondations",
       }),
-      activite("Ferraillage dalle R+1", 14500, "KG", "2026-09-15", "2026-10-05", 21, 40, {
+      activite("Ferraillage dalle R+1", 14500, "KG", "2026-09-15", "2026-10-05", 40, {
         equipe: resume(FERRAILLAGE),
         critique: true,
         cle: "ferraillageR1",
         apres: "dalleRdc",
       }),
-      activite("Coffrage et coulage dalle R+1", 420, "M2", "2026-10-06", "2026-10-20", 41.5, 0, {
+      activite("Coffrage et coulage dalle R+1", 420, "M2", "2026-10-06", "2026-10-20", 0, {
         critique: true,
         apres: "ferraillageR1",
       }),
-      activite("Maçonnerie des élévations", 1250, "M2", "2026-09-20", "2026-10-20", 24, 0, {
+      activite("Maçonnerie des élévations", 1250, "M2", "2026-09-20", "2026-10-20", 0, {
         equipe: resume(MACONNERIE),
         apres: "dalleRdc",
       }),
@@ -241,24 +243,27 @@ const STRUCTURE_RESIDENCE: GabaritLot[] = [
     nom: "Charpente et couverture",
     modeExecution: "SOUS_TRAITANCE_STRUCTUREE",
     typeBordereau: "FORFAIT_GLOBAL",
+    budgetMillions: 30,
     activites: [
-      activite("Charpente métallique", 8500, "KG", "2026-09-01", "2026-10-31", 30, 10),
+      activite("Charpente métallique", 8500, "KG", "2026-09-01", "2026-10-31", 10),
     ],
   },
   {
     nom: "Menuiseries",
     modeExecution: "SOUS_TRAITANCE_INFORMELLE",
     typeBordereau: "PRIX_UNITAIRE",
+    budgetMillions: 18,
     activites: [
-      activite("Menuiseries aluminium", 64, "U", "2026-11-02", "2026-12-15", 18, 0),
+      activite("Menuiseries aluminium", 64, "U", "2026-11-02", "2026-12-15", 0),
     ],
   },
   {
     nom: "Électricité",
     modeExecution: "SOUS_TRAITANCE_STRUCTUREE",
     typeBordereau: "FORFAIT_GLOBAL",
+    budgetMillions: 22,
     activites: [
-      activite("Réseaux et tableaux électriques", 1, "ENS", "2026-10-15", "2027-01-15", 22, 0, {
+      activite("Réseaux et tableaux électriques", 1, "ENS", "2026-10-15", "2027-01-15", 0, {
         equipe: resume(ELECTRICITE),
       }),
     ],
@@ -267,8 +272,9 @@ const STRUCTURE_RESIDENCE: GabaritLot[] = [
     nom: "Plomberie sanitaire",
     modeExecution: "SOUS_TRAITANCE_STRUCTUREE",
     typeBordereau: "FORFAIT_GLOBAL",
+    budgetMillions: 20,
     activites: [
-      activite("Réseaux eau froide et eau chaude", 1, "ENS", "2026-10-15", "2027-01-15", 20, 0, {
+      activite("Réseaux eau froide et eau chaude", 1, "ENS", "2026-10-15", "2027-01-15", 0, {
         equipe: resume(PLOMBERIE),
       }),
     ],
@@ -281,31 +287,34 @@ const STRUCTURE_SIEGE: GabaritLot[] = [
     nom: "Curage et démolition",
     modeExecution: "SOUS_TRAITANCE_STRUCTUREE",
     typeBordereau: "FORFAIT_GLOBAL",
+    budgetMillions: 105,
     activites: [
-      activite("Dépose des cloisons et faux plafonds", 2400, "M2", "2025-09-22", "2025-11-15", 45, 100, {
+      activite("Dépose des cloisons et faux plafonds", 2400, "M2", "2025-09-22", "2025-11-15", 100, {
         equipe: resume(DEPOSE),
       }),
-      activite("Désamiantage des gaines", 1, "FFT", "2025-10-15", "2025-12-20", 60, 100),
+      activite("Désamiantage des gaines", 1, "FFT", "2025-10-15", "2025-12-20", 100),
     ],
   },
   {
     nom: "Façade",
     modeExecution: "SOUS_TRAITANCE_STRUCTUREE",
     typeBordereau: "PRIX_UNITAIRE",
+    budgetMillions: 350,
     activites: [
-      activite("Mur rideau vitré", 1850, "M2", "2026-02-01", "2026-09-30", 310, 55, {
+      activite("Mur rideau vitré", 1850, "M2", "2026-02-01", "2026-09-30", 55, {
         equipe: resume(FACADE),
         critique: true,
       }),
-      activite("Ravalement des pignons", 900, "M2", "2026-06-01", "2026-08-31", 40, 70),
+      activite("Ravalement des pignons", 900, "M2", "2026-06-01", "2026-08-31", 70),
     ],
   },
   {
     nom: "Lots techniques",
     modeExecution: "SOUS_TRAITANCE_STRUCTUREE",
     typeBordereau: "FORFAIT_GLOBAL",
+    budgetMillions: 180,
     activites: [
-      activite("Climatisation centralisée", 1, "ENS", "2026-05-01", "2026-11-15", 180, 35, {
+      activite("Climatisation centralisée", 1, "ENS", "2026-05-01", "2026-11-15", 35, {
         equipe: resume(CLIMATISATION),
       }),
     ],
@@ -318,19 +327,21 @@ const STRUCTURE_ENTREPOT: GabaritLot[] = [
     nom: "Terrassement et plateforme",
     modeExecution: "SOUS_TRAITANCE_STRUCTUREE",
     typeBordereau: "PRIX_UNITAIRE",
+    budgetMillions: 93,
     activites: [
-      activite("Fouilles en masse", 6200, "M3", "2026-02-10", "2026-04-30", 55, 70, {
+      activite("Fouilles en masse", 6200, "M3", "2026-02-10", "2026-04-30", 70, {
         equipe: resume(TERRASSEMENT_NORD),
         critique: true,
       }),
-      activite("Couche de forme", 4200, "M2", "2026-04-15", "2026-06-15", 38, 20, { critique: true }),
+      activite("Couche de forme", 4200, "M2", "2026-04-15", "2026-06-15", 20, { critique: true }),
     ],
   },
   {
     nom: "Charpente métallique",
     modeExecution: "SOUS_TRAITANCE_STRUCTUREE",
     typeBordereau: "FORFAIT_GLOBAL",
-    activites: [activite("Portiques et pannes", 96, "T", "2026-07-01", "2026-10-15", 140, 0)],
+    budgetMillions: 140,
+    activites: [activite("Portiques et pannes", 96, "T", "2026-07-01", "2026-10-15", 0)],
   },
 ];
 
@@ -361,6 +372,7 @@ function deplier(projetId: string, gabarits: GabaritLot[]): Lot[] {
       nom: gabarit.nom,
       modeExecution: gabarit.modeExecution,
       typeBordereau: gabarit.typeBordereau,
+      budget: millions(gabarit.budgetMillions),
       dateDebut: null,
       dateFin: null,
       activites: gabarit.activites.map(({ cle, apres, ...reste }, rang) => {
@@ -411,6 +423,22 @@ function ecrireEtat(etat: EtatLots): void {
   } catch {
     // Navigation privée saturée : la simulation perd sa mémoire, sans plus.
   }
+}
+
+/** Un lot neuf, codé à la suite de ceux du chantier. */
+function nouveauLot(projetId: string, lots: Lot[], creation: CreationLotProjet): Lot {
+  return {
+    id: identifiant(),
+    projetId,
+    code: codeLotSuivant(lots),
+    nom: creation.nom,
+    modeExecution: creation.modeExecution,
+    typeBordereau: creation.typeBordereau,
+    budget: creation.budget ?? null,
+    dateDebut: creation.dateDebut ?? null,
+    dateFin: creation.dateFin ?? null,
+    activites: [],
+  };
 }
 
 function identifiant(): string {
@@ -594,19 +622,26 @@ export const simulationLots = {
   async creerLot(projetId: string, creation: CreationLotProjet): Promise<Lot> {
     const etat = lireEtat();
     const lots = etat[projetId] ?? [];
-    const lot: Lot = {
-      id: identifiant(),
-      projetId,
-      code: codeLotSuivant(lots),
-      nom: creation.nom,
-      modeExecution: creation.modeExecution,
-      typeBordereau: creation.typeBordereau,
-      dateDebut: creation.dateDebut ?? null,
-      dateFin: creation.dateFin ?? null,
-      activites: [],
-    };
+    const lot = nouveauLot(projetId, lots, creation);
     ecrireEtat({ ...etat, [projetId]: [...lots, lot] });
     return attendre(lot, LATENCE_ECRITURE);
+  },
+
+  /** Tous ou aucun, comme le fera la route : les codes se suivent dans l'ordre du fichier. */
+  async importerLots(projetId: string, creations: CreationLotProjet[]): Promise<Lot[]> {
+    if (creations.length === 0) {
+      refuser("import_vide", "Aucun lot à importer.", 400);
+    }
+    const etat = lireEtat();
+    const lots = [...(etat[projetId] ?? [])];
+    const crees: Lot[] = [];
+    for (const creation of creations) {
+      const lot = nouveauLot(projetId, lots, creation);
+      lots.push(lot);
+      crees.push(lot);
+    }
+    ecrireEtat({ ...etat, [projetId]: lots });
+    return attendre(crees, LATENCE_ECRITURE);
   },
 
   async creerActivite(projetId: string, saisie: SaisieActiviteDomaine): Promise<Activite> {
@@ -622,7 +657,6 @@ export const simulationLots = {
       unite: saisie.unite,
       dateDebutPrevue: saisie.dateDebutPrevue,
       dateFinPrevue: saisie.dateFinPrevue,
-      budget: saisie.budget,
       avancement: 0,
       surCheminCritique: false,
       dependanceId: saisie.dependanceId,
@@ -662,7 +696,6 @@ export const simulationLots = {
       unite: saisie.unite,
       dateDebutPrevue: saisie.dateDebutPrevue,
       dateFinPrevue: saisie.dateFinPrevue,
-      budget: saisie.budget,
       dependanceId: saisie.dependanceId,
       equipe: resoudreEquipe(projetId, saisie.equipeId),
     };

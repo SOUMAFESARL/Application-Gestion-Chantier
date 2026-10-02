@@ -126,6 +126,12 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
     void clientRequetes.invalidateQueries({ queryKey: cleLots(projetId) });
   }
 
+  function surLotsImportes(importes: Lot[]) {
+    if (!projetId) return;
+    clientRequetes.setQueryData<Lot[]>(cleLots(projetId), (anciens) => [...(anciens ?? []), ...importes]);
+    void clientRequetes.invalidateQueries({ queryKey: cleLots(projetId) });
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <EnTetePage titre={t("titre")} description={t("description")} />
@@ -227,6 +233,7 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
             projetId={projetId}
             lots={lots}
             onCree={surLotCree}
+            onImportes={surLotsImportes}
           />
         </>
       )}

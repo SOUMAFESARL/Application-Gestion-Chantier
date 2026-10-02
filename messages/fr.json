@@ -1359,7 +1359,14 @@
       "champDescription": "Description (optionnel)",
       "champDescriptionPlaceholder": "Contexte, objectifs, remarques…",
       "erreurBudgetInvalide": "Saisissez un montant entier supérieur à zéro, sans décimales.",
-      "erreurDescriptionTropLongue": "La description ne doit pas dépasser 1 000 caractères."
+      "erreurDescriptionTropLongue": "La description ne doit pas dépasser 1 000 caractères.",
+      "sectionContrat": "Contrat du marché",
+      "champContrats": "Contrat et avenants (optionnel)",
+      "consigneContrats": "PDF uniquement · {taille} max par fichier · {max} fichiers au plus",
+      "refusContratFormat": "seuls les fichiers PDF sont acceptés",
+      "refusContratTaille": "le fichier dépasse {taille}",
+      "erreurContratFormat": "Chaque contrat doit être un PDF de taille raisonnable.",
+      "erreurContratsTropNombreux": "Joignez au plus {max} fichiers."
     },
     "titre": "Projets",
     "lotsActivites": {
@@ -1436,7 +1443,6 @@
         "realiseValeur": "{quantite} ({pourcentage} %)",
         "avancement": "Avancement",
         "periode": "Période",
-        "budget": "Budget",
         "equipe": "Équipe",
         "equipeAAffecter": "À affecter",
         "dependDe": "Dépend de",
@@ -1445,12 +1451,14 @@
         "modifier": "Modifier",
         "liensTitre": "Liens avec les autres modules :",
         "liensTexte": "le chef de chantier saisit l'avancement de cette activité dans le journal (Suivi technique) ; les dépenses et les achats y sont imputés (Finances, Achats) ; les heures de l'équipe alimentent les Ressources humaines.",
-        "aucuneSelection": "Sélectionnez une activité pour afficher son détail."
+        "aucuneSelection": "Sélectionnez une activité pour afficher son détail.",
+        "budgetLot": "Budget du lot"
       },
       "planning": {
         "aujourdhui": "Aujourd'hui",
         "aucuneDate": "Aucune date n'est encore planifiée sur ce chantier.",
-        "barre": "{libelle} : du {debut} au {fin}, {avancement} %"
+        "barre": "{libelle} : du {debut} au {fin}, {avancement} %",
+        "nonPlanifiee": "Non planifiée"
       },
       "formActivite": {
         "titre": "Nouvelle activité",
@@ -1465,8 +1473,6 @@
         "champDebut": "Début prévu",
         "champFin": "Fin prévue",
         "champDateChoisir": "jj/mm/aaaa",
-        "champBudget": "Budget (FCFA)",
-        "champBudgetPlaceholder": "ex. 2 500 000",
         "champDependance": "Commence après (dépendance)",
         "aucuneDependance": "— aucune —",
         "champEquipe": "Équipe (facultatif, peut se faire plus tard)",
@@ -1481,9 +1487,8 @@
         "erreurLibelleTropLong": "Le libellé ne doit pas dépasser 150 caractères.",
         "erreurQuantiteInvalide": "Saisissez une quantité positive, par exemple 14 500 ou 12,5.",
         "erreurUniteRequise": "Choisissez l'unité de la quantité.",
-        "erreurDateDebutRequise": "La date de début est requise.",
-        "erreurDateFinRequise": "La date de fin est requise.",
-        "erreurBudgetInvalide": "Saisissez un montant en francs, par exemple 2 500 000."
+        "succesCreation": "Activité {code} « {libelle} » ajoutée.",
+        "succesModification": "Activité {code} « {libelle} » modifiée."
       },
       "formLot": {
         "titre": "Nouveau lot",
@@ -1492,7 +1497,20 @@
         "champNom": "Nom du lot",
         "annuler": "Annuler",
         "ajouter": "Ajouter le lot",
-        "erreurGenerique": "Le lot n'a pas pu être ajouté. Réessayez."
+        "erreurGenerique": "Le lot n'a pas pu être ajouté. Réessayez.",
+        "modeAjout": "Façon d'ajouter des lots",
+        "modes": {
+          "saisie": "Saisir un lot",
+          "import": "Importer lots"
+        },
+        "champNomChoisir": "Choisir ou saisir un lot…",
+        "champNomRechercher": "Rechercher un lot…",
+        "champNomAucunResultat": "Aucun lot de la liste ne correspond.",
+        "champNomUtiliserSaisie": "Utiliser « {saisie} »",
+        "champBudget": "Budget du lot (FCFA)",
+        "champBudgetPlaceholder": "ex. 25 000 000",
+        "erreurBudgetInvalide": "Saisissez un montant en francs, par exemple 25 000 000.",
+        "succes": "Lot {code} « {nom} » ajouté."
       },
       "export": {
         "nomFichier": "lots-activites",
@@ -1506,7 +1524,45 @@
         "avancement": "Avancement (%)",
         "critique": "Chemin critique",
         "oui": "Oui",
-        "non": "Non"
+        "non": "Non",
+        "budgetLot": "Budget du lot (FCFA)"
+      },
+      "importLots": {
+        "titre": "Importer des lots",
+        "sousTitre": "Reprenez une liste de lots déjà constituée dans un fichier Excel.",
+        "champFichier": "Fichier Excel des lots",
+        "consigne": "Fichier Excel (.xlsx) · {taille} max",
+        "refusFormat": "seuls les fichiers Excel .xlsx sont acceptés",
+        "refusTaille": "le fichier dépasse {taille}",
+        "aideModele": "Seule la colonne du nom est exigée ; le mode d'exécution, le bordereau, le budget et les dates sont repris s'ils y figurent.",
+        "telechargerModele": "Télécharger le modèle",
+        "lectureEnCours": "Lecture du fichier…",
+        "aucunLotTrouve": "Aucun lot n'a été trouvé dans ce fichier. Vérifiez qu'une colonne « Nom du lot » ou « Lots » est présente.",
+        "erreurLecture": "Ce fichier n'a pas pu être lu. Enregistrez-le au format Excel (.xlsx) puis réessayez.",
+        "maximumAtteint": "Seuls les {max} premiers lots du fichier ont été lus.",
+        "defautsTitre": "Valeurs par défaut",
+        "defautsAide": "Appliquées aux lots dont le fichier ne précise pas le mode d'exécution ou le type de bordereau.",
+        "erreurModeRequis": "Choisissez le mode d'exécution des lots qui n'en ont pas.",
+        "erreurBordereauRequis": "Choisissez le type de bordereau des lots qui n'en ont pas.",
+        "apercuTitre": "{retenus} {retenus, plural, one {lot retenu} other {lots retenus}} sur {total}",
+        "toutSelectionner": "Tout sélectionner",
+        "erreurAucunRetenu": "Cochez au moins un lot à importer.",
+        "numeroLigne": "Ligne {numero}",
+        "modeAChoisir": "Mode par défaut",
+        "bordereauAChoisir": "Bordereau par défaut",
+        "periode": "{debut} → {fin}",
+        "anomalies": {
+          "BUDGET_INVALIDE": "Budget illisible : il est laissé vide.",
+          "DATE_INVALIDE": "Date illisible : elle est laissée vide.",
+          "DATES_INCOHERENTES": "La fin précède le début : les dates sont laissées vides.",
+          "INTITULE_FAMILLE": "Ressemble à un intitulé de corps d'état, pas à un lot.",
+          "DEJA_PRESENT": "Un lot de ce nom existe déjà sur le chantier.",
+          "EN_DOUBLE": "Ce nom figure déjà plus haut dans le fichier."
+        },
+        "annuler": "Annuler",
+        "importer": "{nombre, plural, =0 {Importer} one {Importer # lot} other {Importer # lots}}",
+        "succes": "{nombre, plural, one {# lot importé.} other {# lots importés.}}",
+        "erreurGenerique": "Les lots n'ont pas pu être importés. Réessayez."
       }
     },
     "equipesAffectations": {
@@ -2316,6 +2372,15 @@
     "choisirPays": "Indicatif du pays",
     "erreurIncomplet": "Ce numéro est incomplet pour le pays choisi.",
     "erreurRequis": "Le numéro de téléphone est requis."
+  },
+  "zoneDepot": {
+    "deposer": "Glissez-déposez vos fichiers ici",
+    "relacher": "Relâchez pour ajouter les fichiers",
+    "parcourir": "ou <lien>parcourez</lien> votre ordinateur",
+    "fichiersRetenus": "Fichiers sélectionnés",
+    "retirer": "Retirer {nom}",
+    "refus": "{nom} : {motif}.",
+    "maximumAtteint": "{max, plural, one {# fichier} other {# fichiers}} au plus : les fichiers en trop ont été écartés."
   },
   "uiGenerique": {
     "basculerBarreLaterale": "Basculer la barre latérale",

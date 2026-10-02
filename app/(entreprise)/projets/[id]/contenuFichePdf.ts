@@ -2,7 +2,6 @@ import type { IndicateursJournalProjet } from "@/features/chantier";
 import type { DonneesEntreprise } from "@/features/configuration/api";
 import {
   avancementLot,
-  budgetLot,
   budgetRestant,
   ecartAvancement,
   echeancierProjet,
@@ -272,7 +271,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
       avancement === null
         ? { texte: ABSENT, ton: "neutre" }
         : { texte: formaterPourcentage(avancement), gras: true, ton },
-      { texte: francs(budgetLot(lot)) },
+      { texte: francs(lot.budget) },
       {
         texte:
           statut === "SANS_ACTIVITE" ? t("lots.sansActivite") : libelles.statutActivite(statut),

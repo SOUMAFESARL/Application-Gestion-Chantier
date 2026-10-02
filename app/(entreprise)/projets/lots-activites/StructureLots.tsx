@@ -11,8 +11,7 @@ import type { ExportTableau } from "@/components/ui/export-tableau";
 import { FiltreTableau, RechercheTableau, TAILLE_DE_PAGE_LISTE } from "@/components/ui/tableau-liste";
 import {
   activitesDuProjet,
-  avancementPondere,
-  budgetLot,
+  avancementActivites,
   filtrerLots,
   largeurJauge,
   paginerLots,
@@ -147,12 +146,21 @@ export function StructureLots({
           entete: t("export.unite"),
           valeur: (activite) => (activite.unite ? t(`unites.${activite.unite}`) : null),
         },
-        { entete: t("export.debut"), valeur: (activite) => formaterDate(activite.dateDebutPrevue) },
-        { entete: t("export.fin"), valeur: (activite) => formaterDate(activite.dateFinPrevue) },
         {
-          entete: t("colonnes.budget"),
-          valeur: (activite) =>
-            activite.budget === null ? null : Math.round(activite.budget / 100),
+          entete: t("export.debut"),
+          valeur: (activite) => (activite.dateDebutPrevue ? formaterDate(activite.dateDebutPrevue) : null),
+        },
+        {
+          entete: t("export.fin"),
+          valeur: (activite) => (activite.dateFinPrevue ? formaterDate(activite.dateFinPrevue) : null),
+        },
+        {
+          // Le budget est celui du lot, répété sur chacune de ses activités.
+          entete: t("export.budgetLot"),
+          valeur: (activite) => {
+            const budget = lotsParId.get(activite.lotId)?.budget ?? null;
+            return budget === null ? null : Math.round(budget / 100);
+          },
         },
         { entete: t("export.avancement"), valeur: (activite) => activite.avancement },
         {
@@ -264,7 +272,7 @@ export function StructureLots({
             {troncons.map(({ lot, activites }) => {
               const replie = !filtreActif && replies.has(lot.id);
               const periode = periodeLot(lot);
-              const avancement = avancementPondere(lot.activites);
+              const avancement = avancementActivites(lot.activites);
               return (
                 <Fragment key={lot.id}>
                   <tr className="bg-neutral-50">
@@ -298,7 +306,7 @@ export function StructureLots({
                       <Periode debut={periode.debut} fin={periode.fin} />
                     </td>
                     <td className={cn(CELLULE, "text-right font-semibold whitespace-nowrap tabular-nums text-neutral-900")}>
-                      {formaterMontantCourt(budgetLot(lot), { avecDevise: false })}
+                      {formaterMontantCourt(lot.budget, { avecDevise: false })}
                     </td>
                     <td className={CELLULE}>
                       <Avancement valeur={avancement} />
@@ -400,9 +408,8 @@ function LigneActivite({
       <td className={cn(CELLULE, "whitespace-nowrap text-neutral-700")}>
         <Periode debut={activite.dateDebutPrevue} fin={activite.dateFinPrevue} />
       </td>
-      <td className={cn(CELLULE, "text-right whitespace-nowrap tabular-nums text-neutral-800")}>
-        {formaterMontantCourt(activite.budget, { avecDevise: false })}
-      </td>
+      {/* Le budget se lit sur la ligne du lot : une activité n'en porte pas. */}
+      <td className={CELLULE} />
       <td className={CELLULE}>
         <Avancement valeur={activite.avancement} />
       </td>
