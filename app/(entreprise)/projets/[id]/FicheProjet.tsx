@@ -14,11 +14,13 @@ import {
   Play,
   Phone,
   Printer,
+  Trash2,
   TrendingUp,
   Users,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -51,6 +53,7 @@ import {
   effectifProjet,
   estEnRetard,
   largeurJauge,
+  libelleTypeProjet,
   niveauBudget,
   peutReprendre,
   peutSuspendre,
@@ -162,8 +165,10 @@ export function FicheProjet({ projetId }: { projetId: string }) {
    */
   const [entete, setEntete] = useState<HTMLDivElement | null>(null);
   const colle = useEstColle(entete);
-  const { modifier, basculerSuspension, encadrer, retirerEncadrement, cadrer, modaux } =
-    useGestionProjet();
+  const router = useRouter();
+  // Un projet supprimé n'a plus de fiche : on revient au portefeuille.
+  const { modifier, basculerSuspension, supprimer, encadrer, retirerEncadrement, cadrer, modaux } =
+    useGestionProjet(() => router.replace("/projets"));
   const fichePdf = useGenerationFicheProjet(requete.data);
   const { droits, peut } = useDroits();
   const peutSaisir = peut("projets", "saisie");
@@ -249,7 +254,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
             <span className="mt-1 flex flex-wrap items-center gap-2">
               {projet.typeProjet && (
                 <Badge variante="neutre">
-                  {tProjets(`tiroirCreation.typeProjet.${projet.typeProjet}`)}
+                  {libelleTypeProjet(projet.typeProjet, (code) => tProjets(`tiroirCreation.typeProjet.${code}`))}
                 </Badge>
               )}
               <Badge variante={TON_STATUT[projet.statut]}>
@@ -303,6 +308,18 @@ export function FicheProjet({ projetId }: { projetId: string }) {
                     {t("reprendre")}
                   </DropdownMenuItem>
                 )}
+                {peutValider && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => supprimer(projet)}
+                      className="text-erreur focus:text-erreur"
+                    >
+                      <Trash2 className="text-erreur" aria-hidden="true" />
+                      {t("supprimer")}
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           }
@@ -338,7 +355,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
               </Information>
               <Information libelle={t("informations.type")}>
                 {projet.typeProjet
-                  ? tProjets(`tiroirCreation.typeProjet.${projet.typeProjet}`)
+                  ? libelleTypeProjet(projet.typeProjet, (code) => tProjets(`tiroirCreation.typeProjet.${code}`))
                   : t("informations.nonRenseigne")}
               </Information>
               <Information libelle={t("informations.maitreOuvrage")}>

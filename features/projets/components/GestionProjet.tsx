@@ -9,12 +9,13 @@ import type { FonctionProjet, Projet } from "@/features/projets/types";
 import { ModaleAjoutEncadrement } from "./ModaleAjoutEncadrement";
 import { ModaleCadrageProjet, type ObjetCadrage } from "./ModaleCadrageProjet";
 import { ModaleRetraitEncadrement, type RetraitEncadrement } from "./ModaleRetraitEncadrement";
+import { ModaleSuppressionProjet } from "./ModaleSuppressionProjet";
 import { ModaleSuspensionProjet } from "./ModaleSuspensionProjet";
 import { TiroirCreationProjet } from "./TiroirCreationProjet";
 
 /**
  * Les gestes qu'on fait sur un projet existant — le modifier, le suspendre
- * ou le reprendre, compléter son équipe d'encadrement, fixer son planning et
+ * ou le reprendre, le supprimer, compléter son équipe d'encadrement, fixer son planning et
  * son budget — pour la liste comme pour la fiche.
  *
  * Réunis ici parce que les deux écrans doivent laisser **le même cache**
@@ -24,8 +25,11 @@ import { TiroirCreationProjet } from "./TiroirCreationProjet";
  *
  * `modaux` est à rendre une fois dans l'écran : un seul tiroir et une seule
  * modale, quel que soit le nombre de lignes qui les ouvrent.
+ *
+ * `apresSuppression` laisse l'écran décider de la suite : la liste reste en
+ * place, la fiche d'un projet qui n'existe plus doit être quittée.
  */
-export function useGestionProjet() {
+export function useGestionProjet(apresSuppression?: (projet: Projet) => void) {
   const clientRequetes = useQueryClient();
 
   /**
@@ -39,6 +43,7 @@ export function useGestionProjet() {
     rang: number;
   } | null>(null);
   const [suspension, setSuspension] = useState<Projet | null>(null);
+  const [suppression, setSuppression] = useState<Projet | null>(null);
   const [encadrement, setEncadrement] = useState<{
     projet: Projet;
     fonction: FonctionProjet;
@@ -66,6 +71,20 @@ export function useGestionProjet() {
   }, []);
 
   const basculerSuspension = useCallback((projet: Projet) => setSuspension(projet), []);
+
+  const supprimer = useCallback((projet: Projet) => setSuppression(projet), []);
+
+  const retirer = useCallback(
+    (projet: Projet) => {
+      clientRequetes.setQueryData<Projet[]>(CLE_LISTE_PROJETS, (anciens) =>
+        anciens?.filter((ancien) => ancien.id !== projet.id),
+      );
+      clientRequetes.removeQueries({ queryKey: cleProjet(projet.id) });
+      void clientRequetes.invalidateQueries({ queryKey: CLE_LISTE_PROJETS });
+      apresSuppression?.(projet);
+    },
+    [clientRequetes, apresSuppression],
+  );
 
   const encadrer = useCallback(
     (projet: Projet, fonction: FonctionProjet, fonctionsAutorisees: FonctionProjet[]) => {
@@ -119,6 +138,11 @@ export function useGestionProjet() {
         onFermer={() => setRetrait(null)}
         onModifie={actualiser}
       />
+      <ModaleSuppressionProjet
+        projet={suppression}
+        onFermer={() => setSuppression(null)}
+        onSupprime={retirer}
+      />
       <ModaleCadrageProjet
         cadrage={cadrage}
         onFermer={() => setCadrage(null)}
@@ -127,5 +151,5 @@ export function useGestionProjet() {
     </>
   );
 
-  return { modifier, basculerSuspension, encadrer, retirerEncadrement, cadrer, modaux };
+  return { modifier, basculerSuspension, supprimer, encadrer, retirerEncadrement, cadrer, modaux };
 }

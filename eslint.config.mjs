@@ -310,6 +310,9 @@ const eslintConfig = defineConfig([
       // « manage.py generer_referentiel_villes ».
       "features/referentiels/villes.ts",
       "features/referentiels/telephone.ts",
+      // La liste indicative des lots par corps d'état : une nomenclature de
+      // marché, reprise du fichier remis par le client.
+      "features/referentiels/lots.ts",
       // Couche de simulation : elle imite les messages du serveur pour que les
       // écrans se relisent sans API. Rien n'en sort en production.
       "lib/api/simulation.ts",
@@ -321,9 +324,6 @@ const eslintConfig = defineConfig([
       // Le tableau de bord DG de démonstration, en attendant sa route :
       // noms de fournisseurs, d'articles et d'échéances de chantier.
       "features/tableauDeBord/simulationTableauDeBord.ts",
-      // Le portefeuille de chantiers de démonstration, en attendant
-      // « GET /projets/ » : des noms de chantiers, de clients et de personnes.
-      "features/projets/simulationProjets.ts",
       // Les lots et activités de démonstration, en attendant leurs routes :
       // des libellés d'ouvrages et des noms d'équipes de chantier.
       "features/projets/simulationLots.ts",

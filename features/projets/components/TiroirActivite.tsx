@@ -2,12 +2,11 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
-import { CircleX, LoaderCircle } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { toast } from "sonner";
 
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -47,7 +46,7 @@ import {
   type SaisieActivite,
   type ValeursActivite,
 } from "@/features/projets/validations";
-import type { ErreurApi } from "@/lib/api";
+import { ErreurApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const FORM_ID = "form-activite";
@@ -91,7 +90,9 @@ function Requis() {
  *
  * Même tiroir que la création de projet, en plus étroit : une colonne de
  * champs, deux par rangée quand ils vont ensemble (quantité et unité, début
- * et fin). L'avancement n'y figure pas : il vient du journal de chantier,
+ * et fin). Les dates sont facultatives — une activité se déclare souvent
+ * avant d'être planifiée — et le budget n'y figure pas : il se tient au lot.
+ * L'avancement n'y figure pas : il vient du journal de chantier,
  * que le chef de chantier tient, pas de ce formulaire.
  */
 export function TiroirActivite({
@@ -105,7 +106,6 @@ export function TiroirActivite({
 }: Props) {
   const t = useTranslations("projets.lotsActivites.formActivite");
   const tLots = useTranslations("projets.lotsActivites");
-  const [erreur, setErreur] = useState<string | null>(null);
   const modification = !!activite;
 
   // Le cache des équipes est partagé avec l'écran « Équipes et affectations ».
@@ -131,17 +131,21 @@ export function TiroirActivite({
   const dependances = dependancesPossibles(lots, activite?.id);
 
   async function soumettre(saisie: ValeursActivite) {
-    setErreur(null);
     try {
       const domaine = versSaisieActiviteDomaine(saisie);
       const enregistree = activite
         ? await modifierActivite(projetId, activite.id, domaine)
         : await creerActivite(projetId, domaine);
       onEnregistree(enregistree);
+      toast.success(
+        t(modification ? "succesModification" : "succesCreation", {
+          code: enregistree.code,
+          libelle: enregistree.libelle,
+        }),
+      );
       onFermer();
     } catch (err) {
-      const cause = err as ErreurApi;
-      setErreur(cause.message || t("erreurGenerique"));
+      toast.error(err instanceof ErreurApi && err.message ? err.message : t("erreurGenerique"));
     }
   }
 
@@ -162,13 +166,6 @@ export function TiroirActivite({
             noValidate
             className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5 [scrollbar-width:thin]"
           >
-            {erreur && (
-              <Alert variant="erreur">
-                <CircleX />
-                <AlertDescription>{erreur}</AlertDescription>
-              </Alert>
-            )}
-
             <FormField
               control={form.control}
               name="lotId"
@@ -270,9 +267,7 @@ export function TiroirActivite({
                 name="dateDebut"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      {t("champDebut")} <Requis />
-                    </FormLabel>
+                    <FormLabel>{t("champDebut")}</FormLabel>
                     <FormControl>
                       <SelecteurDate
                         valeur={field.value}
@@ -296,9 +291,7 @@ export function TiroirActivite({
                 name="dateFin"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      {t("champFin")} <Requis />
-                    </FormLabel>
+                    <FormLabel>{t("champFin")}</FormLabel>
                     <FormControl>
                       <SelecteurDate
                         valeur={field.value}
@@ -315,26 +308,6 @@ export function TiroirActivite({
                 )}
               />
             </div>
-
-            <FormField
-              control={form.control}
-              name="budget"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("champBudget")}</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      className={CHAMP}
-                      inputMode="numeric"
-                      placeholder={t("champBudgetPlaceholder")}
-                      disabled={enCours}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <FormField
               control={form.control}

@@ -43,7 +43,8 @@ export interface Intervenant {
 
 /** Le maître d'ouvrage, tel qu'il apparaît sur la fiche chantier. */
 export interface ClientProjet {
-  id: string;
+  /** `null` : le serveur ne donne le maître d'ouvrage qu'en clair, sans fiche tiers. */
+  id: string | null;
   raisonSociale: string;
   telephone: string | null;
   email: string | null;
@@ -83,6 +84,8 @@ export interface Projet {
   dateFinPrevue: string | null;
   dateDebutReelle: string | null;
   dateFinReelle: string | null;
+  /** La durée contractuelle en jours ouvrés. `null` : pas encore fixée. */
+  dureeJoursOuvres: number | null;
   /** Le maître d'œuvre, en clair. `null` : pas de maîtrise d'œuvre désignée. */
   maitreOeuvre: string | null;
   /**
@@ -94,6 +97,18 @@ export interface Projet {
   conducteursTravaux: Intervenant[];
   chefsChantier: ChefChantierProjet[];
   autresMembres: AutreMembreProjet[];
+  /** Le contrat du marché et ses avenants, joints à la création. */
+  contrats: ContratProjet[];
+}
+
+/** Un document de contrat joint au projet, servi par le serveur. */
+export interface ContratProjet {
+  id: string;
+  nom: string;
+  /** En octets. */
+  taille: number;
+  typeContenu: string;
+  url: string;
 }
 
 /**
@@ -152,8 +167,19 @@ export interface AffectationProjet {
   fonctions: FonctionProjet[];
 }
 
-/** La nature d'un projet, choisie à sa création. */
-export type TypeProjet =
+/**
+ * La nature d'un projet, choisie à sa création : un type prédéfini, ou un
+ * libellé saisi librement quand aucun ne convient — enregistré tel quel,
+ * comme une localité absente du référentiel. `string & {}` garde
+ * l'autocomplétion des codes connus.
+ */
+export type TypeProjet = TypeProjetPredefini | (string & {});
+
+/**
+ * Les types que l'application sait nommer. `AUTRE` ne se propose plus — la
+ * saisie libre l'a remplacé — mais reste lisible sur les projets existants.
+ */
+export type TypeProjetPredefini =
   | "BATIMENT_RESIDENTIEL"
   | "BATIMENT_TERTIAIRE"
   | "INDUSTRIEL"
@@ -191,6 +217,8 @@ export interface CreationProjet {
   /** En centimes. */
   budgetInitial?: number;
   description?: string;
+  /** Le contrat du marché et ses avenants, en PDF. */
+  contrats?: File[];
 }
 
 /**
@@ -362,10 +390,9 @@ export interface Activite {
   /** `null` : activité suivie au pourcentage, sans quantité. */
   quantitePrevue: number | null;
   unite: UniteActivite | null;
-  dateDebutPrevue: string;
-  dateFinPrevue: string;
-  /** En centimes. `null` tant que le budget n'est pas défini. */
-  budget: number | null;
+  /** `null` : activité pas encore planifiée — les dates se fixent plus tard. */
+  dateDebutPrevue: string | null;
+  dateFinPrevue: string | null;
   /** Un pourcentage, de 0 à 100, alimenté par le journal de chantier. */
   avancement: number;
   /** Calculé par le serveur à partir des dépendances. */
@@ -385,6 +412,11 @@ export interface Lot {
   nom: string;
   modeExecution: ModeExecutionLot;
   typeBordereau: TypeBordereau;
+  /**
+   * En centimes. `null` tant qu'il n'est pas défini. Le budget se tient au
+   * lot — c'est l'unité du marché —, pas à l'activité.
+   */
+  budget: number | null;
   /** Les dates saisies sur le lot ; celles de ses activités priment à l'affichage. */
   dateDebut: string | null;
   dateFin: string | null;
@@ -396,6 +428,8 @@ export interface CreationLotProjet {
   nom: string;
   modeExecution: ModeExecutionLot;
   typeBordereau: TypeBordereau;
+  /** En centimes. */
+  budget?: number;
   dateDebut?: string;
   dateFin?: string;
 }
@@ -406,10 +440,40 @@ export interface SaisieActiviteDomaine {
   libelle: string;
   quantitePrevue: number | null;
   unite: UniteActivite | null;
-  dateDebutPrevue: string;
-  dateFinPrevue: string;
-  /** En centimes. */
-  budget: number | null;
+  dateDebutPrevue: string | null;
+  dateFinPrevue: string | null;
   dependanceId: string | null;
   equipeId: string | null;
+}
+
+/**
+ * Ce qu'une ligne d'un fichier de lots importé ne permet pas de reprendre
+ * tel quel. Des codes, pas des phrases : le libellé appartient à l'écran.
+ * Aucun n'interdit l'import — la valeur fautive est laissée vide, ou la
+ * ligne décochée d'office.
+ */
+export type AnomalieImportLot =
+  | "BUDGET_INVALIDE"
+  | "DATE_INVALIDE"
+  | "DATES_INCOHERENTES"
+  /** Un intitulé de corps d'état (« LOTS TECHNIQUES »), pas un lot. */
+  | "INTITULE_FAMILLE"
+  /** Un lot du même nom existe déjà sur le chantier. */
+  | "DEJA_PRESENT"
+  /** Le même nom figure plus haut dans le fichier. */
+  | "EN_DOUBLE";
+
+/** Une ligne d'un fichier de lots, lue et interprétée. */
+export interface LigneImportLot {
+  /** Le numéro de la ligne dans le tableur, pour que l'utilisateur la retrouve. */
+  ligne: number;
+  nom: string;
+  /** `null` : absent ou non reconnu — le choix par défaut de l'import s'applique. */
+  modeExecution: ModeExecutionLot | null;
+  typeBordereau: TypeBordereau | null;
+  /** En centimes. */
+  budget: number | null;
+  dateDebut: string | null;
+  dateFin: string | null;
+  anomalies: AnomalieImportLot[];
 }

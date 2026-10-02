@@ -19,9 +19,8 @@
 import { api } from "@/lib/api";
 import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
 
-import { ROLE_MEMBRE_PAR_DEFAUT } from "./regles";
+import { lireLotsImportes, ROLE_MEMBRE_PAR_DEFAUT } from "./regles";
 import { simulationLots } from "./simulationLots";
-import { simulationProjets } from "./simulationProjets";
 
 import type {
   Activite,
@@ -32,12 +31,14 @@ import type {
   ClientProjet,
   CreationEquipe,
   CreationLotProjet,
+  ContratProjet,
   CreationProjet,
   Equipe,
   FonctionAutreMembre,
   FonctionProjet,
   EquipeChantier,
   Intervenant,
+  LigneImportLot,
   Lot,
   MembreEquipe,
   MeteoProjet,
@@ -78,30 +79,53 @@ interface ChargeClient {
   ville?: string;
 }
 
+/**
+ * Un chantier, tel que `GET /projets/` et `GET /projets/{id}/` le renvoient.
+ *
+ * La route livrée porte l'identification et le cadrage : maître d'ouvrage en
+ * clair, dates, budget, contrats joints. Le statut, l'avancement, la fiche
+ * client et l'équipe d'encadrement restent facultatifs : ils arriveront avec
+ * les modules qui les calculent, et `versProjet` leur donne d'ici là un
+ * défaut explicite.
+ */
 interface ChargeProjet {
   id: string;
   reference: string;
   nom: string;
   description?: string;
   type_projet?: TypeProjet | null;
-  client: ChargeClient;
+  /** Le maître d'ouvrage, en clair — la forme de la route livrée. */
+  maitre_ouvrage?: string;
+  /** Une fiche tiers complète, si le serveur la joint un jour. */
+  client?: ChargeClient | null;
   ville: string;
   quartier?: string;
-  statut: StatutProjet;
-  avancement_reel: number;
-  avancement_theorique: number;
+  statut?: StatutProjet;
+  avancement_reel?: number;
+  avancement_theorique?: number;
   indice_sante?: number | null;
-  budget_initial_montant: number | null;
+  /** Un `DecimalField` : Django peut l'envoyer en chaîne. */
+  budget_initial_montant: number | string | null;
   budget_consomme_montant?: number;
   date_debut_prevue?: string | null;
   date_fin_prevue?: string | null;
   date_debut_reelle?: string | null;
   date_fin_reelle?: string | null;
+  duree_jours_ouvres?: number | null;
   maitre_oeuvre?: string | null;
+  contrat?: ChargeContrat[];
   chef_projet?: ChargeIntervenant | null;
   conducteurs_travaux?: ChargeIntervenant[];
   chefs_chantier?: ChargeChefChantier[];
   autres_membres?: ChargeAutreMembre[];
+}
+
+interface ChargeContrat {
+  id: string;
+  nom: string;
+  taille: number;
+  type_contenu: string;
+  url: string;
 }
 
 interface ChargeChefChantier {
@@ -141,11 +165,7 @@ interface ChargeAlerteIntemperies {
   condition?: string;
 }
 
-/**
- * La charge de `POST /projets/`. Le contrat n'est pas encore livré côté
- * Django (voir `simulationProjets.ts`) : cette forme est la proposition du
- * frontend, à aligner ici — et seulement ici — quand la route arrivera.
- */
+/** La charge de `POST /projets/`. Les contrats joints la font passer en `multipart`. */
 interface ChargeCreationProjet {
   nom: string;
   reference?: string;
@@ -198,14 +218,47 @@ function versAutreMembre(charge: ChargeAutreMembre): AutreMembreProjet | null {
   return intervenant ? { intervenant, fonction: charge.fonction } : null;
 }
 
-function versClient(charge: ChargeClient): ClientProjet {
+/**
+ * Le maître d'ouvrage. La route livrée ne le donne qu'en clair : la fiche n'a
+ * alors ni identifiant ni coordonnées — on ne les invente pas.
+ */
+function versClient(charge: ChargeProjet): ClientProjet {
+  if (charge.client) {
+    return {
+      id: charge.client.id,
+      raisonSociale: charge.client.raison_sociale,
+      telephone: charge.client.telephone ?? null,
+      email: charge.client.email ?? null,
+      ville: charge.client.ville ?? null,
+    };
+  }
+  return {
+    id: null,
+    raisonSociale: charge.maitre_ouvrage ?? "",
+    telephone: null,
+    email: null,
+    ville: null,
+  };
+}
+
+function versContrat(charge: ChargeContrat): ContratProjet {
   return {
     id: charge.id,
-    raisonSociale: charge.raison_sociale,
-    telephone: charge.telephone ?? null,
-    email: charge.email ?? null,
-    ville: charge.ville ?? null,
+    nom: charge.nom,
+    taille: charge.taille,
+    typeContenu: charge.type_contenu,
+    url: charge.url,
   };
+}
+
+/**
+ * Django sérialise un `DecimalField` en chaîne (`"1500000.00"`). Le domaine
+ * compte en entiers : la conversion se fait ici, une fois.
+ */
+function versMontant(valeur: number | string | null | undefined): number | null {
+  if (valeur === null || valeur === undefined || valeur === "") return null;
+  const montant = typeof valeur === "number" ? valeur : Number(valeur);
+  return Number.isFinite(montant) ? Math.round(montant) : null;
 }
 
 /**
@@ -222,20 +275,23 @@ export function versProjet(charge: ChargeProjet): Projet {
     nom: charge.nom,
     description: charge.description ?? "",
     typeProjet: charge.type_projet ?? null,
-    client: versClient(charge.client),
+    client: versClient(charge),
     ville: charge.ville,
     quartier: charge.quartier ?? "",
-    statut: charge.statut,
+    // Sans statut calculé par le serveur, un projet n'a pas encore démarré.
+    statut: charge.statut ?? "EN_ATTENTE",
     avancementReel: charge.avancement_reel ?? 0,
     avancementTheorique: charge.avancement_theorique ?? 0,
     indiceSante: charge.indice_sante ?? null,
-    budgetInitial: charge.budget_initial_montant ?? null,
+    budgetInitial: versMontant(charge.budget_initial_montant),
     budgetConsomme: charge.budget_consomme_montant ?? 0,
     dateDebutPrevue: charge.date_debut_prevue ?? null,
     dateFinPrevue: charge.date_fin_prevue ?? null,
     dateDebutReelle: charge.date_debut_reelle ?? null,
     dateFinReelle: charge.date_fin_reelle ?? null,
+    dureeJoursOuvres: charge.duree_jours_ouvres ?? null,
     maitreOeuvre: charge.maitre_oeuvre || null,
+    contrats: (charge.contrat ?? []).map(versContrat),
     chefProjet: versIntervenant(charge.chef_projet),
     conducteursTravaux: intervenants(charge.conducteurs_travaux),
     chefsChantier: (charge.chefs_chantier ?? [])
@@ -299,7 +355,7 @@ function versChargeCreation(creation: CreationProjet): ChargeCreationProjet {
   };
 }
 
-/** La charge de `PATCH /projets/{id}/` — même proposition que la création. */
+/** La charge de `PATCH /projets/{id}/` — l'identification, sans la référence. */
 function versChargeModification(modification: ModificationProjet) {
   return {
     nom: modification.nom,
@@ -321,15 +377,8 @@ function versChargeModification(modification: ModificationProjet) {
  * lisent ici : l'écran reçoit un tableau dans les deux cas et n'a pas à
  * savoir laquelle est active. Le `signal` vient de React Query, qui annule
  * la requête quand l'écran est quitté avant la réponse.
- *
- * `GET /projets/` n'est pas encore branché : sous `NEXT_PUBLIC_API_SIMULE`,
- * la lecture vient du jeu de démonstration du domaine. L'appel réel est déjà
- * à sa place définitive — le jour où la route existe, le drapeau passe à `0`
- * et aucun écran ne bouge.
  */
 export async function listerProjets(signal?: AbortSignal): Promise<Projet[]> {
-  if (SIMULATION_ACTIVE) return simulationProjets.lister();
-
   const charge = await api.lire<ChargeProjet[] | ChargeListe<ChargeProjet>>(
     "/projets/",
     undefined,
@@ -340,20 +389,34 @@ export async function listerProjets(signal?: AbortSignal): Promise<Projet[]> {
 }
 
 export async function lireProjet(id: string): Promise<Projet> {
-  if (SIMULATION_ACTIVE) return simulationProjets.lire(id);
   return versProjet(await api.lire<ChargeProjet>(`/projets/${id}/`));
 }
 
+/**
+ * Sans contrat, la création part en JSON. Avec, elle part en `multipart` :
+ * les champs à plat, et un `contrats` répété par fichier — la forme que lit
+ * `request.FILES.getlist("contrats")` côté Django.
+ */
+function versCorpsCreation(creation: CreationProjet): ChargeCreationProjet | FormData {
+  const charge = versChargeCreation(creation);
+  if (!creation.contrats?.length) return charge;
+
+  const corps = new FormData();
+  for (const [cle, valeur] of Object.entries(charge)) {
+    if (valeur !== undefined && valeur !== "") corps.append(cle, String(valeur));
+  }
+  for (const contrat of creation.contrats) corps.append("contrats", contrat, contrat.name);
+  return corps;
+}
+
 export async function creerProjet(creation: CreationProjet): Promise<Projet> {
-  if (SIMULATION_ACTIVE) return simulationProjets.creer(creation);
-  return versProjet(await api.creer<ChargeProjet>("/projets/", versChargeCreation(creation)));
+  return versProjet(await api.creer<ChargeProjet>("/projets/", versCorpsCreation(creation)));
 }
 
 export async function modifierProjet(
   id: string,
   modification: ModificationProjet,
 ): Promise<Projet> {
-  if (SIMULATION_ACTIVE) return simulationProjets.modifier(id, modification);
   return versProjet(
     await api.modifier<ChargeProjet>(`/projets/${id}/`, versChargeModification(modification)),
   );
@@ -366,26 +429,20 @@ export async function modifierProjet(
  * statut` laisserait l'écran l'inventer.
  */
 export async function suspendreProjet(id: string): Promise<Projet> {
-  if (SIMULATION_ACTIVE) return simulationProjets.suspendre(id);
   return versProjet(await api.creer<ChargeProjet>(`/projets/${id}/suspendre/`, {}));
 }
 
 export async function reprendreProjet(id: string): Promise<Projet> {
-  if (SIMULATION_ACTIVE) return simulationProjets.reprendre(id);
   return versProjet(await api.creer<ChargeProjet>(`/projets/${id}/reprendre/`, {}));
 }
 
 /**
- * La référence que prendra le prochain projet, proposée dans le formulaire
- * (et modifiable).
- *
- * Hors simulation, aucune route ne la fournit encore : on renvoie une chaîne
- * vide, le champ reste vierge et **le serveur engendre la référence** à la
- * création, comme il l'a toujours fait. On n'invente pas une route pour ça.
+ * Le projet et ce qui lui est rattaché. Le serveur peut refuser un projet
+ * trop engagé pour disparaître : l'écran affiche alors son message plutôt
+ * que de deviner la règle.
  */
-export async function proposerReferenceProjet(): Promise<string> {
-  if (SIMULATION_ACTIVE) return simulationProjets.referenceSuivante();
-  return "";
+export async function supprimerProjet(id: string): Promise<void> {
+  await api.supprimer(`/projets/${id}/`);
 }
 
 /*
@@ -396,7 +453,6 @@ export async function proposerReferenceProjet(): Promise<string> {
  */
 
 export async function definirPlanningProjet(id: string, planning: PlanningProjet): Promise<Projet> {
-  if (SIMULATION_ACTIVE) return simulationProjets.definirPlanning(id, planning);
   return versProjet(
     await api.modifier<ChargeProjet>(`/projets/${id}/`, {
       date_debut_prevue: planning.dateDebutPrevue,
@@ -407,7 +463,6 @@ export async function definirPlanningProjet(id: string, planning: PlanningProjet
 
 /** `budgetInitial` est en **centimes**, comme partout dans le domaine. */
 export async function definirBudgetProjet(id: string, budgetInitial: number): Promise<Projet> {
-  if (SIMULATION_ACTIVE) return simulationProjets.definirBudget(id, budgetInitial);
   return versProjet(
     await api.modifier<ChargeProjet>(`/projets/${id}/`, {
       budget_initial_montant: budgetInitial,
@@ -417,7 +472,7 @@ export async function definirBudgetProjet(id: string, budgetInitial: number): Pr
 
 /*
  * L'équipe d'encadrement et de gestion du projet. Routes proposées par le
- * frontend, servies par `simulationProjets.ts` en attendant Django. Chaque
+ * frontend, pas encore livrées par Django (elles répondent `404` d'ici là). Chaque
  * écriture renvoie **le projet entier** : désigner un chef de projet en
  * remplace un autre, et l'écran repart de ce que le serveur a retenu.
  */
@@ -426,7 +481,6 @@ export async function ajouterMembreEncadrement(
   projetId: string,
   ajout: AjoutEncadrement,
 ): Promise<Projet> {
-  if (SIMULATION_ACTIVE) return simulationProjets.ajouterEncadrement(projetId, ajout);
   return versProjet(
     await api.creer<ChargeProjet>(`/projets/${projetId}/encadrement/`, {
       fonction: ajout.fonction,
@@ -443,7 +497,6 @@ export async function retirerMembreEncadrement(
   fonction: FonctionProjet,
   utilisateurId: string,
 ): Promise<Projet> {
-  if (SIMULATION_ACTIVE) return simulationProjets.retirerEncadrement(projetId, fonction, utilisateurId);
   await api.supprimer(`/projets/${projetId}/encadrement/${fonction}/${utilisateurId}/`);
   return lireProjet(projetId);
 }
@@ -483,9 +536,8 @@ interface ChargeActivite {
   libelle: string;
   quantite_prevue?: number | null;
   unite?: UniteActivite | null;
-  date_debut_prevue: string;
-  date_fin_prevue: string;
-  budget_montant?: number | null;
+  date_debut_prevue?: string | null;
+  date_fin_prevue?: string | null;
   avancement?: number;
   sur_chemin_critique?: boolean;
   dependance_id?: string | null;
@@ -499,6 +551,7 @@ interface ChargeLot {
   nom: string;
   mode_execution: ModeExecutionLot;
   type_bordereau: TypeBordereau;
+  budget_montant?: number | null;
   date_debut?: string | null;
   date_fin?: string | null;
   activites?: ChargeActivite[];
@@ -516,9 +569,8 @@ function versActivite(charge: ChargeActivite): Activite {
     libelle: charge.libelle,
     quantitePrevue: charge.quantite_prevue ?? null,
     unite: charge.unite ?? null,
-    dateDebutPrevue: charge.date_debut_prevue,
-    dateFinPrevue: charge.date_fin_prevue,
-    budget: charge.budget_montant ?? null,
+    dateDebutPrevue: charge.date_debut_prevue ?? null,
+    dateFinPrevue: charge.date_fin_prevue ?? null,
     avancement: charge.avancement ?? 0,
     surCheminCritique: charge.sur_chemin_critique ?? false,
     dependanceId: charge.dependance_id ?? null,
@@ -534,6 +586,7 @@ function versLot(charge: ChargeLot): Lot {
     nom: charge.nom,
     modeExecution: charge.mode_execution,
     typeBordereau: charge.type_bordereau,
+    budget: charge.budget_montant ?? null,
     dateDebut: charge.date_debut ?? null,
     dateFin: charge.date_fin ?? null,
     activites: (charge.activites ?? []).map(versActivite),
@@ -548,7 +601,6 @@ function versChargeActivite(saisie: SaisieActiviteDomaine) {
     unite: saisie.unite,
     date_debut_prevue: saisie.dateDebutPrevue,
     date_fin_prevue: saisie.dateFinPrevue,
-    budget_montant: saisie.budget,
     dependance_id: saisie.dependanceId,
     equipe_id: saisie.equipeId,
   };
@@ -566,17 +618,67 @@ export async function listerLots(projetId: string, signal?: AbortSignal): Promis
   return charges.map(versLot);
 }
 
+function versChargeLot(creation: CreationLotProjet) {
+  return {
+    nom: creation.nom,
+    mode_execution: creation.modeExecution,
+    type_bordereau: creation.typeBordereau,
+    budget_montant: creation.budget,
+    date_debut: creation.dateDebut,
+    date_fin: creation.dateFin,
+  };
+}
+
 export async function creerLot(projetId: string, creation: CreationLotProjet): Promise<Lot> {
   if (SIMULATION_ACTIVE) return simulationLots.creerLot(projetId, creation);
+  return versLot(await api.creer<ChargeLot>(`/projets/${projetId}/lots/`, versChargeLot(creation)));
+}
+
+/** Les champs du lot, réécrits ; son code et ses activités ne bougent pas. */
+export async function modifierLot(
+  projetId: string,
+  lotId: string,
+  modification: CreationLotProjet,
+): Promise<Lot> {
+  if (SIMULATION_ACTIVE) return simulationLots.modifierLot(projetId, lotId, modification);
   return versLot(
-    await api.creer<ChargeLot>(`/projets/${projetId}/lots/`, {
-      nom: creation.nom,
-      mode_execution: creation.modeExecution,
-      type_bordereau: creation.typeBordereau,
-      date_debut: creation.dateDebut,
-      date_fin: creation.dateFin,
-    }),
+    await api.modifier<ChargeLot>(`/projets/${projetId}/lots/${lotId}/`, versChargeLot(modification)),
   );
+}
+
+/**
+ * Le lot et ses activités. Le serveur refuse (`lot_avance`) un lot dont une
+ * activité a déjà avancé — même règle que `lotSupprimable`.
+ */
+export async function supprimerLot(projetId: string, lotId: string): Promise<void> {
+  if (SIMULATION_ACTIVE) return simulationLots.supprimerLot(projetId, lotId);
+  await api.supprimer(`/projets/${projetId}/lots/${lotId}/`);
+}
+
+/**
+ * La première feuille d'un fichier Excel de lots, lue et interprétée par
+ * `lireLotsImportes`. La bibliothèque n'est chargée qu'ici, au premier
+ * import : elle n'a rien à faire dans le paquet des autres écrans.
+ *
+ * Rejette si le fichier n'est pas un `.xlsx` lisible.
+ */
+export async function lireFichierLots(fichier: File, lotsExistants: Lot[]): Promise<LigneImportLot[]> {
+  const { readSheet } = await import("read-excel-file/browser");
+  const feuille = await readSheet(fichier);
+  return lireLotsImportes(feuille as unknown[][], lotsExistants);
+}
+
+/**
+ * Plusieurs lots d'un coup — l'import d'un fichier. **Une seule requête** :
+ * le serveur les crée tous ou aucun, et un import ne s'arrête jamais à la
+ * moitié, avec des codes déjà pris et le reste à refaire à la main.
+ */
+export async function importerLots(projetId: string, creations: CreationLotProjet[]): Promise<Lot[]> {
+  if (SIMULATION_ACTIVE) return simulationLots.importerLots(projetId, creations);
+  const charge = await api.creer<ChargeLot[]>(`/projets/${projetId}/lots/import/`, {
+    lots: creations.map(versChargeLot),
+  });
+  return (charge ?? []).map(versLot);
 }
 
 export async function creerActivite(

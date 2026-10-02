@@ -1,7 +1,7 @@
 /**
  * Le journal de chantier de démonstration — en attendant les routes.
  *
- * Même contrat que `features/projets/simulationProjets.ts` : il parle le
+ * Même contrat que `features/projets/simulationLots.ts` : il parle le
  * domaine (les types de `types.ts`), les vrais appels restent à leur place
  * dans `adaptateur.ts`, et le jour où Django sert le journal,
  * `NEXT_PUBLIC_API_SIMULE` passe à `0` sans qu'aucun écran ne change. Pas de
@@ -16,8 +16,7 @@
  * finissent ce jour, pour que « Aujourd'hui », l'historique et les synthèses
  * aient toujours de quoi montrer.
  *
- * Les chantiers sont ceux de `simulationProjets` (mêmes identifiants, pour que
- * le lien vers la fiche projet mène quelque part) ; les lots reprennent ceux
+ * Les chantiers sont ceux de l'ancien jeu de démonstration des projets ; les lots reprennent ceux
  * de `simulationLots` quand ils y existent.
  */
 

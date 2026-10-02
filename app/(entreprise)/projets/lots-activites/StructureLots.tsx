@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Fragment, useMemo, useState } from "react";
 import type { KeyboardEvent } from "react";
@@ -11,8 +11,7 @@ import type { ExportTableau } from "@/components/ui/export-tableau";
 import { FiltreTableau, RechercheTableau, TAILLE_DE_PAGE_LISTE } from "@/components/ui/tableau-liste";
 import {
   activitesDuProjet,
-  avancementPondere,
-  budgetLot,
+  avancementActivites,
   filtrerLots,
   largeurJauge,
   paginerLots,
@@ -42,10 +41,14 @@ interface Props {
   activiteChoisieId: string | null;
   onChoisirActivite: (id: string) => void;
   onAjouterLot: () => void;
+  onModifierLot: (lot: Lot) => void;
+  onSupprimerLot: (lot: Lot) => void;
   onAjouterActivite: (lotId?: string) => void;
 }
 
 const CELLULE = "border-0 border-b border-solid border-neutral-100 px-2.5 py-2.5 align-middle";
+const BOUTON_ICONE =
+  "flex size-7 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-neutral-500 transition-colors";
 const ENTETE =
   "border-0 border-b border-solid border-neutral-200 bg-neutral-50 px-2.5 py-2.5 text-left text-xs font-semibold tracking-wider whitespace-nowrap text-neutral-600 uppercase";
 
@@ -73,6 +76,8 @@ export function StructureLots({
   activiteChoisieId,
   onChoisirActivite,
   onAjouterLot,
+  onModifierLot,
+  onSupprimerLot,
   onAjouterActivite,
 }: Props) {
   const t = useTranslations("projets.lotsActivites");
@@ -81,6 +86,8 @@ export function StructureLots({
   const [replies, setReplies] = useState<Set<string>>(() => new Set());
 
   const [page, setPage] = useState(0);
+  // Une colonne d'actions, pour qui peut modifier ou supprimer un lot.
+  const nombreColonnes = peutSaisir ? 7 : 6;
 
   const lotsFiltres = useMemo(() => filtrerLots(lots, recherche, statut), [lots, recherche, statut]);
   const filtreActif = recherche.trim() !== "" || statut !== "";
@@ -147,12 +154,21 @@ export function StructureLots({
           entete: t("export.unite"),
           valeur: (activite) => (activite.unite ? t(`unites.${activite.unite}`) : null),
         },
-        { entete: t("export.debut"), valeur: (activite) => formaterDate(activite.dateDebutPrevue) },
-        { entete: t("export.fin"), valeur: (activite) => formaterDate(activite.dateFinPrevue) },
         {
-          entete: t("colonnes.budget"),
-          valeur: (activite) =>
-            activite.budget === null ? null : Math.round(activite.budget / 100),
+          entete: t("export.debut"),
+          valeur: (activite) => (activite.dateDebutPrevue ? formaterDate(activite.dateDebutPrevue) : null),
+        },
+        {
+          entete: t("export.fin"),
+          valeur: (activite) => (activite.dateFinPrevue ? formaterDate(activite.dateFinPrevue) : null),
+        },
+        {
+          // Le budget est celui du lot, répété sur chacune de ses activités.
+          entete: t("export.budgetLot"),
+          valeur: (activite) => {
+            const budget = lotsParId.get(activite.lotId)?.budget ?? null;
+            return budget === null ? null : Math.round(budget / 100);
+          },
         },
         { entete: t("export.avancement"), valeur: (activite) => activite.avancement },
         {
@@ -250,12 +266,17 @@ export function StructureLots({
               <th scope="col" className={ENTETE}>
                 {t("colonnes.statut")}
               </th>
+              {peutSaisir && (
+                <th scope="col" className={ENTETE}>
+                  <span className="sr-only">{t("colonnes.actions")}</span>
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {lotsFiltres.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-10 text-center text-sm text-neutral-500">
+                <td colSpan={nombreColonnes} className="px-3 py-10 text-center text-sm text-neutral-500">
                   {t("aucunResultat")}
                 </td>
               </tr>
@@ -264,7 +285,7 @@ export function StructureLots({
             {troncons.map(({ lot, activites }) => {
               const replie = !filtreActif && replies.has(lot.id);
               const periode = periodeLot(lot);
-              const avancement = avancementPondere(lot.activites);
+              const avancement = avancementActivites(lot.activites);
               return (
                 <Fragment key={lot.id}>
                   <tr className="bg-neutral-50">
@@ -298,17 +319,41 @@ export function StructureLots({
                       <Periode debut={periode.debut} fin={periode.fin} />
                     </td>
                     <td className={cn(CELLULE, "text-right font-semibold whitespace-nowrap tabular-nums text-neutral-900")}>
-                      {formaterMontantCourt(budgetLot(lot), { avecDevise: false })}
+                      {formaterMontantCourt(lot.budget, { avecDevise: false })}
                     </td>
                     <td className={CELLULE}>
                       <Avancement valeur={avancement} />
                     </td>
                     <td className={CELLULE} />
+                    {peutSaisir && (
+                      <td className={cn(CELLULE, "w-px")}>
+                        <span className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => onModifierLot(lot)}
+                            aria-label={t("modifierLot", { nom: lot.nom })}
+                            title={t("modifierLot", { nom: lot.nom })}
+                            className={cn(BOUTON_ICONE, "hover:bg-primary-50 hover:text-primary-600")}
+                          >
+                            <Pencil size={15} aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onSupprimerLot(lot)}
+                            aria-label={t("supprimerLot", { nom: lot.nom })}
+                            title={t("supprimerLot", { nom: lot.nom })}
+                            className={cn(BOUTON_ICONE, "hover:bg-erreur-fond hover:text-erreur")}
+                          >
+                            <Trash2 size={15} aria-hidden="true" />
+                          </button>
+                        </span>
+                      </td>
+                    )}
                   </tr>
 
                   {!replie && lot.activites.length === 0 && (
                     <tr>
-                      <td colSpan={6} className={cn(CELLULE, "pl-10 text-neutral-500")}>
+                      <td colSpan={nombreColonnes} className={cn(CELLULE, "pl-10 text-neutral-500")}>
                         {t("lotSansActivite")}{" "}
                         {peutSaisir && (
                           <button
@@ -328,6 +373,7 @@ export function StructureLots({
                       <LigneActivite
                         key={activite.id}
                         activite={activite}
+                        avecActions={peutSaisir}
                         choisie={activite.id === activiteChoisieId}
                         onChoisir={() => onChoisirActivite(activite.id)}
                         onTouche={(evenement) => surToucheLigne(evenement, activite.id)}
@@ -360,11 +406,13 @@ export function StructureLots({
 
 function LigneActivite({
   activite,
+  avecActions,
   choisie,
   onChoisir,
   onTouche,
 }: {
   activite: Activite;
+  avecActions: boolean;
   choisie: boolean;
   onChoisir: () => void;
   onTouche: (evenement: KeyboardEvent<HTMLTableRowElement>) => void;
@@ -400,15 +448,16 @@ function LigneActivite({
       <td className={cn(CELLULE, "whitespace-nowrap text-neutral-700")}>
         <Periode debut={activite.dateDebutPrevue} fin={activite.dateFinPrevue} />
       </td>
-      <td className={cn(CELLULE, "text-right whitespace-nowrap tabular-nums text-neutral-800")}>
-        {formaterMontantCourt(activite.budget, { avecDevise: false })}
-      </td>
+      {/* Le budget se lit sur la ligne du lot : une activité n'en porte pas. */}
+      <td className={CELLULE} />
       <td className={CELLULE}>
         <Avancement valeur={activite.avancement} />
       </td>
       <td className={CELLULE}>
         <Badge variante={BADGE_STATUT[statut]}>{t(`statutActivite.${statut}`)}</Badge>
       </td>
+      {/* Les actions sont celles du lot : l'activité se modifie depuis son panneau. */}
+      {avecActions && <td className={CELLULE} />}
     </tr>
   );
 }

@@ -90,11 +90,12 @@ export function PanneauActivite({ activite, lot, lots, onModifier }: Props) {
         <Ligne libelle={t("panneau.periode")}>
           <Periode debut={activite.dateDebutPrevue} fin={activite.dateFinPrevue} />
         </Ligne>
-        <Ligne libelle={t("panneau.budget")}>
-          {activite.budget === null ? (
+        {/* Le budget se tient au lot : on montre celui du lot de l'activité. */}
+        <Ligne libelle={t("panneau.budgetLot")}>
+          {lot.budget === null ? (
             <span className="text-neutral-500 italic">{t("panneau.nonDefini")}</span>
           ) : (
-            formaterMontant(activite.budget)
+            formaterMontant(lot.budget)
           )}
         </Ligne>
         <Ligne libelle={t("panneau.equipe")}>
