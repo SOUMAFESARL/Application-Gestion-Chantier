@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { Badge, Bouton } from "@/components/ui";
 import { Separator } from "@/components/ui/separator";
+import { useDroits } from "@/features/habilitations";
 import { activitesDuProjet, quantiteRealisee, statutActivite } from "@/features/projets/regles";
 import type { Activite, Lot } from "@/features/projets/types";
 import { formaterMontant, formaterQuantite } from "@/lib/format";
@@ -31,6 +32,7 @@ interface Props {
  */
 export function PanneauActivite({ activite, lot, lots, onModifier }: Props) {
   const t = useTranslations("projets.lotsActivites");
+  const peutSaisir = useDroits().peut("projets", "saisie");
 
   if (!activite || !lot) {
     return (
@@ -111,18 +113,22 @@ export function PanneauActivite({ activite, lot, lots, onModifier }: Props) {
 
       <Separator />
 
-      <div className="flex flex-wrap gap-2">
-        <Bouton
-          variante="secondaire"
-          taille="sm"
-          iconeGauche={<Pencil size={16} aria-hidden="true" />}
-          onClick={() => onModifier(activite)}
-        >
-          {t("panneau.modifier")}
-        </Bouton>
-      </div>
+      {peutSaisir && (
+        <>
+          <div className="flex flex-wrap gap-2">
+            <Bouton
+              variante="secondaire"
+              taille="sm"
+              iconeGauche={<Pencil size={16} aria-hidden="true" />}
+              onClick={() => onModifier(activite)}
+            >
+              {t("panneau.modifier")}
+            </Bouton>
+          </div>
 
-      <Separator />
+          <Separator />
+        </>
+      )}
 
       <p className="m-0 rounded-lg border border-solid border-primary-200 bg-primary-50 p-3 text-sm leading-relaxed text-neutral-700">
         <strong className="text-primary-700">{t("panneau.liensTitre")}</strong>{" "}

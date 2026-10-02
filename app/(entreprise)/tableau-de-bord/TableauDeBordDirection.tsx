@@ -3,11 +3,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Badge, Bouton, EtatChargement, EtatErreur } from "@/components/ui";
 import { TiroirCreationProjet } from "@/features/projets/components/TiroirCreationProjet";
+import { useDroits, useProjetsVisibles } from "@/features/habilitations";
 import { lireTableauDeBord } from "@/features/tableauDeBord/adaptateur";
+import { restreindreTableauDeBord } from "@/features/tableauDeBord/regles";
+import { cn } from "@/lib/utils";
 
 import { AlertesPilotage } from "./AlertesPilotage";
 import { ChantiersAttention } from "./ChantiersAttention";
@@ -49,7 +52,23 @@ export function TableauDeBordDirection() {
     queryFn: ({ signal }) => lireTableauDeBord(signal),
   });
 
-  const ouvrirCreation = () => setTiroirOuvert(true);
+  /**
+   * Hors direction, le même écran, réduit à ses chantiers et aux blocs de ses
+   * modules : l'argent pour qui lit « finance », les signatures pour qui y
+   * valide, la sécurité pour qui lit « qhse ».
+   */
+  const { estDirection, peut } = useDroits();
+  const projetsVisibles = useProjetsVisibles();
+  const visibles = useMemo(
+    () =>
+      estDirection || !projetsVisibles.data
+        ? null
+        : new Set(projetsVisibles.data.map((projet) => projet.id)),
+    [estDirection, projetsVisibles.data],
+  );
+  const peutCreer = peut("projets", "saisie");
+
+  const ouvrirCreation = peutCreer ? () => setTiroirOuvert(true) : undefined;
 
   const tiroir = (
     <TiroirCreationProjet
@@ -62,14 +81,14 @@ export function TableauDeBordDirection() {
     />
   );
 
-  if (requete.isPending) return <EtatChargement />;
+  if (requete.isPending || (!estDirection && projetsVisibles.isPending)) return <EtatChargement />;
   if (requete.isError) {
     return (
       <EtatErreur message={t("erreurChargement")} onReessayer={() => void requete.refetch()} />
     );
   }
 
-  const donnees = requete.data;
+  const donnees = restreindreTableauDeBord(requete.data, visibles);
 
   if (donnees.chantiers.length === 0) {
     return (
@@ -82,14 +101,16 @@ export function TableauDeBordDirection() {
           <Badge variante="neutre">{t("emptyState.badgeSansChantier")}</Badge>
           <h2 className="text-h3 font-bold text-neutral-900">{t("emptyState.titre")}</h2>
           <p className="mb-2 max-w-[560px] text-sm text-neutral-600">{t("emptyState.description")}</p>
-          <Bouton
-            variante="primaire"
-            taille="lg"
-            iconeGauche={<Plus className="size-5" aria-hidden="true" />}
-            onClick={ouvrirCreation}
-          >
-            {t("emptyState.actionCreer")}
-          </Bouton>
+          {ouvrirCreation && (
+            <Bouton
+              variante="primaire"
+              taille="lg"
+              iconeGauche={<Plus className="size-5" aria-hidden="true" />}
+              onClick={ouvrirCreation}
+            >
+              {t("emptyState.actionCreer")}
+            </Bouton>
+          )}
         </section>
         {tiroir}
       </div>
@@ -102,25 +123,27 @@ export function TableauDeBordDirection() {
 
       <IndicateursDirection chantiers={donnees.chantiers} />
 
-      <div className="grid items-start gap-6 lg:grid-cols-2">
+      <div className={cn("grid items-start gap-6", peut("finance", "validation") && "lg:grid-cols-2")}>
         <ChantiersAttention chantiers={donnees.chantiers} />
-        <ValidationsEnAttente validations={donnees.validations} />
+        {peut("finance", "validation") && <ValidationsEnAttente validations={donnees.validations} />}
       </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <GraphiqueBudgets chantiers={donnees.chantiers} />
-        </div>
+      <div className={cn("grid items-start gap-6", peut("finance") && "lg:grid-cols-3")}>
+        {peut("finance") && (
+          <div className="lg:col-span-2">
+            <GraphiqueBudgets chantiers={donnees.chantiers} />
+          </div>
+        )}
         <AlertesPilotage alertes={donnees.alertes} />
       </div>
 
       <PanneauPortefeuille chantiers={donnees.chantiers} />
 
-      <div className="grid items-start gap-6 lg:grid-cols-3">
+      <div className={cn("grid items-start gap-6", peut("qhse") && "lg:grid-cols-3")}>
         <div className="lg:col-span-2">
           <EcheancesAVenir echeances={donnees.echeances} />
         </div>
-        <SyntheseQhse qhse={donnees.qhse} />
+        {peut("qhse") && <SyntheseQhse qhse={donnees.qhse} />}
       </div>
 
       {tiroir}

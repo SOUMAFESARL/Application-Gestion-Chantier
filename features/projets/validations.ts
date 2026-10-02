@@ -6,20 +6,24 @@
  * disent ce qu'est une saisie acceptable ; `versCreationProjet` la traduit en
  * objet du domaine. Le tiroir ne fait que relier les deux.
  *
- * La création se fait en **trois étapes**, et chacune a son schéma : le
- * tiroir s'en sert pour n'activer « Suivant » que lorsque l'étape en cours
- * est complète. `schemaCreationProjet` les réunit pour la soumission finale.
+ * La création et la modification d'un projet tiennent en **une seule étape**
+ * et partagent `schemaProjet`. À la création, le planning contractuel et le
+ * budget prévisionnel peuvent déjà être renseignés, **sans être exigés** : le
+ * chef de projet les fixe sinon depuis le projet ouvert. Les lots et l'équipe
+ * se fixent toujours ensuite.
  */
 
 import { z } from "zod";
 
 import { texte } from "@/i18n/horsReact";
-import { centimesEnFrancs, saisieEnCentimes } from "@/lib/format";
+import { saisieEnCentimes } from "@/lib/format";
 import { chaineNonVide } from "@/lib/validations/champs";
 
 import {
+  FONCTIONS_AUTRE_MEMBRE,
   MODES_EXECUTION_LOT,
   NATURES_EQUIPE,
+  ORDRE_FONCTIONS,
   ROLE_MEMBRE_PAR_DEFAUT,
   ROLES_MEMBRE_EQUIPE,
   TYPES_BORDEREAU,
@@ -27,16 +31,19 @@ import {
   UNITES_ACTIVITE,
   budgetRecevable,
   datesChantierCoherentes,
-  numeroLot,
 } from "./regles";
 import type {
   Activite,
+  AjoutEncadrement,
   CreationEquipe,
   CreationLotProjet,
   CreationProjet,
+  FonctionAutreMembre,
+  Intervenant,
   ModeExecutionLot,
   ModificationProjet,
   NatureEquipe,
+  PlanningProjet,
   Projet,
   RoleMembreEquipe,
   SaisieActiviteDomaine,
@@ -55,53 +62,115 @@ export const LONGUEUR_MAX_DESCRIPTION = 1000;
 /** Des chiffres, éventuellement groupés par des espaces (« 850 000 000 »). */
 const MOTIF_MONTANT = /^[\d\s]+$/;
 
-
 /** Une valeur prise dans une liste fermée — vide tant que rien n'est choisi. */
 function choixParmi(valeurs: readonly string[], message: string) {
   return z.string().refine((valeur) => valeurs.includes(valeur), { message });
 }
 
 /* ------------------------------------------------------------------ *
- * Étape 1 — Informations générales.
+ * Le projet — informations générales.
  * ------------------------------------------------------------------ */
 
-const champsInformations = {
-  nom: chaineNonVide(texte("projets.tiroirCreation.erreurNomRequis")).max(LONGUEUR_MAX_NOM, {
-    message: texte("projets.tiroirCreation.erreurNomTropLong"),
-  }),
-  reference: z.string().trim(),
-  typeProjet: choixParmi(TYPES_PROJET, texte("projets.tiroirCreation.erreurTypeRequis")),
-  ville: chaineNonVide(texte("projets.tiroirCreation.erreurVilleRequise")),
-  maitreOuvrage: chaineNonVide(texte("projets.tiroirCreation.erreurMaitreOuvrageRequis")),
-  maitreOeuvre: z.string().trim(),
-  dateDebut: chaineNonVide(texte("projets.tiroirCreation.erreurDateDebutRequise")),
-  dateFin: chaineNonVide(texte("projets.tiroirCreation.erreurDateFinRequise")),
-  budget: chaineNonVide(texte("projets.tiroirCreation.erreurBudgetRequis")).refine(
-    (valeur) => MOTIF_MONTANT.test(valeur) && budgetRecevable(saisieEnCentimes(valeur)),
-    { message: texte("projets.tiroirCreation.erreurBudgetInvalide") },
-  ),
-  description: z.string().trim().max(LONGUEUR_MAX_DESCRIPTION, {
-    message: texte("projets.tiroirCreation.erreurDescriptionTropLongue"),
-  }),
-};
-
-export const schemaEtapeInformations = z
-  .object(champsInformations)
+export const schemaProjet = z
+  .object({
+    nom: chaineNonVide(texte("projets.tiroirCreation.erreurNomRequis")).max(LONGUEUR_MAX_NOM, {
+      message: texte("projets.tiroirCreation.erreurNomTropLong"),
+    }),
+    reference: z.string().trim(),
+    typeProjet: choixParmi(TYPES_PROJET, texte("projets.tiroirCreation.erreurTypeRequis")),
+    ville: chaineNonVide(texte("projets.tiroirCreation.erreurVilleRequise")),
+    maitreOuvrage: chaineNonVide(texte("projets.tiroirCreation.erreurMaitreOuvrageRequis")),
+    maitreOeuvre: z.string().trim(),
+    // Facultatifs : vides, ils restent à fixer par le chef de projet.
+    dateDebut: z.string(),
+    dateFin: z.string(),
+    budget: z
+      .string()
+      .trim()
+      .refine((valeur) => valeur === "" || (MOTIF_MONTANT.test(valeur) && budgetRecevable(saisieEnCentimes(valeur))), {
+        message: texte("projets.tiroirCreation.erreurBudgetInvalide"),
+      }),
+    description: z.string().trim().max(LONGUEUR_MAX_DESCRIPTION, {
+      message: texte("projets.tiroirCreation.erreurDescriptionTropLongue"),
+    }),
+  })
   .superRefine((saisie, ctx) => {
     if (!datesChantierCoherentes(saisie.dateDebut, saisie.dateFin)) {
       ctx.addIssue({ code: "custom", path: ["dateFin"], message: texte("projets.tiroirCreation.erreurDatesIncoherentes") });
     }
   });
 
+export type SaisieProjet = z.input<typeof schemaProjet>;
+export type ValeursProjet = z.output<typeof schemaProjet>;
+
+/** Le formulaire vierge. `reference` est la proposition du serveur, modifiable. */
+export function saisieProjetVide(reference = ""): SaisieProjet {
+  return {
+    nom: "",
+    reference,
+    typeProjet: "",
+    ville: "",
+    maitreOuvrage: "",
+    maitreOeuvre: "",
+    dateDebut: "",
+    dateFin: "",
+    budget: "",
+    description: "",
+  };
+}
+
+/** La saisie validée, traduite en objet du domaine. */
+export function versCreationProjet(valeurs: ValeursProjet): CreationProjet {
+  return {
+    nom: valeurs.nom,
+    reference: valeurs.reference || undefined,
+    // `choixParmi` a déjà vérifié l'appartenance à la liste.
+    typeProjet: valeurs.typeProjet as TypeProjet,
+    ville: valeurs.ville,
+    maitreOuvrage: valeurs.maitreOuvrage,
+    maitreOeuvre: valeurs.maitreOeuvre || undefined,
+    dateDebutPrevue: valeurs.dateDebut || undefined,
+    dateFinPrevue: valeurs.dateFin || undefined,
+    // Même conversion que partout ailleurs dans le produit (`lib/format`).
+    budgetInitial: valeurs.budget ? (saisieEnCentimes(valeurs.budget) ?? undefined) : undefined,
+    description: valeurs.description || undefined,
+  };
+}
+
+/** Un projet existant, remis en saisie pour sa modification. */
+export function saisieDepuisProjet(projet: Projet): SaisieProjet {
+  return {
+    nom: projet.nom,
+    reference: projet.reference,
+    typeProjet: projet.typeProjet ?? "",
+    ville: projet.ville,
+    maitreOuvrage: projet.client.raisonSociale,
+    maitreOeuvre: projet.maitreOeuvre ?? "",
+    // Le planning et le budget ne se modifient pas ici : `versModificationProjet`
+    // les ignore, le chef de projet les fixe depuis le projet.
+    dateDebut: "",
+    dateFin: "",
+    budget: "",
+    description: "",
+  };
+}
+
+/** La saisie validée d'une modification, traduite en objet du domaine. */
+export function versModificationProjet(valeurs: ValeursProjet): ModificationProjet {
+  return {
+    nom: valeurs.nom,
+    typeProjet: valeurs.typeProjet as TypeProjet,
+    ville: valeurs.ville,
+    maitreOuvrage: valeurs.maitreOuvrage,
+    maitreOeuvre: valeurs.maitreOeuvre || undefined,
+  };
+}
+
 /* ------------------------------------------------------------------ *
- * Étape 2 — Lots & bordereau.
+ * Un lot.
  * ------------------------------------------------------------------ */
 
-/**
- * Un lot : la même saisie à la création du projet (étape 2) et à l'ajout
- * d'un lot sur un chantier ouvert — deux schémas finiraient par ne plus
- * exiger les mêmes champs.
- */
+/** Un lot, ajouté sur un chantier ouvert depuis « Lots & activités ». */
 export const schemaLot = z
   .object({
     nom: chaineNonVide(texte("projets.tiroirCreation.erreurLotNomRequis")),
@@ -116,176 +185,16 @@ export const schemaLot = z
     }
   });
 
-const champsLots = {
-  lots: z.array(schemaLot).min(1, { message: texte("projets.tiroirCreation.erreurLotsRequis") }),
-};
-
-export const schemaEtapeLots = z.object(champsLots);
-
-/* ------------------------------------------------------------------ *
- * Étape 3 — Équipe projet.
- * ------------------------------------------------------------------ */
-
-const champsEquipe = {
-  chefProjetId: chaineNonVide(texte("projets.tiroirCreation.erreurChefProjetRequis")),
-  conducteurTravauxId: chaineNonVide(texte("projets.tiroirCreation.erreurConducteurRequis")),
-  chefsChantierIds: z.array(z.string()).min(1, { message: texte("projets.tiroirCreation.erreurChefsChantierRequis") }),
-  directeurFinancierId: z.string(),
-  visiteursIds: z.array(z.string()),
-  bailleursIds: z.array(z.string()),
-};
-
-export const schemaEtapeEquipe = z.object(champsEquipe);
-
-/* ------------------------------------------------------------------ *
- * Le tout.
- * ------------------------------------------------------------------ */
-
-export const schemaCreationProjet = z
-  .object({ ...champsInformations, ...champsLots, ...champsEquipe })
-  .superRefine((saisie, ctx) => {
-    if (!datesChantierCoherentes(saisie.dateDebut, saisie.dateFin)) {
-      ctx.addIssue({ code: "custom", path: ["dateFin"], message: texte("projets.tiroirCreation.erreurDatesIncoherentes") });
-    }
-  });
-
-/**
- * La modification d'un projet : les mêmes champs que la création, lots
- * exceptés — ils se gèrent dans « Lots & activités ». Le tableau `lots` reste
- * dans la forme, vide et sans minimum, pour que le même formulaire serve aux
- * deux usages sans changer de type.
- */
-export const schemaModificationProjet = z
-  .object({ ...champsInformations, lots: z.array(schemaLot), ...champsEquipe })
-  .superRefine((saisie, ctx) => {
-    if (!datesChantierCoherentes(saisie.dateDebut, saisie.dateFin)) {
-      ctx.addIssue({ code: "custom", path: ["dateFin"], message: texte("projets.tiroirCreation.erreurDatesIncoherentes") });
-    }
-  });
-
-export type SaisieCreationProjet = z.input<typeof schemaCreationProjet>;
-export type ValeursCreationProjet = z.output<typeof schemaCreationProjet>;
-export type SaisieLot = SaisieCreationProjet["lots"][number];
-
-/** Les champs de chaque étape — de quoi ne revérifier que ceux-là. */
-export const CHAMPS_ETAPES = [
-  Object.keys(champsInformations),
-  Object.keys(champsLots),
-  Object.keys(champsEquipe),
-] as (keyof SaisieCreationProjet)[][];
-
-/** Un lot vierge. */
-export function lotVide(): SaisieLot {
-  return { nom: "", modeExecution: "", typeBordereau: "", dateDebut: "", dateFin: "" };
-}
-
-/** Le formulaire vierge. `reference` est la proposition du serveur, modifiable. */
-export function saisieCreationVide(reference = ""): SaisieCreationProjet {
-  return {
-    nom: "",
-    reference,
-    typeProjet: "",
-    ville: "",
-    maitreOuvrage: "",
-    maitreOeuvre: "",
-    dateDebut: "",
-    dateFin: "",
-    budget: "",
-    description: "",
-    lots: [lotVide()],
-    chefProjetId: "",
-    conducteurTravauxId: "",
-    chefsChantierIds: [],
-    directeurFinancierId: "",
-    visiteursIds: [],
-    bailleursIds: [],
-  };
-}
-
-/** La saisie validée, traduite en objet du domaine. */
-export function versCreationProjet(valeurs: ValeursCreationProjet): CreationProjet {
-  return {
-    nom: valeurs.nom,
-    reference: valeurs.reference || undefined,
-    // `choixParmi` a déjà vérifié l'appartenance à la liste.
-    typeProjet: valeurs.typeProjet as TypeProjet,
-    ville: valeurs.ville,
-    maitreOuvrage: valeurs.maitreOuvrage,
-    maitreOeuvre: valeurs.maitreOeuvre || undefined,
-    dateDebutPrevue: valeurs.dateDebut,
-    dateFinPrevue: valeurs.dateFin,
-    // Même conversion que partout ailleurs dans le produit (`lib/format`) ;
-    // le schéma garantit un montant recevable, donc non nul.
-    budgetInitial: saisieEnCentimes(valeurs.budget) ?? 0,
-    description: valeurs.description || undefined,
-    lots: valeurs.lots.map((lot, rang) => ({
-      numero: numeroLot(rang),
-      nom: lot.nom,
-      modeExecution: lot.modeExecution as ModeExecutionLot,
-      typeBordereau: lot.typeBordereau as TypeBordereau,
-      dateDebut: lot.dateDebut || undefined,
-      dateFin: lot.dateFin || undefined,
-    })),
-    equipe: {
-      chefProjetId: valeurs.chefProjetId,
-      conducteurTravauxId: valeurs.conducteurTravauxId,
-      chefsChantierIds: valeurs.chefsChantierIds,
-      directeurFinancierId: valeurs.directeurFinancierId || undefined,
-      visiteursIds: valeurs.visiteursIds,
-      bailleursIds: valeurs.bailleursIds,
-    },
-  };
-}
-
-/** Un projet existant, remis en saisie pour sa modification. */
-export function saisieDepuisProjet(projet: Projet): SaisieCreationProjet {
-  return {
-    nom: projet.nom,
-    reference: projet.reference,
-    typeProjet: projet.typeProjet ?? "",
-    ville: projet.ville,
-    maitreOuvrage: projet.client.raisonSociale,
-    maitreOeuvre: projet.maitreOeuvre ?? "",
-    dateDebut: projet.dateDebutPrevue,
-    dateFin: projet.dateFinPrevue,
-    budget: projet.budgetInitial === null ? "" : String(centimesEnFrancs(projet.budgetInitial)),
-    description: projet.description,
-    lots: [],
-    chefProjetId: projet.chefProjet?.id ?? "",
-    conducteurTravauxId: projet.conducteurTravaux?.id ?? "",
-    chefsChantierIds: projet.chefsChantier.map((chef) => chef.id),
-    directeurFinancierId: projet.directeurFinancier?.id ?? "",
-    visiteursIds: [],
-    bailleursIds: [],
-  };
-}
-
-/** La saisie validée d'une modification, traduite en objet du domaine. */
-export function versModificationProjet(valeurs: ValeursCreationProjet): ModificationProjet {
-  return {
-    nom: valeurs.nom,
-    typeProjet: valeurs.typeProjet as TypeProjet,
-    ville: valeurs.ville,
-    maitreOuvrage: valeurs.maitreOuvrage,
-    maitreOeuvre: valeurs.maitreOeuvre || undefined,
-    dateDebutPrevue: valeurs.dateDebut,
-    dateFinPrevue: valeurs.dateFin,
-    budgetInitial: saisieEnCentimes(valeurs.budget) ?? 0,
-    description: valeurs.description || undefined,
-    equipe: {
-      chefProjetId: valeurs.chefProjetId,
-      conducteurTravauxId: valeurs.conducteurTravauxId,
-      chefsChantierIds: valeurs.chefsChantierIds,
-      directeurFinancierId: valeurs.directeurFinancierId || undefined,
-    },
-  };
-}
-
 /* ------------------------------------------------------------------ *
  * L'ajout d'un lot sur un chantier ouvert.
  * ------------------------------------------------------------------ */
 
 export type SaisieLotProjet = z.input<typeof schemaLot>;
+
+/** Un lot vierge. */
+export function lotVide(): SaisieLotProjet {
+  return { nom: "", modeExecution: "", typeBordereau: "", dateDebut: "", dateFin: "" };
+}
 
 export function versCreationLotProjet(saisie: z.output<typeof schemaLot>): CreationLotProjet {
   return {
@@ -538,3 +447,104 @@ export const schemaAffectation = z.object({
 });
 
 export type SaisieAffectation = z.input<typeof schemaAffectation>;
+
+/* ------------------------------------------------------------------ *
+ * L'équipe d'encadrement et de gestion du projet.
+ * ------------------------------------------------------------------ */
+
+/** « Lot 02 — Gros œuvre », « Bâtiment B » : une précision, pas une description. */
+export const LONGUEUR_MAX_ZONE = 80;
+
+/**
+ * L'arrivée d'une personne dans l'encadrement. La zone ne vaut que pour un
+ * chef de chantier, la fonction précise que pour un autre membre — où elle
+ * est exigée : « autre » ne dit pas ce que la personne vient faire.
+ */
+export const schemaAjoutEncadrement = z
+  .object({
+    fonction: choixParmi(ORDRE_FONCTIONS, texte("projets.encadrement.ajout.erreurFonctionRequise")),
+    utilisateurId: chaineNonVide(texte("projets.encadrement.ajout.erreurUtilisateurRequis")),
+    zone: z.string().trim().max(LONGUEUR_MAX_ZONE, {
+      message: texte("projets.encadrement.ajout.erreurZoneTropLongue"),
+    }),
+    fonctionMembre: z.string(),
+  })
+  .superRefine((saisie, ctx) => {
+    if (
+      saisie.fonction === "AUTRE_MEMBRE" &&
+      !FONCTIONS_AUTRE_MEMBRE.includes(saisie.fonctionMembre as FonctionAutreMembre)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["fonctionMembre"],
+        message: texte("projets.encadrement.ajout.erreurFonctionMembreRequise"),
+      });
+    }
+  });
+
+export type SaisieAjoutEncadrement = z.input<typeof schemaAjoutEncadrement>;
+export type ValeursAjoutEncadrement = z.output<typeof schemaAjoutEncadrement>;
+
+export function saisieEncadrementVide(fonction: string): SaisieAjoutEncadrement {
+  return { fonction, utilisateurId: "", zone: "", fonctionMembre: "" };
+}
+
+/** La saisie validée, avec la personne choisie dans la liste des utilisateurs du compte. */
+export function versAjoutEncadrement(
+  valeurs: ValeursAjoutEncadrement,
+  intervenant: Intervenant,
+): AjoutEncadrement {
+  switch (valeurs.fonction) {
+    case "CHEF_CHANTIER":
+      return { fonction: "CHEF_CHANTIER", intervenant, zone: valeurs.zone || null };
+    case "AUTRE_MEMBRE":
+      return {
+        fonction: "AUTRE_MEMBRE",
+        intervenant,
+        fonctionMembre: valeurs.fonctionMembre as FonctionAutreMembre,
+      };
+    case "CONDUCTEUR_TRAVAUX":
+      return { fonction: "CONDUCTEUR_TRAVAUX", intervenant };
+    default:
+      return { fonction: "CHEF_PROJET", intervenant };
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Le cadrage du projet — planning et budget, fixés par le chef de projet.
+ * ------------------------------------------------------------------ */
+
+export const schemaPlanning = z
+  .object({
+    dateDebut: chaineNonVide(texte("projets.cadrage.erreurDateDebutRequise")),
+    dateFin: chaineNonVide(texte("projets.cadrage.erreurDateFinRequise")),
+  })
+  .superRefine((saisie, ctx) => {
+    if (!datesChantierCoherentes(saisie.dateDebut, saisie.dateFin)) {
+      ctx.addIssue({ code: "custom", path: ["dateFin"], message: texte("projets.tiroirCreation.erreurDatesIncoherentes") });
+    }
+  });
+
+export type SaisiePlanning = z.input<typeof schemaPlanning>;
+
+export function saisieDepuisPlanning(projet: Projet): SaisiePlanning {
+  return { dateDebut: projet.dateDebutPrevue ?? "", dateFin: projet.dateFinPrevue ?? "" };
+}
+
+export function versPlanningProjet(valeurs: z.output<typeof schemaPlanning>): PlanningProjet {
+  return { dateDebutPrevue: valeurs.dateDebut, dateFinPrevue: valeurs.dateFin };
+}
+
+export const schemaBudget = z.object({
+  montant: chaineNonVide(texte("projets.cadrage.erreurBudgetRequis")).refine(
+    (valeur) => MOTIF_MONTANT.test(valeur) && budgetRecevable(saisieEnCentimes(valeur)),
+    { message: texte("projets.cadrage.erreurBudgetInvalide") },
+  ),
+});
+
+export type SaisieBudget = z.input<typeof schemaBudget>;
+
+/** Le montant validé, en centimes — le schéma garantit qu'il est recevable, donc non nul. */
+export function versBudgetCentimes(valeurs: z.output<typeof schemaBudget>): number {
+  return saisieEnCentimes(valeurs.montant) ?? 0;
+}

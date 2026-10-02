@@ -8,6 +8,7 @@ import { Badge, Bouton } from "@/components/ui";
 import { jourDe } from "@/features/chantier";
 import type { EntreeJournal, EtapeCircuit, SituationRapport } from "@/features/chantier";
 import { relancer } from "@/features/chantier/adaptateur";
+import { useDroits } from "@/features/habilitations";
 import { CLE_JOURNAL } from "@/features/chantier/cles";
 import { formaterHeure, formaterJourMoisNumerique } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -102,6 +103,8 @@ export function BoutonRelance({
   const t = useTranslations("journal.relance");
   const relance = useRelance();
   const enCours = relance.isPending && relance.variables === entree.id;
+  // Relancer un chef de chantier, c'est exiger un rapport : validation « chantier ».
+  const peutRelancer = useDroits().peut("chantier", "validation");
 
   if (entree.relanceLe) {
     return (
@@ -111,6 +114,8 @@ export function BoutonRelance({
       </span>
     );
   }
+
+  if (!peutRelancer) return null;
 
   return (
     <span className="inline-flex flex-col gap-1">

@@ -7,14 +7,13 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronRight,
-  FileDown,
   LoaderCircle,
   Mail,
-  MessageCircle,
   Pause,
   Pencil,
   Play,
   Phone,
+  Printer,
   TrendingUp,
   Users,
   Wallet,
@@ -34,6 +33,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AccesNonAutorise,
+  peutCadrerProjet,
+  peutDesignerChefProjet,
+  peutGererEncadrement,
+  projetVisible,
+  useDroits,
+} from "@/features/habilitations";
 import { lireProjet, listerEquipes, listerLots } from "@/features/projets/adaptateur";
 import { cleEquipes, cleLots, cleProjet } from "@/features/projets/cles";
 import { useGestionProjet } from "@/features/projets/components/GestionProjet";
@@ -43,9 +50,7 @@ import {
   echeancierProjet,
   effectifProjet,
   estEnRetard,
-  initiales,
   largeurJauge,
-  lienWhatsApp,
   niveauBudget,
   peutReprendre,
   peutSuspendre,
@@ -54,7 +59,7 @@ import {
   syntheseLots,
 } from "@/features/projets/regles";
 import type { NiveauBudget } from "@/features/projets/regles";
-import type { Intervenant, Projet } from "@/features/projets/types";
+import type { Projet } from "@/features/projets/types";
 import { afficherTelephone } from "@/features/referentiels/telephone";
 import {
   ABSENT,
@@ -78,6 +83,7 @@ import {
 } from "../classes";
 import { useEstColle } from "../EnteteChantier";
 import { lienEquipesChantier } from "../equipe-affectations/liens";
+import { EquipeEncadrement } from "./EquipeEncadrement";
 import { useGenerationFicheProjet } from "./GenerationFicheProjet";
 
 /**
@@ -87,7 +93,11 @@ import { useGenerationFicheProjet } from "./GenerationFicheProjet";
  * **les dates** (et le délai déjà consommé), **le budget** (et ce qu'il en
  * reste), **l'avancement** (et son écart au théorique). Viennent ensuite ce
  * que la création a saisi — maîtrise d'ouvrage et d'œuvre, type, lieu — la
- * structure en lots, et l'équipe projet.
+ * structure en lots, et l'équipe d'encadrement et de gestion.
+ *
+ * Le planning et le budget ne se saisissent plus à la création : tant qu'ils
+ * manquent, leurs cartes le disent, et seul le chef de projet du chantier a
+ * le bouton qui les fixe.
  *
  * **Aucun calcul ici.** L'échéancier, le reste à engager, l'écart et son
  * seuil de retard, le niveau budgétaire viennent de `features/projets/regles`
@@ -152,8 +162,13 @@ export function FicheProjet({ projetId }: { projetId: string }) {
    */
   const [entete, setEntete] = useState<HTMLDivElement | null>(null);
   const colle = useEstColle(entete);
-  const { modifier, basculerSuspension, modaux } = useGestionProjet();
+  const { modifier, basculerSuspension, encadrer, retirerEncadrement, cadrer, modaux } =
+    useGestionProjet();
   const fichePdf = useGenerationFicheProjet(requete.data);
+  const { droits, peut } = useDroits();
+  const peutSaisir = peut("projets", "saisie");
+  const peutValider = peut("projets", "validation");
+  const voitFinance = peut("finance");
 
   const synthese = useMemo(
     () => syntheseLots(requeteLots.data ?? []),
@@ -192,6 +207,18 @@ export function FicheProjet({ projetId }: { projetId: string }) {
 
   const projet = requete.data;
   const lieu = [projet.quartier, projet.ville].filter(Boolean).join(", ");
+  // Le planning et le budget : c'est le chef de projet du chantier qui les fixe.
+  const cadrable = peutCadrerProjet(projet, droits);
+
+  // Hors direction, un chantier dont on n'est pas n'a pas de fiche à montrer.
+  if (!projetVisible(projet, droits)) {
+    return (
+      <div className="flex flex-col gap-6">
+        {retour}
+        <AccesNonAutorise />
+      </div>
+    );
+  }
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -245,18 +272,20 @@ export function FicheProjet({ projetId }: { projetId: string }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="bottom" align="end" className="min-w-48">
-                {projetModifiable(projet) && (
+                {peutSaisir && projetModifiable(projet) && (
                   <DropdownMenuItem onSelect={() => modifier(projet)}>
                     <Pencil aria-hidden="true" />
                     {t("modifier")}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onSelect={fichePdf.generer} disabled={fichePdf.enCours}>
-                  <FileDown aria-hidden="true" />
+                  <Printer aria-hidden="true" />
                   {t("exporterPdf")}
                 </DropdownMenuItem>
-                {(peutSuspendre(projet) || peutReprendre(projet)) && <DropdownMenuSeparator />}
-                {peutSuspendre(projet) && (
+                {peutValider && (peutSuspendre(projet) || peutReprendre(projet)) && (
+                  <DropdownMenuSeparator />
+                )}
+                {peutValider && peutSuspendre(projet) && (
                   <DropdownMenuItem
                     onSelect={() => basculerSuspension(projet)}
                     className="text-avertissement focus:text-avertissement"
@@ -265,7 +294,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
                     {t("suspendre")}
                   </DropdownMenuItem>
                 )}
-                {peutReprendre(projet) && (
+                {peutValider && peutReprendre(projet) && (
                   <DropdownMenuItem
                     onSelect={() => basculerSuspension(projet)}
                     className="text-succes focus:text-succes"
@@ -281,9 +310,22 @@ export function FicheProjet({ projetId }: { projetId: string }) {
       </div>
 
       {/* Les trois chiffres qu'on vient chercher. */}
-      <section className="grid grid-cols-3 gap-4 max-lg:grid-cols-1">
-        <CarteCalendrier projet={projet} />
-        <CarteBudget projet={projet} />
+      <section
+        className={cn(
+          "grid gap-4 max-lg:grid-cols-1",
+          voitFinance || cadrable ? "grid-cols-3" : "grid-cols-2",
+        )}
+      >
+        <CarteCalendrier
+          projet={projet}
+          onDefinir={cadrable ? () => cadrer(projet, "planning") : undefined}
+        />
+        {(voitFinance || cadrable) && (
+          <CarteBudget
+            projet={projet}
+            onDefinir={cadrable ? () => cadrer(projet, "budget") : undefined}
+          />
+        )}
         <CarteAvancement projet={projet} />
       </section>
 
@@ -397,7 +439,15 @@ export function FicheProjet({ projetId }: { projetId: string }) {
           </Bloc>
         </div>
 
-        <EquipeProjet projet={projet} />
+        <EquipeEncadrement
+          projet={projet}
+          peutDesigner={peutDesignerChefProjet(projet, droits)}
+          peutGerer={peutGererEncadrement(projet, droits)}
+          onAjouter={(fonction, autorisees) => encadrer(projet, fonction, autorisees)}
+          onRetirer={(fonction, intervenant) =>
+            retirerEncadrement({ projet, fonction, intervenant })
+          }
+        />
       </div>
 
       {modaux}
@@ -516,11 +566,59 @@ function Detail({
   );
 }
 
-function CarteCalendrier({ projet }: { projet: Projet }) {
+/**
+ * Le geste de cadrage d'une carte, pour le chef de projet : « Définir » tant
+ * que la valeur manque, « Modifier » ensuite.
+ */
+function BoutonCadrage({ defini, onClick }: { defini: boolean; onClick: () => void }) {
+  const t = useTranslations("projets.cadrage");
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant={defini ? "ghost" : "default"}
+      className={cn(defini && "h-7 px-2 text-xs")}
+      onClick={onClick}
+    >
+      <Pencil aria-hidden="true" />
+      {defini ? t("modifier") : t("definir")}
+    </Button>
+  );
+}
+
+/**
+ * Ce qu'une carte montre tant que le chef de projet n'a pas fixé sa valeur :
+ * « Non défini », et qui doit le faire — ou, pour lui, le bouton qui le fait.
+ */
+function NonDefini({ onDefinir }: { onDefinir?: () => void }) {
+  const t = useTranslations("projets.cadrage");
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xl font-bold text-neutral-400 @[17rem]:text-2xl">{t("nonDefini")}</span>
+      {!onDefinir && <span className="text-xs text-neutral-600">{t("attenteChefProjet")}</span>}
+    </div>
+  );
+}
+
+function CarteCalendrier({ projet, onDefinir }: { projet: Projet; onDefinir?: () => void }) {
   const t = useTranslations("ficheProjet.calendrier");
   const echeancier = echeancierProjet(projet);
   const depasse =
     echeancier.joursRestants !== null && echeancier.joursRestants < 0;
+
+  // Le planning ne se demande plus à la création : le chef de projet le fixe ensuite.
+  if (!projet.dateDebutPrevue || !projet.dateFinPrevue) {
+    return (
+      <CarteCle
+        icone={<CalendarDays size={18} />}
+        titre={t("titre")}
+        pastille="primaire"
+        mention={onDefinir && <BoutonCadrage defini={false} onClick={onDefinir} />}
+      >
+        <NonDefini onDefinir={onDefinir} />
+      </CarteCle>
+    );
+  }
 
   let mention: ReactNode;
   if (projet.dateFinReelle) {
@@ -589,7 +687,7 @@ function CarteCalendrier({ projet }: { projet: Projet }) {
         </div>
       )}
 
-      <div className={cn(FILET, "flex flex-wrap justify-between gap-2 text-xs text-neutral-600")}>
+      <div className={cn(FILET, "flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-600")}>
         <span>
           {t("duree", { duree: formaterDuree(echeancier.dureeJours) })}
         </span>
@@ -598,12 +696,13 @@ function CarteCalendrier({ projet }: { projet: Projet }) {
             ? t("debutReel", { date: formaterDate(projet.dateDebutReelle) })
             : t("nonDemarre")}
         </span>
+        {onDefinir && <BoutonCadrage defini onClick={onDefinir} />}
       </div>
     </CarteCle>
   );
 }
 
-function CarteBudget({ projet }: { projet: Projet }) {
+function CarteBudget({ projet, onDefinir }: { projet: Projet; onDefinir?: () => void }) {
   const t = useTranslations("ficheProjet.budget");
   const ratio = ratioConsommationBudget(
     projet.budgetInitial,
@@ -633,16 +732,20 @@ function CarteBudget({ projet }: { projet: Projet }) {
           >
             {t("ratio", { valeur: ratio })}
           </span>
-        ) : undefined
+        ) : (
+          onDefinir && projet.budgetInitial === null && <BoutonCadrage defini={false} onClick={onDefinir} />
+        )
       }
     >
       <div className="flex flex-col gap-0.5">
         <span className="text-xs text-neutral-500">{t("initial")}</span>
-        <span className="whitespace-nowrap text-xl font-bold @[17rem]:text-2xl tabular-nums text-neutral-900">
-          {projet.budgetInitial !== null
-            ? formaterMontant(projet.budgetInitial)
-            : t("nonDefini")}
-        </span>
+        {projet.budgetInitial !== null ? (
+          <span className="whitespace-nowrap text-xl font-bold @[17rem]:text-2xl tabular-nums text-neutral-900">
+            {formaterMontant(projet.budgetInitial)}
+          </span>
+        ) : (
+          <NonDefini onDefinir={onDefinir} />
+        )}
       </div>
 
       {ratio !== null && niveau && (
@@ -663,6 +766,11 @@ function CarteBudget({ projet }: { projet: Projet }) {
           }
           className={cn(restant !== null && restant < 0 && "text-erreur")}
         />
+        {onDefinir && projet.budgetInitial !== null && (
+          <div className="col-span-2 flex justify-end">
+            <BoutonCadrage defini onClick={onDefinir} />
+          </div>
+        )}
       </div>
     </CarteCle>
   );
@@ -819,136 +927,5 @@ function LienSection({
       {children}
       <ChevronRight size={14} aria-hidden="true" />
     </Link>
-  );
-}
-
-/* ------------------------------------------------------------------ *
- * L'équipe projet.
- * ------------------------------------------------------------------ */
-
-function EquipeProjet({ projet }: { projet: Projet }) {
-  const t = useTranslations("ficheProjet");
-  const conducteur = projet.conducteurTravaux;
-  const whatsapp = conducteur
-    ? lienWhatsApp(conducteur.lienWhatsApp, conducteur.telephone)
-    : null;
-
-  return (
-    <section className={cn(BLOC, "flex flex-col gap-4 p-4 shadow-md sm:p-5")}>
-      <h2 className="m-0 text-base font-semibold text-neutral-900">
-        {t("equipe.titre")}
-      </h2>
-
-      {/* Le conducteur de travaux d'abord : c'est lui qu'on appelle. */}
-      <div className="flex flex-col gap-3 rounded-lg border border-solid border-primary-200 bg-primary-50 p-4">
-        <Personne
-          intervenant={conducteur}
-          role={t("equipe.conducteurTravaux")}
-          principal
-        />
-        {conducteur && (
-          <div className="flex flex-col gap-1.5 text-xs text-neutral-700">
-            {conducteur.email && (
-              <a
-                href={`mailto:${conducteur.email}`}
-                aria-label={t("equipe.email", { nom: conducteur.nomComplet })}
-                className="inline-flex items-center gap-2 text-primary-700 no-underline hover:underline"
-              >
-                <Mail size={14} aria-hidden="true" />
-                {conducteur.email}
-              </a>
-            )}
-            {conducteur.telephone && (
-              <span className="inline-flex items-center gap-2">
-                <Phone size={14} aria-hidden="true" />
-                {afficherTelephone(conducteur.telephone)}
-              </span>
-            )}
-          </div>
-        )}
-        {whatsapp && (
-          <a
-            href={whatsapp}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-whatsapp px-4 py-2.5 text-sm font-semibold text-neutral-0 no-underline transition-colors hover:bg-whatsapp-survol"
-          >
-            <MessageCircle size={18} aria-hidden="true" />
-            <span>{t("actionWhatsApp")}</span>
-          </a>
-        )}
-      </div>
-
-      <ul className="m-0 flex list-none flex-col gap-3 p-0">
-        <li>
-          <Personne
-            intervenant={projet.chefProjet}
-            role={t("equipe.chefProjet")}
-          />
-        </li>
-        {projet.chefsChantier.length > 0 ? (
-          projet.chefsChantier.map((chef) => (
-            <li key={chef.id}>
-              <Personne intervenant={chef} role={t("equipe.chefChantier")} />
-            </li>
-          ))
-        ) : (
-          <li>
-            <Personne intervenant={null} role={t("equipe.chefChantier")} />
-          </li>
-        )}
-        <li>
-          <Personne
-            intervenant={projet.directeurFinancier}
-            role={t("equipe.directeurFinancier")}
-          />
-        </li>
-      </ul>
-    </section>
-  );
-}
-
-function Personne({
-  intervenant,
-  role,
-  principal = false,
-}: {
-  intervenant: Intervenant | null;
-  role: string;
-  principal?: boolean;
-}) {
-  const t = useTranslations("ficheProjet.equipe");
-  const sigle = intervenant
-    ? initiales(intervenant.prenom, intervenant.nom)
-    : null;
-
-  return (
-    <div className="flex items-center gap-3">
-      <span
-        className={cn(
-          "flex shrink-0 items-center justify-center rounded-full font-semibold",
-          principal ? "size-11 text-base" : "size-9 text-xs",
-          intervenant
-            ? "bg-primary-100 text-primary-800"
-            : "bg-neutral-100 text-neutral-400",
-        )}
-        aria-hidden="true"
-      >
-        {sigle ?? ABSENT}
-      </span>
-      <div className="flex min-w-0 flex-col">
-        <span className="text-xs text-neutral-500">{role}</span>
-        {intervenant ? (
-          <span className="flex items-center gap-2 truncate text-sm font-semibold text-neutral-900">
-            {intervenant.nomComplet || intervenant.email}
-            {intervenant.statut === "INVITE" && (
-              <Badge variante="avertissement">{t("invite")}</Badge>
-            )}
-          </span>
-        ) : (
-          <span className="text-sm text-neutral-500">{t("nonDesigne")}</span>
-        )}
-      </div>
-    </div>
   );
 }

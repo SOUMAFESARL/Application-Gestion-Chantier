@@ -178,6 +178,16 @@ async function ouvrirPremierProjet(page) {
 async function main() {
   const echecs = [];
   const navigateur = await chromium.launch();
+  /**
+   * Le pare-feu de l'API distante répond 403 à un navigateur qui s'annonce
+   * « HeadlessChrome » — préflight CORS compris, si bien que la connexion
+   * échoue sans message. On présente l'agent du même Chrome, sans ce mot.
+   */
+  const agent = (await navigateur.newPage().then(async (p) => {
+    const ua = await p.evaluate(() => navigator.userAgent);
+    await p.close();
+    return ua;
+  })).replace("HeadlessChrome", "Chrome");
 
   for (const largeur of LARGEURS) {
     const dossier = path.join(RACINE, largeur.nom);
@@ -190,6 +200,7 @@ async function main() {
       timezoneId: "Africa/Abidjan",
       // Fige l'animation pour que deux captures du meme ecran soient egales.
       reducedMotion: "reduce",
+      userAgent: agent,
     });
     const page = await contexte.newPage();
 

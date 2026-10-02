@@ -74,6 +74,12 @@ import type { DonneesEntreprise } from "@/features/configuration/api";
 import { obtenirMeteo } from "@/features/projets/adaptateur";
 import type { MeteoProjet } from "@/features/projets/types";
 import { useIdentitePlateforme } from "@/features/plateforme/hooks";
+import { FournisseurDroits, GardeRoute, routeAutorisee } from "@/features/habilitations";
+import {
+  IncarnationBarreHaut,
+  quitterIncarnation,
+  useDroitsEnVigueur,
+} from "@/dev/Incarnation";
 
 interface LayoutAppProps {
   children: React.ReactNode;
@@ -85,6 +91,9 @@ const SOUS_MENU_PROJETS = [
   { href: "/projets/lots-activites", cle: "projetsLots" },
   { href: "/projets/equipe-affectations", cle: "projetsEquipe" },
 ] as const;
+
+/** Le groupe « Plus de modules » disparaît quand aucune de ses entrées n'est ouverte. */
+const MODULES_SECONDAIRES = ["/stocks", "/rh", "/equipements", "/qhse", "/contrats", "/documents", "/tiers"];
 
 /**
  * Les segments de `/projets/*` qui sont des écrans, pas des identifiants de
@@ -263,6 +272,14 @@ export default function LayoutApp({ children }: LayoutAppProps) {
 
   const estDirecteurGeneral = Boolean(profil?.is_dg || profil?.role_global === "DG");
 
+  /**
+   * Les droits de la coquille : ceux du profil — ou, sur un poste de dev, ceux
+   * du rôle que le DG incarne pour tester. Une entrée de menu n'apparaît que
+   * si sa route est ouverte (`routeAutorisee`) ; aucune tant qu'on ne sait pas.
+   */
+  const { droits, incarnation } = useDroitsEnVigueur(profil);
+  const voit = (href: string) => routeAutorisee(droits, href);
+
   useEffect(() => {
     let vivant = true;
 
@@ -404,6 +421,7 @@ export default function LayoutApp({ children }: LayoutAppProps) {
   })();
 
   async function deconnexion() {
+    quitterIncarnation();
     await seDeconnecter();
     router.replace("/connexion");
   }
@@ -415,6 +433,7 @@ export default function LayoutApp({ children }: LayoutAppProps) {
   const initiales = initialesProfil(profil);
 
   return (
+    <FournisseurDroits droits={droits}>
     <SidebarProvider>
       <Sidebar collapsible="icon">
         <SidebarHeader>
@@ -449,194 +468,236 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                 </SidebarMenuItem>
                 {/* Panneau volant au survol : pas d'infobulle ici, elle
                     doublerait le panneau quand la barre est repliée. */}
-                <SidebarMenuSousMenu
-                  libelle={t("projets")}
-                  declencheur={
-                    <SidebarMenuButton asChild isActive={estSurProjets} sousMenu>
-                      <Link href="/projets">
-                        <Building2 />
-                        <span>{t("projets")}</span>
+                {voit("/projets") && (
+  <SidebarMenuSousMenu
+                    libelle={t("projets")}
+                    declencheur={
+                      <SidebarMenuButton asChild isActive={estSurProjets} sousMenu>
+                        <Link href="/projets">
+                          <Building2 />
+                          <span>{t("projets")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    }
+                  >
+                    {SOUS_MENU_PROJETS.map(({ href, cle }) => (
+                      <SidebarMenuSousMenuLien key={href} isActive={sousMenuProjetsActif === href}>
+                        <Link href={href}>{t(cle)}</Link>
+                      </SidebarMenuSousMenuLien>
+                    ))}
+                  </SidebarMenuSousMenu>
+                )}
+                {voit("/rapports") && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={estSurChantier} tooltip={t("chantier")}>
+                      <Link href="/rapports">
+                        <HardHat />
+                        <span>{t("chantier")}</span>
                       </Link>
                     </SidebarMenuButton>
-                  }
-                >
-                  {SOUS_MENU_PROJETS.map(({ href, cle }) => (
-                    <SidebarMenuSousMenuLien key={href} isActive={sousMenuProjetsActif === href}>
-                      <Link href={href}>{t(cle)}</Link>
-                    </SidebarMenuSousMenuLien>
-                  ))}
-                </SidebarMenuSousMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurChantier} tooltip={t("chantier")}>
-                    <Link href="/rapports">
-                      <HardHat />
-                      <span>{t("chantier")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurPlanning} tooltip={t("planning")}>
-                    <Link href="/planning">
-                      <CalendarDays />
-                      <span>{t("planning")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurFinance} tooltip={t("finance")}>
-                    <Link href="/finance">
-                      <CircleDollarSign />
-                      <span>{t("finance")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurAchats} tooltip={t("achats")}>
-                    <Link href="/achats">
-                      <ShoppingCart />
-                      <span>{t("achats")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                  </SidebarMenuItem>
+                )}
+                {voit("/planning") && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={estSurPlanning} tooltip={t("planning")}>
+                      <Link href="/planning">
+                        <CalendarDays />
+                        <span>{t("planning")}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {voit("/finance") && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={estSurFinance} tooltip={t("finance")}>
+                      <Link href="/finance">
+                        <CircleDollarSign />
+                        <span>{t("finance")}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {voit("/achats") && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={estSurAchats} tooltip={t("achats")}>
+                      <Link href="/achats">
+                        <ShoppingCart />
+                        <span>{t("achats")}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
 
-          <SidebarGroup>
-            <SidebarGroupLabel>{t("plusDeModules")}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurStocks} tooltip={t("stocks")}>
-                    <Link href="/stocks">
-                      <Package />
-                      <span>{t("stocks")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurRh} tooltip={t("rh")}>
-                    <Link href="/rh">
-                      <Users />
-                      <span>{t("rh")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurEquipements} tooltip={t("equipements")}>
-                    <Link href="/equipements">
-                      <Truck />
-                      <span>{t("equipements")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurQhse} tooltip={t("qhse")}>
-                    <Link href="/qhse">
-                      <ShieldCheck />
-                      <span>{t("qhse")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurContrats} tooltip={t("contrats")}>
-                    <Link href="/contrats">
-                      <Handshake />
-                      <span>{t("contrats")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurDocuments} tooltip={t("documents")}>
-                    <Link href="/documents">
-                      <FileText />
-                      <span>{t("documents")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurTiers} tooltip={t("tiers")}>
-                    <Link href="/tiers">
-                      <Contact />
-                      <span>{t("tiers")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          {MODULES_SECONDAIRES.some(voit) && (
+  <SidebarGroup>
+              <SidebarGroupLabel>{t("plusDeModules")}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {voit("/stocks") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={estSurStocks} tooltip={t("stocks")}>
+                        <Link href="/stocks">
+                          <Package />
+                          <span>{t("stocks")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {voit("/rh") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={estSurRh} tooltip={t("rh")}>
+                        <Link href="/rh">
+                          <Users />
+                          <span>{t("rh")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {voit("/equipements") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={estSurEquipements} tooltip={t("equipements")}>
+                        <Link href="/equipements">
+                          <Truck />
+                          <span>{t("equipements")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {voit("/qhse") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={estSurQhse} tooltip={t("qhse")}>
+                        <Link href="/qhse">
+                          <ShieldCheck />
+                          <span>{t("qhse")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {voit("/contrats") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={estSurContrats} tooltip={t("contrats")}>
+                        <Link href="/contrats">
+                          <Handshake />
+                          <span>{t("contrats")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {voit("/documents") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={estSurDocuments} tooltip={t("documents")}>
+                        <Link href="/documents">
+                          <FileText />
+                          <span>{t("documents")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {voit("/tiers") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={estSurTiers} tooltip={t("tiers")}>
+                        <Link href="/tiers">
+                          <Contact />
+                          <span>{t("tiers")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
 
-          <SidebarGroup className="mt-auto">
-            <SidebarGroupLabel>{t("abonnement")}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurAbonnementTarifs} tooltip={t("tarifs")}>
-                    <Link href="/abonnement/tarifs">
-                      <Tag />
-                      <span>{t("tarifs")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={estSurAbonnementHistorique}
-                    tooltip={t("historique")}
-                  >
-                    <Link href="/abonnement/historique">
-                      <History />
-                      <span>{t("historique")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          {voit("/abonnement") && (
+  <SidebarGroup className="mt-auto">
+              <SidebarGroupLabel>{t("abonnement")}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {voit("/abonnement/tarifs") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={estSurAbonnementTarifs} tooltip={t("tarifs")}>
+                        <Link href="/abonnement/tarifs">
+                          <Tag />
+                          <span>{t("tarifs")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {voit("/abonnement/historique") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={estSurAbonnementHistorique}
+                        tooltip={t("historique")}
+                      >
+                        <Link href="/abonnement/historique">
+                          <History />
+                          <span>{t("historique")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
 
-          <SidebarGroup>
-            <SidebarGroupLabel>{t("parametres")}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurParametres} tooltip={t("parametres")}>
-                    <Link href="/parametres">
-                      <Settings />
-                      <span>{t("parametres")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurCollaborateurs} tooltip={t("collaborateurs")}>
-                    <Link href="/parametres/collaborateurs">
-                      <Users />
-                      <span>{t("collaborateurs")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurRoles} tooltip={t("roles")}>
-                    <Link href="/parametres/roles">
-                      <ShieldCheck />
-                      <span>{t("roles")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={estSurConfigurationEntreprise}
-                    tooltip={t("configuration")}
-                  >
-                    <Link href="/parametres/configuration">
-                      <Building2 />
-                      <span>{t("configuration")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          {voit("/parametres") && (
+  <SidebarGroup>
+              <SidebarGroupLabel>{t("parametres")}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {voit("/parametres") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={estSurParametres} tooltip={t("parametres")}>
+                        <Link href="/parametres">
+                          <Settings />
+                          <span>{t("parametres")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {voit("/parametres/collaborateurs") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={estSurCollaborateurs} tooltip={t("collaborateurs")}>
+                        <Link href="/parametres/collaborateurs">
+                          <Users />
+                          <span>{t("collaborateurs")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {voit("/parametres/roles") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={estSurRoles} tooltip={t("roles")}>
+                        <Link href="/parametres/roles">
+                          <ShieldCheck />
+                          <span>{t("roles")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {voit("/parametres/configuration") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={estSurConfigurationEntreprise}
+                        tooltip={t("configuration")}
+                      >
+                        <Link href="/parametres/configuration">
+                          <Building2 />
+                          <span>{t("configuration")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
         </SidebarContent>
 
         {/* Filet de séparation corps / pied, symétrique de celui que
@@ -712,6 +773,7 @@ export default function LayoutApp({ children }: LayoutAppProps) {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            <IncarnationBarreHaut profil={profil} incarnation={incarnation} />
             {/* Compteur d'essai — dans la barre du haut, et non plus dans le
                 pied de la barre latérale : replier celle-ci en icônes le
                 faisait disparaître, alors que c'est la seule chose de l'écran
@@ -773,8 +835,11 @@ export default function LayoutApp({ children }: LayoutAppProps) {
             C'est la **seule** marge entre la barre latérale et le contenu :
             un écran n'ajoute ni `padding` ni largeur centrée (`mx-auto`),
             et pose son titre avec `EnTetePage`. */}
-        <main className="flex-1 px-2 py-3 sm:p-6">{children}</main>
+        <main className="flex-1 px-2 py-3 sm:p-6">
+          <GardeRoute>{children}</GardeRoute>
+        </main>
       </SidebarInset>
     </SidebarProvider>
+    </FournisseurDroits>
   );
 }

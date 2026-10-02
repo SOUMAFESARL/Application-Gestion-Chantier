@@ -22,6 +22,7 @@ import {
   statutActivite,
 } from "@/features/projets/regles";
 import type { CriteresAffectations } from "@/features/projets/regles";
+import { useDroits } from "@/features/habilitations";
 import type { Activite, Equipe, Lot } from "@/features/projets/types";
 import { ABSENT, formaterDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,8 @@ interface Props {
 export function AffectationsProjet({ lots, equipes, onNouvelle, onModifier }: Props) {
   const t = useTranslations("projets.equipesAffectations");
   const tLots = useTranslations("projets.lotsActivites");
+  // Affecter une équipe à une activité, c'est saisir dans « chantier ».
+  const peutSaisir = useDroits().peut("chantier", "saisie");
   const [criteres, setCriteres] = useState<CriteresAffectations>(CRITERES_AFFECTATIONS_VIDES);
 
   const lignes = useMemo(() => filtrerAffectations(lots, criteres), [lots, criteres]);
@@ -118,6 +121,7 @@ export function AffectationsProjet({ lots, equipes, onNouvelle, onModifier }: Pr
         header: t("colonnes.actions"),
         meta: { classe: BORD_DROIT_TABLEAU },
         cell: ({ row }) => {
+          if (!peutSaisir) return null;
           const libelle = row.original.equipe
             ? t("actionReaffecter", { code: row.original.code })
             : t("actionAffecterActivite", { code: row.original.code });
@@ -135,7 +139,7 @@ export function AffectationsProjet({ lots, equipes, onNouvelle, onModifier }: Pr
         },
       }),
     ]);
-  }, [t, tLots, equipes, onModifier]);
+  }, [t, tLots, equipes, onModifier, peutSaisir]);
 
   /** Le lot et les dates complètes en plus de l'écran : le fichier se relit seul. */
   const exporter = useMemo<ExportTableau<Activite>>(() => {
@@ -179,14 +183,16 @@ export function AffectationsProjet({ lots, equipes, onNouvelle, onModifier }: Pr
       cleCriteres={`${criteres.recherche}|${criteres.lotId}|${criteres.equipeId}`}
       exporter={exporter}
       actions={
-        <Bouton
-          variante="primaire"
-          taille="sm"
-          iconeGauche={<Plus size={16} aria-hidden="true" />}
-          onClick={onNouvelle}
-        >
-          {t("actionNouvelleAffectation")}
-        </Bouton>
+        peutSaisir && (
+          <Bouton
+            variante="primaire"
+            taille="sm"
+            iconeGauche={<Plus size={16} aria-hidden="true" />}
+            onClick={onNouvelle}
+          >
+            {t("actionNouvelleAffectation")}
+          </Bouton>
+        )
       }
       outils={
         <>

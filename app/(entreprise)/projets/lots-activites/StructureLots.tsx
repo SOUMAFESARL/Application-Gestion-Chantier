@@ -20,6 +20,7 @@ import {
   statutActivite,
   statutsActivitesPresents,
 } from "@/features/projets/regles";
+import { useDroits } from "@/features/habilitations";
 import type { Activite, Lot, StatutActivite } from "@/features/projets/types";
 import {
   ABSENT,
@@ -75,6 +76,8 @@ export function StructureLots({
   onAjouterActivite,
 }: Props) {
   const t = useTranslations("projets.lotsActivites");
+  // Créer un lot ou une activité, c'est saisir dans « projets ».
+  const peutSaisir = useDroits().peut("projets", "saisie");
   const [replies, setReplies] = useState<Set<string>>(() => new Set());
 
   const [page, setPage] = useState(0);
@@ -166,7 +169,7 @@ export function StructureLots({
     [t, lotsParId],
   );
 
-  const boutonLot = (
+  const boutonLot = peutSaisir && (
     <Bouton
       variante="secondaire"
       taille="sm"
@@ -181,7 +184,11 @@ export function StructureLots({
   if (lots.length === 0) {
     return (
       <div className={BLOC}>
-        <EtatVide titre={t("aucunLotTitre")} description={t("aucunLot")} action={boutonLot} />
+        <EtatVide
+          titre={t("aucunLotTitre")}
+          description={t("aucunLot")}
+          action={boutonLot || undefined}
+        />
       </div>
     );
   }
@@ -208,15 +215,17 @@ export function StructureLots({
         <span className="flex-1 max-sm:hidden" />
         <MenuExport exporter={exporter} lignes={activitesExport} compact />
         {boutonLot}
-        <Bouton
-          variante="primaire"
-          taille="sm"
-          aria-label={t("actionActiviteLibelle")}
-          iconeGauche={<Plus size={16} aria-hidden="true" />}
-          onClick={() => onAjouterActivite()}
-        >
-          {t("actionActivite")}
-        </Bouton>
+        {peutSaisir && (
+          <Bouton
+            variante="primaire"
+            taille="sm"
+            aria-label={t("actionActiviteLibelle")}
+            iconeGauche={<Plus size={16} aria-hidden="true" />}
+            onClick={() => onAjouterActivite()}
+          >
+            {t("actionActivite")}
+          </Bouton>
+        )}
       </div>
 
       <div className="overflow-x-auto [scrollbar-width:thin]">
@@ -301,13 +310,15 @@ export function StructureLots({
                     <tr>
                       <td colSpan={6} className={cn(CELLULE, "pl-10 text-neutral-500")}>
                         {t("lotSansActivite")}{" "}
-                        <button
-                          type="button"
-                          onClick={() => onAjouterActivite(lot.id)}
-                          className="cursor-pointer border-0 bg-transparent p-0 font-medium text-primary-600 underline-offset-2 hover:underline"
-                        >
-                          {t("ajouterDansLot")}
-                        </button>
+                        {peutSaisir && (
+                          <button
+                            type="button"
+                            onClick={() => onAjouterActivite(lot.id)}
+                            className="cursor-pointer border-0 bg-transparent p-0 font-medium text-primary-600 underline-offset-2 hover:underline"
+                          >
+                            {t("ajouterDansLot")}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )}

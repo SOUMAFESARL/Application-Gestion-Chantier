@@ -6,8 +6,9 @@ import { useCallback, useMemo, useState } from "react";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
-import { listerEquipes, listerLots, listerProjets } from "@/features/projets/adaptateur";
-import { CLE_LISTE_PROJETS, cleEquipes, cleLots } from "@/features/projets/cles";
+import { useProjetsVisibles } from "@/features/habilitations";
+import { listerEquipes, listerLots } from "@/features/projets/adaptateur";
+import { cleEquipes, cleLots } from "@/features/projets/cles";
 import { TiroirAffectation } from "@/features/projets/components/TiroirAffectation";
 import { TiroirEquipe } from "@/features/projets/components/TiroirEquipe";
 import { projetOuvert, syntheseEquipes } from "@/features/projets/regles";
@@ -53,10 +54,8 @@ export function EquipesAffectations({ projetInitial }: { projetInitial?: string 
   /** Le rang de la dernière ouverture d'un tiroir, qui lui sert de `key`. */
   const [ouverture, setOuverture] = useState(0);
 
-  const requeteProjets = useQuery({
-    queryKey: CLE_LISTE_PROJETS,
-    queryFn: ({ signal }) => listerProjets(signal),
-  });
+  // Hors direction, le sélecteur ne propose que ses chantiers.
+  const requeteProjets = useProjetsVisibles();
   const projets = useMemo(() => requeteProjets.data ?? [], [requeteProjets.data]);
   const projetId = projetChoisi ?? projetOuvert(projets, projetInitial)?.id ?? null;
 

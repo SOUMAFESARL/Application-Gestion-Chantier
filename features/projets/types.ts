@@ -78,28 +78,72 @@ export interface Projet {
   budgetInitial: number | null;
   /** En centimes. */
   budgetConsomme: number;
-  dateDebutPrevue: string;
-  dateFinPrevue: string;
+  /** `null` tant que le planning contractuel n'est pas fixé : il ne se demande plus à la création. */
+  dateDebutPrevue: string | null;
+  dateFinPrevue: string | null;
   dateDebutReelle: string | null;
   dateFinReelle: string | null;
-  chefProjet: Intervenant | null;
-  conducteurTravaux: Intervenant | null;
   /** Le maître d'œuvre, en clair. `null` : pas de maîtrise d'œuvre désignée. */
   maitreOeuvre: string | null;
-  /** Au moins un dès la création ; vide pour un projet ouvert avant l'étape « Équipe ». */
-  chefsChantier: Intervenant[];
-  directeurFinancier: Intervenant | null;
+  /**
+   * L'équipe d'encadrement et de gestion du projet. Vide à la création : le
+   * DG désigne le chef de projet depuis la fiche, et l'équipe se complète
+   * ensuite.
+   */
+  chefProjet: Intervenant | null;
+  conducteursTravaux: Intervenant[];
+  chefsChantier: ChefChantierProjet[];
+  autresMembres: AutreMembreProjet[];
 }
 
 /**
- * La place qu'un collaborateur tient dans l'équipe projet d'un chantier — les
- * quatre désignations que porte la fiche (`Projet`).
+ * La place qu'un collaborateur tient dans l'équipe d'encadrement et de
+ * gestion d'un projet. Un seul chef de projet ; les autres places en
+ * acceptent plusieurs.
  */
 export type FonctionProjet =
   | "CHEF_PROJET"
   | "CONDUCTEUR_TRAVAUX"
   | "CHEF_CHANTIER"
-  | "DIRECTEUR_FINANCIER";
+  | "AUTRE_MEMBRE";
+
+/** Ce que fait un « autre membre » de l'encadrement. */
+export type FonctionAutreMembre =
+  | "FINANCIER"
+  | "INGENIEUR"
+  | "DOCUMENTALISTE"
+  | "METREUR"
+  | "QHSE"
+  | "AUTRE";
+
+/** Un chef de chantier, et la zone ou le lot dont il a la charge s'il est précisé. */
+export interface ChefChantierProjet {
+  intervenant: Intervenant;
+  /** « Lot 02 — Gros œuvre », « Bâtiment B »… `null` : tout le chantier. */
+  zone: string | null;
+}
+
+/** Un autre membre de l'encadrement — financier, ingénieur, documentaliste… */
+export interface AutreMembreProjet {
+  intervenant: Intervenant;
+  fonction: FonctionAutreMembre;
+}
+
+/**
+ * L'arrivée d'une personne dans l'équipe d'encadrement. `intervenant` vient
+ * de la liste des utilisateurs du compte : le serveur n'en lit que l'`id`.
+ * Désigner un chef de projet remplace le précédent.
+ */
+export type AjoutEncadrement =
+  | { fonction: "CHEF_PROJET" | "CONDUCTEUR_TRAVAUX"; intervenant: Intervenant }
+  | { fonction: "CHEF_CHANTIER"; intervenant: Intervenant; zone: string | null }
+  | { fonction: "AUTRE_MEMBRE"; intervenant: Intervenant; fonctionMembre: FonctionAutreMembre };
+
+/** Le planning contractuel, fixé par le chef de projet après la création. */
+export interface PlanningProjet {
+  dateDebutPrevue: string;
+  dateFinPrevue: string;
+}
 
 /** Un chantier attribué à un collaborateur, et ce qu'il y fait. */
 export interface AffectationProjet {
@@ -127,29 +171,11 @@ export type ModeExecutionLot =
 /** Comment le lot est rémunéré. */
 export type TypeBordereau = "FORFAIT_GLOBAL" | "PRIX_UNITAIRE";
 
-/** Un lot déclaré à la création du projet — ses activités viennent après. */
-export interface CreationLot {
-  /** `L-01`, `L-02`… : l'ordre de saisie. */
-  numero: string;
-  nom: string;
-  modeExecution: ModeExecutionLot;
-  typeBordereau: TypeBordereau;
-  dateDebut?: string;
-  dateFin?: string;
-}
-
-/** Les affectations de l'équipe projet, par identifiant de collaborateur. */
-export interface EquipeProjet {
-  chefProjetId: string;
-  conducteurTravauxId: string;
-  /** Au moins un. */
-  chefsChantierIds: string[];
-  directeurFinancierId?: string;
-  visiteursIds: string[];
-  bailleursIds: string[];
-}
-
-/** Ce qu'il faut fournir pour ouvrir un projet — les trois étapes du tiroir. */
+/**
+ * Ce qu'il faut fournir pour ouvrir un projet — son identification.
+ * Ni planning, ni budget, ni lots, ni équipe : ils se fixent ensuite, depuis
+ * le projet ouvert.
+ */
 export interface CreationProjet {
   nom: string;
   /** Absente : le serveur engendre la référence. */
@@ -159,22 +185,20 @@ export interface CreationProjet {
   /** Le maître d'ouvrage, en clair : entreprise ou particulier. */
   maitreOuvrage: string;
   maitreOeuvre?: string;
-  dateDebutPrevue: string;
-  dateFinPrevue: string;
+  /** Facultatifs à la création : absents, le chef de projet les fixe ensuite. */
+  dateDebutPrevue?: string;
+  dateFinPrevue?: string;
   /** En centimes. */
-  budgetInitial: number;
+  budgetInitial?: number;
   description?: string;
-  lots: CreationLot[];
-  equipe: EquipeProjet;
 }
 
 /**
  * Ce que la modification d'un projet peut changer.
  *
- * Ni la référence (unique, engendrée à la création), ni les lots (ils se
- * gèrent dans « Lots & activités »), ni les visiteurs et bailleurs : la fiche
- * ne les lit pas, et un formulaire qui renverrait une liste qu'il n'a jamais
- * reçue l'effacerait côté serveur. La modification est un `PATCH`.
+ * La même identification que la création, référence exceptée (unique,
+ * engendrée à la création). La modification est un `PATCH` : le planning, le
+ * budget, les lots et l'équipe, qu'elle ne renvoie pas, restent inchangés.
  */
 export interface ModificationProjet {
   nom: string;
@@ -182,12 +206,6 @@ export interface ModificationProjet {
   ville: string;
   maitreOuvrage: string;
   maitreOeuvre?: string;
-  dateDebutPrevue: string;
-  dateFinPrevue: string;
-  /** En centimes. */
-  budgetInitial: number;
-  description?: string;
-  equipe: Omit<EquipeProjet, "visiteursIds" | "bailleursIds">;
 }
 
 /** La portée d'un relevé météo : l'entreprise, ou un chantier précis. */

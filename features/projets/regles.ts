@@ -17,7 +17,9 @@ import type {
   Activite,
   AffectationProjet,
   Equipe,
+  FonctionAutreMembre,
   FonctionProjet,
+  Intervenant,
   Lot,
   MembreEquipe,
   ModeExecutionLot,
@@ -153,6 +155,8 @@ export function niveauAvancement(projet: Projet): NiveauAvancement {
  */
 export function echeanceDepassee(projet: Projet, maintenant: Date = new Date()): boolean {
   if (projet.statut === "TERMINE" || projet.statut === "ARCHIVE") return false;
+  // Sans fin prévue, il n'y a pas d'échéance à dépasser.
+  if (!projet.dateFinPrevue) return false;
   return projet.dateFinPrevue < maintenant.toISOString().split("T")[0];
 }
 
@@ -181,8 +185,12 @@ export function budgetRestant(projet: Pick<Projet, "budgetInitial" | "budgetCons
   return projet.budgetInitial - projet.budgetConsomme;
 }
 
-/** Les jours calendaires d'une date ISO courte à une autre ; négatif si `fin` précède `debut`. */
-function joursEntre(debut: string, fin: string): number | null {
+/**
+ * Les jours calendaires d'une date ISO courte à une autre ; négatif si `fin`
+ * précède `debut`, `null` si l'une manque.
+ */
+function joursEntre(debut: string | null, fin: string | null): number | null {
+  if (!debut || !fin) return null;
   const depart = Date.parse(debut);
   const arrivee = Date.parse(fin);
   if (Number.isNaN(depart) || Number.isNaN(arrivee)) return null;
@@ -1375,19 +1383,83 @@ export const ORDRE_FONCTIONS: FonctionProjet[] = [
   "CHEF_PROJET",
   "CONDUCTEUR_TRAVAUX",
   "CHEF_CHANTIER",
-  "DIRECTEUR_FINANCIER",
+  "AUTRE_MEMBRE",
 ];
 
-/** Les fonctions que la personne tient dans l'équipe projet d'un chantier. */
+/** Les fonctions que la personne tient dans l'équipe d'encadrement d'un chantier. */
 export function fonctionsDansProjet(projet: Projet, collaborateurId: string): FonctionProjet[] {
-  const fonctions: FonctionProjet[] = [];
-  if (projet.chefProjet?.id === collaborateurId) fonctions.push("CHEF_PROJET");
-  if (projet.conducteurTravaux?.id === collaborateurId) fonctions.push("CONDUCTEUR_TRAVAUX");
-  if (projet.chefsChantier.some((chef) => chef.id === collaborateurId)) {
-    fonctions.push("CHEF_CHANTIER");
+  return ORDRE_FONCTIONS.filter((fonction) =>
+    membresDeFonction(projet, fonction).some((membre) => membre.id === collaborateurId),
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * L'équipe d'encadrement et de gestion du projet.
+ * ------------------------------------------------------------------ */
+
+/** Ce qu'un « autre membre » peut faire sur un projet, dans l'ordre du choix. */
+export const FONCTIONS_AUTRE_MEMBRE: readonly FonctionAutreMembre[] = [
+  "FINANCIER",
+  "INGENIEUR",
+  "DOCUMENTALISTE",
+  "METREUR",
+  "QHSE",
+  "AUTRE",
+];
+
+/** Les personnes qui tiennent une fonction de l'encadrement, sans ce qui précise leur place. */
+export function membresDeFonction(projet: Projet, fonction: FonctionProjet): Intervenant[] {
+  switch (fonction) {
+    case "CHEF_PROJET":
+      return projet.chefProjet ? [projet.chefProjet] : [];
+    case "CONDUCTEUR_TRAVAUX":
+      return projet.conducteursTravaux;
+    case "CHEF_CHANTIER":
+      return projet.chefsChantier.map((chef) => chef.intervenant);
+    case "AUTRE_MEMBRE":
+      return projet.autresMembres.map((membre) => membre.intervenant);
   }
-  if (projet.directeurFinancier?.id === collaborateurId) fonctions.push("DIRECTEUR_FINANCIER");
-  return fonctions;
+}
+
+/** Le nombre de personnes distinctes dans l'encadrement — un cumul ne compte qu'une fois. */
+export function effectifEncadrement(projet: Projet): number {
+  const identifiants = new Set(
+    ORDRE_FONCTIONS.flatMap((fonction) => membresDeFonction(projet, fonction).map((membre) => membre.id)),
+  );
+  return identifiants.size;
+}
+
+/**
+ * Les utilisateurs du compte qu'on peut encore placer à cette fonction : un
+ * compte désactivé ne se désigne pas, et une personne n'occupe pas deux fois
+ * la même place — le chef de projet en place n'est donc pas reproposé.
+ */
+export function candidatsEncadrement(
+  utilisateurs: Collaborateur[],
+  projet: Projet,
+  fonction: FonctionProjet,
+): Collaborateur[] {
+  const pris = new Set(membresDeFonction(projet, fonction).map((membre) => membre.id));
+  return utilisateurs.filter((utilisateur) => utilisateur.statut !== "DESACTIVE" && !pris.has(utilisateur.id));
+}
+
+/** Un utilisateur du compte, vu comme un intervenant du projet. */
+export function intervenantDuCollaborateur(collaborateur: Collaborateur): Intervenant {
+  return {
+    id: collaborateur.id,
+    nom: collaborateur.nom,
+    prenom: collaborateur.prenom,
+    nomComplet: collaborateur.nomComplet,
+    email: collaborateur.email,
+    telephone: collaborateur.telephone,
+    statut: collaborateur.statut === "DESACTIVE" ? null : collaborateur.statut,
+    lienWhatsApp: null,
+  };
+}
+
+/** Le premier membre financier de l'encadrement — le signataire financier de la fiche. */
+export function financierDuProjet(projet: Projet): Intervenant | null {
+  return projet.autresMembres.find((membre) => membre.fonction === "FINANCIER")?.intervenant ?? null;
 }
 
 /**

@@ -817,29 +817,23 @@
       "voirEquipes": "Équipes & affectations",
       "collaborateurs": "{nombre, plural, =0 {Aucun collaborateur} one {<fort>#</fort> collaborateur} other {<fort>#</fort> collaborateurs}}"
     },
-    "equipe": {
-      "titre": "Équipe projet",
-      "conducteurTravaux": "Conducteur de travaux",
-      "chefProjet": "Chef de projet",
-      "chefChantier": "Chef de chantier",
-      "directeurFinancier": "Directeur financier",
-      "nonDesigne": "Non désigné",
-      "invite": "Invité",
-      "email": "Envoyer un email à {nom}"
-    },
     "modifier": "Modifier",
     "suspendre": "Suspendre",
     "reprendre": "Reprendre",
-    "exporterPdf": "Fiche PDF",
+    "exporterPdf": "Imprimer",
     "actions": "Actions",
     "pdf": {
       "generation": {
         "titre": "Fiche projet PDF",
-        "enCours": "Génération de la fiche en cours… Le téléchargement démarrera automatiquement.",
+        "enCours": "Génération de la fiche en cours…",
         "echec": "La fiche n'a pas pu être générée.",
         "erreur": "La fiche n'a pas pu être générée. Réessayez.",
         "fermer": "Fermer",
-        "reessayer": "Réessayer"
+        "reessayer": "Réessayer",
+        "apercu": "Vérifiez la fiche avant de la télécharger ou de l'imprimer.",
+        "titreApercu": "Aperçu de la fiche projet",
+        "telecharger": "Télécharger",
+        "imprimer": "Imprimer"
       },
       "nomFichier": "fiche-projet-{reference}-{date}.pdf",
       "titre": "Fiche projet",
@@ -858,7 +852,7 @@
         "avancement": "3. Avancement global",
         "indicateurs": "4. Indicateurs clés",
         "risques": "5. Risques et vigilance",
-        "equipe": "6. Équipe projet",
+        "equipe": "6. Équipe d'encadrement et de gestion",
         "prochainesEtapes": "7. Prochaines étapes",
         "note": "8. Note du chef de projet",
         "signatures": "Validation et signatures"
@@ -943,7 +937,7 @@
         "chefProjet": "Chef de projet",
         "conducteurTravaux": "Conducteur de travaux",
         "chefChantier": "Chef de chantier",
-        "directeurFinancier": "Directeur financier"
+        "chefChantierZone": "Chef de chantier — {zone}"
       },
       "etapes": {
         "code": "Code",
@@ -972,6 +966,11 @@
   },
   "format": {
     "dateHeure": "{date} à {heure}"
+  },
+  "habilitations": {
+    "accesRefuseTitre": "Accès non autorisé",
+    "accesRefuseDescription": "Votre rôle ne donne pas accès à cette page. Si vous en avez besoin, demandez au Directeur Général d’ajuster les accès de votre rôle.",
+    "retourAccueil": "Retour au tableau de bord"
   },
   "gestionCollaborateurs": {
     "ajoutEnCours": "Ajout en cours…",
@@ -1099,7 +1098,7 @@
         "CHEF_PROJET": "Chef de projet",
         "CONDUCTEUR_TRAVAUX": "Conducteur de travaux",
         "CHEF_CHANTIER": "Chef de chantier",
-        "DIRECTEUR_FINANCIER": "Directeur financier"
+        "AUTRE_MEMBRE": "Autre membre de l’encadrement"
       }
     }
   },
@@ -1292,25 +1291,9 @@
       "TERMINE": "Terminé"
     },
     "tiroirCreation": {
-      "ajouterLot": "Ajouter un lot",
       "annuler": "Annuler",
-      "aucunBailleur": "Aucun bailleur configuré",
-      "aucunCollaborateur": "Aucun collaborateur ne correspond.",
       "badgeAuto": "Auto",
-      "badgeCalculee": "Calculée",
-      "champBailleurs": "Bailleurs (accès lecture)",
-      "champBudget": "Montant total prévisionnel (FCFA)",
-      "champBudgetPlaceholder": "Ex : 485000000",
-      "champChefProjet": "Chef de Projet",
-      "champChefsChantier": "Chef(s) de Chantier",
-      "champConducteur": "Conducteur de Travaux",
       "champDateChoisir": "jj/mm/aaaa",
-      "champDateDebut": "Date de démarrage",
-      "champDateFin": "Date fin prévisionnelle",
-      "champDescription": "Description (optionnel)",
-      "champDescriptionPlaceholder": "Contexte, objectifs, remarques…",
-      "champDirecteurFinancier": "Directeur Financier",
-      "champDuree": "Durée",
       "champMaitreOeuvre": "Maître d'œuvre",
       "champMaitreOeuvrePlaceholder": "Cabinet ou bureau d'études (optionnel)",
       "champMaitreOuvrage": "Maître d'ouvrage",
@@ -1322,62 +1305,31 @@
       "champReferencePlaceholder": "Générée à la création",
       "champType": "Type de projet",
       "champVille": "Localisation (ville)",
-      "champVisiteurs": "Visiteurs (lecture seule)",
-      "colonneAction": "Action",
       "colonneDateDebut": "Date début",
       "colonneDateFin": "Date fin",
       "colonneModeExecution": "Mode d'exécution",
-      "colonneNomLot": "Nom du lot",
-      "colonneNumero": "N°",
       "colonneTypeBordereau": "Type de bordereau",
       "creationEnCours": "Création…",
       "creer": "Créer le projet",
-      "dureeJoursOuvres": "{jours, plural, one {# jour ouvré} other {# jours ouvrés}}",
-      "dureePlaceholder": "Renseignez les deux dates",
-      "erreurBudgetInvalide": "Saisissez un montant entier supérieur à zéro, sans décimales.",
-      "erreurBudgetRequis": "Le montant prévisionnel est requis.",
-      "erreurChefProjetRequis": "Sélectionnez le chef de projet.",
-      "erreurChefsChantierRequis": "Sélectionnez au moins un chef de chantier.",
-      "erreurConducteurRequis": "Sélectionnez le conducteur de travaux.",
-      "erreurDateDebutRequise": "La date de démarrage est requise.",
-      "erreurDateFinRequise": "La date de fin prévisionnelle est requise.",
       "erreurDatesIncoherentes": "La date de fin ne peut pas précéder la date de début.",
-      "erreurDescriptionTropLongue": "La description ne doit pas dépasser 1 000 caractères.",
       "erreurGenerique": "Une erreur est survenue lors de la création du projet.",
       "erreurLotBordereauRequis": "Choisissez le type de bordereau.",
       "erreurLotModeRequis": "Choisissez le mode d'exécution.",
       "erreurLotNomRequis": "Le nom du lot est requis.",
-      "erreurLotsRequis": "Déclarez au moins un lot.",
       "erreurMaitreOuvrageRequis": "Le maître d'ouvrage est requis.",
       "erreurNomRequis": "Le nom du projet est requis.",
       "erreurNomTropLong": "Le nom du projet ne doit pas dépasser 150 caractères.",
       "erreurTypeRequis": "Choisissez le type de projet.",
       "erreurVilleRequise": "La localisation du projet est requise.",
-      "etapeEquipe": "Équipe projet",
-      "etapeInformations": "Informations générales",
-      "etapeLots": "Lots & Bordereau",
-      "indicateurEtape": "Étape {numero} / {total} — {libelle}",
       "modeExecution": {
         "REGIE_DIRECTE": "Régie directe",
         "SOUS_TRAITANCE_INFORMELLE": "Ss-tr. informelle",
         "SOUS_TRAITANCE_STRUCTUREE": "Ss-tr. structurée"
       },
-      "rechercherBailleur": "Rechercher un bailleur…",
-      "rechercherCollaborateur": "Rechercher un collaborateur…",
-      "retirerLot": "Retirer le lot {numero}",
-      "retour": "Retour",
-      "sectionBudget": "Budget prévisionnel",
-      "sectionEquipe": "Affectation de l'équipe projet",
       "sectionIdentification": "Identification du projet",
-      "sectionLots": "Lots du projet",
-      "sectionPlanning": "Planning contractuel",
       "selectionner": "Sélectionner…",
-      "selectionnerUtilisateur": "Sélectionner un utilisateur…",
-      "sousTitre": "Trois étapes : informations générales, lots, puis équipe projet.",
-      "suivantEquipe": "Suivant — Équipe",
-      "suivantLots": "Suivant — Lots & Bordereau",
+      "sousTitre": "Les informations générales du projet. Le planning et le budget sont facultatifs ; les lots et l'équipe s'ajoutent ensuite, depuis le projet.",
       "titre": "Nouveau projet",
-      "toutEstPret": "Tout est prêt. La création du projet génère automatiquement : la fiche projet vierge, le calcul de l'avancement théorique, et l'indice de santé initial.",
       "typeBordereau": {
         "FORFAIT_GLOBAL": "Forfait global",
         "PRIX_UNITAIRE": "Prix unitaire"
@@ -1392,9 +1344,22 @@
         "VRD": "TP — Route / VRD"
       },
       "titreModification": "Modifier « {nom} »",
-      "sousTitreModification": "Informations générales et équipe projet. Les lots se modifient dans « Lots & activités ».",
+      "sousTitreModification": "L'identification du projet. Le planning et le budget se fixent depuis le projet, les lots dans « Lots & activités ».",
       "enregistrer": "Enregistrer les modifications",
-      "enregistrementEnCours": "Enregistrement…"
+      "enregistrementEnCours": "Enregistrement…",
+      "sectionCalendrierBudget": "Calendrier et budget",
+      "champDateDebut": "Date de démarrage",
+      "champDateFin": "Date fin prévisionnelle",
+      "champDuree": "Durée",
+      "badgeCalculee": "Calculée",
+      "dureeJoursOuvres": "{jours, plural, one {# jour ouvré} other {# jours ouvrés}}",
+      "dureePlaceholder": "Renseignez les deux dates",
+      "champBudget": "Montant total prévisionnel (FCFA)",
+      "champBudgetPlaceholder": "Ex : 485 000 000",
+      "champDescription": "Description (optionnel)",
+      "champDescriptionPlaceholder": "Contexte, objectifs, remarques…",
+      "erreurBudgetInvalide": "Saisissez un montant entier supérieur à zéro, sans décimales.",
+      "erreurDescriptionTropLongue": "La description ne doit pas dépasser 1 000 caractères."
     },
     "titre": "Projets",
     "lotsActivites": {
@@ -1753,6 +1718,105 @@
       "confirmerReprendre": "Reprendre le projet",
       "annuler": "Annuler",
       "erreurGenerique": "L'opération n'a pas pu aboutir. Réessayez."
+    },
+    "encadrement": {
+      "titre": "Équipe d'encadrement et de gestion",
+      "sousTitre": "Les responsables du projet. Le chef de projet en a la main : il complète l'équipe, fixe le planning et le budget.",
+      "fonction": {
+        "CHEF_PROJET": "Chef de projet responsable",
+        "CONDUCTEUR_TRAVAUX": "Conducteur(s) de travaux",
+        "CHEF_CHANTIER": "Chef(s) de chantier",
+        "AUTRE_MEMBRE": "Autres membres"
+      },
+      "fonctionUnitaire": {
+        "CHEF_PROJET": "Chef de projet",
+        "CONDUCTEUR_TRAVAUX": "Conducteur de travaux",
+        "CHEF_CHANTIER": "Chef de chantier",
+        "AUTRE_MEMBRE": "Autre membre"
+      },
+      "fonctionAutreMembre": {
+        "FINANCIER": "Financier",
+        "INGENIEUR": "Ingénieur",
+        "DOCUMENTALISTE": "Documentaliste",
+        "METREUR": "Métreur",
+        "QHSE": "Responsable QHSE",
+        "AUTRE": "Autre"
+      },
+      "obligatoire": "Obligatoire",
+      "aucun": "Personne pour le moment",
+      "toutLeChantier": "Tout le chantier",
+      "invite": "Invité",
+      "email": "Envoyer un email à {nom}",
+      "whatsapp": "Contacter sur WhatsApp",
+      "ajouterMembre": "Ajouter un membre",
+      "changerChefProjet": "Changer",
+      "retirer": "Retirer {nom}",
+      "ajout": {
+        "titre": "Ajouter un membre à l'encadrement",
+        "titreChefProjet": "Désigner le chef de projet",
+        "sousTitre": "Choisissez la place puis la personne, parmi les utilisateurs du compte.",
+        "champFonction": "Place dans l'équipe",
+        "champUtilisateur": "Utilisateur",
+        "utilisateurPlaceholder": "Sélectionner un utilisateur…",
+        "utilisateurRecherche": "Rechercher un utilisateur…",
+        "utilisateurAucun": "Aucun utilisateur disponible.",
+        "chargementUtilisateurs": "Chargement des utilisateurs…",
+        "erreurUtilisateurs": "Impossible de charger les utilisateurs du compte.",
+        "champZone": "Zone ou lot (optionnel)",
+        "zonePlaceholder": "Ex : Lot 02 — Gros œuvre, Bâtiment B",
+        "aideZone": "Un chef de chantier par zone ou par lot. Vide : tout le chantier.",
+        "champFonctionMembre": "Fonction",
+        "selectionner": "Sélectionner…",
+        "remplacement": "{nom} est aujourd'hui chef de projet : il sera remplacé.",
+        "erreurFonctionRequise": "Choisissez la place dans l'équipe.",
+        "erreurUtilisateurRequis": "Sélectionnez un utilisateur.",
+        "erreurZoneTropLongue": "La zone ne doit pas dépasser 80 caractères.",
+        "erreurFonctionMembreRequise": "Choisissez la fonction de ce membre.",
+        "erreurGenerique": "Le membre n'a pas pu être ajouté.",
+        "annuler": "Annuler",
+        "ajouter": "Ajouter",
+        "designer": "Désigner",
+        "succes": "{nom} a rejoint l'équipe d'encadrement.",
+        "succesChefProjet": "{nom} est désormais chef de projet."
+      },
+      "retrait": {
+        "titre": "Retirer {nom} ?",
+        "description": "{nom} ne sera plus {fonction} sur ce projet. Son compte utilisateur reste actif.",
+        "erreurGenerique": "Le membre n'a pas pu être retiré.",
+        "annuler": "Annuler",
+        "retirer": "Retirer",
+        "succes": "{nom} a été retiré de l'équipe d'encadrement."
+      }
+    },
+    "cadrage": {
+      "definir": "Définir",
+      "modifier": "Modifier",
+      "nonDefini": "Non défini",
+      "attenteChefProjet": "À fixer par le chef de projet",
+      "planning": {
+        "titre": "Planning contractuel",
+        "sousTitre": "Les dates de démarrage et de fin prévues du projet.",
+        "champDateDebut": "Date de démarrage",
+        "champDateFin": "Date de fin prévisionnelle",
+        "champDateChoisir": "jj/mm/aaaa",
+        "duree": "Durée : {duree}",
+        "succes": "Le planning du projet est enregistré."
+      },
+      "budget": {
+        "titre": "Budget prévisionnel",
+        "sousTitre": "Le montant total prévisionnel du projet, hors taxes.",
+        "champMontant": "Montant total prévisionnel (FCFA)",
+        "montantPlaceholder": "Ex : 485 000 000",
+        "succes": "Le budget du projet est enregistré."
+      },
+      "erreurDateDebutRequise": "La date de démarrage est requise.",
+      "erreurDateFinRequise": "La date de fin prévisionnelle est requise.",
+      "erreurBudgetRequis": "Le montant prévisionnel est requis.",
+      "erreurBudgetInvalide": "Saisissez un montant entier supérieur à zéro, sans décimales.",
+      "erreurGenerique": "L'enregistrement a échoué. Réessayez.",
+      "annuler": "Annuler",
+      "enregistrer": "Enregistrer",
+      "enregistrementEnCours": "Enregistrement…"
     }
   },
   "referentielVilles": {
