@@ -1,8 +1,7 @@
 /**
  * Le jeu de démonstration des lots et activités — en attendant les routes.
  *
- * Même contrat que `simulationProjets.ts`, dont il est le prolongement : il
- * parle le domaine (les types de `types.ts`), pas un transport inventé ; il
+ * Il parle le domaine (les types de `types.ts`), pas un transport inventé ; il
  * se souvient le temps de l'onglet (`sessionStorage`) ; et les vrais appels
  * restent à leur place dans `adaptateur.ts`, derrière `SIMULATION_ACTIVE`.
  *
@@ -23,6 +22,7 @@ import {
   codeLotSuivant,
   collaborateurDansEquipe,
   effectifEquipe,
+  lotSupprimable,
   retirerMembre,
   ROLE_MEMBRE_PAR_DEFAUT,
 } from "./regles";
@@ -345,7 +345,7 @@ const STRUCTURE_ENTREPOT: GabaritLot[] = [
   },
 ];
 
-/** Les chantiers de `simulationProjets.ts` qui ont déjà une structure. */
+/** Les chantiers de l'ancien jeu de démonstration qui ont déjà une structure. */
 const STRUCTURES_INITIALES: Record<string, GabaritLot[]> = {
   [ID_RESIDENCE]: STRUCTURE_RESIDENCE,
   [ID_SIEGE]: STRUCTURE_SIEGE,
@@ -625,6 +625,36 @@ export const simulationLots = {
     const lot = nouveauLot(projetId, lots, creation);
     ecrireEtat({ ...etat, [projetId]: [...lots, lot] });
     return attendre(lot, LATENCE_ECRITURE);
+  },
+
+  /** Les champs du lot changent ; son code et ses activités restent. */
+  async modifierLot(projetId: string, lotId: string, modification: CreationLotProjet): Promise<Lot> {
+    const etat = lireEtat();
+    const lots = etat[projetId] ?? [];
+    const ancien = trouverLot(lots, lotId);
+    const modifie: Lot = {
+      ...ancien,
+      nom: modification.nom,
+      modeExecution: modification.modeExecution,
+      typeBordereau: modification.typeBordereau,
+      budget: modification.budget ?? null,
+      dateDebut: modification.dateDebut ?? null,
+      dateFin: modification.dateFin ?? null,
+    };
+    ecrireEtat({ ...etat, [projetId]: lots.map((lot) => (lot.id === lotId ? modifie : lot)) });
+    return attendre(modifie, LATENCE_ECRITURE);
+  },
+
+  /** Le lot part avec ses activités — refusé dès que l'une d'elles a avancé. */
+  async supprimerLot(projetId: string, lotId: string): Promise<void> {
+    const etat = lireEtat();
+    const lots = etat[projetId] ?? [];
+    const lot = trouverLot(lots, lotId);
+    if (!lotSupprimable(lot)) {
+      refuser("lot_avance", "Ce lot a des activités déjà avancées : il ne peut plus être supprimé.", 400);
+    }
+    ecrireEtat({ ...etat, [projetId]: lots.filter((candidat) => candidat.id !== lotId) });
+    return attendre(undefined, LATENCE_ECRITURE);
   },
 
   /** Tous ou aucun, comme le fera la route : les codes se suivent dans l'ordre du fichier. */

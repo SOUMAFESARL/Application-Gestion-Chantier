@@ -34,10 +34,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { creerLot } from "@/features/projets/adaptateur";
+import { creerLot, modifierLot } from "@/features/projets/adaptateur";
 import { codeLotSuivant, MODES_EXECUTION_LOT, TYPES_BORDEREAU } from "@/features/projets/regles";
 import type { Lot } from "@/features/projets/types";
 import {
+  lotEnSaisie,
   lotVide,
   schemaLot,
   versCreationLotProjet,
@@ -69,7 +70,10 @@ interface Props {
   onFermer: () => void;
   projetId: string;
   lots: Lot[];
+  /** Le lot à modifier ; absent, le tiroir en ajoute. */
+  lot?: Lot | null;
   onCree: (lot: Lot) => void;
+  onModifie: (lot: Lot) => void;
   onImportes: (lots: Lot[]) => void;
 }
 
@@ -83,16 +87,48 @@ function Requis() {
 
 /**
  * L'ajout de lots à un chantier déjà ouvert — un par un, ou par l'import
- * d'un fichier Excel déjà constitué (souvent la liste du DCE).
+ * d'un fichier Excel déjà constitué (souvent la liste du DCE) —, ou la
+ * modification d'un lot existant, qui ne propose alors que la saisie.
  *
- * L'écran le remonte à chaque ouverture (`key`) : il repart toujours vierge,
- * sur la saisie.
+ * L'écran le remonte à chaque ouverture (`key`) : il repart toujours de sa
+ * saisie initiale, vierge ou celle du lot.
  */
-export function TiroirLot({ ouverte, onFermer, projetId, lots, onCree, onImportes }: Props) {
+export function TiroirLot({
+  ouverte,
+  onFermer,
+  projetId,
+  lots,
+  lot = null,
+  onCree,
+  onModifie,
+  onImportes,
+}: Props) {
   const t = useTranslations("projets.lotsActivites.formLot");
   const tImport = useTranslations("projets.lotsActivites.importLots");
   const [modeAjout, setModeAjout] = useState<ModeAjout>("saisie");
   const [occupe, setOccupe] = useState(false);
+
+  if (lot) {
+    return (
+      <Sheet open={ouverte} onOpenChange={(ouvert) => !ouvert && onFermer()}>
+        <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-md">
+          <SheetHeader className="border-b border-neutral-200 py-5 pr-14 pl-6">
+            <SheetTitle className="flex items-center gap-2 text-lg text-neutral-900">
+              {t("titreModification")} <Badge variante="primaire">{t("code", { code: lot.code })}</Badge>
+            </SheetTitle>
+            <SheetDescription>{t("sousTitreModification")}</SheetDescription>
+          </SheetHeader>
+          <SaisieLot
+            projetId={projetId}
+            lot={lot}
+            onFermer={onFermer}
+            onEnregistre={onModifie}
+            onOccupe={setOccupe}
+          />
+        </SheetContent>
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet open={ouverte} onOpenChange={(ouvert) => !ouvert && onFermer()}>
@@ -144,7 +180,7 @@ export function TiroirLot({ ouverte, onFermer, projetId, lots, onCree, onImporte
         </div>
 
         {modeAjout === "saisie" ? (
-          <SaisieLot projetId={projetId} onFermer={onFermer} onCree={onCree} onOccupe={setOccupe} />
+          <SaisieLot projetId={projetId} onFermer={onFermer} onEnregistre={onCree} onOccupe={setOccupe} />
         ) : (
           <ImportLots
             projetId={projetId}
@@ -160,20 +196,22 @@ export function TiroirLot({ ouverte, onFermer, projetId, lots, onCree, onImporte
 }
 
 /**
- * Un lot saisi à la main. Mêmes champs, même schéma (`schemaLot`) que
- * partout ailleurs. Le budget se fixe ici, au lot ; budget et dates restent
- * facultatifs. Le code est attribué par le serveur — l'en-tête affiche celui
- * qu'il prendra.
+ * Un lot saisi à la main — neuf, ou existant quand `lot` est fourni. Mêmes
+ * champs, même schéma (`schemaLot`) que partout ailleurs. Le budget se fixe
+ * ici, au lot ; budget et dates restent facultatifs. Le code est attribué par
+ * le serveur — l'en-tête affiche celui qu'il prendra, ou qu'il porte.
  */
 function SaisieLot({
   projetId,
+  lot = null,
   onFermer,
-  onCree,
+  onEnregistre,
   onOccupe,
 }: {
   projetId: string;
+  lot?: Lot | null;
   onFermer: () => void;
-  onCree: (lot: Lot) => void;
+  onEnregistre: (lot: Lot) => void;
   onOccupe: (occupe: boolean) => void;
 }) {
   const t = useTranslations("projets.lotsActivites.formLot");
@@ -181,7 +219,7 @@ function SaisieLot({
 
   const form = useForm<SaisieLotProjet>({
     resolver: zodResolver(schemaLot),
-    defaultValues: lotVide(),
+    defaultValues: lot ? lotEnSaisie(lot) : lotVide(),
     mode: "onTouched",
   });
 
@@ -191,12 +229,18 @@ function SaisieLot({
   async function soumettre(saisie: SaisieLotProjet) {
     onOccupe(true);
     try {
-      const lot = await creerLot(projetId, versCreationLotProjet(schemaLot.parse(saisie)));
-      onCree(lot);
-      toast.success(t("succes", { code: lot.code, nom: lot.nom }));
+      const valeurs = versCreationLotProjet(schemaLot.parse(saisie));
+      const enregistre = lot
+        ? await modifierLot(projetId, lot.id, valeurs)
+        : await creerLot(projetId, valeurs);
+      onEnregistre(enregistre);
+      toast.success(
+        t(lot ? "succesModification" : "succes", { code: enregistre.code, nom: enregistre.nom }),
+      );
       onFermer();
     } catch (err) {
-      toast.error(err instanceof ErreurApi && err.message ? err.message : t("erreurGenerique"));
+      const repli = lot ? t("erreurModification") : t("erreurGenerique");
+      toast.error(err instanceof ErreurApi && err.message ? err.message : repli);
     } finally {
       onOccupe(false);
     }
@@ -361,7 +405,7 @@ function SaisieLot({
         </Button>
         <Button type="submit" form={FORM_ID} disabled={enCours} aria-busy={enCours}>
           {enCours && <LoaderCircle className="animate-spin" />}
-          {t("ajouter")}
+          {lot ? t("enregistrer") : t("ajouter")}
         </Button>
       </SheetFooter>
     </>

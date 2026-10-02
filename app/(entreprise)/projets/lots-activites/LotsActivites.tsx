@@ -10,6 +10,7 @@ import { useProjetsVisibles } from "@/features/habilitations";
 import { listerLots } from "@/features/projets/adaptateur";
 import { cleLots } from "@/features/projets/cles";
 import { TiroirActivite } from "@/features/projets/components/TiroirActivite";
+import { ModaleSuppressionLot } from "@/features/projets/components/ModaleSuppressionLot";
 import { TiroirLot } from "@/features/projets/components/TiroirLot";
 import {
   activiteAMontrer,
@@ -54,7 +55,11 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
     activite: Activite | null;
     lotId: string;
   }>({ ouvert: false, activite: null, lotId: "" });
-  const [tiroirLotOuvert, setTiroirLotOuvert] = useState(false);
+  const [tiroirLot, setTiroirLot] = useState<{ ouvert: boolean; lot: Lot | null }>({
+    ouvert: false,
+    lot: null,
+  });
+  const [lotASupprimer, setLotASupprimer] = useState<Lot | null>(null);
   /**
    * Le rang de la dernière ouverture d'un tiroir, qui lui sert de `key` : il
    * est remonté à chaque fois et repart de sa saisie initiale, sans effet de
@@ -108,9 +113,10 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
     });
   }
 
-  function ouvrirTiroirLot() {
+  /** Sans lot, le tiroir en ajoute ; avec, il le modifie. */
+  function ouvrirTiroirLot(lot: Lot | null = null) {
     setOuverture((rang) => rang + 1);
-    setTiroirLotOuvert(true);
+    setTiroirLot({ ouvert: true, lot });
   }
 
   function surActiviteEnregistree(enregistree: Activite) {
@@ -123,6 +129,22 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
     // Le lot est posé dans le cache avant le rechargement : il apparaît au
     // moment où le tiroir se referme.
     clientRequetes.setQueryData<Lot[]>(cleLots(projetId), (anciens) => [...(anciens ?? []), lot]);
+    void clientRequetes.invalidateQueries({ queryKey: cleLots(projetId) });
+  }
+
+  function surLotModifie(modifie: Lot) {
+    if (!projetId) return;
+    clientRequetes.setQueryData<Lot[]>(cleLots(projetId), (anciens) =>
+      (anciens ?? []).map((lot) => (lot.id === modifie.id ? modifie : lot)),
+    );
+    void clientRequetes.invalidateQueries({ queryKey: cleLots(projetId) });
+  }
+
+  function surLotSupprime(supprime: Lot) {
+    if (!projetId) return;
+    clientRequetes.setQueryData<Lot[]>(cleLots(projetId), (anciens) =>
+      (anciens ?? []).filter((lot) => lot.id !== supprime.id),
+    );
     void clientRequetes.invalidateQueries({ queryKey: cleLots(projetId) });
   }
 
@@ -198,7 +220,9 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
                 onStatut={setStatut}
                 activiteChoisieId={activite?.id ?? null}
                 onChoisirActivite={setActiviteChoisie}
-                onAjouterLot={ouvrirTiroirLot}
+                onAjouterLot={() => ouvrirTiroirLot()}
+                onModifierLot={ouvrirTiroirLot}
+                onSupprimerLot={setLotASupprimer}
                 onAjouterActivite={(lotId) => ouvrirTiroirActivite(null, lotId)}
               />
               <PanneauActivite
@@ -228,12 +252,20 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
           />
           <TiroirLot
             key={`lot-${ouverture}`}
-            ouverte={tiroirLotOuvert}
-            onFermer={() => setTiroirLotOuvert(false)}
+            ouverte={tiroirLot.ouvert}
+            onFermer={() => setTiroirLot((etat) => ({ ...etat, ouvert: false }))}
             projetId={projetId}
             lots={lots}
+            lot={tiroirLot.lot}
             onCree={surLotCree}
+            onModifie={surLotModifie}
             onImportes={surLotsImportes}
+          />
+          <ModaleSuppressionLot
+            lot={lotASupprimer}
+            onFermer={() => setLotASupprimer(null)}
+            projetId={projetId}
+            onSupprime={surLotSupprime}
           />
         </>
       )}

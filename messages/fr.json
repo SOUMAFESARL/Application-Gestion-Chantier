@@ -820,6 +820,7 @@
     "modifier": "Modifier",
     "suspendre": "Suspendre",
     "reprendre": "Reprendre",
+    "supprimer": "Supprimer",
     "exporterPdf": "Imprimer",
     "actions": "Actions",
     "pdf": {
@@ -1313,13 +1314,18 @@
       "creer": "Créer le projet",
       "erreurDatesIncoherentes": "La date de fin ne peut pas précéder la date de début.",
       "erreurGenerique": "Une erreur est survenue lors de la création du projet.",
+      "succesCreation": "Le projet « {nom} » a été créé.",
+      "succesModification": "Le projet « {nom} » a été modifié.",
       "erreurLotBordereauRequis": "Choisissez le type de bordereau.",
       "erreurLotModeRequis": "Choisissez le mode d'exécution.",
       "erreurLotNomRequis": "Le nom du lot est requis.",
       "erreurMaitreOuvrageRequis": "Le maître d'ouvrage est requis.",
       "erreurNomRequis": "Le nom du projet est requis.",
       "erreurNomTropLong": "Le nom du projet ne doit pas dépasser 150 caractères.",
-      "erreurTypeRequis": "Choisissez le type de projet.",
+      "erreurTypeRequis": "Choisissez ou saisissez le type de projet.",
+      "rechercherType": "Rechercher ou saisir un type…",
+      "aucunTypeTrouve": "Aucun type ne correspond.",
+      "utiliserType": "Utiliser « {saisie} »",
       "erreurVilleRequise": "La localisation du projet est requise.",
       "modeExecution": {
         "REGIE_DIRECTE": "Régie directe",
@@ -1400,7 +1406,8 @@
         "dates": "Dates",
         "budget": "Budget (FCFA)",
         "avancement": "Avancement",
-        "statut": "Statut"
+        "statut": "Statut",
+        "actions": "Actions"
       },
       "periode": "{debut} → {fin}",
       "nombreActivites": "({nombre})",
@@ -1510,7 +1517,12 @@
         "champBudget": "Budget du lot (FCFA)",
         "champBudgetPlaceholder": "ex. 25 000 000",
         "erreurBudgetInvalide": "Saisissez un montant en francs, par exemple 25 000 000.",
-        "succes": "Lot {code} « {nom} » ajouté."
+        "succes": "Lot {code} « {nom} » ajouté.",
+        "titreModification": "Modifier le lot",
+        "sousTitreModification": "Son code et ses activités ne changent pas.",
+        "enregistrer": "Enregistrer",
+        "succesModification": "Lot {code} « {nom} » modifié.",
+        "erreurModification": "Le lot n'a pas pu être modifié. Réessayez."
       },
       "export": {
         "nomFichier": "lots-activites",
@@ -1563,6 +1575,19 @@
         "importer": "{nombre, plural, =0 {Importer} one {Importer # lot} other {Importer # lots}}",
         "succes": "{nombre, plural, one {# lot importé.} other {# lots importés.}}",
         "erreurGenerique": "Les lots n'ont pas pu être importés. Réessayez."
+      },
+      "modifierLot": "Modifier le lot {nom}",
+      "supprimerLot": "Supprimer le lot {nom}",
+      "suppressionLot": {
+        "titre": "Supprimer le lot {code} « {nom} » ?",
+        "description": "Le lot sera retiré du chantier. Cette action est définitive.",
+        "activitesSupprimees": "{nombre, plural, one {L'activité de ce lot sera supprimée avec lui.} other {Les # activités de ce lot seront supprimées avec lui.}}",
+        "impossible": "Une ou plusieurs activités de ce lot ont déjà avancé : il ne peut plus être supprimé. L'avancement saisi au journal de chantier serait perdu.",
+        "annuler": "Annuler",
+        "fermer": "Fermer",
+        "supprimer": "Supprimer le lot",
+        "succes": "Lot {code} « {nom} » supprimé.",
+        "erreurGenerique": "Le lot n'a pas pu être supprimé. Réessayez."
       }
     },
     "equipesAffectations": {
@@ -1765,6 +1790,15 @@
     "actionModifier": "Modifier le projet {nom}",
     "actionSuspendre": "Suspendre le projet {nom}",
     "actionReprendre": "Reprendre le projet {nom}",
+    "actionSupprimer": "Supprimer le projet {nom}",
+    "suppression": {
+      "titre": "Supprimer « {nom} » ?",
+      "description": "Le projet {reference} et ses documents seront définitivement supprimés. Cette action est irréversible.",
+      "supprimer": "Supprimer le projet",
+      "annuler": "Annuler",
+      "succes": "Le projet « {nom} » a été supprimé.",
+      "erreurGenerique": "Le projet n'a pas pu être supprimé. Réessayez."
+    },
     "suspension": {
       "titreSuspendre": "Suspendre « {nom} » ?",
       "descriptionSuspendre": "Le projet passe au statut « Suspendu ». Ses lots, activités et équipes sont conservés ; vous pourrez le reprendre à tout moment.",

@@ -16,7 +16,7 @@
 import { z } from "zod";
 
 import { texte } from "@/i18n/horsReact";
-import { saisieEnCentimes } from "@/lib/format";
+import { formaterSaisieMontant, saisieEnCentimes } from "@/lib/format";
 import { chaineNonVide } from "@/lib/validations/champs";
 
 import {
@@ -28,7 +28,6 @@ import {
   ROLES_MEMBRE_EQUIPE,
   TYPES_BORDEREAU,
   NOMBRE_MAX_CONTRATS,
-  TYPES_PROJET,
   UNITES_ACTIVITE,
   budgetRecevable,
   datesChantierCoherentes,
@@ -42,6 +41,7 @@ import type {
   CreationProjet,
   FonctionAutreMembre,
   Intervenant,
+  Lot,
   ModeExecutionLot,
   ModificationProjet,
   NatureEquipe,
@@ -51,7 +51,6 @@ import type {
   SaisieActiviteDomaine,
   SaisieMembreEquipe,
   TypeBordereau,
-  TypeProjet,
   UniteActivite,
 } from "./types";
 
@@ -79,7 +78,8 @@ export const schemaProjet = z
       message: texte("projets.tiroirCreation.erreurNomTropLong"),
     }),
     reference: z.string().trim(),
-    typeProjet: choixParmi(TYPES_PROJET, texte("projets.tiroirCreation.erreurTypeRequis")),
+    // Un type prédéfini (son code) ou un libellé saisi librement.
+    typeProjet: chaineNonVide(texte("projets.tiroirCreation.erreurTypeRequis")),
     ville: chaineNonVide(texte("projets.tiroirCreation.erreurVilleRequise")),
     maitreOuvrage: chaineNonVide(texte("projets.tiroirCreation.erreurMaitreOuvrageRequis")),
     maitreOeuvre: z.string().trim(),
@@ -137,8 +137,7 @@ export function versCreationProjet(valeurs: ValeursProjet): CreationProjet {
   return {
     nom: valeurs.nom,
     reference: valeurs.reference || undefined,
-    // `choixParmi` a déjà vérifié l'appartenance à la liste.
-    typeProjet: valeurs.typeProjet as TypeProjet,
+    typeProjet: valeurs.typeProjet,
     ville: valeurs.ville,
     maitreOuvrage: valeurs.maitreOuvrage,
     maitreOeuvre: valeurs.maitreOeuvre || undefined,
@@ -174,7 +173,7 @@ export function saisieDepuisProjet(projet: Projet): SaisieProjet {
 export function versModificationProjet(valeurs: ValeursProjet): ModificationProjet {
   return {
     nom: valeurs.nom,
-    typeProjet: valeurs.typeProjet as TypeProjet,
+    typeProjet: valeurs.typeProjet,
     ville: valeurs.ville,
     maitreOuvrage: valeurs.maitreOuvrage,
     maitreOeuvre: valeurs.maitreOeuvre || undefined,
@@ -221,6 +220,18 @@ export type SaisieLotProjet = z.input<typeof schemaLot>;
 /** Un lot vierge. */
 export function lotVide(): SaisieLotProjet {
   return { nom: "", modeExecution: "", typeBordereau: "", budget: "", dateDebut: "", dateFin: "" };
+}
+
+/** Un lot existant, remis en saisie pour sa modification. Le budget repasse en francs groupés. */
+export function lotEnSaisie(lot: Lot): SaisieLotProjet {
+  return {
+    nom: lot.nom,
+    modeExecution: lot.modeExecution,
+    typeBordereau: lot.typeBordereau,
+    budget: lot.budget === null ? "" : formaterSaisieMontant(String(Math.round(lot.budget / 100))),
+    dateDebut: lot.dateDebut ?? "",
+    dateFin: lot.dateFin ?? "",
+  };
 }
 
 export function versCreationLotProjet(saisie: z.output<typeof schemaLot>): CreationLotProjet {

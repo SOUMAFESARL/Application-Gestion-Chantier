@@ -12,7 +12,7 @@
  * supprimés — qu'il rejoue par-dessus. Il ne fabrique aucun collaborateur.
  *
  * **Il se souvient le temps de l'onglet** (`sessionStorage`), comme
- * `simulationProjets.ts` : un geste survit à un rechargement, sans s'installer
+ * `simulationLots.ts` : un geste survit à un rechargement, sans s'installer
  * sur la machine au point d'être pris pour une donnée réelle.
  */
 

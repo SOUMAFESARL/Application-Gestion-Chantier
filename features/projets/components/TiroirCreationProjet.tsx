@@ -1,15 +1,15 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowUpRight, CircleX, LoaderCircle } from "lucide-react";
+import { ArrowUpRight, LoaderCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { toast } from "sonner";
 import type { ReactNode } from "react";
 
 import { ComboboxVille } from "@/components/metier/ComboboxVille";
 import { Badge } from "@/components/ui";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -22,13 +22,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { SelecteurDate } from "@/components/ui/SelecteurDate";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -39,16 +32,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ZoneDepotFichiers } from "@/components/ui/zone-depot-fichiers";
 import { paysEntreprise } from "@/features/configuration/api";
-import {
-  creerProjet,
-  modifierProjet,
-  proposerReferenceProjet,
-} from "@/features/projets/adaptateur";
+import { creerProjet, modifierProjet } from "@/features/projets/adaptateur";
 import {
   FORMAT_CONTRAT,
   NOMBRE_MAX_CONTRATS,
   TAILLE_MAX_CONTRAT,
-  TYPES_PROJET,
   joursOuvres,
   refusContrat,
 } from "@/features/projets/regles";
@@ -67,6 +55,8 @@ import {
 import type { ErreurApi } from "@/lib/api";
 import { formaterSaisieMontant, formaterTailleFichier } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+import { ComboboxTypeProjet } from "./ComboboxTypeProjet";
 
 const FORM_ID = "form-creation-projet";
 
@@ -146,7 +136,6 @@ export function TiroirCreationProjet({
   // Vide tant que le serveur ne l'a pas dit : la liste des villes en dépend,
   // et un pays deviné serait faux hors de Côte d'Ivoire.
   const [pays, setPays] = useState("");
-  const [erreur, setErreur] = useState<string | null>(null);
 
   const form = useForm<SaisieProjet, unknown, ValeursProjet>({
     resolver: zodResolver(schemaProjet),
@@ -170,29 +159,6 @@ export function TiroirCreationProjet({
   }, []);
 
   /**
-   * La référence proposée est demandée à chaque ouverture, et seulement si le
-   * champ est encore vierge : elle dépend des projets créés entre-temps, mais
-   * une référence retouchée à la main ne doit pas être écrasée.
-   */
-  useEffect(() => {
-    // Un projet existant a déjà sa référence : elle ne se repropose pas.
-    if (!ouverte || modification) return;
-    let vivant = true;
-    proposerReferenceProjet()
-      .then((reference) => {
-        if (vivant && reference && !form.getValues("reference")) {
-          form.setValue("reference", reference);
-        }
-      })
-      .catch(() => {
-        // Sans proposition, le serveur engendrera la référence.
-      });
-    return () => {
-      vivant = false;
-    };
-  }, [ouverte, modification, form]);
-
-  /**
    * La saisie repart à vide après une création réussie.
    *
    * Le tiroir reste monté entre deux ouvertures : sans cette remise à zéro,
@@ -203,7 +169,6 @@ export function TiroirCreationProjet({
    */
   function reinitialiser() {
     form.reset(saisieProjetVide());
-    setErreur(null);
   }
 
   /** Le motif affiché sous la zone de dépôt quand un fichier est écarté. */
@@ -219,22 +184,25 @@ export function TiroirCreationProjet({
   }
 
   async function soumettre(saisie: ValeursProjet) {
-    setErreur(null);
     try {
       if (projet) {
-        onProjetModifie?.(
-          await modifierProjet(projet.id, versModificationProjet(saisie)),
+        const projetModifie = await modifierProjet(
+          projet.id,
+          versModificationProjet(saisie),
         );
+        onProjetModifie?.(projetModifie);
+        toast.success(t("succesModification", { nom: projetModifie.nom }));
         onFermer();
         return;
       }
       const projetCree = await creerProjet(versCreationProjet(saisie));
       reinitialiser();
       onProjetCree?.(projetCree);
+      toast.success(t("succesCreation", { nom: projetCree.nom }));
       onFermer();
     } catch (err) {
       const cause = err as ErreurApi;
-      setErreur(cause.message || t("erreurGenerique"));
+      toast.error(cause.message || t("erreurGenerique"));
     }
   }
 
@@ -261,13 +229,6 @@ export function TiroirCreationProjet({
               ASCENSEUR_FIN,
             )}
           >
-            {erreur && (
-              <Alert variant="erreur">
-                <CircleX />
-                <AlertDescription>{erreur}</AlertDescription>
-              </Alert>
-            )}
-
             <TitreSection>{t("sectionIdentification")}</TitreSection>
 
             <div className={RANGEE}>
@@ -324,27 +285,15 @@ export function TiroirCreationProjet({
                     <FormLabel>
                       {t("champType")} <Requis />
                     </FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      disabled={enCours}
-                    >
-                      <FormControl>
-                        <SelectTrigger
-                          className={cn(CHAMP, "w-full bg-card")}
-                          onBlur={field.onBlur}
-                        >
-                          <SelectValue placeholder={t("selectionner")} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {TYPES_PROJET.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {t(`typeProjet.${type}`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <ComboboxTypeProjet
+                        valeur={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        className={CHAMP}
+                        disabled={enCours}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

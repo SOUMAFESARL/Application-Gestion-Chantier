@@ -43,7 +43,8 @@ export interface Intervenant {
 
 /** Le maître d'ouvrage, tel qu'il apparaît sur la fiche chantier. */
 export interface ClientProjet {
-  id: string;
+  /** `null` : le serveur ne donne le maître d'ouvrage qu'en clair, sans fiche tiers. */
+  id: string | null;
   raisonSociale: string;
   telephone: string | null;
   email: string | null;
@@ -83,6 +84,8 @@ export interface Projet {
   dateFinPrevue: string | null;
   dateDebutReelle: string | null;
   dateFinReelle: string | null;
+  /** La durée contractuelle en jours ouvrés. `null` : pas encore fixée. */
+  dureeJoursOuvres: number | null;
   /** Le maître d'œuvre, en clair. `null` : pas de maîtrise d'œuvre désignée. */
   maitreOeuvre: string | null;
   /**
@@ -94,6 +97,18 @@ export interface Projet {
   conducteursTravaux: Intervenant[];
   chefsChantier: ChefChantierProjet[];
   autresMembres: AutreMembreProjet[];
+  /** Le contrat du marché et ses avenants, joints à la création. */
+  contrats: ContratProjet[];
+}
+
+/** Un document de contrat joint au projet, servi par le serveur. */
+export interface ContratProjet {
+  id: string;
+  nom: string;
+  /** En octets. */
+  taille: number;
+  typeContenu: string;
+  url: string;
 }
 
 /**
@@ -152,8 +167,19 @@ export interface AffectationProjet {
   fonctions: FonctionProjet[];
 }
 
-/** La nature d'un projet, choisie à sa création. */
-export type TypeProjet =
+/**
+ * La nature d'un projet, choisie à sa création : un type prédéfini, ou un
+ * libellé saisi librement quand aucun ne convient — enregistré tel quel,
+ * comme une localité absente du référentiel. `string & {}` garde
+ * l'autocomplétion des codes connus.
+ */
+export type TypeProjet = TypeProjetPredefini | (string & {});
+
+/**
+ * Les types que l'application sait nommer. `AUTRE` ne se propose plus — la
+ * saisie libre l'a remplacé — mais reste lisible sur les projets existants.
+ */
+export type TypeProjetPredefini =
   | "BATIMENT_RESIDENTIEL"
   | "BATIMENT_TERTIAIRE"
   | "INDUSTRIEL"

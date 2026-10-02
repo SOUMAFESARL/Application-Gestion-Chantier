@@ -33,6 +33,7 @@ import type {
   StatutProjet,
   TypeBordereau,
   TypeProjet,
+  TypeProjetPredefini,
   RoleMembreEquipe,
   UniteActivite,
 } from "./types";
@@ -336,16 +337,38 @@ export const INDICE_SANTE_INITIAL = 100;
  * La création d'un projet.
  * ------------------------------------------------------------------ */
 
-/** Les natures de projet, dans l'ordre du sélecteur. */
-export const TYPES_PROJET: TypeProjet[] = [
+/**
+ * Les natures de projet proposées, dans l'ordre du combobox. Pas d'« Autre » :
+ * un type absent de la liste se tape dans la recherche.
+ */
+export const TYPES_PROJET: TypeProjetPredefini[] = [
   "BATIMENT_RESIDENTIEL",
   "BATIMENT_TERTIAIRE",
   "INDUSTRIEL",
   "GENIE_CIVIL",
   "VRD",
   "REHABILITATION",
-  "AUTRE",
 ];
+
+/** Tous les codes que l'application sait nommer, `AUTRE` hérité compris. */
+const TYPES_PROJET_CONNUS: readonly string[] = [...TYPES_PROJET, "AUTRE"];
+
+/** Vrai si le type est un code connu, faux s'il a été saisi librement. */
+export function estTypeProjetPredefini(type: TypeProjet): type is TypeProjetPredefini {
+  return TYPES_PROJET_CONNUS.includes(type);
+}
+
+/**
+ * Le libellé d'un type de projet : traduit s'il est prédéfini, tel que saisi
+ * sinon. Le seul endroit où cette distinction se fait — un écran qui
+ * traduirait directement le code planterait sur un type libre.
+ */
+export function libelleTypeProjet(
+  type: TypeProjet,
+  libellePredefini: (type: TypeProjetPredefini) => string,
+): string {
+  return estTypeProjetPredefini(type) ? libellePredefini(type) : type;
+}
 
 /* ------------------------------------------------------------------ *
  * Les contrats joints à la création.
@@ -641,6 +664,16 @@ function rangMaximal(rangs: number[]): number {
  */
 export function codeLotSuivant(lots: Lot[]): string {
   return codeLot(rangMaximal(lots.map((lot) => Number.parseInt(lot.code, 10))));
+}
+
+/**
+ * Un lot ne se supprime que tant qu'aucune de ses activités n'a avancé :
+ * l'avancement vient du journal de chantier, et le supprimer effacerait ce
+ * qui a été constaté sur le terrain. Ses activités encore à zéro partent
+ * avec lui.
+ */
+export function lotSupprimable(lot: Pick<Lot, "activites">): boolean {
+  return lot.activites.every((activite) => activite.avancement === 0);
 }
 
 /** Le code que prendra la prochaine activité du lot, selon la même règle. */
