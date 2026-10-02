@@ -17,7 +17,7 @@
  */
 
 import { api } from "@/lib/api";
-import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
+import { routesSimulees } from "@/lib/api/simulation";
 
 import { lireLotsImportes, ROLE_MEMBRE_PAR_DEFAUT } from "./regles";
 import { simulationLots } from "./simulationLots";
@@ -517,11 +517,17 @@ export async function obtenirMeteo(params?: {
 /* ------------------------------------------------------------------ *
  * Lots et activités.
  *
- * Aucune de ces routes n'est encore livrée côté Django : sous
- * `NEXT_PUBLIC_API_SIMULE`, elles passent par `simulationLots.ts`. Les formes
+ * Aucune de ces routes n'est encore livrée côté Django : elles passent par
+ * `simulationLots.ts`, en production comme en développement. Les formes
  * ci-dessous sont la proposition du frontend, à aligner ici — et seulement
  * ici — quand les routes arriveront.
  * ------------------------------------------------------------------ */
+
+/**
+ * Lots, activités, équipes et affectations : `false` tant que Django ne les
+ * sert pas, ce qui les garde simulés même en production.
+ */
+const LOTS_SIMULES = routesSimulees(false);
 
 interface ChargeEquipe {
   id: string;
@@ -608,7 +614,7 @@ function versChargeActivite(saisie: SaisieActiviteDomaine) {
 
 /** Les lots d'un chantier, chacun avec ses activités, dans l'ordre des codes. */
 export async function listerLots(projetId: string, signal?: AbortSignal): Promise<Lot[]> {
-  if (SIMULATION_ACTIVE) return simulationLots.lister(projetId);
+  if (LOTS_SIMULES) return simulationLots.lister(projetId);
   const charge = await api.lire<ChargeLot[] | ChargeListe<ChargeLot>>(
     `/projets/${projetId}/lots/`,
     undefined,
@@ -630,7 +636,7 @@ function versChargeLot(creation: CreationLotProjet) {
 }
 
 export async function creerLot(projetId: string, creation: CreationLotProjet): Promise<Lot> {
-  if (SIMULATION_ACTIVE) return simulationLots.creerLot(projetId, creation);
+  if (LOTS_SIMULES) return simulationLots.creerLot(projetId, creation);
   return versLot(await api.creer<ChargeLot>(`/projets/${projetId}/lots/`, versChargeLot(creation)));
 }
 
@@ -640,7 +646,7 @@ export async function modifierLot(
   lotId: string,
   modification: CreationLotProjet,
 ): Promise<Lot> {
-  if (SIMULATION_ACTIVE) return simulationLots.modifierLot(projetId, lotId, modification);
+  if (LOTS_SIMULES) return simulationLots.modifierLot(projetId, lotId, modification);
   return versLot(
     await api.modifier<ChargeLot>(`/projets/${projetId}/lots/${lotId}/`, versChargeLot(modification)),
   );
@@ -651,7 +657,7 @@ export async function modifierLot(
  * activité a déjà avancé — même règle que `lotSupprimable`.
  */
 export async function supprimerLot(projetId: string, lotId: string): Promise<void> {
-  if (SIMULATION_ACTIVE) return simulationLots.supprimerLot(projetId, lotId);
+  if (LOTS_SIMULES) return simulationLots.supprimerLot(projetId, lotId);
   await api.supprimer(`/projets/${projetId}/lots/${lotId}/`);
 }
 
@@ -674,7 +680,7 @@ export async function lireFichierLots(fichier: File, lotsExistants: Lot[]): Prom
  * moitié, avec des codes déjà pris et le reste à refaire à la main.
  */
 export async function importerLots(projetId: string, creations: CreationLotProjet[]): Promise<Lot[]> {
-  if (SIMULATION_ACTIVE) return simulationLots.importerLots(projetId, creations);
+  if (LOTS_SIMULES) return simulationLots.importerLots(projetId, creations);
   const charge = await api.creer<ChargeLot[]>(`/projets/${projetId}/lots/import/`, {
     lots: creations.map(versChargeLot),
   });
@@ -685,7 +691,7 @@ export async function creerActivite(
   projetId: string,
   saisie: SaisieActiviteDomaine,
 ): Promise<Activite> {
-  if (SIMULATION_ACTIVE) return simulationLots.creerActivite(projetId, saisie);
+  if (LOTS_SIMULES) return simulationLots.creerActivite(projetId, saisie);
   return versActivite(
     await api.creer<ChargeActivite>(`/projets/${projetId}/activites/`, versChargeActivite(saisie)),
   );
@@ -696,7 +702,7 @@ export async function modifierActivite(
   activiteId: string,
   saisie: SaisieActiviteDomaine,
 ): Promise<Activite> {
-  if (SIMULATION_ACTIVE) return simulationLots.modifierActivite(projetId, activiteId, saisie);
+  if (LOTS_SIMULES) return simulationLots.modifierActivite(projetId, activiteId, saisie);
   return versActivite(
     await api.modifier<ChargeActivite>(
       `/projets/${projetId}/activites/${activiteId}/`,
@@ -759,7 +765,7 @@ function versEquipeDetail(charge: ChargeEquipeDetail): Equipe {
 
 /** Les équipes constituées sur un chantier — celles qu'on peut y affecter. */
 export async function listerEquipes(projetId: string, signal?: AbortSignal): Promise<Equipe[]> {
-  if (SIMULATION_ACTIVE) return simulationLots.listerEquipes(projetId);
+  if (LOTS_SIMULES) return simulationLots.listerEquipes(projetId);
   const charge = await api.lire<ChargeEquipeDetail[] | ChargeListe<ChargeEquipeDetail>>(
     `/projets/${projetId}/equipes/`,
     undefined,
@@ -770,7 +776,7 @@ export async function listerEquipes(projetId: string, signal?: AbortSignal): Pro
 }
 
 export async function creerEquipe(projetId: string, creation: CreationEquipe): Promise<Equipe> {
-  if (SIMULATION_ACTIVE) return simulationLots.creerEquipe(projetId, creation);
+  if (LOTS_SIMULES) return simulationLots.creerEquipe(projetId, creation);
   return versEquipeDetail(
     await api.creer<ChargeEquipeDetail>(`/projets/${projetId}/equipes/`, {
       nom: creation.nom,
@@ -794,7 +800,7 @@ export async function ajouterMembreEquipe(
   equipeId: string,
   membre: SaisieMembreEquipe,
 ): Promise<Equipe> {
-  if (SIMULATION_ACTIVE) return simulationLots.ajouterMembre(projetId, equipeId, membre);
+  if (LOTS_SIMULES) return simulationLots.ajouterMembre(projetId, equipeId, membre);
   return versEquipeDetail(
     await api.creer<ChargeEquipeDetail>(
       `/projets/${projetId}/equipes/${equipeId}/membres/`,
@@ -809,7 +815,7 @@ export async function changerRoleMembreEquipe(
   membreId: string,
   role: RoleMembreEquipe,
 ): Promise<Equipe> {
-  if (SIMULATION_ACTIVE) return simulationLots.changerRoleMembre(projetId, equipeId, membreId, role);
+  if (LOTS_SIMULES) return simulationLots.changerRoleMembre(projetId, equipeId, membreId, role);
   return versEquipeDetail(
     await api.modifier<ChargeEquipeDetail>(
       `/projets/${projetId}/equipes/${equipeId}/membres/${membreId}/`,
@@ -824,7 +830,7 @@ export async function retirerMembreEquipe(
   equipeId: string,
   membreId: string,
 ): Promise<Equipe> {
-  if (SIMULATION_ACTIVE) return simulationLots.retirerMembre(projetId, equipeId, membreId);
+  if (LOTS_SIMULES) return simulationLots.retirerMembre(projetId, equipeId, membreId);
   await api.supprimer(`/projets/${projetId}/equipes/${equipeId}/membres/${membreId}/`);
   return versEquipeDetail(
     await api.lire<ChargeEquipeDetail>(`/projets/${projetId}/equipes/${equipeId}/`),
@@ -841,7 +847,7 @@ export async function affecterEquipe(
   activiteId: string,
   equipeId: string | null,
 ): Promise<Activite> {
-  if (SIMULATION_ACTIVE) return simulationLots.affecterEquipe(projetId, activiteId, equipeId);
+  if (LOTS_SIMULES) return simulationLots.affecterEquipe(projetId, activiteId, equipeId);
   return versActivite(
     await api.modifier<ChargeActivite>(`/projets/${projetId}/activites/${activiteId}/`, {
       equipe_id: equipeId,
