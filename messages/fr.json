@@ -743,11 +743,10 @@
     }
   },
   "erreurs": {
-    "code404": "Erreur 404",
-    "description404": "L'adresse que vous avez saisie ne correspond à aucune page de CCD Digital. Vérifiez l'URL ou revenez au tableau de bord.",
+    "description404": "L'adresse que vous avez saisie ne correspond à aucune page de CCD Digital. Vérifiez l'URL ou revenez à la page précédente.",
     "generique": "Une erreur est survenue. Réessayez dans un instant.",
+    "pagePrecedente": "Page précédente",
     "reseauIndisponible": "Connexion indisponible. Vérifiez votre réseau puis réessayez.",
-    "retourTableauDeBord": "Retour au tableau de bord",
     "titre404": "Page introuvable"
   },
   "essai": {

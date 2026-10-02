@@ -94,8 +94,12 @@ function Combobox({
     setOuvert(false)
   }
 
+  // `modal` : dans un tiroir ou une modale (Dialog Radix), le verrou de
+  // défilement du dialogue bloque la molette hors de lui — et la liste, rendue
+  // en portail, est hors de lui. Un popover modal pose son propre verrou, qui
+  // prend le relais et laisse défiler la liste au pavé tactile.
   return (
-    <Popover open={ouvert} onOpenChange={setOuvert}>
+    <Popover open={ouvert} onOpenChange={setOuvert} modal>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -136,7 +140,11 @@ function Combobox({
             {!saisieProposee && <CommandEmpty>{aucunResultat}</CommandEmpty>}
 
             {groupes.map(([groupe, membres]) => (
-              <CommandGroup key={groupe} heading={groupe || undefined}>
+              <CommandGroup
+                key={groupe}
+                heading={groupe || undefined}
+                className="[&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-primary"
+              >
                 {membres.map((option) => (
                   <CommandItem
                     key={option.valeur}

@@ -21,6 +21,11 @@ import { cn } from "@/lib/utils";
 
 import { Drapeau } from "./Drapeau";
 
+/** Les pays, dans l'ordre alphabétique de leur nom affiché. */
+const PAYS_TRIES = [...PAYS].sort((a, b) =>
+  nomDePays(a).localeCompare(nomDePays(b)),
+);
+
 interface Props extends Omit<ComponentProps<"button">, "value" | "onChange" | "id"> {
   value: string;
   onChange: (code: string) => void;
@@ -34,9 +39,11 @@ interface Props extends Omit<ComponentProps<"button">, "value" | "onChange" | "i
  *
  * Un `<select>` natif ne peut pas montrer le drapeau à côté du nom : un
  * `<option>` ne contient jamais d'image (même contrainte que dans
- * `ChampTelephone`). La liste restant fermée aux neuf pays de M8, une
- * recherche texte est un confort, pas une nécessité — elle reste utile dès
- * qu'on tape « Sén » plutôt que de parcourir la liste au clavier.
+ * `ChampTelephone`).
+ *
+ * Une seule liste, triée par nom, chaque pays suivi de son code ISO. Avec
+ * plus de cinquante entrées, la recherche texte (« Nig ») devient le moyen
+ * normal de choisir — elle porte aussi sur le code (« NG »).
  */
 export function SelecteurPays({
   value,
@@ -48,6 +55,28 @@ export function SelecteurPays({
 }: Props) {
   const t = useTranslations("inscription");
   const [ouvert, setOuvert] = useState(false);
+
+  function entree(code: string) {
+    return (
+      <CommandItem
+        key={code}
+        value={`${nomDePays(code)} ${code}`}
+        onSelect={() => {
+          onChange(code);
+          setOuvert(false);
+        }}
+      >
+        <Drapeau code={code} largeur={20} />
+        {nomDePays(code)}
+        <span className="ml-auto text-xs text-muted-foreground">{code}</span>
+        <Check
+          className={cn(
+            value === code ? "opacity-100" : "opacity-0",
+          )}
+        />
+      </CommandItem>
+    );
+  }
 
   return (
     <Popover open={ouvert} onOpenChange={setOuvert}>
@@ -68,6 +97,7 @@ export function SelecteurPays({
               <>
                 <Drapeau code={value} largeur={20} />
                 <span className="truncate">{nomDePays(value)}</span>
+                <span className="text-xs text-muted-foreground">{value}</span>
               </>
             ) : (
               <span className="text-muted-foreground">{t("champPaysChoisir")}</span>
@@ -82,27 +112,7 @@ export function SelecteurPays({
           <CommandInput placeholder={t("champPaysRecherche")} />
           <CommandList>
             <CommandEmpty>{t("champPaysAucunResultat")}</CommandEmpty>
-            <CommandGroup>
-              {PAYS.map((code) => (
-                <CommandItem
-                  key={code}
-                  value={nomDePays(code)}
-                  onSelect={() => {
-                    onChange(code);
-                    setOuvert(false);
-                  }}
-                >
-                  <Drapeau code={code} largeur={20} />
-                  {nomDePays(code)}
-                  <Check
-                    className={cn(
-                      "ml-auto",
-                      value === code ? "opacity-100" : "opacity-0",
-                    )}
-                  />
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            <CommandGroup>{PAYS_TRIES.map(entree)}</CommandGroup>
           </CommandList>
         </Command>
       </PopoverContent>
