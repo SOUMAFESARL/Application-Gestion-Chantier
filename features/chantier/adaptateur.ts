@@ -15,14 +15,14 @@
  * - `GET  /chantier/syntheses/?projet=&type=&date_debut=&date_fin=` — la
  *   synthèse agrégée à la demande par l'ORM.
  *
- * Tant que Django ne les sert pas, `NEXT_PUBLIC_API_SIMULE` aiguille vers
+ * Tant que Django ne les sert pas, `JOURNAL_SIMULE` aiguille vers
  * `simulationJournal`. Les noms de champs sont **à confirmer** : c'est ici,
  * et seulement ici, qu'il faudra les corriger.
  */
 
 import type { ModeExecutionLot } from "@/features/projets/types";
 import { api } from "@/lib/api";
-import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
+import { routesSimulees } from "@/lib/api/simulation";
 
 import { simulationJournal } from "./simulationJournal";
 import type {
@@ -491,9 +491,12 @@ function versSynthese(charge: ChargeSynthese): SynthesePeriodique {
  * Lectures et écritures.
  * ------------------------------------------------------------------ */
 
+/** `false` tant que Django ne sert pas les routes du journal : simulé même en production. */
+const JOURNAL_SIMULE = routesSimulees(false);
+
 /** Le journal des neuf dernières semaines, tous chantiers confondus. */
 export async function lireJournal(signal?: AbortSignal): Promise<Journal> {
-  if (SIMULATION_ACTIVE) return simulationJournal.lireJournal();
+  if (JOURNAL_SIMULE) return simulationJournal.lireJournal();
   const charge = await api.lire<ChargeJournal>("/chantier/journal/", undefined, signal);
   return {
     aujourdhui: charge.aujourdhui,
@@ -503,7 +506,7 @@ export async function lireJournal(signal?: AbortSignal): Promise<Journal> {
 }
 
 export async function lireRapport(id: string, signal?: AbortSignal): Promise<RapportJournalier> {
-  if (SIMULATION_ACTIVE) return simulationJournal.lireRapport(id);
+  if (JOURNAL_SIMULE) return simulationJournal.lireRapport(id);
   return versRapport(await api.lire<ChargeRapport>(`/chantier/rapports/${id}/`, undefined, signal));
 }
 
@@ -512,13 +515,13 @@ export async function lireRapport(id: string, signal?: AbortSignal): Promise<Rap
  * rapport manque, le signataire attendu s'il est déposé.
  */
 export async function relancer(id: string): Promise<{ relanceLe: string }> {
-  if (SIMULATION_ACTIVE) return simulationJournal.relancer(id);
+  if (JOURNAL_SIMULE) return simulationJournal.relancer(id);
   const charge = await api.creer<{ relance_le: string }>(`/chantier/journal/${id}/relancer/`, {});
   return { relanceLe: charge.relance_le };
 }
 
 export async function lireSynthese(demande: DemandeSynthese, signal?: AbortSignal): Promise<SynthesePeriodique> {
-  if (SIMULATION_ACTIVE) return simulationJournal.lireSynthese(demande);
+  if (JOURNAL_SIMULE) return simulationJournal.lireSynthese(demande);
   const parametres = {
     projet: demande.projetId,
     type: demande.type,

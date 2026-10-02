@@ -3,7 +3,7 @@
  *
  * Il parle le domaine (les types de `types.ts`), pas un transport inventé ; il
  * se souvient le temps de l'onglet (`sessionStorage`) ; et les vrais appels
- * restent à leur place dans `adaptateur.ts`, derrière `SIMULATION_ACTIVE`.
+ * restent à leur place dans `adaptateur.ts`, derrière `LOTS_SIMULES`.
  *
  * Il vit dans son propre fichier parce qu'il porte des libellés d'activités
  * de chantier — de la donnée, pas du texte d'interface — et que l'exemption

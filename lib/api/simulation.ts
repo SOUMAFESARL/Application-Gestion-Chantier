@@ -37,6 +37,22 @@ import { ErreurApi } from "./erreurs";
  */
 export const SIMULATION_ACTIVE = process.env.NEXT_PUBLIC_API_SIMULE === "1";
 
+/**
+ * Faut-il simuler un groupe de routes ? Oui sous `NEXT_PUBLIC_API_SIMULE`, et
+ * **toujours** tant que Django ne le sert pas (`livrees` à `false`).
+ *
+ * Le drapeau global ne suffit pas : la production le met à `0` parce que
+ * `/projets/` est livré, et les routes encore proposées (lots, équipes,
+ * tableau de bord, journal) partaient alors vers un 404 — la fiche projet et
+ * le tableau de bord affichaient « Impossible d'afficher ces données » là où
+ * le développement, simulé, montrait un chantier sans lot. Le jour où Django
+ * livre un groupe, on passe son `livrees` à `true` dans son adaptateur, et
+ * rien d'autre.
+ */
+export function routesSimulees(livrees: boolean): boolean {
+  return SIMULATION_ACTIVE || !livrees;
+}
+
 const CLE_ETAT = "ccd.simulation.onboarding";
 
 /** Latence simulée — de quoi voir passer l'état de chargement, charte §8.3. */
