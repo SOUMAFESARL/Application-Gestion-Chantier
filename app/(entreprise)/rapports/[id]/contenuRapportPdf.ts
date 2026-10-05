@@ -288,18 +288,21 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
         rapport.materiaux.map((ligne) => {
           const fin = stockFin(ligne);
           const enAlerte = enAlerteStock(fin, ligne.seuilAlerte);
+          const quantite = (valeur: number | null) => (valeur === null ? neant : formaterQuantite(valeur));
           return [
             cellule(ligne.designation, { gras: true }),
             cellule(ligne.unite),
-            cellule(formaterQuantite(ligne.stockDebut)),
+            cellule(quantite(ligne.stockDebut)),
             cellule(ligne.livre ? formaterQuantite(ligne.livre) : neant),
             cellule(formaterQuantite(ligne.utilise)),
-            cellule(formaterQuantite(fin), { gras: true, ton: enAlerte ? "erreur" : undefined }),
-            cellule(formaterQuantite(ligne.seuilAlerte)),
-            cellule(enAlerte ? r("materiaux.alerte") : r("materiaux.ok"), {
-              gras: true,
-              ton: enAlerte ? "erreur" : "succes",
-            }),
+            cellule(quantite(fin), { gras: true, ton: enAlerte ? "erreur" : undefined }),
+            cellule(quantite(ligne.seuilAlerte)),
+            fin === null
+              ? cellule(r("materiaux.horsStock"))
+              : cellule(enAlerte ? r("materiaux.alerte") : r("materiaux.ok"), {
+                  gras: true,
+                  ton: enAlerte ? "erreur" : "succes",
+                }),
           ];
         }),
         r("materiaux.vide"),

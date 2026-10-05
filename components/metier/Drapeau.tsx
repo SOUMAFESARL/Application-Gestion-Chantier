@@ -1,7 +1,13 @@
 /**
- * Les drapeaux des neuf pays de l'inscription, **dessinés dans le code**.
+ * Les drapeaux des pays de l'inscription.
  *
- * Trois solutions existaient, deux ont été écartées :
+ * Les neuf pays de M8 sont **dessinés dans le code**, ci-dessous. Les autres
+ * pays d'Afrique viennent de `country-flag-icons` : des SVG embarqués dans le
+ * bundle, donc la même garantie hors réseau — et dessiner à la main 45
+ * drapeaux d'armoiries (Mozambique, Eswatini…) n'aurait rien gagné.
+ * L'import nommé garde l'arbre élagué : seuls ces drapeaux-là sont livrés.
+ *
+ * Pour les neuf premiers, trois solutions existaient, deux ont été écartées :
  *
  * * **l'emoji drapeau** (`🇨🇮`) — Windows ne le rend pas : il affiche « CI » en
  *   deux lettres. C'est la machine de bureau du client, pas un cas de bord ;
@@ -19,6 +25,59 @@
  * à côté. Un drapeau seul ne dit rien à un lecteur d'écran, et n'est pas non
  * plus lisible pour tout le monde.
  */
+
+import {
+  AO,
+  BI,
+  BW,
+  CD,
+  CF,
+  CG,
+  CV,
+  DJ,
+  DZ,
+  EG,
+  ER,
+  ET,
+  GH,
+  GM,
+  GQ,
+  GW,
+  KE,
+  KM,
+  LR,
+  LS,
+  LY,
+  MA,
+  MG,
+  MR,
+  MU,
+  MW,
+  MZ,
+  NA,
+  NE,
+  NG,
+  RW,
+  SC,
+  SD,
+  SL,
+  SO,
+  SS,
+  ST,
+  SZ,
+  TD,
+  TN,
+  TZ,
+  UG,
+  ZA,
+  ZM,
+  ZW,
+} from "country-flag-icons/react/3x2";
+
+/** Les drapeaux de la bibliothèque, par code ISO. */
+const BIBLIOTHEQUE: Record<string, typeof DZ> = {
+  AO, BI, BW, CD, CF, CG, CV, DJ, DZ, EG, ER, ET, GH, GM, GQ, GW, KE, KM, LR, LS, LY, MA, MG, MR, MU, MW, MZ, NA, NE, NG, RW, SC, SD, SL, SO, SS, ST, SZ, TD, TN, TZ, UG, ZA, ZM, ZW,
+};
 
 const ETOILE =
   "M0,-1 L0.2245,-0.309 L0.9511,-0.309 L0.3633,0.118 " +
@@ -114,8 +173,10 @@ interface Props {
 }
 
 export function Drapeau({ code, largeur = 20, className }: Props) {
-  const dessin = DESSINS[(code || "").trim().toUpperCase()];
-  if (!dessin) return null;
+  const iso = (code || "").trim().toUpperCase();
+  const dessin = DESSINS[iso];
+  const Importe = BIBLIOTHEQUE[iso];
+  if (!dessin && !Importe) return null;
 
   return (
     <svg
@@ -127,7 +188,12 @@ export function Drapeau({ code, largeur = 20, className }: Props) {
       focusable="false"
       role="presentation"
     >
-      {dessin()}
+      {dessin ? (
+        dessin()
+      ) : (
+        // Imbriqué dans le même cadre 3:2 pour hériter du liseré ci-dessous.
+        <Importe width="3" height="2" preserveAspectRatio="none" />
+      )}
       {/* Un liseré sombre : sans lui, la bande blanche du drapeau ivoirien
           disparaît dans le fond blanc du champ. */}
       <rect width="3" height="2" fill="none" stroke="rgba(0,0,0,0.18)" strokeWidth="0.06" />

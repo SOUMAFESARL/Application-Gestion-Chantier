@@ -380,18 +380,21 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
         ],
         synthese.materiaux.map((ligne) => {
           const alerte = enAlerteStock(ligne.stockFin, ligne.seuilAlerte);
+          const quantite = (valeur: number | null) => (valeur === null ? t("rapport.neant") : formaterQuantite(valeur));
           return [
             cellule(ligne.designation, { gras: true }),
             cellule(ligne.unite),
-            cellule(formaterQuantite(ligne.stockDebut)),
+            cellule(quantite(ligne.stockDebut)),
             cellule(formaterQuantite(ligne.consomme)),
             cellule(formaterQuantite(ligne.livre)),
-            cellule(formaterQuantite(ligne.stockFin), { gras: true, ton: alerte ? "erreur" : undefined }),
-            cellule(formaterQuantite(ligne.seuilAlerte)),
-            cellule(alerte ? t("rapport.materiaux.alerte") : t("rapport.materiaux.ok"), {
-              gras: true,
-              ton: alerte ? "erreur" : "succes",
-            }),
+            cellule(quantite(ligne.stockFin), { gras: true, ton: alerte ? "erreur" : undefined }),
+            cellule(quantite(ligne.seuilAlerte)),
+            ligne.stockFin === null
+              ? cellule(t("rapport.materiaux.horsStock"))
+              : cellule(alerte ? t("rapport.materiaux.alerte") : t("rapport.materiaux.ok"), {
+                  gras: true,
+                  ton: alerte ? "erreur" : "succes",
+                }),
           ];
         }),
         s("materiaux.vide"),

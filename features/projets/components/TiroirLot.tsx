@@ -35,7 +35,12 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { creerLot, modifierLot } from "@/features/projets/adaptateur";
-import { codeLotSuivant, MODES_EXECUTION_LOT, TYPES_BORDEREAU } from "@/features/projets/regles";
+import {
+  codeLotSuivant,
+  MODES_EXECUTION_LOT,
+  STATUTS_DECLARES,
+  TYPES_BORDEREAU,
+} from "@/features/projets/regles";
 import type { Lot } from "@/features/projets/types";
 import {
   lotEnSaisie,
@@ -216,6 +221,7 @@ function SaisieLot({
 }) {
   const t = useTranslations("projets.lotsActivites.formLot");
   const tCreation = useTranslations("projets.tiroirCreation");
+  const tLots = useTranslations("projets.lotsActivites");
 
   const form = useForm<SaisieLotProjet>({
     resolver: zodResolver(schemaLot),
@@ -230,8 +236,9 @@ function SaisieLot({
     onOccupe(true);
     try {
       const valeurs = versCreationLotProjet(schemaLot.parse(saisie));
+      // Le serveur renvoie le lot seul : ses activités restent celles qu'on a.
       const enregistre = lot
-        ? await modifierLot(projetId, lot.id, valeurs)
+        ? { ...(await modifierLot(lot.id, valeurs)), activites: lot.activites }
         : await creerLot(projetId, valeurs);
       onEnregistre(enregistre);
       toast.success(
@@ -322,6 +329,33 @@ function SaisieLot({
                     {TYPES_BORDEREAU.map((type) => (
                       <SelectItem key={type} value={type}>
                         {tCreation(`typeBordereau.${type}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="statut"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  {tLots("champStatut")} <Requis />
+                </FormLabel>
+                <Select value={field.value} onValueChange={field.onChange} disabled={enCours}>
+                  <FormControl>
+                    <SelectTrigger className={cn(CHAMP, "w-full bg-card")} onBlur={field.onBlur}>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {STATUTS_DECLARES.map((statut) => (
+                      <SelectItem key={statut} value={statut}>
+                        {tLots(`statutDeclare.${statut}`)}
                       </SelectItem>
                     ))}
                   </SelectContent>

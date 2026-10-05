@@ -425,6 +425,11 @@ export async function appeler<T>(chemin: string, options: Options = {}): Promise
 
   if (!reponse.ok) {
     const erreur = await depuisReponse(reponse);
+    // Le détail par champ d'un refus : sans lui, « certains champs sont
+    // invalides » ne dit pas lesquels.
+    if (JOURNALISER && Object.keys(erreur.details).length > 0) {
+      console.info(`[api] ${erreur.code} ${JSON.stringify(erreur.details)}`);
+    }
     // Un 401 qui survit au renouvellement **n'emporte plus la session a lui
     // seul**. C'est `renouvelerJeton` qui tranche, et lui seul : il est le
     // seul a savoir si le serveur a refuse le jeton de renouvellement ou si

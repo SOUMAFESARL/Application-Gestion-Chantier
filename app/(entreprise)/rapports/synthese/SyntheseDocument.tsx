@@ -138,7 +138,11 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
     blocages: chiffres.blocages,
     manquants: manquants.length,
   });
-  const statutStock = { alerte: tRapport("materiaux.alerte"), ok: tRapport("materiaux.ok") };
+  const statutStock = {
+    alerte: tRapport("materiaux.alerte"),
+    ok: tRapport("materiaux.ok"),
+    horsStock: tRapport("materiaux.horsStock"),
+  };
   const tJournal = useTranslations("journal");
   const { pdf, indicateur } = useGenerationDocumentPdf(t(`type.${synthese.type}`), (source) =>
     contenuSynthesePdf((cle, valeurs) => tJournal(cle, valeurs), {
@@ -476,19 +480,24 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
               vide={t("materiaux.vide")}
               lignes={synthese.materiaux.map((ligne) => {
                 const alerte = enAlerteStock(ligne.stockFin, ligne.seuilAlerte);
+                const quantite = (valeur: number | null) => (valeur === null ? tRapport("neant") : formaterQuantite(valeur));
                 return {
                   cle: ligne.designation,
                   cellules: [
                     <span key="d" className="font-medium">{ligne.designation}</span>,
                     ligne.unite,
-                    formaterQuantite(ligne.stockDebut),
+                    quantite(ligne.stockDebut),
                     formaterQuantite(ligne.consomme),
                     formaterQuantite(ligne.livre),
-                    <span key="f" className={alerte ? "font-semibold text-erreur" : "font-semibold"}>{formaterQuantite(ligne.stockFin)}</span>,
-                    formaterQuantite(ligne.seuilAlerte),
-                    <Badge key="s" variante={alerte ? "erreur" : "succes"}>
-                      {alerte ? statutStock.alerte : statutStock.ok}
-                    </Badge>,
+                    <span key="f" className={alerte ? "font-semibold text-erreur" : "font-semibold"}>{quantite(ligne.stockFin)}</span>,
+                    quantite(ligne.seuilAlerte),
+                    ligne.stockFin === null ? (
+                      <Badge key="s" variante="neutre">{statutStock.horsStock}</Badge>
+                    ) : (
+                      <Badge key="s" variante={alerte ? "erreur" : "succes"}>
+                        {alerte ? statutStock.alerte : statutStock.ok}
+                      </Badge>
+                    ),
                   ],
                 };
               })}

@@ -10,6 +10,7 @@ import {
   CloudRain,
   CloudSun,
   Contact,
+  FilePen,
   FileText,
   Handshake,
   HardHat,
@@ -74,7 +75,7 @@ import type { DonneesEntreprise } from "@/features/configuration/api";
 import { obtenirMeteo } from "@/features/projets/adaptateur";
 import type { MeteoProjet } from "@/features/projets/types";
 import { useIdentitePlateforme } from "@/features/plateforme/hooks";
-import { FournisseurDroits, GardeRoute, routeAutorisee } from "@/features/habilitations";
+import { FournisseurDroits, GardeRoute, peutRedigerJournal, routeAutorisee } from "@/features/habilitations";
 import {
   IncarnationBarreHaut,
   quitterIncarnation,
@@ -311,6 +312,7 @@ export default function LayoutApp({ children }: LayoutAppProps) {
         ?.href ?? "/projets")
     : null;
   const estSurChantier = pathname.startsWith("/rapports");
+  const estSurSaisie = pathname.startsWith("/rapports/saisie");
   const estSurPlanning = pathname.startsWith("/planning");
   const estSurFinance = pathname.startsWith("/finance");
   const estSurAchats = pathname.startsWith("/achats");
@@ -489,10 +491,25 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                 )}
                 {voit("/rapports") && (
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={estSurChantier} tooltip={t("chantier")}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={estSurChantier && !estSurSaisie}
+                      tooltip={t("chantier")}
+                    >
                       <Link href="/rapports">
                         <HardHat />
                         <span>{t("chantier")}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {/* Le geste quotidien du terrain, à un toucher du menu. */}
+                {peutRedigerJournal(droits) && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={estSurSaisie} tooltip={t("redigerRapport")}>
+                      <Link href="/rapports/saisie">
+                        <FilePen />
+                        <span>{t("redigerRapport")}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

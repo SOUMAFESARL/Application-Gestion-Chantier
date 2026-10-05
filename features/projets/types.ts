@@ -99,6 +99,30 @@ export interface Projet {
   autresMembres: AutreMembreProjet[];
   /** Le contrat du marché et ses avenants, joints à la création. */
   contrats: ContratProjet[];
+  /**
+   * La structure du chantier, comptée par le serveur. `null` tant que les
+   * lots restent simulés : ses chiffres décriraient des lots que l'écran ne
+   * montre pas, et l'écran les compte alors lui-même (`syntheseLots`).
+   */
+  statistiques: StatistiquesProjet | null;
+}
+
+/**
+ * Comment le serveur a pondéré l'avancement : à parts égales, ou au poids
+ * du budget. Seul `UNIFORME` a été observé — `BUDGET` reste à confirmer.
+ */
+export type PonderationAvancement = "UNIFORME" | "BUDGET";
+
+/** Les chiffres de structure d'un chantier, tels que le serveur les tient. */
+export interface StatistiquesProjet {
+  lots: number;
+  activites: number;
+  /** Un pourcentage, de 0 à 100. */
+  avancement: number;
+  ponderation: PonderationAvancement;
+  enRetard: number;
+  /** La somme des budgets portés par les activités. */
+  budgetActivites: number;
 }
 
 /** Un document de contrat joint au projet, servi par le serveur. */
@@ -307,11 +331,18 @@ export interface MeteoProjet {
 export type UniteActivite = "M" | "ML" | "M2" | "M3" | "KG" | "T" | "U" | "ENS" | "FFT";
 
 /**
- * L'état d'une activité. Il est **calculé** (voir `statutActivite` dans
- * `regles.ts`) à partir des dates et de l'avancement, jamais saisi : une
- * activité ne se déclare pas « en retard », elle l'est.
+ * Le statut qu'on **déclare** sur un lot ou une activité, à sa création ou
+ * sa modification. Le retard n'en fait pas partie : il ne se déclare pas, il
+ * se constate.
  */
-export type StatutActivite = "A_VENIR" | "EN_COURS" | "EN_RETARD" | "TERMINE";
+export type StatutDeclare = "NON_DEMARRE" | "EN_COURS" | "TERMINE" | "BLOQUE";
+
+/**
+ * L'état affiché d'une activité (voir `statutActivite` dans `regles.ts`) :
+ * le statut déclaré, sauf quand les dates le contredisent — une activité ne
+ * se déclare pas « en retard », elle l'est.
+ */
+export type StatutActivite = "A_VENIR" | "EN_COURS" | "EN_RETARD" | "TERMINE" | "BLOQUE";
 
 /** Une équipe de chantier, telle qu'on l'affecte à une activité. */
 export interface EquipeChantier {
@@ -399,8 +430,11 @@ export interface Activite {
   surCheminCritique: boolean;
   /** L'activité qui doit être terminée avant que celle-ci commence. */
   dependanceId: string | null;
+  /** Le collaborateur qui répond de l'activité ; `null` : aucun désigné. */
+  responsableId: string | null;
   /** `null` : équipe encore à affecter. */
   equipe: EquipeChantier | null;
+  statut: StatutDeclare;
 }
 
 /** Un lot d'un chantier, avec ses activités. */
@@ -420,6 +454,7 @@ export interface Lot {
   /** Les dates saisies sur le lot ; celles de ses activités priment à l'affichage. */
   dateDebut: string | null;
   dateFin: string | null;
+  statut: StatutDeclare;
   activites: Activite[];
 }
 
@@ -432,6 +467,8 @@ export interface CreationLotProjet {
   budget?: number;
   dateDebut?: string;
   dateFin?: string;
+  /** Absent (un import) : `NON_DEMARRE`. */
+  statut?: StatutDeclare;
 }
 
 /** Ce qu'il faut fournir pour ajouter (ou modifier) une activité. */
@@ -442,8 +479,9 @@ export interface SaisieActiviteDomaine {
   unite: UniteActivite | null;
   dateDebutPrevue: string | null;
   dateFinPrevue: string | null;
-  dependanceId: string | null;
+  responsableId: string | null;
   equipeId: string | null;
+  statut: StatutDeclare;
 }
 
 /**

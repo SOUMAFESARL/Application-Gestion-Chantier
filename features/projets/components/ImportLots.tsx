@@ -147,6 +147,8 @@ export function ImportLots({ projetId, lots, onFermer, onImportes, onOccupe }: P
       toast.success(t("succes", { nombre: crees.length }));
       onFermer();
     } catch (err) {
+      // Les lots partent un par un : ceux créés avant l'échec sont relus.
+      onImportes([]);
       toast.error(err instanceof ErreurApi && err.message ? err.message : t("erreurGenerique"));
     } finally {
       setEnvoi(false);

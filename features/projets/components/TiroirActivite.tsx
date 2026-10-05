@@ -8,6 +8,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Form,
   FormControl,
@@ -33,9 +34,19 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { creerActivite, listerEquipes, modifierActivite } from "@/features/projets/adaptateur";
+import { CLE_COLLABORATEURS, listerCollaborateurs } from "@/features/invitations/adaptateur";
+import {
+  creerActivite,
+  erreursChampsActivite,
+  listerEquipes,
+  modifierActivite,
+} from "@/features/projets/adaptateur";
 import { cleEquipes } from "@/features/projets/cles";
-import { dependancesPossibles, UNITES_ACTIVITE } from "@/features/projets/regles";
+import {
+  collaborateursDisponibles,
+  STATUTS_DECLARES,
+  UNITES_ACTIVITE,
+} from "@/features/projets/regles";
 import type { Activite, Lot } from "@/features/projets/types";
 import {
   LONGUEUR_MAX_LIBELLE_ACTIVITE,
@@ -115,6 +126,13 @@ export function TiroirActivite({
     enabled: ouverte,
   });
 
+  // Le responsable se choisit parmi les collaborateurs de l'entreprise.
+  const collaborateurs = useQuery({
+    queryKey: CLE_COLLABORATEURS,
+    queryFn: listerCollaborateurs,
+    enabled: ouverte,
+  });
+
   /**
    * Le formulaire part de l'activité à modifier, ou vierge sur le lot d'où
    * l'on vient. L'écran **remonte le tiroir à chaque ouverture** (`key`) :
@@ -128,7 +146,19 @@ export function TiroirActivite({
 
   const valeurs = useWatch({ control: form.control }) as SaisieActivite;
   const enCours = form.formState.isSubmitting;
-  const dependances = dependancesPossibles(lots, activite?.id);
+  // Un compte désactivé n'est plus proposé — sauf s'il est déjà le responsable.
+  const responsables = collaborateursDisponibles(
+    collaborateurs.data ?? [],
+    [],
+    valeurs.responsableId,
+  );
+  const optionsResponsable = [
+    { valeur: AUCUN, libelle: t("aucunResponsable") },
+    ...responsables.map((collaborateur) => ({
+      valeur: collaborateur.id,
+      libelle: collaborateur.nomComplet,
+    })),
+  ];
 
   async function soumettre(saisie: ValeursActivite) {
     try {
@@ -137,15 +167,32 @@ export function TiroirActivite({
         ? await modifierActivite(projetId, activite.id, domaine)
         : await creerActivite(projetId, domaine);
       onEnregistree(enregistree);
+      // Le serveur ne code pas les activités : restée dans son lot, l'activité
+      // modifiée garde le code qu'elle avait à l'écran.
+      const code =
+        enregistree.code || (activite?.lotId === enregistree.lotId ? activite.code : "");
       toast.success(
         t(modification ? "succesModification" : "succesCreation", {
-          code: enregistree.code,
+          code,
           libelle: enregistree.libelle,
         }),
       );
       onFermer();
     } catch (err) {
-      toast.error(err instanceof ErreurApi && err.message ? err.message : t("erreurGenerique"));
+      if (!(err instanceof ErreurApi)) {
+        toast.error(t("erreurGenerique"));
+        return;
+      }
+      // Chaque champ refusé reçoit son message ; ceux qui n'ont pas de place
+      // dans le formulaire rejoignent le message général.
+      const horsFormulaire: string[] = [];
+      for (const [champ, message] of Object.entries(erreursChampsActivite(err))) {
+        if (champ in saisie) form.setError(champ as keyof ValeursActivite, { message });
+        else horsFormulaire.push(`${champ} : ${message}`);
+      }
+      toast.error(err.message || t("erreurGenerique"), {
+        description: horsFormulaire.join(" · ") || undefined,
+      });
     }
   }
 
@@ -210,6 +257,33 @@ export function TiroirActivite({
                       disabled={enCours}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="statut"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {tLots("champStatut")} <Requis />
+                  </FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange} disabled={enCours}>
+                    <FormControl>
+                      <SelectTrigger className={cn(CHAMP, "w-full bg-card")} onBlur={field.onBlur}>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {STATUTS_DECLARES.map((statut) => (
+                        <SelectItem key={statut} value={statut}>
+                          {tLots(`statutDeclare.${statut}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -311,29 +385,23 @@ export function TiroirActivite({
 
             <FormField
               control={form.control}
-              name="dependanceId"
+              name="responsableId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("champDependance")}</FormLabel>
-                  <Select
-                    value={field.value || AUCUN}
-                    onValueChange={(valeur) => field.onChange(valeur === AUCUN ? "" : valeur)}
-                    disabled={enCours}
-                  >
-                    <FormControl>
-                      <SelectTrigger className={cn(CHAMP, "w-full bg-card")} onBlur={field.onBlur}>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={AUCUN}>{t("aucuneDependance")}</SelectItem>
-                      {dependances.map((candidate) => (
-                        <SelectItem key={candidate.id} value={candidate.id}>
-                          {tLots("libelleActivite", { code: candidate.code, libelle: candidate.libelle })}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>{t("champResponsable")}</FormLabel>
+                  <FormControl>
+                    <Combobox
+                      className={CHAMP}
+                      options={optionsResponsable}
+                      valeur={field.value || AUCUN}
+                      onChange={(valeur) => field.onChange(valeur === AUCUN ? "" : valeur)}
+                      onBlur={field.onBlur}
+                      placeholder={t("selectionner")}
+                      placeholderRecherche={t("responsableRecherche")}
+                      aucunResultat={t("responsableAucunResultat")}
+                      disabled={enCours}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
