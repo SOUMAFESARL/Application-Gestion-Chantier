@@ -116,6 +116,10 @@
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.04);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
   --shadow-focus: 0 0 0 3px rgb(249 115 22 / 0.25);
+  /* Sous une barre collée en haut / au-dessus d'une barre collée en bas,
+     dès qu'un contenu défile dessous. Volontairement plus léger que `md`. */
+  --shadow-collant: 0 4px 8px -4px rgb(0 0 0 / 0.08);
+  --shadow-collant-haut: 0 -4px 8px -4px rgb(0 0 0 / 0.08);
 
   /* --- Icônes --- */
   --icon-xs: 12px;

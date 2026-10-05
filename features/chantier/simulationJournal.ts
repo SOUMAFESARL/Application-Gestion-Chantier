@@ -1,5 +1,5 @@
 /**
- * Le journal de chantier de démonstration — en attendant les routes.
+ * Le journal de chantier, rejoué — en attendant les routes.
  *
  * Même contrat que `features/projets/simulationEquipes.ts` : il parle le
  * domaine (les types de `types.ts`), les vrais appels restent à leur place
@@ -7,35 +7,39 @@
  * `NEXT_PUBLIC_API_SIMULE` passe à `0` sans qu'aucun écran ne change. Pas de
  * bandeau : le propriétaire du produit l'a demandé (24/09/2026).
  *
- * **Tout est calculé, rien n'est tiré au hasard** : un générateur à graine
- * donne à chaque (lot, jour) toujours les mêmes effectifs, quantités et
- * incidents — un rapport relu deux fois ne change pas, et la synthèse
- * retrouve exactement les chiffres des rapports qu'elle agrège.
- *
- * **Les dates sont relatives à aujourd'hui** : neuf semaines de rapports qui
- * finissent ce jour, pour que « Aujourd'hui », l'historique et les synthèses
- * aient toujours de quoi montrer.
- *
- * Les chantiers sont ceux de l'ancien jeu de démonstration des projets ; les lots reprennent ceux
- * des lots de l'ancien jeu de démonstration.
+ * Les chantiers sont les vrais, lus sur `/projets/` : un chantier en cours
+ * attend un rapport chaque jour ouvré depuis son démarrage. Chacun de ces
+ * jours est, par ordre de priorité :
+ * - le rapport rédigé et soumis depuis `/rapports/saisie` (`simulationSaisie`),
+ *   s'il existe — il vit dans le `localStorage` du poste et, faute d'écran de
+ *   validation CT / CP, y reste « Soumis » ;
+ * - sinon un **rapport de démonstration** (demande produit : le journal montre
+ *   des données simulées jusqu'au branchement de l'API), bâti sur les vrais
+ *   lots et activités du chantier, avec son circuit plus ou moins avancé ;
+ * - sinon, certains jours, une absence — ce que le serveur saura seul.
  */
 
+import { lireProjet, listerLots, listerProjets } from "@/features/projets/adaptateur";
+import type { Activite, Lot, Projet, StatutProjet } from "@/features/projets/types";
+import { texte } from "@/i18n/horsReact";
 import { attendre, refuser } from "@/lib/api/simulation";
+import { ABSENT } from "@/lib/format";
 
 import {
   agregerSynthese,
   ajouterJours,
   estDepose,
-  estJourOuvre,
   jourDe,
   jourOuvreAvant,
+  joursOuvres,
+  joursSaisissables,
   numeroSemaine,
   periodeClose,
 } from "./regles";
 import { rapportSaisi, rapportsSaisis } from "./simulationSaisie";
 import type {
-  Appreciation,
   Blocage,
+  ChantierJournal,
   ConditionsMeteo,
   DemandeSynthese,
   EntreeJournal,
@@ -45,17 +49,13 @@ import type {
   LigneActivite,
   LigneEffectif,
   LigneEquipement,
-  LigneMateriau,
   LigneProduction,
-  Livraison,
   LotJournal,
   Meteo,
-  ObjectifSuivant,
-  Photo,
-  Prevision,
   RapportJournalier,
   SituationRapport,
   SynthesePeriodique,
+  TravauxLot,
 } from "./types";
 
 const CLE_RELANCES = "ccd.simulation.journal.relances";
@@ -63,1171 +63,51 @@ const LATENCE_LECTURE = 350;
 const LATENCE_ECRITURE = 450;
 /** Neuf semaines : le mois précédent se synthétise en entier. */
 const JOURS_HISTORIQUE = 45;
+/** Un chantier attend un rapport tant qu'il est ouvert ; en attente, suspendu ou clos, plus rien. */
+const STATUTS_ATTENDUS: readonly StatutProjet[] = ["EN_COURS", "EN_RETARD", "CRITIQUE"];
 
 /* ------------------------------------------------------------------ *
- * Le générateur à graine.
+ * Les lectures réelles, gardées en mémoire.
+ *
+ * Le journal est simulé, mais il se construit sur les vrais chantiers : une
+ * lecture de `/projets/`, puis les lots de chacun, puis les activités de
+ * chaque lot. Refaite à chaque écran (journal, situation du jour, file de
+ * validation, rapport, synthèse), c'était des dizaines d'appels à Django pour
+ * une page « sans base de données ». On les garde le temps du `staleTime` de
+ * React Query (`app/providers.tsx`) : un lot ajouté apparaît au plus 30 s
+ * plus tard, comme partout ailleurs.
+ *
+ * Pas de `signal` : la promesse est partagée, et l'écran qu'on quitte ne doit
+ * pas annuler la lecture que le suivant attend. Un échec n'est pas retenu.
  * ------------------------------------------------------------------ */
 
-function hacher(texte: string): number {
-  let valeur = 2166136261;
-  for (let rang = 0; rang < texte.length; rang += 1) {
-    valeur ^= texte.charCodeAt(rang);
-    valeur = Math.imul(valeur, 16777619);
-  }
-  return valeur >>> 0;
+const DUREE_MEMOIRE_MS = 30_000;
+const memoire = new Map<string, { expireLe: number; promesse: Promise<unknown> }>();
+
+function memorise<T>(cle: string, lire: () => Promise<T>): Promise<T> {
+  const present = memoire.get(cle);
+  if (present && present.expireLe > Date.now()) return present.promesse as Promise<T>;
+  const promesse = lire();
+  memoire.set(cle, { expireLe: Date.now() + DUREE_MEMOIRE_MS, promesse });
+  promesse.catch(() => {
+    if (memoire.get(cle)?.promesse === promesse) memoire.delete(cle);
+  });
+  return promesse;
 }
 
-/** Un nombre entre 0 et 1, toujours le même pour la même graine. */
-function alea(...graine: (string | number)[]): number {
-  let valeur = hacher(graine.join("|"));
-  valeur = Math.imul(valeur ^ (valeur >>> 15), 2246822507);
-  valeur = Math.imul(valeur ^ (valeur >>> 13), 3266489909);
-  return ((valeur ^ (valeur >>> 16)) >>> 0) / 4294967296;
-}
-
-function choisir<T>(liste: readonly T[], ...graine: (string | number)[]): T {
-  return liste[Math.floor(alea(...graine) * liste.length) % liste.length];
-}
-
-function arrondir(valeur: number, decimales = 0): number {
-  const facteur = 10 ** decimales;
-  return Math.round(valeur * facteur) / facteur;
-}
-
-/* ------------------------------------------------------------------ *
- * Les gabarits de lots.
- * ------------------------------------------------------------------ */
-
-interface GabaritActivite {
-  libelle: string;
-  unite: string;
-  quantitePrevue: number;
-  /** L'avancement au soir d'aujourd'hui, en %. */
-  avancement: number;
-  theorique: number;
-  /** Le rythme moyen, en % de la quantité prévue par jour ouvré. */
-  rythme: number;
-  observations: string[];
-}
-
-interface GabaritMateriau {
-  designation: string;
-  unite: string;
-  stock: number;
-  consommation: number;
-  seuil: number;
-}
-
-interface GabaritLot {
-  cle: string;
-  lot: LotJournal;
-  localisation: string;
-  latitude: number;
-  longitude: number;
-  conducteurTravaux: string;
-  chefProjet: string;
-  /** Régie directe seulement : les catégories d'ouvriers. */
-  effectifs: { categorie: string; prevus: number; heures: number }[] | null;
-  /** Hors régie : le total déclaré par le sous-traitant. */
-  effectifDeclare: number;
-  production: Omit<LigneProduction, "quantiteJour" | "cumul">[] | null;
-  activites: GabaritActivite[];
-  materiaux: GabaritMateriau[];
-  livraisons: Omit<Livraison, "heure">[];
-  equipements: LigneEquipement[];
-  incidents: Omit<Incident, "numero" | "resolu">[];
-  photos: string[];
-  notes: string[];
-  previsions: Prevision[];
-}
-
-const ID_RESIDENCE = "b1b72e51-4fa3-433b-821b-cfc1901ddfa2";
-const ID_SIEGE = "c2c83f62-5fb4-4a5c-932c-d02a12eeeb13";
-const ID_ENTREPOT = "d3d94073-6fc5-4b6d-a43d-e13b23fffc24";
-
-const RESIDENCE = {
-  projetId: ID_RESIDENCE,
-  projetNom: "Résidence Les Merveilles",
-  projetReference: "PRJ-2026-001",
-};
-const SIEGE = {
-  projetId: ID_SIEGE,
-  projetNom: "Siège Banque Atlantique",
-  projetReference: "PRJ-2026-002",
-};
-const ENTREPOT = {
-  projetId: ID_ENTREPOT,
-  projetNom: "Entrepôt logistique Sifca",
-  projetReference: "PRJ-2026-003",
-};
-
-const INCIDENT_EPI: Omit<Incident, "numero" | "resolu"> = {
-  type: "SECURITE",
-  description: "Ouvrier observé sans casque dans la zone de levage.",
-  gravite: "MINEUR",
-  decidePar: "CC",
-  action: "Rappel du règlement, EPI fourni. Inscrit au registre HSE.",
-};
-
-const GABARITS: GabaritLot[] = [
-  {
-    cle: "res-l03",
-    lot: {
-      id: "lot-res-l03",
-      code: "L-03",
-      nom: "Gros œuvre",
-      modeExecution: "REGIE_DIRECTE",
-      ...RESIDENCE,
-      chefChantier: "Oumar Gbané",
-    },
-    localisation: "Cocody Angré, Abidjan",
-    latitude: 5.3964,
-    longitude: -3.9885,
-    conducteurTravaux: "Emmanuel Brou",
-    chefProjet: "Manson Zanfack",
-    effectifs: [
-      { categorie: "Chef de chantier", prevus: 1, heures: 9.5 },
-      { categorie: "Maçons qualifiés", prevus: 6, heures: 9 },
-      { categorie: "Ferrailleurs", prevus: 4, heures: 9.5 },
-      { categorie: "Coffreurs", prevus: 3, heures: 9.5 },
-      { categorie: "Manœuvres", prevus: 12, heures: 9 },
-      { categorie: "Grutier", prevus: 1, heures: 9.5 },
-    ],
-    effectifDeclare: 27,
-    production: null,
-    activites: [
-      {
-        libelle: "Poteaux et dalle RDC",
-        unite: "m²",
-        quantitePrevue: 420,
-        avancement: 85,
-        theorique: 92,
-        rythme: 1.9,
-        observations: ["Coulage travée 3–4", "Décoffrage axe D", "Reprise des abouts de dalle"],
-      },
-      {
-        libelle: "Ferraillage dalle R+1",
-        unite: "kg",
-        quantitePrevue: 14500,
-        avancement: 40,
-        theorique: 48,
-        rythme: 2.6,
-        observations: ["Nappe inférieure travée 1", "Chapeaux sur appuis", "Attente livraison HA 12"],
-      },
-      {
-        libelle: "Maçonnerie des élévations",
-        unite: "m²",
-        quantitePrevue: 1250,
-        avancement: 12,
-        theorique: 18,
-        rythme: 1.1,
-        observations: ["Agglos de 15 façade nord", "Chaînages verticaux", "Démarrage cage d'escalier"],
-      },
-    ],
-    materiaux: [
-      { designation: "Ciment CPA 42.5", unite: "sacs", stock: 220, consommation: 110, seuil: 200 },
-      { designation: "Sable concassé", unite: "m³", stock: 17, consommation: 7, seuil: 10 },
-      { designation: "Gravier 15/25", unite: "m³", stock: 12, consommation: 5, seuil: 8 },
-      { designation: "Fer HA 12", unite: "kg", stock: 2350, consommation: 420, seuil: 1000 },
-      { designation: "Bois de coffrage", unite: "m²", stock: 156, consommation: 22, seuil: 80 },
-    ],
-    livraisons: [
-      {
-        fournisseur: "CIMAF Côte d'Ivoire",
-        designation: "Ciment CPA 42.5 — sacs de 50 kg",
-        quantite: "200 sacs",
-        bonLivraison: "BL-CIMAF-4218",
-        conformite: "PARTIELLE",
-        observation: "3 sacs humides refusés — avoir demandé.",
-      },
-      {
-        fournisseur: "SATOCI",
-        designation: "Gravier 15/25 — camion benne",
-        quantite: "10 m³",
-        bonLivraison: "BL-SAT-0891",
-        conformite: "CONFORME",
-        observation: "Stocké zone nord.",
-      },
-      {
-        fournisseur: "Béton Bâti CI",
-        designation: "Béton prêt à l'emploi B25",
-        quantite: "8 m³",
-        bonLivraison: "BL-BBC-1102",
-        conformite: "CONFORME",
-        observation: "Coulé dès réception.",
-      },
-      {
-        fournisseur: "FENICIA",
-        designation: "Fer HA 12 — barres de 12 m",
-        quantite: "2 000 kg",
-        bonLivraison: "BL-FEN-0389",
-        conformite: "CONFORME",
-        observation: null,
-      },
-    ],
-    equipements: [
-      {
-        designation: "Grue à tour 6 T",
-        reference: "GRU-001",
-        propriete: "ENTREPRISE",
-        utilisation: "7 h 30",
-        operateur: "Etienne Koffi",
-        etat: "BON",
-        observation: "Vérification des câbles vendredi.",
-      },
-      {
-        designation: "Bétonnière 350 L",
-        reference: "MAT-001",
-        propriete: "ENTREPRISE",
-        utilisation: "8 h",
-        operateur: "Adama Coulibaly",
-        etat: "BON",
-        observation: null,
-      },
-      {
-        designation: "Vibreur à béton",
-        reference: "MAT-003",
-        propriete: "ENTREPRISE",
-        utilisation: "6 h",
-        operateur: "Kader Traoré",
-        etat: "BON",
-        observation: null,
-      },
-      {
-        designation: "Camion toupie 8 m³",
-        reference: "EXT-BBC",
-        propriete: "LOCATION",
-        utilisation: "2 rotations",
-        operateur: "Chauffeur BBC",
-        etat: "BON",
-        observation: null,
-      },
-    ],
-    incidents: [
-      {
-        type: "QUALITE",
-        description: "Livraison CIMAF : sacs percés et humides constatés à la réception.",
-        gravite: "MINEUR",
-        decidePar: "CC",
-        action: "Sacs refusés et retournés, bon de retour signé, avoir demandé.",
-      },
-      INCIDENT_EPI,
-      {
-        type: "MATERIEL",
-        description: "Vibreur à béton en surchauffe, arrêt de 45 minutes.",
-        gravite: "MINEUR",
-        decidePar: "CC",
-        action: "Vibreur de secours utilisé ; révision demandée au parc.",
-      },
-    ],
-    photos: [
-      "Ferraillage poteaux axe C",
-      "Coulage béton poteaux A1–A4",
-      "Vue d'ensemble de l'avancement RDC",
-      "Coffrage de la travée 3–4",
-    ],
-    notes: [
-      "Journée productive malgré les absences. Prévoir le réapprovisionnement en ciment avant vendredi.",
-      "Décoffrage axe D : résistance du béton satisfaisante, aucune anomalie.",
-      "Demande au CT : heures supplémentaires samedi pour rattraper le retard sur le planning.",
-      "Bonne cadence sur le ferraillage. Livraison FENICIA confirmée pour demain 07h30.",
-    ],
-    previsions: [
-      {
-        activite: "Décoffrage poteaux axes A1–A4",
-        equipe: "Coffreurs (3)",
-        objectif: "8 poteaux",
-        prerequis: "Délai de 24 h atteint",
-      },
-      {
-        activite: "Ferraillage voiles axe D",
-        equipe: "Ferrailleurs (4)",
-        objectif: "40 m²",
-        prerequis: "Livraison FENICIA attendue à 07h30",
-      },
-      {
-        activite: "Coulage béton poteaux axe C",
-        equipe: "Maçons et manœuvres",
-        objectif: "6 poteaux",
-        prerequis: "Béton B25 commandé pour 09h00",
-      },
-    ],
-  },
-  {
-    cle: "res-l04",
-    lot: {
-      id: "lot-res-l04",
-      code: "L-04",
-      nom: "Charpente et couverture",
-      modeExecution: "SOUS_TRAITANCE_STRUCTUREE",
-      ...RESIDENCE,
-      chefChantier: "Adama Coulibaly",
-    },
-    localisation: "Cocody Angré, Abidjan",
-    latitude: 5.3966,
-    longitude: -3.9883,
-    conducteurTravaux: "Emmanuel Brou",
-    chefProjet: "Manson Zanfack",
-    effectifs: null,
-    effectifDeclare: 8,
-    production: null,
-    activites: [
-      {
-        libelle: "Charpente métallique",
-        unite: "kg",
-        quantitePrevue: 8500,
-        avancement: 18,
-        theorique: 30,
-        rythme: 0.9,
-        observations: ["Levage des fermes 1 à 4", "Boulonnage des pannes", "Contrôle des aplombs"],
-      },
-    ],
-    materiaux: [
-      { designation: "Boulons HR M16", unite: "u", stock: 640, consommation: 60, seuil: 200 },
-      { designation: "Peinture antirouille", unite: "l", stock: 90, consommation: 8, seuil: 30 },
-    ],
-    livraisons: [
-      {
-        fournisseur: "Métal Ouest Afrique",
-        designation: "Fermes métalliques — lot 2",
-        quantite: "4 fermes",
-        bonLivraison: "BL-MOA-0217",
-        conformite: "CONFORME",
-        observation: null,
-      },
-    ],
-    equipements: [
-      {
-        designation: "Nacelle articulée 16 m",
-        reference: "EXT-NAC",
-        propriete: "LOCATION",
-        utilisation: "6 h",
-        operateur: "Sous-traitant",
-        etat: "BON",
-        observation: null,
-      },
-    ],
-    incidents: [
-      {
-        type: "SECURITE",
-        description: "Harnais non attaché lors d'un levage de ferme.",
-        gravite: "SIGNIFICATIF",
-        decidePar: "CT",
-        action: "Arrêt du levage, briefing sécurité du sous-traitant, reprise après contrôle.",
-      },
-    ],
-    photos: ["Levage d'une ferme", "Assemblage des pannes"],
-    notes: [
-      "Le sous-traitant tient la cadence prévue sur les fermes.",
-      "Attente du lot 3 de fermes : risque de retard de deux jours.",
-    ],
-    previsions: [
-      {
-        activite: "Levage fermes 5 à 8",
-        equipe: "Métal Ouest Afrique",
-        objectif: "4 fermes",
-        prerequis: "Nacelle disponible",
-      },
-    ],
-  },
-  {
-    cle: "sie-l02",
-    lot: {
-      id: "lot-sie-l02",
-      code: "L-02",
-      nom: "Façade",
-      modeExecution: "SOUS_TRAITANCE_STRUCTUREE",
-      ...SIEGE,
-      chefChantier: "Mamadou Diabaté",
-    },
-    localisation: "Plateau, Abidjan",
-    latitude: 5.3197,
-    longitude: -4.0197,
-    conducteurTravaux: "Emmanuel Brou",
-    chefProjet: "Koffi Kouamé",
-    effectifs: null,
-    effectifDeclare: 10,
-    production: null,
-    activites: [
-      {
-        libelle: "Mur rideau vitré",
-        unite: "m²",
-        quantitePrevue: 1850,
-        avancement: 55,
-        theorique: 90,
-        rythme: 0.8,
-        observations: ["Pose des montants niveau 4", "Vitrages façade est", "Joints silicone niveau 3"],
-      },
-      {
-        libelle: "Ravalement des pignons",
-        unite: "m²",
-        quantitePrevue: 900,
-        avancement: 70,
-        theorique: 100,
-        rythme: 0.6,
-        observations: ["Enduit pignon ouest", "Peinture de finition"],
-      },
-    ],
-    materiaux: [
-      { designation: "Profilés aluminium", unite: "ml", stock: 235, consommation: 18, seuil: 50 },
-      { designation: "Vitrages feuilletés", unite: "u", stock: 42, consommation: 4, seuil: 12 },
-    ],
-    livraisons: [
-      {
-        fournisseur: "Alu Façades CI",
-        designation: "Profilés aluminium anodisé",
-        quantite: "120 ml",
-        bonLivraison: "BL-AFC-0512",
-        conformite: "PARTIELLE",
-        observation: "Livraison incomplète, solde attendu.",
-      },
-    ],
-    equipements: [
-      {
-        designation: "Nacelle ciseaux 12 m",
-        reference: "EXT-NCS",
-        propriete: "LOCATION",
-        utilisation: "7 h",
-        operateur: "Sous-traitant",
-        etat: "BON",
-        observation: null,
-      },
-    ],
-    incidents: [
-      {
-        type: "APPROVISIONNEMENT",
-        description: "Retard de livraison des profilés aluminium.",
-        gravite: "MINEUR",
-        decidePar: "CC",
-        action: "Relance du fournisseur ; pose réorganisée sur la façade est.",
-      },
-    ],
-    photos: ["Façade est — vitrages posés", "Montants niveau 4"],
-    notes: [
-      "Cadence ralentie faute de profilés. Relance faite auprès d'Alu Façades CI.",
-      "Pose des vitrages conforme au calepinage.",
-    ],
-    previsions: [
-      {
-        activite: "Pose des vitrages niveau 4",
-        equipe: "Alu Façades CI",
-        objectif: "24 m²",
-        prerequis: "Réception du solde de profilés",
-      },
-    ],
-  },
-  {
-    cle: "sie-l04",
-    lot: {
-      id: "lot-sie-l04",
-      code: "L-04",
-      nom: "Revêtements de sols",
-      modeExecution: "SOUS_TRAITANCE_INFORMELLE",
-      ...SIEGE,
-      chefChantier: "Serge Oulai",
-    },
-    localisation: "Plateau, Abidjan",
-    latitude: 5.3199,
-    longitude: -4.0195,
-    conducteurTravaux: "Emmanuel Brou",
-    chefProjet: "Koffi Kouamé",
-    effectifs: null,
-    effectifDeclare: 6,
-    production: [
-      { intervenant: "Yao Koffi", activite: "Carrelage plateaux", unite: "m²", prixUnitaire: 8_500_00 },
-      { intervenant: "Paul Adjoumani", activite: "Carrelage escaliers", unite: "m²", prixUnitaire: 9_200_00 },
-      { intervenant: "Issa Kaboré", activite: "Plinthes", unite: "ml", prixUnitaire: 1_500_00 },
-    ],
-    activites: [
-      {
-        libelle: "Carrelage plateaux",
-        unite: "m²",
-        quantitePrevue: 1600,
-        avancement: 32,
-        theorique: 36,
-        rythme: 0.9,
-        observations: ["Plateau niveau 2", "Hall d'accueil"],
-      },
-      {
-        libelle: "Carrelage escaliers",
-        unite: "m²",
-        quantitePrevue: 180,
-        avancement: 28,
-        theorique: 30,
-        rythme: 0.8,
-        observations: ["Volée RDC-R+1"],
-      },
-      {
-        libelle: "Plinthes",
-        unite: "ml",
-        quantitePrevue: 1400,
-        avancement: 20,
-        theorique: 26,
-        rythme: 0.7,
-        observations: ["Bureaux niveau 1"],
-      },
-    ],
-    materiaux: [
-      { designation: "Carreaux grès cérame 60×60", unite: "m²", stock: 380, consommation: 16, seuil: 100 },
-      { designation: "Colle carrelage", unite: "sacs", stock: 95, consommation: 8, seuil: 30 },
-    ],
-    livraisons: [
-      {
-        fournisseur: "Céramique du Golfe",
-        designation: "Carreaux grès cérame 60×60",
-        quantite: "150 m²",
-        bonLivraison: "BL-CDG-2231",
-        conformite: "CONFORME",
-        observation: null,
-      },
-    ],
-    equipements: [
-      {
-        designation: "Coupe-carreaux électrique",
-        reference: "MAT-021",
-        propriete: "ENTREPRISE",
-        utilisation: "5 h",
-        operateur: "Yao Koffi",
-        etat: "BON",
-        observation: null,
-      },
-    ],
-    incidents: [
-      {
-        type: "QUALITE",
-        description: "Planéité hors tolérance sur 6 m² du plateau niveau 2.",
-        gravite: "MINEUR",
-        decidePar: "CC",
-        action: "Dépose et repose aux frais du tâcheron.",
-      },
-    ],
-    photos: ["Carrelage plateau niveau 2", "Volée d'escalier"],
-    notes: [
-      "Tâcherons présents et réguliers. Quantités métrées en fin de journée avec le CC.",
-      "Prévoir la réception du hall avant la pose des plinthes.",
-    ],
-    previsions: [
-      {
-        activite: "Carrelage plateau niveau 2 — zone sud",
-        equipe: "Tâcherons (3)",
-        objectif: "20 m²",
-        prerequis: "Chape sèche contrôlée",
-      },
-    ],
-  },
-  {
-    cle: "sif-l01",
-    lot: {
-      id: "lot-sif-l01",
-      code: "L-01",
-      nom: "Terrassement et plateforme",
-      modeExecution: "SOUS_TRAITANCE_STRUCTUREE",
-      ...ENTREPOT,
-      chefChantier: "Kouamé Yao",
-    },
-    localisation: "Zone industrielle, Yamoussoukro",
-    latitude: 6.8276,
-    longitude: -5.2893,
-    conducteurTravaux: "Ibrahim Cissé",
-    chefProjet: "Awa Soro",
-    effectifs: null,
-    effectifDeclare: 14,
-    production: null,
-    activites: [
-      {
-        libelle: "Fouilles en masse",
-        unite: "m³",
-        quantitePrevue: 6200,
-        avancement: 78,
-        theorique: 100,
-        rythme: 0.7,
-        observations: ["Zone C", "Évacuation des déblais", "Purges ponctuelles"],
-      },
-      {
-        libelle: "Couche de forme",
-        unite: "m²",
-        quantitePrevue: 4200,
-        avancement: 26,
-        theorique: 100,
-        rythme: 0.6,
-        observations: ["Compactage zone A", "Réglage à la niveleuse"],
-      },
-    ],
-    materiaux: [
-      { designation: "Grave latéritique", unite: "m³", stock: 340, consommation: 60, seuil: 150 },
-      { designation: "Gasoil engins", unite: "l", stock: 2800, consommation: 420, seuil: 1000 },
-    ],
-    livraisons: [
-      {
-        fournisseur: "Carrière de Tiébissou",
-        designation: "Grave latéritique",
-        quantite: "120 m³",
-        bonLivraison: "BL-CTB-0773",
-        conformite: "CONFORME",
-        observation: null,
-      },
-      {
-        fournisseur: "Total Energies CI",
-        designation: "Gasoil — citerne",
-        quantite: "2 000 l",
-        bonLivraison: "BL-TOT-5520",
-        conformite: "CONFORME",
-        observation: null,
-      },
-    ],
-    equipements: [
-      {
-        designation: "Pelle hydraulique 22 T",
-        reference: "ENG-004",
-        propriete: "ENTREPRISE",
-        utilisation: "8 h",
-        operateur: "Drissa Koné",
-        etat: "BON",
-        observation: null,
-      },
-      {
-        designation: "Compacteur à rouleau",
-        reference: "MAT-007",
-        propriete: "ENTREPRISE",
-        utilisation: "3 h 30",
-        operateur: "Abou Sylla",
-        etat: "ENTRETIEN",
-        observation: "Filtre à air à remplacer.",
-      },
-    ],
-    incidents: [
-      {
-        type: "MATERIEL",
-        description: "Compacteur MAT-007 : filtre à air encrassé, arrêt de 1 h 30.",
-        gravite: "MINEUR",
-        decidePar: "CC",
-        action: "Maintenance planifiée ; compactage reporté au lendemain.",
-      },
-      {
-        type: "QUALITE",
-        description: "Poche d'argile détectée en zone C, portance insuffisante.",
-        gravite: "SIGNIFICATIF",
-        decidePar: "CT",
-        action: "Purge et substitution par grave latéritique, métré contradictoire.",
-      },
-    ],
-    photos: ["Fouilles zone C", "Compactage couche de forme", "Stock de grave latéritique"],
-    notes: [
-      "Retard toujours marqué sur la couche de forme ; la pelle est seule sur les fouilles.",
-      "Le compacteur doit passer en maintenance, je demande un engin de remplacement.",
-      "Sol détrempé le matin, reprise du compactage l'après-midi.",
-    ],
-    previsions: [
-      {
-        activite: "Couche de forme zone A",
-        equipe: "Équipe Terrassement Nord",
-        objectif: "300 m²",
-        prerequis: "Compacteur remis en service",
-      },
-    ],
-  },
-  {
-    cle: "sif-l02",
-    lot: {
-      id: "lot-sif-l02",
-      code: "L-02",
-      nom: "Charpente métallique",
-      modeExecution: "SOUS_TRAITANCE_STRUCTUREE",
-      ...ENTREPOT,
-      chefChantier: "Boubacar Traoré",
-    },
-    localisation: "Zone industrielle, Yamoussoukro",
-    latitude: 6.8279,
-    longitude: -5.2889,
-    conducteurTravaux: "Ibrahim Cissé",
-    chefProjet: "Awa Soro",
-    effectifs: null,
-    effectifDeclare: 9,
-    production: null,
-    activites: [
-      {
-        libelle: "Portiques et pannes",
-        unite: "T",
-        quantitePrevue: 96,
-        avancement: 8,
-        theorique: 30,
-        rythme: 0.5,
-        observations: ["Scellement des platines", "Levage portique 1"],
-      },
-    ],
-    materiaux: [
-      { designation: "Tiges d'ancrage", unite: "u", stock: 180, consommation: 12, seuil: 60 },
-    ],
-    livraisons: [
-      {
-        fournisseur: "Acier Charpente CI",
-        designation: "Portiques — travées 1 à 3",
-        quantite: "12 T",
-        bonLivraison: "BL-ACC-0144",
-        conformite: "PARTIELLE",
-        observation: "Une traverse déformée au transport.",
-      },
-    ],
-    equipements: [
-      {
-        designation: "Grue mobile 50 T",
-        reference: "EXT-GRM",
-        propriete: "LOCATION",
-        utilisation: "5 h",
-        operateur: "Grutier loueur",
-        etat: "BON",
-        observation: null,
-      },
-    ],
-    incidents: [
-      {
-        type: "ADMINISTRATIF",
-        description: "Plans d'exécution de la charpente non visés par le bureau de contrôle.",
-        gravite: "SIGNIFICATIF",
-        decidePar: "CP",
-        action: "Relance du bureau de contrôle, levage limité aux travées validées.",
-      },
-    ],
-    photos: ["Platines scellées", "Levage du portique 1"],
-    notes: [
-      "Démarrage lent : les plans visés ne sont pas encore revenus du bureau de contrôle.",
-      "Levage du premier portique réussi, aplombs conformes.",
-    ],
-    previsions: [
-      {
-        activite: "Levage portiques 2 et 3",
-        equipe: "Acier Charpente CI",
-        objectif: "2 portiques",
-        prerequis: "Grue mobile réservée, plans visés",
-      },
-    ],
-  },
-];
-
-/* ------------------------------------------------------------------ *
- * Les situations mises en scène.
- * ------------------------------------------------------------------ */
-
-/**
- * Par défaut un rapport ancien est approuvé, celui de la veille validé par le
- * CT, celui du jour soumis. Ces exceptions font voir chaque état à
- * l'ouverture : trois lots sans rapport aujourd'hui, des
- * validations hors délai, un rejet, deux absences passées.
- */
-const SITUATIONS_MISES_EN_SCENE: Record<string, SituationRapport> = {
-  "res-l03:0": "SOUMIS",
-  "res-l04:0": "VALIDE_CT",
-  "sie-l02:0": "NON_SOUMIS",
-  "sie-l04:0": "NON_SOUMIS",
-  "sif-l01:0": "SOUMIS",
-  "sif-l02:0": "NON_SOUMIS",
-  "res-l03:1": "APPROUVE_CP",
-  "sie-l02:1": "SOUMIS",
-  "sif-l01:1": "REJETE",
-  "sif-l02:1": "SOUMIS",
-  "sie-l04:2": "VALIDE_CT",
-  "sie-l02:6": "NON_SOUMIS",
-  "sif-l02:13": "NON_SOUMIS",
-  "res-l04:22": "NON_SOUMIS",
-};
-
-function situationDe(cle: string, rang: number): SituationRapport {
-  const miseEnScene = SITUATIONS_MISES_EN_SCENE[`${cle}:${rang}`];
-  if (miseEnScene) return miseEnScene;
-  if (rang === 0) return "SOUMIS";
-  if (rang === 1) return "VALIDE_CT";
-  return "APPROUVE_CP";
-}
-
-const MOTIF_REJET =
-  "Quantités de fouilles incohérentes avec le métré contradictoire : reprendre le cumul de la zone C.";
+const projetsMemorises = () => memorise("projets", () => listerProjets());
+const lotsMemorises = (projetId: string) => memorise(`lots:${projetId}`, () => listerLots(projetId));
 
 /* ------------------------------------------------------------------ *
  * Le temps.
  * ------------------------------------------------------------------ */
 
-function horodatage(jour: string, heure: string): string {
-  return new Date(`${jour}T${heure}:00`).toISOString();
-}
-
-function ilYa(minutes: number): string {
-  return new Date(Date.now() - minutes * 60_000).toISOString();
-}
-
-function jourOuvreApres(jour: string): string {
-  let suivant = ajouterJours(jour, 1);
-  while (!estJourOuvre(suivant)) suivant = ajouterJours(suivant, 1);
-  return suivant;
-}
-
 function aujourdhui(): string {
   return jourDe(new Date());
 }
 
-/** Les jours ouvrés couverts, le plus récent en tête : `jours[rang]`. */
-function joursCouverts(): string[] {
-  const dernier = aujourdhui();
-  return Array.from({ length: JOURS_HISTORIQUE }, (_, rang) => jourOuvreAvant(dernier, rang)).filter(
-    (jour) => jour <= dernier,
-  );
-}
-
-/* ------------------------------------------------------------------ *
- * Les séries — cumuls et stocks, construits à rebours depuis aujourd'hui.
- * ------------------------------------------------------------------ */
-
-interface Series {
-  /** `cumuls[activite][rang]` : le cumul au soir du jour `rang`. */
-  cumuls: number[][];
-  /** `stocks[materiau][rang]` : le stock au soir du jour `rang`. */
-  stocks: number[][];
-  livres: number[][];
-  utilises: number[][];
-}
-
-const seriesParLot = new Map<string, Series>();
-
-function series(gabarit: GabaritLot): Series {
-  const connues = seriesParLot.get(gabarit.cle);
-  if (connues) return connues;
-  const cumuls = gabarit.activites.map((activite, indice) => {
-    const liste = [(activite.quantitePrevue * activite.avancement) / 100];
-    for (let rang = 0; rang <= JOURS_HISTORIQUE; rang += 1) {
-      const jour = (activite.quantitePrevue * activite.rythme * (0.55 + 0.9 * alea(gabarit.cle, indice, rang))) / 100;
-      liste.push(Math.max(0, liste[rang] - jour));
-    }
-    return liste.map((valeur) => arrondir(valeur, activite.quantitePrevue < 200 ? 1 : 0));
-  });
-  const utilises: number[][] = [];
-  const livres: number[][] = [];
-  const stocks = gabarit.materiaux.map((materiau, indice) => {
-    const liste = [materiau.stock];
-    const utilise: number[] = [];
-    const livre: number[] = [];
-    for (let rang = 0; rang <= JOURS_HISTORIQUE; rang += 1) {
-      const conso = Math.round(materiau.consommation * (0.6 + 0.8 * alea(gabarit.cle, "m", indice, rang)));
-      const apport =
-        alea(gabarit.cle, "l", indice, rang) < 0.22 ? Math.round(materiau.consommation * 3.5) : 0;
-      utilise.push(conso);
-      livre.push(apport);
-      // Le stock de la veille : celui du soir, moins l'apport, plus la consommation.
-      liste.push(liste[rang] - apport + conso);
-    }
-    utilises.push(utilise);
-    livres.push(livre);
-    return liste;
-  });
-  const resultat = { cumuls, stocks, livres, utilises };
-  seriesParLot.set(gabarit.cle, resultat);
-  return resultat;
-}
-
-function theoriqueActivite(activite: GabaritActivite, rang: number): number {
-  const pas = activite.rythme * 1.15;
-  return Math.max(0, Math.min(100, arrondir(activite.theorique - pas * rang)));
-}
-
-/* ------------------------------------------------------------------ *
- * La construction d'une entrée.
- * ------------------------------------------------------------------ */
-
-function identifiant(cle: string, jour: string, situation: SituationRapport): string {
-  return `${situation === "NON_SOUMIS" ? "abs" : "rap"}-${cle}-${jour}`;
-}
-
-function referenceRapport(gabarit: GabaritLot, jour: string, rang: number): string {
-  const annee = jour.slice(0, 4);
-  const projet = gabarit.lot.projetReference.slice(-3);
-  const numero = String(120 + JOURS_HISTORIQUE - rang).padStart(3, "0");
-  return `RAP-${annee}-${projet}-${gabarit.lot.code.replace("-", "")}-${numero}`;
-}
-
-function circuitDe(gabarit: GabaritLot, jour: string, rang: number, situation: SituationRapport): {
-  circuit: EtapeCircuit[];
-  soumisLe: string | null;
-} {
-  const lendemain = jourOuvreApres(jour);
-  const aujourdhuiMeme = rang === 0;
-  const soumisLe = !estDepose(situation)
-    ? null
-    : aujourdhuiMeme
-      ? ilYa(situation === "VALIDE_CT" ? 190 : 55 + Math.round(alea(gabarit.cle, jour) * 60))
-      : horodatage(jour, `17:${String(5 + Math.floor(alea(gabarit.cle, jour, "h") * 40)).padStart(2, "0")}`);
-  const signeCt = aujourdhuiMeme ? ilYa(70) : horodatage(lendemain, "08:10");
-
-  const cc: EtapeCircuit = {
-    role: "CC",
-    signataire: gabarit.lot.chefChantier,
-    etat: soumisLe ? "SIGNE" : "EN_ATTENTE",
-    signeLe: soumisLe,
-    echeance: soumisLe ? null : horodatage(jour, "17:30"),
-    commentaire: null,
-  };
-  const ct: EtapeCircuit = {
-    role: "CT",
-    signataire: gabarit.conducteurTravaux,
-    etat: "A_VENIR",
-    signeLe: null,
-    echeance: null,
-    commentaire: null,
-  };
-  const cp: EtapeCircuit = {
-    role: "CP",
-    signataire: gabarit.chefProjet,
-    etat: "A_VENIR",
-    signeLe: null,
-    echeance: null,
-    commentaire: null,
-  };
-
-  if (situation === "SOUMIS") {
-    ct.etat = "EN_ATTENTE";
-    ct.echeance = horodatage(lendemain, "07:30");
-  }
-  if (situation === "REJETE") {
-    ct.etat = "REJETE";
-    ct.signeLe = signeCt;
-    ct.commentaire = MOTIF_REJET;
-  }
-  if (situation === "VALIDE_CT" || situation === "APPROUVE_CP") {
-    ct.etat = "SIGNE";
-    ct.signeLe = signeCt;
-    const jourCt = aujourdhuiMeme ? jour : lendemain;
-    if (situation === "VALIDE_CT") {
-      cp.etat = "EN_ATTENTE";
-      cp.echeance = horodatage(aujourdhuiMeme ? lendemain : jourCt, "17:00");
-    } else {
-      cp.etat = "SIGNE";
-      cp.signeLe = horodatage(jourCt, "11:40");
-    }
-  }
-  return { circuit: [cc, ct, cp], soumisLe };
-}
-
-function avancementLot(gabarit: GabaritLot, rang: number): { reel: number; theorique: number } {
-  const { cumuls } = series(gabarit);
-  const reels = gabarit.activites.map((activite, indice) => (cumuls[indice][rang] / activite.quantitePrevue) * 100);
-  const theoriques = gabarit.activites.map((activite) => theoriqueActivite(activite, rang));
-  const moyenne = (valeurs: number[]) => valeurs.reduce((total, valeur) => total + valeur, 0) / valeurs.length;
-  return { reel: Math.round(moyenne(reels)), theorique: Math.round(moyenne(theoriques)) };
-}
-
-function effectifsDe(gabarit: GabaritLot, jour: string): LigneEffectif[] | null {
-  if (!gabarit.effectifs) return null;
-  return gabarit.effectifs.map((categorie, indice) => {
-    const tirage = alea(gabarit.cle, jour, "eff", indice);
-    const absents =
-      categorie.prevus <= 1 ? 0 : tirage < 0.55 ? 0 : tirage < 0.85 ? 1 : Math.min(2, categorie.prevus - 1);
-    const presents = categorie.prevus - absents;
-    const observation =
-      absents === 0
-        ? null
-        : categorie.categorie === "Manœuvres"
-          ? `${absents} absence(s) non justifiée(s) — signalement RH`
-          : "Absence pour maladie — certificat attendu";
-    return {
-      categorie: categorie.categorie,
-      prevus: categorie.prevus,
-      presents,
-      heures: arrondir(presents * categorie.heures, 1),
-      observation,
-    };
-  });
-}
-
-function effectifTotal(gabarit: GabaritLot, jour: string): { present: number; prevu: number } {
-  const lignes = effectifsDe(gabarit, jour);
-  if (lignes) {
-    return {
-      present: lignes.reduce((total, ligne) => total + ligne.presents, 0),
-      prevu: lignes.reduce((total, ligne) => total + ligne.prevus, 0),
-    };
-  }
-  const absents = Math.floor(alea(gabarit.cle, jour, "decl") * 3);
-  return { present: gabarit.effectifDeclare - absents, prevu: gabarit.effectifDeclare };
-}
-
-function incidentsDe(gabarit: GabaritLot, jour: string, rang: number): Incident[] {
-  const tirage = alea(gabarit.cle, jour, "inc");
-  const nombre = tirage < 0.68 ? 0 : tirage < 0.92 ? 1 : 2;
-  return Array.from({ length: Math.min(nombre, gabarit.incidents.length) }, (_, indice) => ({
-    ...gabarit.incidents[(Math.floor(alea(gabarit.cle, jour, "inc-rang") * gabarit.incidents.length) + indice) % gabarit.incidents.length],
-    numero: `INC-${String(indice + 1).padStart(2, "0")}`,
-    resolu: rang > 2 || alea(gabarit.cle, jour, "res", indice) < 0.4,
-  }));
-}
-
-/** Les blocages sont mis en scène : ils sont rares, et chacun raconte quelque chose. */
-function blocagesDe(gabarit: GabaritLot, rang: number): Blocage[] {
-  if (gabarit.cle === "sif-l01" && (rang === 1 || rang === 4)) {
-    return [
-      {
-        numero: "BLO-01",
-        nature: "METEO",
-        niveau: "SIGNIFICATIF",
-        description: "Pluies de la nuit : plateforme détrempée, compactage impossible le matin.",
-        impact: "Trois heures de compactage perdues.",
-        escalade: "CT",
-      },
-    ];
-  }
-  if (gabarit.cle === "sie-l02" && rang === 2) {
-    return [
-      {
-        numero: "BLO-01",
-        nature: "APPROVISIONNEMENT",
-        niveau: "BLOQUANT",
-        description: "Rupture de profilés aluminium : la pose du mur rideau est à l'arrêt.",
-        impact: "Pose arrêtée sur la façade nord jusqu'à réception du solde.",
-        escalade: "CP",
-      },
-    ];
-  }
-  return [];
-}
-
-function photosDe(gabarit: GabaritLot, jour: string): Photo[] {
-  const nombre = 2 + Math.floor(alea(gabarit.cle, jour, "ph") * 2);
-  const heures = ["07:45", "11:20", "14:35", "16:45"];
-  return Array.from({ length: nombre }, (_, indice) => ({
-    url: null,
-    legende: gabarit.photos[indice % gabarit.photos.length],
-    heure: heures[indice],
-    latitude: arrondir(gabarit.latitude + (alea(gabarit.cle, jour, "lat", indice) - 0.5) * 0.0004, 4),
-    longitude: arrondir(gabarit.longitude + (alea(gabarit.cle, jour, "lon", indice) - 0.5) * 0.0004, 4),
-    gpsConfirme: true,
-  }));
-}
-
-function meteoDe(gabarit: GabaritLot, jour: string): ConditionsMeteo {
-  const tirage = alea(gabarit.lot.projetId, jour, "meteo");
-  const matin: Meteo = tirage < 0.15 ? "PLUVIEUX" : tirage < 0.25 ? "BRUMEUX" : tirage < 0.55 ? "NUAGEUX" : "ENSOLEILLE";
-  const apresMidi: Meteo =
-    tirage > 0.88 ? "ORAGEUX" : tirage < 0.15 ? "NUAGEUX" : tirage < 0.6 ? "ENSOLEILLE" : "NUAGEUX";
-  const pluie = matin === "PLUVIEUX" || apresMidi === "ORAGEUX";
-  return {
-    matin,
-    apresMidi,
-    temperatureMin: 24 + Math.floor(alea(jour, "tmin") * 3),
-    temperatureMax: 30 + Math.floor(alea(jour, "tmax") * 4),
-    humidite: 68 + Math.floor(alea(jour, "hum") * 20),
-    vent: choisir(["Faible, sud-ouest", "Modéré, sud-ouest", "Faible, sud"], jour, "vent"),
-    conditions: pluie ? "DIFFICILES" : "FAVORABLES",
-    prevision:
-      alea(jourOuvreApres(jour), "meteo-demain") < 0.3
-        ? "Risque de pluie en fin d'après-midi : prévoir la couverture des ouvrages avant 15h30."
-        : null,
-  };
-}
-
-function productionDe(gabarit: GabaritLot, jour: string, rang: number): LigneProduction[] | null {
-  if (!gabarit.production) return null;
-  return gabarit.production.map((ligne, indice) => {
-    const quantiteJour = 4 + Math.floor(alea(gabarit.cle, jour, "prod", indice) * 12);
-    return { ...ligne, quantiteJour, cumul: quantiteJour + (JOURS_HISTORIQUE - rang) * 9 };
-  });
-}
-
-function construireEntree(gabarit: GabaritLot, jour: string, rang: number, jours: string[], relances: Record<string, string>): EntreeJournal {
-  const situation = situationDe(gabarit.cle, rang);
-  const id = identifiant(gabarit.cle, jour, situation);
-  const { circuit, soumisLe } = circuitDe(gabarit, jour, rang, situation);
-  const avancement = avancementLot(gabarit, rang);
-  const avecDonnees = situation !== "NON_SOUMIS";
-  const effectif = effectifTotal(gabarit, jour);
-
-  let dernierRapportLe: string | null = null;
-  if (situation === "NON_SOUMIS") {
-    for (let precedent = rang + 1; precedent < jours.length; precedent += 1) {
-      if (estDepose(situationDe(gabarit.cle, precedent))) {
-        dernierRapportLe = jours[precedent];
-        break;
-      }
-    }
-  }
-
-  return {
-    id,
-    reference: avecDonnees ? referenceRapport(gabarit, jour, rang) : null,
-    date: jour,
-    lot: gabarit.lot,
-    situation,
-    effectifPresent: avecDonnees ? effectif.present : null,
-    effectifPrevu: avecDonnees ? effectif.prevu : null,
-    avancementLot: avecDonnees ? avancement.reel : null,
-    avancementTheorique: avancement.theorique,
-    incidents: avecDonnees ? incidentsDe(gabarit, jour, rang).length : null,
-    blocages: avecDonnees ? blocagesDe(gabarit, rang).length : null,
-    photos: avecDonnees ? photosDe(gabarit, jour).length : null,
-    soumisLe,
-    dernierRapportLe,
-    relanceLe: relances[id] ?? null,
-    noteChefChantier: avecDonnees ? choisir(gabarit.notes, gabarit.cle, jour, "note") : null,
-    circuit,
-  };
-}
-
-function construireRapport(entree: EntreeJournal, gabarit: GabaritLot, rang: number): RapportJournalier {
-  const { cumuls, stocks, livres, utilises } = series(gabarit);
-  const jour = entree.date;
-
-  const activites: LigneActivite[] = gabarit.activites.map((activite, indice) => ({
-    libelle: activite.libelle,
-    unite: activite.unite,
-    quantitePrevue: activite.quantitePrevue,
-    cumulVeille: cumuls[indice][rang + 1],
-    quantiteJour: arrondir(cumuls[indice][rang] - cumuls[indice][rang + 1], 1),
-    avancementTheorique: theoriqueActivite(activite, rang),
-    observation: choisir(activite.observations, gabarit.cle, jour, "obs", indice),
-  }));
-
-  const materiaux: LigneMateriau[] = gabarit.materiaux.map((materiau, indice) => {
-    const soir = stocks[indice][rang];
-    const livre = livres[indice][rang];
-    const utilise = utilises[indice][rang];
-    // Le stock du matin est celui du soir précédent : la synthèse retombe
-    // ainsi exactement sur la somme des consommations et des livraisons.
-    return {
-      designation: materiau.designation,
-      unite: materiau.unite,
-      stockDebut: soir - livre + utilise,
-      livre,
-      utilise,
-      seuilAlerte: materiau.seuil,
-    };
-  });
-
-  const nombreLivraisons = Math.floor(alea(gabarit.cle, jour, "liv") * 2.4);
-  const heuresLivraison = ["09:15", "11:45", "14:20"];
-  // Des livraisons distinctes : deux fois le même bon le même jour serait un doublon.
-  const premiere = Math.floor(alea(gabarit.cle, jour, "liv-rang") * gabarit.livraisons.length);
-  const livraisons: Livraison[] = Array.from({ length: Math.min(nombreLivraisons, gabarit.livraisons.length) }, (_, indice) => ({
-    ...gabarit.livraisons[(premiere + indice) % gabarit.livraisons.length],
-    heure: heuresLivraison[indice],
-  }));
-
-  return {
-    ...entree,
-    localisation: gabarit.localisation,
-    intervenants: {
-      chefChantier: gabarit.lot.chefChantier,
-      conducteurTravaux: gabarit.conducteurTravaux,
-      chefProjet: gabarit.chefProjet,
-    },
-    heureDebut: "07:30",
-    heureFin: "17:00",
-    meteo: meteoDe(gabarit, jour),
-    effectifs: effectifsDe(gabarit, jour),
-    production: productionDe(gabarit, jour, rang),
-    activites,
-    materiaux,
-    livraisons,
-    equipements: gabarit.equipements,
-    listeIncidents: incidentsDe(gabarit, jour, rang),
-    listeBlocages: blocagesDe(gabarit, rang),
-    listePhotos: photosDe(gabarit, jour),
-    previsions: gabarit.previsions,
-  };
+function horodatage(jour: string, heure: string): string {
+  return new Date(`${jour}T${heure}:00`).toISOString();
 }
 
 /* ------------------------------------------------------------------ *
@@ -1251,20 +131,705 @@ function ecrireRelances(relances: Record<string, string>): void {
   }
 }
 
-function toutesLesEntrees(): { entree: EntreeJournal; gabarit: GabaritLot; rang: number }[] {
-  const jours = joursCouverts();
-  const relances = lireRelances();
-  return jours.flatMap((jour, rang) =>
-    GABARITS.map((gabarit) => ({
-      entree: construireEntree(gabarit, jour, rang, jours, relances),
-      gabarit,
-      rang,
-    })),
-  );
+/* ------------------------------------------------------------------ *
+ * Les chantiers et les rapports attendus.
+ * ------------------------------------------------------------------ */
+
+function nomComplet(intervenant: { nomComplet: string } | null | undefined): string {
+  return intervenant?.nomComplet || ABSENT;
+}
+
+function chantierDe(projet: Projet): ChantierJournal {
+  return {
+    projetId: projet.id,
+    projetNom: projet.nom,
+    projetReference: projet.reference,
+    chefChantier: nomComplet(projet.chefsChantier[0]?.intervenant),
+  };
+}
+
+/**
+ * Les jours où le chantier attend un rapport, dans la fenêtre du journal.
+ * Sans date de démarrage, comme à la saisie (`rapportsEnAttente`) : les
+ * jours encore rédigeables seulement.
+ */
+function joursAttendus(projet: Projet, jour: string): string[] {
+  if (!STATUTS_ATTENDUS.includes(projet.statut)) return [];
+  const demarrage = projet.dateDebutReelle ?? projet.dateDebutPrevue;
+  const premier = demarrage && demarrage <= jour ? demarrage : (joursSaisissables(jour).at(-1) ?? jour);
+  const fenetre = jourOuvreAvant(jour, JOURS_HISTORIQUE - 1);
+  return joursOuvres(premier > fenetre ? premier : fenetre, jour);
+}
+
+/** La ligne d'un rapport attendu et pas soumis — jamais commencé, ou resté en brouillon. */
+function absence(
+  projet: Projet,
+  date: string,
+  deposes: RapportJournalier[],
+  relances: Record<string, string>,
+): EntreeJournal {
+  const id = `abs-${projet.id}-${date}`;
+  const chantier = chantierDe(projet);
+  const precedent = deposes
+    .filter((rapport) => rapport.date < date)
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
+  const circuit: EtapeCircuit[] = [
+    {
+      role: "CC",
+      signataire: chantier.chefChantier,
+      etat: "EN_ATTENTE",
+      signeLe: null,
+      echeance: horodatage(date, "17:30"),
+      commentaire: null,
+    },
+    {
+      role: "CT",
+      signataire: nomComplet(projet.conducteursTravaux[0]),
+      etat: "A_VENIR",
+      signeLe: null,
+      echeance: null,
+      commentaire: null,
+    },
+    { role: "CP", signataire: nomComplet(projet.chefProjet), etat: "A_VENIR", signeLe: null, echeance: null, commentaire: null },
+  ];
+  return {
+    id,
+    reference: null,
+    date,
+    chantier,
+    lots: [],
+    situation: "NON_SOUMIS",
+    effectifPresent: null,
+    effectifPrevu: null,
+    avancement: null,
+    avancementTheorique: null,
+    incidents: null,
+    blocages: null,
+    photos: null,
+    soumisLe: null,
+    dernierRapportLe: precedent?.date ?? null,
+    relanceLe: relances[id] ?? null,
+    noteChefChantier: null,
+    circuit,
+  };
 }
 
 /* ------------------------------------------------------------------ *
- * La synthèse : l'agrégation, plus ce que le CT y ajoute.
+ * Les rapports de démonstration.
+ *
+ * En attendant les routes, le journal ne reste pas vide : chaque jour
+ * attendu d'un vrai chantier en cours que le formulaire n'a pas couvert
+ * reçoit un rapport rejoué — sur les vrais lots et les vraies activités du
+ * chantier, tiré d'une graine (chantier × jour) pour rester identique d'une
+ * lecture à l'autre. Un rapport saisi au formulaire remplace toujours celui
+ * de démonstration du même jour.
+ * ------------------------------------------------------------------ */
+
+const PREFIXE_DEMO = "demo";
+
+function hacher(graine: string): number {
+  let empreinte = 2_166_136_261;
+  for (let rang = 0; rang < graine.length; rang += 1) {
+    empreinte ^= graine.charCodeAt(rang);
+    empreinte = Math.imul(empreinte, 16_777_619);
+  }
+  return empreinte >>> 0;
+}
+
+/** Un tirage dans [0, 1[, toujours le même pour la même graine. */
+function alea(...graine: (string | number)[]): number {
+  return hacher(graine.join("|")) / 4_294_967_296;
+}
+
+function choisir<T>(liste: readonly T[], ...graine: (string | number)[]): T {
+  return liste[Math.floor(alea(...graine) * liste.length)];
+}
+
+function entre(minimum: number, maximum: number, ...graine: (string | number)[]): number {
+  return minimum + Math.floor(alea(...graine) * (maximum - minimum + 1));
+}
+
+function arrondir(valeur: number, decimales = 0): number {
+  const facteur = 10 ** decimales;
+  return Math.round(valeur * facteur) / facteur;
+}
+
+function borner(valeur: number): number {
+  return Math.min(100, Math.max(0, valeur));
+}
+
+const CATEGORIES_EFFECTIF = [
+  { categorie: "Chef d'équipe", prevus: 2 },
+  { categorie: "Maçons", prevus: 8 },
+  { categorie: "Ferrailleurs", prevus: 4 },
+  { categorie: "Coffreurs", prevus: 4 },
+  { categorie: "Manœuvres", prevus: 10 },
+] as const;
+
+const TACHERONS = ["Équipe Koné", "Équipe Traoré", "Équipe Yao", "Équipe Ouattara"] as const;
+const OPERATEURS = ["Konan A.", "Diallo M.", "Bamba S."] as const;
+
+const MATERIAUX = [
+  { designation: "Ciment CPJ 42.5", unite: "sac", stock: 420, seuil: 80, conso: [15, 45] },
+  { designation: "Sable lagunaire", unite: "m³", stock: 60, seuil: 10, conso: [2, 6] },
+  { designation: "Gravier 5/15", unite: "m³", stock: 48, seuil: 8, conso: [2, 5] },
+  { designation: "Fer HA 12", unite: "barre", stock: 300, seuil: 50, conso: [10, 30] },
+] as const;
+
+const EQUIPEMENTS: readonly Pick<LigneEquipement, "designation" | "reference" | "propriete" | "utilisation">[] = [
+  { designation: "Bétonnière 350 L", reference: "BET-01", propriete: "ENTREPRISE", utilisation: "8 h" },
+  { designation: "Vibreur à aiguille", reference: "VIB-02", propriete: "ENTREPRISE", utilisation: "5 h" },
+  { designation: "Camion-grue 20 t", reference: "LOC-117", propriete: "LOCATION", utilisation: "3 h" },
+];
+
+const FOURNISSEURS = ["CIMAF", "Sotaci", "Carrière de Bingerville", "Quincaillerie du Plateau"] as const;
+
+const NOTES = [
+  "Bonne cadence aujourd'hui, l'équipe a tenu les objectifs.",
+  "Retard d'une heure à l'ouverture : livraison de ciment arrivée à 9 h.",
+  "Pluie en fin d'après-midi, travaux extérieurs arrêtés à 16 h.",
+  "RAS. Le planning du lendemain est confirmé avec le conducteur de travaux.",
+  "Deux manœuvres absents, compensés par l'équipe de coffrage.",
+] as const;
+
+const INCIDENTS: readonly Omit<Incident, "numero" | "resolu">[] = [
+  {
+    type: "SECURITE",
+    description: "Ouvrier sans casque sur la zone de levage.",
+    gravite: "MINEUR",
+    decidePar: "CC",
+    action: "Rappel des consignes EPI au quart d'heure sécurité.",
+  },
+  {
+    type: "QUALITE",
+    description: "Nid de cailloux constaté au décoffrage d'un poteau.",
+    gravite: "SIGNIFICATIF",
+    decidePar: "CT",
+    action: "Ragréage au mortier de réparation, contrôle visuel du lot.",
+  },
+  {
+    type: "MATERIEL",
+    description: "Panne de la bétonnière en milieu de matinée.",
+    gravite: "SIGNIFICATIF",
+    decidePar: "CC",
+    action: "Location d'une bétonnière de remplacement.",
+  },
+];
+
+const BLOCAGES: readonly Omit<Blocage, "numero">[] = [
+  {
+    nature: "APPROVISIONNEMENT",
+    niveau: "SIGNIFICATIF",
+    description: "Rupture de fer HA 12 chez le fournisseur.",
+    impact: "Ferraillage des longrines décalé d'un jour.",
+    escalade: "CT",
+  },
+  {
+    nature: "METEO",
+    niveau: "MINEUR",
+    description: "Sol détrempé après l'averse de la nuit.",
+    impact: "Terrassement repris l'après-midi.",
+    escalade: null,
+  },
+];
+
+const MOTIF_REJET = "Les quantités du jour ne concordent pas avec le métré : merci de reprendre l'avancement.";
+
+const METEOS: readonly Meteo[] = ["ENSOLEILLE", "ENSOLEILLE", "NUAGEUX", "NUAGEUX", "PLUVIEUX", "ORAGEUX"];
+
+/**
+ * La situation d'un jour, `rang` jours ouvrés avant aujourd'hui : plus il est
+ * ancien, plus son circuit est avancé — et quelques absences, quelques rejets,
+ * pour que chaque état se voie.
+ *
+ * Le jour même n'est jamais soumis par la démonstration : le chef de chantier
+ * de test doit toujours trouver son rapport du jour à rédiger. Seul le
+ * formulaire le remet.
+ */
+function situationDemo(projetId: string, date: string, rang: number): SituationRapport {
+  if (rang === 0) return "NON_SOUMIS";
+  const tirage = alea(projetId, date, "situation");
+  if (rang === 1) {
+    if (tirage < 0.08) return "NON_SOUMIS";
+    if (tirage < 0.18) return "REJETE";
+    return tirage < 0.7 ? "SOUMIS" : "VALIDE_CT";
+  }
+  if (rang <= 3) {
+    if (tirage < 0.06) return "NON_SOUMIS";
+    if (tirage < 0.12) return "REJETE";
+    if (tirage < 0.35) return "SOUMIS";
+    return tirage < 0.75 ? "VALIDE_CT" : "APPROUVE_CP";
+  }
+  return tirage < 0.05 ? "NON_SOUMIS" : "APPROUVE_CP";
+}
+
+function idDemo(projetId: string, date: string): string {
+  return `${PREFIXE_DEMO}-${projetId}-${date}`;
+}
+
+/** `demo-<id du projet>-AAAA-MM-JJ` : la date en fait les dix derniers caractères. */
+function lireIdDemo(id: string): { projetId: string; date: string } | null {
+  if (!id.startsWith(`${PREFIXE_DEMO}-`) || id.length < PREFIXE_DEMO.length + 13) return null;
+  return { projetId: id.slice(PREFIXE_DEMO.length + 1, -11), date: id.slice(-10) };
+}
+
+/**
+ * Les lots fictifs d'un chantier qui n'en a pas encore — un projet tout juste
+ * créé n'a ni lots ni activités, et ses rapports resteraient vides.
+ */
+const LOTS_FICTIFS: readonly {
+  nom: string;
+  modeExecution: Lot["modeExecution"];
+  activites: readonly { libelle: string; quantitePrevue: number; unite: NonNullable<Activite["unite"]> }[];
+}[] = [
+  {
+    nom: "Terrassements et fondations",
+    modeExecution: "REGIE_DIRECTE",
+    activites: [
+      { libelle: "Fouilles en rigole", quantitePrevue: 180, unite: "M3" },
+      { libelle: "Béton de propreté", quantitePrevue: 24, unite: "M3" },
+      { libelle: "Semelles filantes en béton armé", quantitePrevue: 62, unite: "M3" },
+    ],
+  },
+  {
+    nom: "Gros œuvre",
+    modeExecution: "REGIE_DIRECTE",
+    activites: [
+      { libelle: "Élévation des murs en agglos de 15", quantitePrevue: 860, unite: "M2" },
+      { libelle: "Poteaux et poutres en béton armé", quantitePrevue: 48, unite: "M3" },
+      { libelle: "Dalle pleine du plancher haut", quantitePrevue: 320, unite: "M2" },
+    ],
+  },
+  {
+    nom: "Enduits et revêtements",
+    modeExecution: "SOUS_TRAITANCE_INFORMELLE",
+    activites: [
+      { libelle: "Enduit intérieur au mortier de ciment", quantitePrevue: 1_450, unite: "M2" },
+      { libelle: "Carrelage des sols", quantitePrevue: 540, unite: "M2" },
+    ],
+  },
+  {
+    nom: "Électricité et plomberie",
+    modeExecution: "SOUS_TRAITANCE_STRUCTUREE",
+    activites: [
+      { libelle: "Saignées et fourreaux", quantitePrevue: 620, unite: "ML" },
+      { libelle: "Réseau d'eau froide en PPR", quantitePrevue: 210, unite: "ML" },
+    ],
+  },
+];
+
+function lotsFictifs(projet: Projet): Lot[] {
+  return LOTS_FICTIFS.map((gabarit, rangLot) => {
+    const code = String(rangLot + 1).padStart(2, "0");
+    const lotId = `${PREFIXE_DEMO}-lot-${projet.id}-${code}`;
+    return {
+      id: lotId,
+      projetId: projet.id,
+      code,
+      nom: gabarit.nom,
+      modeExecution: gabarit.modeExecution,
+      typeBordereau: "PRIX_UNITAIRE",
+      budget: null,
+      dateDebut: null,
+      dateFin: null,
+      statut: "EN_COURS",
+      activites: gabarit.activites.map((activite, rangActivite) => ({
+        id: `${lotId}-${rangActivite + 1}`,
+        lotId,
+        code: `${code}.${String(rangActivite + 1).padStart(2, "0")}`,
+        libelle: activite.libelle,
+        quantitePrevue: activite.quantitePrevue,
+        unite: activite.unite,
+        dateDebutPrevue: null,
+        dateFinPrevue: null,
+        avancement: 0,
+        surCheminCritique: false,
+        dependanceId: null,
+        responsableId: null,
+        equipe: null,
+        statut: "EN_COURS",
+      })),
+    };
+  });
+}
+
+/** Les intervenants nommés : ceux du chantier, sinon des noms fictifs. */
+function intervenantsDemo(projet: Projet): { chefChantier: string; conducteurTravaux: string; chefProjet: string } {
+  const repli = (nom: string, fictif: string) => (nom === ABSENT ? fictif : nom);
+  return {
+    chefChantier: repli(chantierDe(projet).chefChantier, "Jean Kouassi"),
+    conducteurTravaux: repli(nomComplet(projet.conducteursTravaux[0]), "Issa Bamba"),
+    chefProjet: repli(nomComplet(projet.chefProjet), "Aya Koffi"),
+  };
+}
+
+/** L'avancement d'aujourd'hui : celui du chantier, ou un fictif s'il n'a pas commencé. */
+function avancementsDemo(projet: Projet): { reel: number; theorique: number } {
+  if (projet.avancementReel > 0) return { reel: projet.avancementReel, theorique: projet.avancementTheorique };
+  const reel = entre(25, 55, projet.id, "avancement");
+  return { reel, theorique: reel + entre(-4, 9, projet.id, "theorique") };
+}
+
+function jourOuvreApres(jour: string): string {
+  let suivant = ajouterJours(jour, 1);
+  while (joursOuvres(suivant, suivant).length === 0) suivant = ajouterJours(suivant, 1);
+  return suivant;
+}
+
+function libelleUnite(unite: Activite["unite"]): string {
+  return unite ? texte(`projets.lotsActivites.unites.${unite}`) : texte("journal.saisie.avancement.unitePourcent");
+}
+
+function versLotJournal(projet: Projet, lot: Lot): LotJournal {
+  return {
+    id: lot.id,
+    code: `L-${lot.code}`,
+    nom: lot.nom,
+    modeExecution: lot.modeExecution,
+    projetId: projet.id,
+    projetNom: projet.nom,
+    projetReference: projet.reference,
+    chefChantier: intervenantsDemo(projet).chefChantier,
+  };
+}
+
+/** Les lots travaillés ce jour : un à trois, tirés parmi ceux du chantier. */
+function lotsTravailles(projet: Projet, lots: Lot[], date: string): Lot[] {
+  if (lots.length === 0) return [];
+  const melanges = [...lots].sort((a, b) => alea(projet.id, date, a.id) - alea(projet.id, date, b.id));
+  return melanges
+    .slice(0, Math.min(lots.length, entre(1, 3, projet.id, date, "lots")))
+    .sort((a, b) => a.code.localeCompare(b.code));
+}
+
+/** L'avancement au soir d'un jour : celui d'aujourd'hui, reculé d'un pas par jour ouvré. */
+function avancementAu(reference: number, rang: number, pas: number): number {
+  return arrondir(borner(reference - rang * pas), 1);
+}
+
+function travauxDemo(projet: Projet, lots: Lot[], date: string, rang: number): TravauxLot[] {
+  return lots.map((lot) => {
+    const reference = avancementsDemo(projet);
+    const avancement = avancementAu(reference.reel + entre(-8, 8, lot.id), rang, 0.6);
+    const avancementTheorique = avancementAu(reference.theorique + entre(-5, 5, lot.id), rang, 0.6);
+    return {
+      lot: versLotJournal(projet, lot),
+      avancement,
+      avancementTheorique,
+      observation: alea(lot.id, date, "observation") < 0.3 ? "Travaux conformes au planning de la semaine." : null,
+      activites: lot.activites.slice(0, 4).map((activite): LigneActivite => {
+        const prevue = activite.quantitePrevue ?? 100;
+        const part = borner(avancement + entre(-10, 10, activite.id)) / 100;
+        const duJour = arrondir(prevue * (0.005 + alea(activite.id, date) * 0.02), 1);
+        return {
+          libelle: activite.libelle,
+          unite: libelleUnite(activite.unite),
+          quantitePrevue: prevue,
+          cumulVeille: arrondir(Math.max(0, prevue * part - duJour), 1),
+          quantiteJour: duJour,
+          avancementTheorique: arrondir(borner(avancementTheorique + entre(-10, 10, activite.id, "theorique")), 1),
+          observation: null,
+        };
+      }),
+    };
+  });
+}
+
+function effectifsDemo(projetId: string, date: string): LigneEffectif[] {
+  return CATEGORIES_EFFECTIF.map(({ categorie, prevus }) => {
+    const absents = alea(projetId, date, categorie) < 0.35 ? entre(1, 2, projetId, date, categorie, "absents") : 0;
+    const presents = Math.max(0, prevus - absents);
+    return {
+      categorie,
+      prevus,
+      presents,
+      heures: presents * 8,
+      observation: absents > 0 ? "Absences non justifiées" : null,
+    };
+  });
+}
+
+function productionDemo(projet: Projet, lots: Lot[], date: string, rang: number): LigneProduction[] {
+  return lots
+    .filter((lot) => lot.modeExecution === "SOUS_TRAITANCE_INFORMELLE")
+    .flatMap((lot) => lot.activites.slice(0, 2))
+    .map((activite) => {
+      const quantiteJour = entre(3, 15, activite.id, date);
+      return {
+        intervenant: choisir(TACHERONS, activite.id),
+        activite: activite.libelle,
+        unite: libelleUnite(activite.unite),
+        prixUnitaire: entre(15, 60, activite.id, "prix") * 100_000,
+        quantiteJour,
+        cumul: quantiteJour * Math.max(1, 10 + entre(5, 30, projet.id) - rang),
+      };
+    });
+}
+
+function meteoDemo(projetId: string, date: string): ConditionsMeteo {
+  const matin = choisir(METEOS, projetId, date, "matin");
+  const apresMidi = choisir(METEOS, projetId, date, "apresMidi");
+  const pluie = [matin, apresMidi].some((meteo) => meteo === "PLUVIEUX" || meteo === "ORAGEUX");
+  return {
+    matin,
+    apresMidi,
+    temperatureMin: entre(23, 26, projetId, date, "min"),
+    temperatureMax: entre(29, 34, projetId, date, "max"),
+    humidite: entre(65, 92, projetId, date, "humidite"),
+    vent: `${entre(5, 20, projetId, date, "vent")} km/h SO`,
+    conditions: apresMidi === "ORAGEUX" ? "DIFFICILES" : "FAVORABLES",
+    prevision: pluie ? "Averses attendues demain matin : bétonnage décalé à l'après-midi." : null,
+  };
+}
+
+function circuitDemo(projet: Projet, date: string, situation: SituationRapport, soumisLe: string): EtapeCircuit[] {
+  const lendemain = jourOuvreApres(date);
+  const { chefChantier, conducteurTravaux: conducteur, chefProjet } = intervenantsDemo(projet);
+  const ct: EtapeCircuit =
+    situation === "SOUMIS"
+      ? {
+          role: "CT",
+          signataire: conducteur,
+          etat: "EN_ATTENTE",
+          signeLe: null,
+          echeance: new Date(Date.parse(soumisLe) + 24 * 3_600_000).toISOString(),
+          commentaire: null,
+        }
+      : situation === "REJETE"
+        ? { role: "CT", signataire: conducteur, etat: "REJETE", signeLe: horodatage(lendemain, "08:40"), echeance: null, commentaire: MOTIF_REJET }
+        : { role: "CT", signataire: conducteur, etat: "SIGNE", signeLe: horodatage(lendemain, "09:15"), echeance: null, commentaire: null };
+  const cp: EtapeCircuit =
+    situation === "APPROUVE_CP"
+      ? { role: "CP", signataire: chefProjet, etat: "SIGNE", signeLe: horodatage(lendemain, "15:30"), echeance: null, commentaire: null }
+      : situation === "VALIDE_CT"
+        ? {
+            role: "CP",
+            signataire: chefProjet,
+            etat: "EN_ATTENTE",
+            signeLe: null,
+            echeance: horodatage(jourOuvreApres(lendemain), "17:00"),
+            commentaire: null,
+          }
+        : { role: "CP", signataire: chefProjet, etat: "A_VENIR", signeLe: null, echeance: null, commentaire: null };
+  return [
+    {
+      role: "CC",
+      signataire: chefChantier,
+      etat: situation === "REJETE" ? "EN_ATTENTE" : "SIGNE",
+      signeLe: soumisLe,
+      echeance: null,
+      commentaire: null,
+    },
+    ct,
+    cp,
+  ];
+}
+
+/** L'heure de dépôt : en fin de journée, jamais dans le futur. */
+function soumisLeDemo(projetId: string, date: string): string {
+  const instant = horodatage(date, `17:${String(entre(5, 55, projetId, date, "depot")).padStart(2, "0")}`);
+  return Date.parse(instant) < Date.now()
+    ? instant
+    : new Date(Date.now() - entre(10, 90, projetId, date, "depot") * 60_000).toISOString();
+}
+
+/** Le rapport complet d'un jour de démonstration. */
+function rapportDemo(
+  projet: Projet,
+  lots: Lot[],
+  date: string,
+  rang: number,
+  numero: number,
+  situation: Exclude<SituationRapport, "NON_SOUMIS">,
+): RapportJournalier {
+  const intervenants = intervenantsDemo(projet);
+  const chantier = { ...chantierDe(projet), chefChantier: intervenants.chefChantier };
+  const avancements = avancementsDemo(projet);
+  const travailles = lotsTravailles(projet, lots, date);
+  const avecEffectifs = travailles.length === 0 || travailles.some((lot) => lot.modeExecution === "REGIE_DIRECTE");
+  const effectifs = avecEffectifs ? effectifsDemo(projet.id, date) : null;
+  const production = productionDemo(projet, travailles, date, rang);
+  const travaux = travauxDemo(projet, travailles, date, rang);
+  const incidents = alea(projet.id, date, "incident") < 0.18 ? [choisir(INCIDENTS, projet.id, date, "lequel")] : [];
+  const blocages = alea(projet.id, date, "blocage") < 0.12 ? [choisir(BLOCAGES, projet.id, date, "lequel")] : [];
+  const nombrePhotos = entre(0, 4, projet.id, date, "photos");
+  const soumisLe = soumisLeDemo(projet.id, date);
+  const livraison = alea(projet.id, date, "livraison") < 0.4;
+
+  return {
+    id: idDemo(projet.id, date),
+    reference: `RAP-${date.slice(0, 4)}-${projet.reference.slice(-3)}-${String(numero).padStart(3, "0")}`,
+    date,
+    chantier,
+    lots: travaux.map((ligne) => ligne.lot),
+    situation,
+    effectifPresent: effectifs?.reduce((total, ligne) => total + ligne.presents, 0) ?? null,
+    effectifPrevu: effectifs?.reduce((total, ligne) => total + ligne.prevus, 0) ?? null,
+    avancement: avancementAu(avancements.reel, rang, 0.4),
+    avancementTheorique: avancementAu(avancements.theorique, rang, 0.4),
+    incidents: incidents.length,
+    blocages: blocages.length,
+    photos: nombrePhotos,
+    soumisLe,
+    dernierRapportLe: null,
+    relanceLe: null,
+    noteChefChantier: alea(projet.id, date, "note") < 0.6 ? choisir(NOTES, projet.id, date, "laquelle") : null,
+    circuit: circuitDemo(projet, date, situation, soumisLe),
+    localisation: [projet.quartier, projet.ville].filter(Boolean).join(", ") || ABSENT,
+    intervenants,
+    heureDebut: "07:30",
+    heureFin: "17:00",
+    meteo: meteoDemo(projet.id, date),
+    effectifs,
+    production: production.length > 0 ? production : null,
+    travaux,
+    materiaux: MATERIAUX.map((materiau) => ({
+      designation: materiau.designation,
+      unite: materiau.unite,
+      stockDebut: Math.max(materiau.seuil - 5, materiau.stock - rang * 3 - entre(0, 40, projet.id, materiau.designation)),
+      livre: livraison && materiau === MATERIAUX[0] ? 200 : 0,
+      utilise: entre(materiau.conso[0], materiau.conso[1], projet.id, date, materiau.designation),
+      seuilAlerte: materiau.seuil,
+    })),
+    livraisons: livraison
+      ? [
+          {
+            fournisseur: choisir(FOURNISSEURS, projet.id, date, "fournisseur"),
+            designation: MATERIAUX[0].designation,
+            quantite: "200 sacs",
+            bonLivraison: `BL-${entre(10_000, 99_999, projet.id, date, "bon")}`,
+            heure: "09:10",
+            conformite: alea(projet.id, date, "conformite") < 0.85 ? "CONFORME" : "PARTIELLE",
+            observation: null,
+          },
+        ]
+      : [],
+    equipements: EQUIPEMENTS.slice(0, entre(1, EQUIPEMENTS.length, projet.id, "equipements")).map(
+      (equipement, rangEquipement) => ({
+        ...equipement,
+        operateur: choisir(OPERATEURS, projet.id, rangEquipement),
+        etat: incidents[0]?.type === "MATERIEL" && rangEquipement === 0 ? "PANNE" : "BON",
+        observation: null,
+      }),
+    ),
+    listeIncidents: incidents.map((incident, rangIncident) => ({
+      ...incident,
+      numero: `INC-${String(rangIncident + 1).padStart(2, "0")}`,
+      resolu: rang > 0,
+    })),
+    listeBlocages: blocages.map((blocage, rangBlocage) => ({
+      ...blocage,
+      numero: `BLQ-${String(rangBlocage + 1).padStart(2, "0")}`,
+    })),
+    listePhotos: Array.from({ length: nombrePhotos }, (_, rangPhoto) => ({
+      url: null,
+      legende: travaux[rangPhoto % Math.max(1, travaux.length)]?.lot.nom ?? chantier.projetNom,
+      heure: `${String(9 + rangPhoto * 2).padStart(2, "0")}:${String(entre(0, 59, projet.id, date, rangPhoto)).padStart(2, "0")}`,
+      latitude: 5.36 + alea(projet.id, "latitude") * 0.05,
+      longitude: -4.01 + alea(projet.id, "longitude") * 0.05,
+      gpsConfirme: true,
+    })),
+    // Les rapports de démonstration ne joignent aucun document : seuls ceux du formulaire en portent.
+    documents: [],
+    previsions: travailles.slice(0, 2).map((lot) => ({
+      activite: lot.activites[0]?.libelle ?? lot.nom,
+      equipe: choisir(TACHERONS, lot.id, "equipe"),
+      objectif: "Poursuite selon le planning",
+      prerequis: "Matériaux disponibles sur site",
+    })),
+  };
+}
+
+/** Tout chantier ni clos ni archivé a son historique de démonstration — même pas encore démarré. */
+const STATUTS_DEMO: readonly StatutProjet[] = ["EN_ATTENTE", "EN_COURS", "EN_RETARD", "CRITIQUE", "SUSPENDU"];
+/** Quatre semaines de rapports de démonstration. */
+const JOURS_DEMO = 20;
+
+/**
+ * Les jours couverts par la démonstration : ceux depuis le démarrage s'il est
+ * passé, sinon les quatre dernières semaines — un projet tout juste créé
+ * montre lui aussi un historique.
+ */
+function joursDemo(projet: Projet, jour: string): string[] {
+  if (!STATUTS_DEMO.includes(projet.statut)) return [];
+  const fenetre = jourOuvreAvant(jour, JOURS_DEMO - 1);
+  const demarrage = projet.dateDebutReelle ?? projet.dateDebutPrevue;
+  const premier = demarrage && demarrage > fenetre && demarrage <= jourOuvreAvant(jour, 4) ? demarrage : fenetre;
+  return joursOuvres(premier, jour);
+}
+
+/** Les rapports de démonstration d'un chantier, sur ses jours que le formulaire n'a pas couverts. */
+function rapportsDemo(projet: Projet, lots: Lot[], jour: string, remis: Set<string>): RapportJournalier[] {
+  const jours = joursDemo(projet, jour);
+  return jours.flatMap((date, index) => {
+    if (remis.has(date)) return [];
+    const rang = jours.length - 1 - index;
+    const situation = situationDemo(projet.id, date, rang);
+    return situation === "NON_SOUMIS" ? [] : [rapportDemo(projet, lots, date, rang, index + 1, situation)];
+  });
+}
+
+/** Les lots de chaque chantier en cours — une lecture par chantier, un échec n'en prive que lui. */
+async function lotsDesProjets(projets: Projet[]): Promise<Map<string, Lot[]>> {
+  const lus = await Promise.all(
+    projets
+      .filter((projet) => STATUTS_DEMO.includes(projet.statut))
+      .map(async (projet) => {
+        const lots = await lotsMemorises(projet.id).catch((): Lot[] => []);
+        return [projet.id, lots.length > 0 ? lots : lotsFictifs(projet)] as const;
+      }),
+  );
+  return new Map(lus);
+}
+
+/** Un rapport de démonstration relu par son identifiant — `null` si ce n'en est pas un. */
+async function rapportDemoLu(id: string): Promise<RapportJournalier | null> {
+  const cible = lireIdDemo(id);
+  if (!cible) return null;
+  const projet =
+    (await projetsMemorises().catch((): Projet[] => [])).find((candidat) => candidat.id === cible.projetId) ??
+    (await lireProjet(cible.projetId).catch(() => null));
+  if (!projet) return null;
+  const lots = (await lotsDesProjets([projet])).get(projet.id) ?? [];
+  const remis = new Set(
+    rapportsSaisis()
+      .filter((rapport) => rapport.chantier.projetId === projet.id)
+      .map((rapport) => rapport.date),
+  );
+  return rapportsDemo(projet, lots, aujourdhui(), remis).find((rapport) => rapport.id === id) ?? null;
+}
+
+/**
+ * Les rapports soumis du formulaire, ceux de démonstration, et les absences
+ * des chantiers en cours.
+ */
+function lignesDuJournal(
+  projets: Projet[],
+  lotsParProjet: Map<string, Lot[]>,
+  jour: string,
+): { entrees: EntreeJournal[]; rapports: RapportJournalier[] } {
+  const relances = lireRelances();
+  const saisis = rapportsSaisis().filter((rapport) => rapport.date <= jour);
+  const demos = projets.flatMap((projet) => {
+    const remis = new Set(saisis.filter((rapport) => rapport.chantier.projetId === projet.id).map((rapport) => rapport.date));
+    return rapportsDemo(projet, lotsParProjet.get(projet.id) ?? [], jour, remis);
+  });
+  const rapports = [...saisis, ...demos].map((rapport) => ({
+    ...rapport,
+    relanceLe: relances[rapport.id] ?? rapport.relanceLe,
+  }));
+  const absences = projets.flatMap((projet) => {
+    const duProjet = rapports.filter((rapport) => rapport.chantier.projetId === projet.id);
+    const remis = new Set(duProjet.map((rapport) => rapport.date));
+    return joursAttendus(projet, jour)
+      .filter((date) => !remis.has(date))
+      .map((date) => absence(projet, date, duProjet, relances));
+  });
+  return { entrees: [...rapports, ...absences], rapports };
+}
+
+/* ------------------------------------------------------------------ *
+ * La synthèse.
  * ------------------------------------------------------------------ */
 
 function referenceSynthese(demande: DemandeSynthese, projetReference: string): string {
@@ -1279,47 +844,10 @@ function referenceSynthese(demande: DemandeSynthese, projetReference: string): s
   return `SYNT-${annee}-${projet}-${suffixe}`;
 }
 
-function appreciationDe(synthese: ReturnType<typeof agregerSynthese>, auteur: string, redigeeLe: string): Appreciation {
-  const { progression, chiffres } = synthese;
-  const ecart = progression.gain - progression.objectif;
-  const lignes = [
-    ecart >= 0
-      ? `Période satisfaisante : gain de ${progression.gain} points pour un objectif de ${progression.objectif}.`
-      : `Période en deçà de l'objectif : gain de ${progression.gain} points pour ${progression.objectif} attendus.`,
-  ];
-  for (const { lot, activites } of synthese.avancement) {
-    const retard = activites.filter((activite) => activite.avancementFin - activite.avancementDebut < activite.objectifGain);
-    if (retard.length) {
-      lignes.push(`${lot.code} ${lot.nom} : ${retard.map((activite) => activite.libelle.toLowerCase()).join(", ")} sous l'objectif — rattrapage à organiser.`);
-    }
-  }
-  const manquants = chiffres.rapportsAttendus - chiffres.rapportsRecus;
-  if (manquants > 0) {
-    lignes.push(`${manquants} rapport(s) non soumis sur la période : explication demandée aux chefs de chantier concernés.`);
-  }
-  if (chiffres.incidentsMajeurs > 0) {
-    lignes.push(`${chiffres.incidentsMajeurs} incident(s) significatif(s) : suivi des actions correctives en réunion de chantier.`);
-  }
-  return { auteur, redigeeLe, texte: lignes.join(" ") };
-}
-
-function objectifsDe(synthese: ReturnType<typeof agregerSynthese>, gabarits: GabaritLot[]): ObjectifSuivant[] {
-  return synthese.avancement.flatMap(({ lot, activites }) => {
-    const enCours = activites.filter((activite) => activite.avancementFin < 100);
-    const prioritaire = [...enCours].sort((a, b) => a.avancementFin - b.avancementFin)[0];
-    if (!prioritaire) return [];
-    const gain = Math.max(3, Math.round(prioritaire.objectifGain));
-    const gabarit = gabarits.find((candidat) => candidat.lot.id === lot.id);
-    return [
-      {
-        lotCode: lot.code,
-        activite: prioritaire.libelle,
-        objectif: `+${Math.round((prioritaire.quantitePrevue * gain) / 100)} ${prioritaire.unite}`,
-        cible: Math.min(100, prioritaire.avancementFin + gain),
-        prerequis: gabarit?.previsions[0]?.prerequis ?? "",
-      },
-    ];
-  });
+/** Les lots dont les rapports du chantier ont rendu compte, une fois chacun. */
+function lotsDesRapports(rapports: RapportJournalier[]): LotJournal[] {
+  const lots = new Map(rapports.flatMap((rapport) => rapport.lots).map((lot) => [lot.id, lot]));
+  return [...lots.values()].sort((a, b) => a.code.localeCompare(b.code));
 }
 
 /* ------------------------------------------------------------------ *
@@ -1327,27 +855,21 @@ function objectifsDe(synthese: ReturnType<typeof agregerSynthese>, gabarits: Gab
  * ------------------------------------------------------------------ */
 
 export const simulationJournal = {
-  /** Toutes les lignes des neuf dernières semaines, pour tous les chantiers. */
+  /** Les lignes des neuf dernières semaines, pour tous les chantiers. */
   async lireJournal(): Promise<Journal> {
+    const jour = aujourdhui();
+    const projets = await projetsMemorises();
+    const lots = await lotsDesProjets(projets);
     return attendre(
-      {
-        aujourdhui: aujourdhui(),
-        luLe: new Date().toISOString(),
-        // Les rapports rédigés depuis l'écran de saisie rejoignent le journal.
-        entrees: [...toutesLesEntrees().map(({ entree }) => entree), ...rapportsSaisis()],
-      },
+      { aujourdhui: jour, luLe: new Date().toISOString(), entrees: lignesDuJournal(projets, lots, jour).entrees },
       LATENCE_LECTURE,
     );
   },
 
   async lireRapport(id: string): Promise<RapportJournalier> {
-    const saisi = rapportSaisi(id);
-    if (saisi) return attendre(saisi, LATENCE_LECTURE);
-    const trouve = toutesLesEntrees().find(({ entree }) => entree.id === id);
-    if (!trouve || trouve.entree.situation === "NON_SOUMIS") {
-      refuser("introuvable", "Ce rapport n'existe pas ou n'a pas encore été rédigé.", 404);
-    }
-    return attendre(construireRapport(trouve.entree, trouve.gabarit, trouve.rang), LATENCE_LECTURE);
+    const saisi = rapportSaisi(id) ?? (await rapportDemoLu(id));
+    if (!saisi) refuser("introuvable", "Ce rapport n'existe pas ou n'a pas encore été rédigé.", 404);
+    return attendre({ ...saisi, relanceLe: lireRelances()[id] ?? saisi.relanceLe }, LATENCE_LECTURE);
   },
 
   /** Relance le chef de chantier (rapport absent) ou le signataire attendu. */
@@ -1358,59 +880,55 @@ export const simulationJournal = {
     return attendre({ relanceLe }, LATENCE_ECRITURE);
   },
 
+  /**
+   * La synthèse d'un chantier, agrégée de ses rapports soumis. Le CT n'a
+   * pas d'écran pour la rédiger : ni appréciation ni objectifs, et le
+   * circuit attend sa signature une fois la période close.
+   */
   async lireSynthese(demande: DemandeSynthese): Promise<SynthesePeriodique> {
-    const gabarits = GABARITS.filter((gabarit) => gabarit.lot.projetId === demande.projetId);
-    if (gabarits.length === 0) {
-      refuser("introuvable", "Aucun rapport journalier n'existe pour ce chantier.", 404);
-    }
-    const lignes = toutesLesEntrees().filter(({ gabarit }) => gabarit.lot.projetId === demande.projetId);
-    const rapports = lignes
-      .filter(({ entree }) => entree.date >= demande.debut && entree.date <= demande.fin && estDepose(entree.situation))
-      .map(({ entree, gabarit, rang }) => construireRapport(entree, gabarit, rang));
-    const agregee = agregerSynthese(
-      demande,
-      gabarits.map((gabarit) => gabarit.lot),
-      lignes.map(({ entree }) => entree),
-      rapports,
-    );
-
     const jour = aujourdhui();
+    const projet = (await projetsMemorises()).find((candidat) => candidat.id === demande.projetId);
+    if (!projet) refuser("introuvable", "Ce chantier n'existe pas.", 404);
+    const { entrees, rapports } = lignesDuJournal([projet], await lotsDesProjets([projet]), jour);
+    const duProjet = entrees.filter((entree) => entree.chantier.projetId === projet.id);
+    const deposes = rapports.filter(
+      (rapport) => rapport.chantier.projetId === projet.id && estDepose(rapport.situation),
+    );
+    const agregee = agregerSynthese(demande, lotsDesRapports(deposes), duProjet, deposes);
     const close = periodeClose(demande, jour);
-    const premier = gabarits[0];
-    const genereLe = close ? horodatage(jourOuvreApres(demande.fin), "08:00") : new Date().toISOString();
-    const signeCt = close ? horodatage(jourOuvreApres(demande.fin), "09:45") : null;
-    const approuvee = close && ajouterJours(demande.fin, 7) < jour;
-
-    const circuit: EtapeCircuit[] = [
-      {
-        role: "CT",
-        signataire: premier.conducteurTravaux,
-        etat: close ? "SIGNE" : "A_VENIR",
-        signeLe: signeCt,
-        echeance: null,
-        commentaire: null,
-      },
-      {
-        role: "CP",
-        signataire: premier.chefProjet,
-        etat: approuvee ? "SIGNE" : close ? "EN_ATTENTE" : "A_VENIR",
-        signeLe: approuvee ? horodatage(jourOuvreApres(jourOuvreApres(demande.fin)), "11:00") : null,
-        echeance: close && !approuvee ? horodatage(jourOuvreApres(demande.fin), "17:00") : null,
-        commentaire: null,
-      },
-    ];
 
     return attendre(
       {
         ...agregee,
-        reference: referenceSynthese(demande, premier.lot.projetReference),
-        genereLe,
-        localisation: premier.localisation,
-        chefProjet: premier.chefProjet,
-        conducteurTravaux: premier.conducteurTravaux,
-        appreciation: close && signeCt ? appreciationDe(agregee, premier.conducteurTravaux, signeCt) : null,
-        objectifs: close ? objectifsDe(agregee, gabarits) : [],
-        circuit,
+        // Sans lot rapporté, l'agrégation ne sait pas nommer le chantier.
+        projetId: projet.id,
+        projetNom: projet.nom,
+        projetReference: projet.reference,
+        reference: referenceSynthese(demande, projet.reference),
+        genereLe: new Date().toISOString(),
+        localisation: [projet.quartier, projet.ville].filter(Boolean).join(", ") || ABSENT,
+        chefProjet: nomComplet(projet.chefProjet),
+        conducteurTravaux: nomComplet(projet.conducteursTravaux[0]),
+        appreciation: null,
+        objectifs: [],
+        circuit: [
+          {
+            role: "CT",
+            signataire: nomComplet(projet.conducteursTravaux[0]),
+            etat: close ? "EN_ATTENTE" : "A_VENIR",
+            signeLe: null,
+            echeance: close ? horodatage(ajouterJours(demande.fin, 1), "17:00") : null,
+            commentaire: null,
+          },
+          {
+            role: "CP",
+            signataire: nomComplet(projet.chefProjet),
+            etat: "A_VENIR",
+            signeLe: null,
+            echeance: null,
+            commentaire: null,
+          },
+        ],
       },
       LATENCE_LECTURE,
     );

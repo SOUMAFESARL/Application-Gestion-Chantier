@@ -4,11 +4,11 @@ Module 2 — journal de chantier. Miroir de `backend/apps/chantier/`.
 
 | Couche | Fichier | Rôle |
 |---|---|---|
-| Types | `types.ts` | Entrée de journal (lot × jour), rapport journalier, synthèse périodique, saisie du CC |
+| Types | `types.ts` | Entrée de journal (chantier × jour), rapport journalier, synthèse périodique, saisie du CC |
 | Règles | `regles.ts` | Situations, circuit CC → CT → CP, délais, agrégation ; saisie : J-2, sections actives, alertes immédiates, avancement |
 | Validations | `validations.ts` | Schéma zod de **soumission** (piloté par les sections du chantier), formulaire ↔ domaine |
 | Adaptateur | `adaptateur.ts` | Routes proposées `/chantier/…` ; aiguillage vers la simulation |
-| Simulation | `simulationJournal.ts` | Neuf semaines de rapports déterministes, relatives à aujourd'hui |
+| Simulation | `simulationJournal.ts` | Le journal **lu sur les rapports du formulaire** (`simulationSaisie`), plus les absences des vrais chantiers en cours (`/projets/`) |
 | Simulation | `simulationSaisie.ts` | Brouillons et rapports saisis (localStorage), sur les **vrais** lots ; rejoignent le journal |
 | Navigateur | `photos.ts`, `brouillonLocal.ts` | Compression 1 200 px / 70 % + GPS ; copie locale de la saisie (coupure réseau) |
 | Clés | `cles.ts` | Clés React Query partagées par les écrans |
@@ -36,9 +36,26 @@ urgents), la `nature` d'un événement (8, `NATURES_EVENEMENT`) et ses horaires,
 choisit les lots travaillés ce jour (`lotsTravailles`, parmi
 `lotsSuivisAvancement`), puis fait le point sur chacun — quantités de ses
 activités et observation du lot, obligatoire si rien n'a avancé ; seules les
-activités des lots choisis partent. Le journal du DG compte encore en lignes
-lot × jour : un rapport saisi y paraît en une ligne « Chantier » qui réunit
-ses lots (`lotEnsemble`, simulation).
+activités des lots choisis partent.
+
+**Le journal du DG compte lui aussi en chantier × jour** (demande produit du
+05/10/2026) : un rapport porte le nom du **projet**, jamais celui d'un lot.
+`EntreeJournal` a un `chantier` et la liste des `lots` travaillés ce jour ;
+`RapportJournalier.travaux` rend compte lot par lot (avancement, point du
+CC, activités). Écran, PDF du rapport, synthèse et données simulées suivent
+ce découpage.
+
+**Le journal montre des données simulées jusqu'au branchement de l'API**
+(demande produit, 05/10/2026). Les chantiers sont les vrais : un chantier
+`EN_COURS` / `EN_RETARD` / `CRITIQUE` attend un rapport chaque jour ouvré
+depuis son démarrage (neuf semaines au plus). Chaque jour attendu porte, par
+priorité, le rapport soumis depuis `/rapports/saisie` (stocké dans le
+`localStorage` du poste, il reste « Soumis » faute d'écran CT / CP), sinon un
+rapport de démonstration bâti sur les vrais lots et activités du chantier
+(tiré d'une graine chantier × jour, donc stable), sinon une absence. La
+démonstration couvre aussi les projets **en attente** (quatre semaines), avec
+des lots, un avancement et des intervenants fictifs quand le projet n'en a
+pas encore.
 
 Le profil Directeur Général **consulte** : il ne saisit ni ne valide un rapport
 (circuit CC → CT → CP). Il peut relancer un chef de chantier ou un signataire.

@@ -53,10 +53,10 @@ export function SynthesesPeriodiques({ journal }: { journal: Journal }) {
   const chantiers = useMemo(() => {
     const connus = new Map<string, { id: string; nom: string; reference: string }>();
     for (const entree of journal.entrees) {
-      connus.set(entree.lot.projetId, {
-        id: entree.lot.projetId,
-        nom: entree.lot.projetNom,
-        reference: entree.lot.projetReference,
+      connus.set(entree.chantier.projetId, {
+        id: entree.chantier.projetId,
+        nom: entree.chantier.projetNom,
+        reference: entree.chantier.projetReference,
       });
     }
     return [...connus.values()].sort((a, b) => a.nom.localeCompare(b.nom));

@@ -249,12 +249,7 @@ export function SectionPhotos() {
   };
 
   return (
-    <SousRubrique
-      titre={t("sections.photos")}
-      complement={<Badge variante="neutre">{t("fraction", { a: photos.length, b: PHOTOS_MAX })}</Badge>}
-      description={t("photos.description")}
-      erreur={erreur}
-    >
+    <SousRubrique erreur={erreur}>
       <div className="grid grid-cols-2 gap-2">
         <Button type="button" className="h-auto min-h-14 flex-col gap-1 py-2" onClick={() => appareil.current?.click()} disabled={restantes <= 0}>
           <Camera className="size-5" aria-hidden="true" />
