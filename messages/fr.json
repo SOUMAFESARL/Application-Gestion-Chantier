@@ -1415,11 +1415,20 @@
       "critique": "critique",
       "critiqueTitre": "Sur le chemin critique : tout retard décale la fin du chantier.",
       "statutActivite": {
-        "A_VENIR": "À venir",
+        "A_VENIR": "Non démarrée",
         "EN_COURS": "En cours",
         "EN_RETARD": "En retard",
-        "TERMINE": "Terminé"
+        "BLOQUE": "Bloquée",
+        "TERMINE": "Terminée"
       },
+      "statutDeclare": {
+        "NON_DEMARRE": "Non démarrée",
+        "EN_COURS": "En cours",
+        "TERMINE": "Terminée",
+        "BLOQUE": "Bloquée"
+      },
+      "champStatut": "Statut",
+      "erreurStatutRequis": "Choisissez le statut.",
       "lotSansActivite": "Aucune activité dans ce lot.",
       "ajouterDansLot": "Ajouter une activité",
       "aucunResultat": "Aucune activité ne correspond à ces critères.",
@@ -1455,8 +1464,7 @@
         "aucuneDependance": "Aucune",
         "nonDefini": "Non défini",
         "modifier": "Modifier",
-        "liensTitre": "Liens avec les autres modules :",
-        "liensTexte": "le chef de chantier saisit l'avancement de cette activité dans le journal (Suivi technique) ; les dépenses et les achats y sont imputés (Finances, Achats) ; les heures de l'équipe alimentent les Ressources humaines.",
+        "supprimer": "Supprimer",
         "aucuneSelection": "Sélectionnez une activité pour afficher son détail.",
         "budgetLot": "Budget du lot"
       },
@@ -1479,8 +1487,10 @@
         "champDebut": "Début prévu",
         "champFin": "Fin prévue",
         "champDateChoisir": "jj/mm/aaaa",
-        "champDependance": "Commence après (dépendance)",
-        "aucuneDependance": "— aucune —",
+        "champResponsable": "Responsable (facultatif)",
+        "aucunResponsable": "— Aucun —",
+        "responsableRecherche": "Rechercher un collaborateur…",
+        "responsableAucunResultat": "Aucun collaborateur trouvé.",
         "champEquipe": "Équipe (facultatif, peut se faire plus tard)",
         "equipeAAffecter": "— À affecter —",
         "selectionner": "Sélectionner…",
@@ -1587,6 +1597,16 @@
         "supprimer": "Supprimer le lot",
         "succes": "Lot {code} « {nom} » supprimé.",
         "erreurGenerique": "Le lot n'a pas pu être supprimé. Réessayez."
+      },
+      "suppressionActivite": {
+        "titre": "Supprimer l'activité {code} « {libelle} » ?",
+        "description": "L'activité sera retirée de son lot. Cette action est définitive.",
+        "impossible": "Cette activité a déjà avancé : elle ne peut plus être supprimée. L'avancement saisi au journal de chantier serait perdu.",
+        "annuler": "Annuler",
+        "fermer": "Fermer",
+        "supprimer": "Supprimer l'activité",
+        "succes": "Activité {code} « {libelle} » supprimée.",
+        "erreurGenerique": "L'activité n'a pas pu être supprimée. Réessayez."
       }
     },
     "equipesAffectations": {

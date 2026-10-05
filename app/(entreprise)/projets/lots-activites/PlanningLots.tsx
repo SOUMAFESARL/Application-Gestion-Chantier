@@ -151,7 +151,7 @@ export function PlanningLots({ lots }: { lots: Lot[] }) {
         </div>
 
         <ul className="m-0 flex list-none flex-wrap items-center gap-4 p-4 text-xs text-neutral-600">
-          {(["TERMINE", "EN_COURS", "EN_RETARD", "A_VENIR"] as const).map((statut) => (
+          {(["TERMINE", "EN_COURS", "EN_RETARD", "BLOQUE", "A_VENIR"] as const).map((statut) => (
             <li key={statut} className="flex items-center gap-1.5">
               <span className={cn("size-2.5 rounded-sm", BARRE_STATUT[statut])} aria-hidden="true" />
               {t(`statutActivite.${statut}`)}

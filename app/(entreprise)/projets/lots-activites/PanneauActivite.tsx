@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
@@ -20,17 +20,17 @@ interface Props {
   lot: Lot | null;
   lots: Lot[];
   onModifier: (activite: Activite) => void;
+  onSupprimer: (activite: Activite) => void;
 }
 
 /**
  * Le détail de l'activité choisie dans l'arbre.
  *
  * Il reste en vue pendant qu'on parcourt le tableau (`sticky`) : c'est lui
- * qu'on lit en descendant la liste. Le rappel des liens avec les autres
- * modules dit d'où viennent les chiffres — l'avancement ne se saisit pas
- * ici, il remonte du journal de chantier.
+ * qu'on lit en descendant la liste. L'avancement ne se saisit pas ici : il
+ * remonte du journal de chantier.
  */
-export function PanneauActivite({ activite, lot, lots, onModifier }: Props) {
+export function PanneauActivite({ activite, lot, lots, onModifier, onSupprimer }: Props) {
   const t = useTranslations("projets.lotsActivites");
   const peutSaisir = useDroits().peut("projets", "saisie");
 
@@ -112,10 +112,10 @@ export function PanneauActivite({ activite, lot, lots, onModifier }: Props) {
         </Ligne>
       </dl>
 
-      <Separator />
-
       {peutSaisir && (
         <>
+          <Separator />
+
           <div className="flex flex-wrap gap-2">
             <Bouton
               variante="secondaire"
@@ -125,16 +125,17 @@ export function PanneauActivite({ activite, lot, lots, onModifier }: Props) {
             >
               {t("panneau.modifier")}
             </Bouton>
+            <Bouton
+              variante="danger"
+              taille="sm"
+              iconeGauche={<Trash2 size={16} aria-hidden="true" />}
+              onClick={() => onSupprimer(activite)}
+            >
+              {t("panneau.supprimer")}
+            </Bouton>
           </div>
-
-          <Separator />
         </>
       )}
-
-      <p className="m-0 rounded-lg border border-solid border-primary-200 bg-primary-50 p-3 text-sm leading-relaxed text-neutral-700">
-        <strong className="text-primary-700">{t("panneau.liensTitre")}</strong>{" "}
-        {t("panneau.liensTexte")}
-      </p>
     </aside>
   );
 }

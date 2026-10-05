@@ -30,6 +30,7 @@ import type {
   NatureEquipe,
   Projet,
   StatutActivite,
+  StatutDeclare,
   StatutProjet,
   TypeBordereau,
   TypeProjet,
@@ -177,6 +178,23 @@ export function peutSuspendre(projet: Pick<Projet, "statut">): boolean {
 
 export function peutReprendre(projet: Pick<Projet, "statut">): boolean {
   return projet.statut === "SUSPENDU";
+}
+
+/**
+ * Le statut qu'un projet suspendu retrouve à sa reprise. Le serveur n'expose
+ * pas d'action de reprise : l'écran écrit le statut, et le choisit au plus
+ * neutre — `EN_COURS` si le chantier a démarré (ou aurait dû), `EN_ATTENTE`
+ * sinon. Le retard, lui, reste au serveur de le constater.
+ */
+export function statutDeReprise(
+  projet: Pick<Projet, "dateDebutReelle" | "dateDebutPrevue">,
+  maintenant: Date = new Date(),
+): StatutProjet {
+  if (projet.dateDebutReelle) return "EN_COURS";
+  const aujourdhui = maintenant.toISOString().split("T")[0];
+  return projet.dateDebutPrevue && projet.dateDebutPrevue <= aujourdhui
+    ? "EN_COURS"
+    : "EN_ATTENTE";
 }
 
 /** Un projet clos (terminé ou archivé) ne se modifie plus : il fait foi tel qu'il a fini. */
@@ -641,14 +659,14 @@ function isoCourt(date: Date): string {
   return date.toISOString().split("T")[0];
 }
 
-/** Le code d'un lot à partir de son rang (0 pour le premier) : `01`. */
+/** Le code d'un lot à partir de son rang (0 pour le premier) : `L-01`, comme le serveur. */
 export function codeLot(rang: number): string {
-  return String(rang + 1).padStart(2, "0");
+  return `L-${String(rang + 1).padStart(2, "0")}`;
 }
 
-/** Le code d'une activité : celui de son lot, puis son rang dans le lot — `03.02`. */
-export function codeActivite(codeDuLot: string, rang: number): string {
-  return `${codeDuLot}.${String(rang + 1).padStart(2, "0")}`;
+/** Le rang que porte un code de lot — `L-03` ou `03` : 3. */
+function rangDuCode(code: string): number {
+  return Number.parseInt(code.replace(/\D/g, ""), 10);
 }
 
 /** Le plus grand rang d'une série de codes, 0 si elle est vide. */
@@ -663,7 +681,7 @@ function rangMaximal(rangs: number[]): number {
  * lots sous le même code, et les activités de l'un se liraient dans l'autre.
  */
 export function codeLotSuivant(lots: Lot[]): string {
-  return codeLot(rangMaximal(lots.map((lot) => Number.parseInt(lot.code, 10))));
+  return codeLot(rangMaximal(lots.map((lot) => rangDuCode(lot.code))));
 }
 
 /**
@@ -676,12 +694,12 @@ export function lotSupprimable(lot: Pick<Lot, "activites">): boolean {
   return lot.activites.every((activite) => activite.avancement === 0);
 }
 
-/** Le code que prendra la prochaine activité du lot, selon la même règle. */
-export function codeActiviteSuivant(lot: Lot): string {
-  const rangs = lot.activites.map((activite) =>
-    Number.parseInt(activite.code.split(".")[1] ?? "", 10),
-  );
-  return codeActivite(lot.code, rangMaximal(rangs));
+/**
+ * Une activité ne se supprime que tant qu'elle n'a pas avancé — même raison
+ * que pour son lot (`lotSupprimable`) : son avancement vient du terrain.
+ */
+export function activiteSupprimable(activite: Pick<Activite, "avancement">): boolean {
+  return activite.avancement === 0;
 }
 
 /** Les deux dates d'une activité, quand elle est planifiée. `null` sinon. */
@@ -714,23 +732,36 @@ export function avancementTheoriqueActivite(
   return Math.round(((Date.parse(jour) - debut) / duree) * 100);
 }
 
+/** Les statuts qu'on déclare sur un lot ou une activité, dans l'ordre du formulaire. */
+export const STATUTS_DECLARES: StatutDeclare[] = ["NON_DEMARRE", "EN_COURS", "TERMINE", "BLOQUE"];
+
+/** Le statut d'un lot ou d'une activité qu'on vient de déclarer. */
+export const STATUT_DECLARE_PAR_DEFAUT: StatutDeclare = "NON_DEMARRE";
+
 /**
- * L'état d'une activité, déduit de ses dates et de son avancement.
+ * L'état affiché d'une activité : son statut déclaré, sauf quand ses dates le
+ * contredisent.
  *
- * « En retard » a **la même définition que pour un chantier** : un écart au
- * théorique au-delà de `SEUIL_RETARD_POINTS`. Une activité qui glisse d'un
- * jour n'allume pas d'alerte ; une activité dont la fin est passée sans
- * qu'elle soit terminée, si.
+ * « Terminée » et « Bloquée » priment toujours — ce sont des faits que le
+ * terrain déclare. « Non démarrée » et « En cours » cèdent au retard, qui a
+ * **la même définition que pour un chantier** : un écart au théorique
+ * au-delà de `SEUIL_RETARD_POINTS`. Une activité qui glisse d'un jour
+ * n'allume pas d'alerte ; une activité dont la fin est passée sans qu'elle
+ * soit terminée, si.
  */
 export function statutActivite(activite: Activite, maintenant: Date = new Date()): StatutActivite {
-  if (activite.avancement >= 100) return "TERMINE";
+  if (activite.statut === "BLOQUE") return "BLOQUE";
+  if (activite.statut === "TERMINE" || activite.avancement >= 100) return "TERMINE";
   const theorique = avancementTheoriqueActivite(activite, maintenant);
-  // Pas planifiée : elle n'est en retard sur rien.
-  if (theorique === null) return activite.avancement === 0 ? "A_VENIR" : "EN_COURS";
-  if (theorique >= 100) return "EN_RETARD";
-  if (estEnRetard(ecartAvancement(activite.avancement, theorique))) return "EN_RETARD";
-  if (activite.avancement === 0 && theorique === 0) return "A_VENIR";
-  return "EN_COURS";
+  // Planifiée et à la traîne : en retard, quoi qu'on ait déclaré.
+  if (
+    theorique !== null &&
+    (theorique >= 100 || estEnRetard(ecartAvancement(activite.avancement, theorique)))
+  ) {
+    return "EN_RETARD";
+  }
+  // Un avancement saisi au journal vaut démarrage, même non déclaré.
+  return activite.statut === "EN_COURS" || activite.avancement > 0 ? "EN_COURS" : "A_VENIR";
 }
 
 /** La quantité déjà réalisée, déduite de l'avancement. `null` sans quantité prévue. */
@@ -860,7 +891,13 @@ export function filtrerLots(
   });
 }
 
-const ORDRE_STATUTS_ACTIVITE: StatutActivite[] = ["A_VENIR", "EN_COURS", "EN_RETARD", "TERMINE"];
+const ORDRE_STATUTS_ACTIVITE: StatutActivite[] = [
+  "A_VENIR",
+  "EN_COURS",
+  "EN_RETARD",
+  "BLOQUE",
+  "TERMINE",
+];
 
 /** Les statuts que portent réellement les activités — les options du filtre. */
 export function statutsActivitesPresents(
@@ -922,14 +959,6 @@ export function paginerLots(
   }
   if (page.length > 0) pages.push(page);
   return pages;
-}
-
-/**
- * Les activités dont une autre peut dépendre : toutes celles du chantier,
- * sauf elle-même — une activité qui s'attend elle-même ne commence jamais.
- */
-export function dependancesPossibles(lots: Lot[], activiteId?: string): Activite[] {
-  return activitesDuProjet(lots).filter((activite) => activite.id !== activiteId);
 }
 
 /**
@@ -1342,12 +1371,14 @@ export const HORIZON_PROCHAINES_ETAPES_JOURS = 14;
 export const LONGUEUR_MAX_NOTE_FICHE = 2000;
 
 /**
- * L'état d'un lot : celui de ses activités. `SANS_ACTIVITE` n'est pas un
- * zéro — F1 §10 : un lot sans activité est exclu du calcul et s'affiche « — ».
+ * L'état d'un lot : « Bloqué » ou « Terminé » s'il a été déclaré tel, sinon
+ * celui de ses activités. `SANS_ACTIVITE` n'est pas un zéro — F1 §10 : un
+ * lot sans activité est exclu du calcul et s'affiche « — ».
  */
 export type StatutLot = StatutActivite | "SANS_ACTIVITE";
 
 export function statutLot(lot: Lot, maintenant: Date = new Date()): StatutLot {
+  if (lot.statut === "BLOQUE" || lot.statut === "TERMINE") return lot.statut;
   if (lot.activites.length === 0) return "SANS_ACTIVITE";
   const statuts = lot.activites.map((activite) => statutActivite(activite, maintenant));
   if (statuts.every((statut) => statut === "TERMINE")) return "TERMINE";

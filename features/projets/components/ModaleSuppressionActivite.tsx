@@ -1,11 +1,10 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { LoaderCircle, TriangleAlert } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,32 +14,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { supprimerLot } from "@/features/projets/adaptateur";
-import { lotSupprimable } from "@/features/projets/regles";
-import type { Lot } from "@/features/projets/types";
+import { supprimerActivite } from "@/features/projets/adaptateur";
+import { activiteSupprimable } from "@/features/projets/regles";
+import type { Activite } from "@/features/projets/types";
 import { ErreurApi } from "@/lib/api";
 
 interface Props {
   /** `null` : la modale est fermée. */
-  lot: Lot | null;
+  activite: Activite | null;
   onFermer: () => void;
-  onSupprime: (lot: Lot) => void;
+  onSupprimee: (activite: Activite) => void;
 }
 
 /**
- * La confirmation de la suppression d'un lot. Ses activités partent avec
- * lui — la modale le dit et les compte. Un lot dont une activité a déjà
- * avancé ne se supprime pas (`lotSupprimable`) : la modale l'explique au
+ * La confirmation de la suppression d'une activité. Une activité qui a déjà
+ * avancé ne se supprime pas (`activiteSupprimable`) : la modale l'explique au
  * lieu de proposer un bouton que le serveur refuserait.
  */
-export function ModaleSuppressionLot({ lot, onFermer, onSupprime }: Props) {
-  const t = useTranslations("projets.lotsActivites.suppressionLot");
+export function ModaleSuppressionActivite({ activite, onFermer, onSupprimee }: Props) {
+  const t = useTranslations("projets.lotsActivites.suppressionActivite");
 
   const mutation = useMutation({
-    mutationFn: (cible: Lot) => supprimerLot(cible.id),
+    mutationFn: (cible: Activite) => supprimerActivite(cible.id),
     onSuccess: (_, cible) => {
-      onSupprime(cible);
-      toast.success(t("succes", { code: cible.code, nom: cible.nom }));
+      onSupprimee(cible);
+      toast.success(t("succes", { code: cible.code, libelle: cible.libelle }));
       onFermer();
     },
     onError: (err) => {
@@ -48,26 +46,22 @@ export function ModaleSuppressionLot({ lot, onFermer, onSupprime }: Props) {
     },
   });
 
-  const supprimable = lot ? lotSupprimable(lot) : false;
+  const supprimable = activite ? activiteSupprimable(activite) : false;
 
   return (
-    <Dialog open={lot !== null} onOpenChange={(ouvert) => !ouvert && !mutation.isPending && onFermer()}>
+    <Dialog
+      open={activite !== null}
+      onOpenChange={(ouvert) => !ouvert && !mutation.isPending && onFermer()}
+    >
       <DialogContent className="sm:max-w-[480px]">
-        {lot && (
+        {activite && (
           <>
             <DialogHeader>
-              <DialogTitle>{t("titre", { code: lot.code, nom: lot.nom })}</DialogTitle>
+              <DialogTitle>
+                {t("titre", { code: activite.code, libelle: activite.libelle })}
+              </DialogTitle>
               <DialogDescription>{supprimable ? t("description") : t("impossible")}</DialogDescription>
             </DialogHeader>
-
-            {supprimable && lot.activites.length > 0 && (
-              <Alert variant="avertissement">
-                <TriangleAlert />
-                <AlertDescription>
-                  {t("activitesSupprimees", { nombre: lot.activites.length })}
-                </AlertDescription>
-              </Alert>
-            )}
 
             <DialogFooter className="gap-3">
               <Button type="button" variant="outline" onClick={onFermer} disabled={mutation.isPending}>
@@ -77,7 +71,7 @@ export function ModaleSuppressionLot({ lot, onFermer, onSupprime }: Props) {
                 <Button
                   type="button"
                   variant="destructive"
-                  onClick={() => mutation.mutate(lot)}
+                  onClick={() => mutation.mutate(activite)}
                   disabled={mutation.isPending}
                   aria-busy={mutation.isPending}
                 >

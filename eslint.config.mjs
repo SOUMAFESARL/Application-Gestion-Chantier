@@ -324,9 +324,9 @@ const eslintConfig = defineConfig([
       // Le tableau de bord DG de démonstration, en attendant sa route :
       // noms de fournisseurs, d'articles et d'échéances de chantier.
       "features/tableauDeBord/simulationTableauDeBord.ts",
-      // Les lots et activités de démonstration, en attendant leurs routes :
-      // des libellés d'ouvrages et des noms d'équipes de chantier.
-      "features/projets/simulationLots.ts",
+      // Les équipes de chantier simulées, en attendant leurs routes : le
+      // module rejoue les messages du serveur.
+      "features/projets/simulationEquipes.ts",
       // Le journal de chantier de démonstration, en attendant ses routes :
       // des libellés d'ouvrages, des noms de fournisseurs et des notes de CC.
       "features/chantier/simulationJournal.ts",
