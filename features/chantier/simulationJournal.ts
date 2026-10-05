@@ -32,6 +32,7 @@ import {
   numeroSemaine,
   periodeClose,
 } from "./regles";
+import { rapportSaisi, rapportsSaisis } from "./simulationSaisie";
 import type {
   Appreciation,
   Blocage,
@@ -1089,6 +1090,7 @@ function photosDe(gabarit: GabaritLot, jour: string): Photo[] {
   const nombre = 2 + Math.floor(alea(gabarit.cle, jour, "ph") * 2);
   const heures = ["07:45", "11:20", "14:35", "16:45"];
   return Array.from({ length: nombre }, (_, indice) => ({
+    url: null,
     legende: gabarit.photos[indice % gabarit.photos.length],
     heure: heures[indice],
     latitude: arrondir(gabarit.latitude + (alea(gabarit.cle, jour, "lat", indice) - 0.5) * 0.0004, 4),
@@ -1331,13 +1333,16 @@ export const simulationJournal = {
       {
         aujourdhui: aujourdhui(),
         luLe: new Date().toISOString(),
-        entrees: toutesLesEntrees().map(({ entree }) => entree),
+        // Les rapports rédigés depuis l'écran de saisie rejoignent le journal.
+        entrees: [...toutesLesEntrees().map(({ entree }) => entree), ...rapportsSaisis()],
       },
       LATENCE_LECTURE,
     );
   },
 
   async lireRapport(id: string): Promise<RapportJournalier> {
+    const saisi = rapportSaisi(id);
+    if (saisi) return attendre(saisi, LATENCE_LECTURE);
     const trouve = toutesLesEntrees().find(({ entree }) => entree.id === id);
     if (!trouve || trouve.entree.situation === "NON_SOUMIS") {
       refuser("introuvable", "Ce rapport n'existe pas ou n'a pas encore été rédigé.", 404);

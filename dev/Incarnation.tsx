@@ -18,9 +18,15 @@ import { CLE_COLLABORATEURS, listerCollaborateurs } from "@/features/invitations
 import { listerProjets } from "@/features/projets/adaptateur";
 import { CLE_LISTE_PROJETS } from "@/features/projets/cles";
 import { ORDRE_FONCTIONS, affectationsDuCollaborateur, membresDeFonction } from "@/features/projets/regles";
-import { listerRoles } from "@/features/roles/api";
 
 import { useOutilsTest } from "./garde";
+import {
+  CLE_ROLES_INCARNABLES,
+  PERSONNE_TEST,
+  chantiersSimules,
+  listerRolesIncarnables,
+  porteeSimulee,
+} from "./rolesTest";
 
 /**
  * « Voir en tant que… » — OUTIL DE DÉVELOPPEMENT. Ne doit jamais être livré.
@@ -28,7 +34,8 @@ import { useOutilsTest } from "./garde";
  * **Le problème qu'il résout.** Seul le DG peut se connecter tant que le
  * backend ne livre pas la connexion des collaborateurs. Pour voir le portail
  * comme le verra un chef de chantier, le DG connecté **incarne un rôle** de
- * l'entreprise — tel qu'il est paramétré dans `/parametres/roles` — et,
+ * l'entreprise — tel qu'il est paramétré dans `/parametres/roles`, complété
+ * des rôles en dur de `rolesTest.ts` tant que le serveur n'en livre pas — et,
  * pour la portée, une personne.
  *
  * **Ce qui change, ce qui ne change pas.** Seuls les *droits* changent. Le
@@ -44,13 +51,17 @@ import { useOutilsTest } from "./garde";
 
 const CLE_INCARNATION = "ccd.test.incarnation";
 const EVENEMENT_INCARNATION = "ccd:test-incarnation";
-const CLE_ROLES = ["roles", "liste"] as const;
 
 interface Incarnation {
   roleId: string;
   /** `null` : aucune personne choisie, donc aucun chantier visible. */
   collaborateurId: string | null;
   personne: string | null;
+  /**
+   * Les chantiers rattachés à la personne de test — elle n'existe dans
+   * aucune donnée, ses affectations sont donc simulées. Absent sinon.
+   */
+  chantiersSimules?: string[];
 }
 
 function lireBrut(): string | null {
@@ -109,15 +120,18 @@ export function useDroitsEnVigueur(profil: ProfilUtilisateur | null) {
   const incarnation = outils && droitsProfil?.estDirection ? brute : null;
 
   const roles = useQuery({
-    queryKey: CLE_ROLES,
-    queryFn: listerRoles,
+    queryKey: CLE_ROLES_INCARNABLES,
+    queryFn: listerRolesIncarnables,
     enabled: incarnation !== null,
   });
   const role = incarnation ? roles.data?.find((r) => r.id === incarnation.roleId) : undefined;
 
   const droits: Droits | null = useMemo(() => {
     if (!incarnation) return droitsProfil;
-    return role ? droitsDuRole(role, incarnation.collaborateurId) : null;
+    if (!role) return null;
+    const droitsRole = droitsDuRole(role, incarnation.collaborateurId);
+    if (!incarnation.chantiersSimules) return droitsRole;
+    return { ...droitsRole, portee: porteeSimulee(role, incarnation.chantiersSimules) };
   }, [incarnation, role, droitsProfil]);
 
   // Un rôle supprimé entre-temps : on revient au DG plutôt que d'attendre.
@@ -202,7 +216,7 @@ function ModaleIncarnation({ onFermer }: { onFermer: () => void }) {
   const [roleId, setRoleId] = useState("");
   const [collaborateurId, setCollaborateurId] = useState("");
 
-  const roles = useQuery({ queryKey: CLE_ROLES, queryFn: listerRoles });
+  const roles = useQuery({ queryKey: CLE_ROLES_INCARNABLES, queryFn: listerRolesIncarnables });
   const collaborateurs = useQuery({ queryKey: CLE_COLLABORATEURS, queryFn: listerCollaborateurs });
   const projets = useQuery({
     queryKey: CLE_LISTE_PROJETS,
@@ -227,17 +241,48 @@ function ModaleIncarnation({ onFermer }: { onFermer: () => void }) {
         valeur: id,
         libelle: `${nom} — ${affectationsDuCollaborateur(projets.data ?? [], id).length} chantier(s)`,
         nom,
+        chantiers: affectationsDuCollaborateur(projets.data ?? [], id).length,
       }))
+      // Une personne sans chantier ne montre rien : inutile de l'incarner.
+      .filter((p) => p.chantiers > 0)
       .sort((a, b) => a.nom.localeCompare(b.nom));
   }, [collaborateurs.data, projets.data]);
 
+  /** Les deux premiers chantiers, prêtés à la personne de test. */
+  const simules = useMemo(() => chantiersSimules(projets.data ?? []), [projets.data]);
+  const options = useMemo(
+    () => [
+      ...(simules.length > 0
+        ? [
+            {
+              valeur: PERSONNE_TEST.id,
+              libelle: `${PERSONNE_TEST.nom} — ${simules.length} chantier(s) simulé(s)`,
+            },
+          ]
+        : []),
+      ...personnes,
+    ],
+    [simules, personnes],
+  );
+  const choix = collaborateurId || options[0]?.valeur || "";
+
   const optionsRoles = (roles.data ?? [])
-    .filter((r) => r.est_actif && r.code !== "DG")
+    .filter((r) => r.est_actif)
     .map((r) => ({ valeur: r.id, libelle: r.libelle }));
 
   function incarner() {
-    const personne = personnes.find((p) => p.valeur === collaborateurId);
-    ecrire({ roleId, collaborateurId: personne?.valeur ?? null, personne: personne?.nom ?? null });
+    if (choix === PERSONNE_TEST.id) {
+      ecrire({
+        roleId,
+        collaborateurId: PERSONNE_TEST.id,
+        personne: PERSONNE_TEST.nom,
+        chantiersSimules: simules.map((p) => p.id),
+      });
+    } else {
+      const personne = personnes.find((p) => p.valeur === choix);
+      if (!personne) return;
+      ecrire({ roleId, collaborateurId: personne.valeur, personne: personne.nom });
+    }
     onFermer();
   }
 
@@ -251,7 +296,7 @@ function ModaleIncarnation({ onFermer }: { onFermer: () => void }) {
           <Bouton variante="ghost" onClick={onFermer}>
             Annuler
           </Bouton>
-          <Bouton variante="primaire" disabled={!roleId} onClick={incarner}>
+          <Bouton variante="primaire" disabled={!roleId || !choix} onClick={incarner}>
             Incarner
           </Bouton>
         </>
@@ -276,10 +321,10 @@ function ModaleIncarnation({ onFermer }: { onFermer: () => void }) {
         <label className="flex flex-col gap-1.5">
           <span className="font-medium text-neutral-900">Personne (ses chantiers)</span>
           <Combobox
-            options={personnes}
-            valeur={collaborateurId}
+            options={options}
+            valeur={choix}
             onChange={setCollaborateurId}
-            placeholder="Aucune — aucun chantier visible"
+            placeholder={projets.isPending ? "Chargement…" : "Aucun chantier dans l’entreprise"}
             placeholderRecherche="Rechercher une personne…"
             aucunResultat="Aucune personne."
           />

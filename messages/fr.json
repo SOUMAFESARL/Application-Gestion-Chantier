@@ -2352,7 +2352,8 @@
       "tiers": "Tiers",
       "chantierSynthese": "Synthèse périodique",
       "chantierRapport": "Rapport journalier",
-      "monProfil": "Mon profil"
+      "monProfil": "Mon profil",
+      "redigerRapport": "Rédiger mon rapport"
     },
     "portefeuille": {
       "budgetNonDefini": "Non défini",
@@ -2603,10 +2604,6 @@
       }
     },
     "pourcent": "{valeur} %",
-    "actions": {
-      "actualiser": "Actualiser",
-      "synthese": "Synthèse périodique"
-    },
     "indicateurs": {
       "aria": "Situation des rapports journaliers",
       "attendus": "Rapports attendus aujourd'hui",
@@ -2691,7 +2688,15 @@
       "incidents": "Incidents",
       "blocages": "Blocages",
       "relancerChef": "Relancer le chef de chantier",
-      "voirRapport": "Voir le rapport"
+      "voirRapport": "Voir le rapport",
+      "redacteur": {
+        "rediger": "Rédiger un rapport",
+        "videTitre": "Aucun rapport rédigé aujourd'hui",
+        "videDescription": "Le rapport du jour est attendu avant {heure} ; passé ce délai, une relance automatique vous est envoyée.",
+        "restants": "{n, plural, one {# lot attend encore son rapport du jour} other {# lots attendent encore leur rapport du jour}} — à déposer avant {heure}.",
+        "sousTitre": "{chantier}{reference, select, aucune {} other { · {reference}}}{quand, select, aucun {} other { · soumis à {quand}}}",
+        "circuit": "Circuit de validation"
+      }
     },
     "validations": {
       "resume": "{total, plural, =0 {Aucun rapport n'attend de signature.} one {# rapport attend une signature} other {# rapports attendent une signature}}{total, plural, =0 {} other { : {ct} chez le conducteur de travaux, {cp} chez le chef de projet — {horsDelai} hors délai.}}",
@@ -2969,7 +2974,8 @@
         "statut": "Statut",
         "vide": "Aucun matériau suivi sur ce lot.",
         "alerte": "Alerte",
-        "ok": "OK"
+        "ok": "OK",
+        "horsStock": "Hors stock"
       },
       "livraisons": {
         "fournisseur": "Fournisseur",
@@ -3037,6 +3043,473 @@
         "signeLeVide": "Signé le :",
         "page": "Page {page}/{total}"
       }
+    },
+    "saisie": {
+      "titre": "Rapport journalier",
+      "lotValeur": "{code} — {nom}",
+      "fraction": "{a} / {b}",
+      "pourcent": "{valeur} %",
+      "heures": "{valeur} h",
+      "quantiteUnite": "{quantite} {unite}",
+      "moins": "Retirer 1 — {champ}",
+      "plus": "Ajouter 1 — {champ}",
+      "erreurChargement": "Le formulaire du rapport n'a pas pu être chargé.",
+      "erreurGenerique": "L'opération n'a pas abouti. Réessayez dans un instant.",
+      "retourRapports": "Mes rapports",
+      "lotsCouverts": "{n, plural, one {Un lot en cours} other {# lots en cours}}",
+      "ensemble": {
+        "code": "Chantier"
+      },
+      "aucunLot": {
+        "titre": "Aucun lot en cours sur ce chantier",
+        "description": "Le rapport journalier couvre les lots en cours du chantier. Rapprochez-vous de votre chef de projet pour structurer les lots."
+      },
+      "copieRestauree": "Votre saisie non envoyée a été restaurée depuis ce téléphone.",
+      "horsLigneConserve": "Hors connexion : la saisie est conservée sur ce téléphone et partira au retour du réseau.",
+      "brouillonEnregistre": "Brouillon enregistré.",
+      "aCorriger": "{n, plural, one {Une section est à compléter avant de soumettre.} other {# sections sont à compléter avant de soumettre.}}",
+      "navigation": "Sections du rapport",
+      "sectionEnErreur": "à compléter",
+      "enregistrer": "Enregistrer",
+      "soumettre": "Soumettre",
+      "statuts": {
+        "NOUVEAU": "Nouveau rapport",
+        "BROUILLON": "Brouillon",
+        "REJETE": "Rejeté — à corriger"
+      },
+      "etatsLot": {
+        "A_REDIGER": "À rédiger",
+        "BROUILLON": "Brouillon",
+        "REJETE": "Rejeté — à corriger",
+        "SOUMIS": "Soumis",
+        "VALIDE_CT": "Validé CT",
+        "APPROUVE_CP": "Approuvé CP"
+      },
+      "etat": {
+        "horsLigne": "Hors connexion — saisie conservée sur ce téléphone",
+        "modifie": "Modifications non encore envoyées",
+        "enCours": "Enregistrement…",
+        "echec": "Échec de l'enregistrement — nouvel essai dans 30 s",
+        "ajour": "Brouillon enregistré à {heure}",
+        "jamais": "Brouillon pas encore enregistré"
+      },
+      "choix": {
+        "titre": "Mes rapports journaliers",
+        "jour": "Jour du rapport",
+        "jourPlaceholder": "Choisir un jour",
+        "projet": "Projet",
+        "projetPlaceholder": "Choisir un projet",
+        "projetValeur": "{reference} — {nom}",
+        "restants": "{n, plural, one {Un rapport reste à rédiger ou à corriger sur ce chantier.} other {# rapports restent à rédiger ou à corriger sur ce chantier.}}",
+        "aJour": "Tous vos rapports sur ce chantier sont soumis.",
+        "aucunProjet": "Aucun chantier ne vous est affecté",
+        "aucunProjetDescription": "Un rapport journalier se rédige pour un chantier où vous êtes affecté. Rapprochez-vous de votre chef de projet.",
+        "rapportDuJour": "Rapport du jour choisi",
+        "enAttente": "{n, plural, =0 {Autres rapports en attente} one {Autre rapport en attente (1)} other {Autres rapports en attente (#)}}",
+        "aucunEnAttente": "Aucun autre rapport en attente sur ce chantier.",
+        "afficherPlus": "Afficher {n} de plus",
+        "prevuLe": "Prévu le {jour}",
+        "horsDelai": "Hors délai",
+        "horsDelaiDetail": "Au-delà de deux jours, seul le conducteur de travaux peut établir un rapport de substitution.",
+        "enregistreA": "enregistré à {heure}"
+      },
+      "horsDelai": {
+        "titre": "Ce jour ne peut plus être rapporté",
+        "description": "Un rapport se rédige pour le jour même, ou au plus tard deux jours après. Au-delà, le conducteur de travaux peut établir un rapport de substitution.",
+        "action": "Rédiger le rapport du jour"
+      },
+      "dejaSoumis": {
+        "titre": "Ce rapport est déjà soumis",
+        "description": "Un rapport soumis ne se modifie plus. Seul un rejet du conducteur de travaux vous le rendrait pour correction.",
+        "action": "Consulter le rapport"
+      },
+      "rejet": {
+        "titre": "Rapport rejeté par le conducteur de travaux — corrigez puis soumettez à nouveau :"
+      },
+      "sections": {
+        "production": "Travaux des tâcherons",
+        "effectifs": "Effectif présent, personnel affecté et heures travaillées",
+        "equipes": "Équipes présentes — sous-traitant",
+        "equipements": "Engins utilisés",
+        "livraisons": "Matériaux reçus",
+        "materiaux": "Matériaux consommés",
+        "besoins": "Ruptures de stock et besoins urgents",
+        "evenements": "Événements du jour",
+        "blocage": "Incidence sur le chantier",
+        "photos": "Photos",
+        "piecesJointes": "Documents",
+        "note": "Points d'attention",
+        "previsions": "Actions à engager"
+      },
+      "unites": {
+        "degres": "°C",
+        "pourcent": "%",
+        "heures": "h",
+        "fcfa": "FCFA"
+      },
+      "contexte": {
+        "heureDebut": "Début de journée",
+        "heureFin": "Fin de journée",
+        "arret": "Journée d'arrêt",
+        "arretAide": "Intempéries, jour férié… Ni avancement ni consommation ce jour.",
+        "motifArret": "Motif de l'arrêt",
+        "precisionArret": "Précision",
+        "precisionArretExemple": "Ex. : pluie continue de 7 h à 13 h",
+        "arretEffet": "Le rapport compte dans le taux de remise, sans créer de sortie de stock ni d'avancement.",
+        "meteo": "Météo",
+        "reprendreReleve": "Reprendre le relevé ({temperature} °C, {ville})",
+        "matin": "Matin",
+        "apresMidi": "Après-midi",
+        "conditions": "Conditions de travail",
+        "temperatureMin": "T° min",
+        "temperatureMax": "T° max",
+        "humidite": "Humidité",
+        "vent": "Vent",
+        "ventExemple": "Ex. : faible, sud-ouest",
+        "prevision": "Prévision pour demain",
+        "previsionExemple": "Ex. : orages annoncés l'après-midi — décaler le coulage"
+      },
+      "motifsArret": {
+        "INTEMPERIES": "Intempéries",
+        "JOUR_FERIE": "Jour férié",
+        "AUTRE": "Autre"
+      },
+      "effectifs": {
+        "description": "Par catégorie : le personnel affecté, l'effectif présent, les retards et les heures travaillées. Une absence ou un retard demande son motif.",
+        "nouvelleCategorie": "Nouvelle catégorie",
+        "absents": "{n, plural, one {# absent} other {# absents}}",
+        "supprimer": "Retirer la catégorie {categorie}",
+        "categorie": "Catégorie",
+        "prevus": "Personnel affecté",
+        "presents": "Effectif présent",
+        "heures": "Heures travaillées / ouvrier",
+        "motifAbsence": "Absences / retards : motif",
+        "observation": "Observations",
+        "motifExemple": "Ex. : Koné absent — maladie ; Traoré arrivé à 9 h",
+        "ajoutRapide": "Ajout rapide",
+        "ajouterCategorie": "+ {categorie}",
+        "ajouter": "Ajouter une catégorie",
+        "totalPresents": "Présents / affectés",
+        "totalTaux": "Présence",
+        "totalHeures": "Heures",
+        "alertePresence": "Présence sous {seuil} % : le conducteur de travaux en sera averti à la soumission.",
+        "categories": {
+          "chefEquipe": "Chef d'équipe",
+          "macons": "Maçons",
+          "ferrailleurs": "Ferrailleurs",
+          "coffreurs": "Coffreurs",
+          "manoeuvres": "Manœuvres",
+          "electriciens": "Électriciens",
+          "plombiers": "Plombiers",
+          "conducteursEngins": "Conducteurs d'engins"
+        },
+        "retards": "Retards",
+        "retardsBadge": "{n, plural, one {# retard} other {# retards}}",
+        "totalAbsences": "Absences",
+        "totalRetards": "Retards"
+      },
+      "presence": {
+        "description": "Les équipes du sous-traitant : leur présence et la qualité constatée. Ses effectifs restent son affaire.",
+        "presence": "Les équipes du sous-traitant étaient",
+        "presences": {
+          "PRESENT": "Présent",
+          "PARTIEL": "Partiellement",
+          "ABSENT": "Absent"
+        },
+        "motif": "Motif de l'absence",
+        "qualite": "Qualité d'exécution",
+        "qualites": {
+          "CONFORME": "Conforme",
+          "NON_CONFORME": "Non conforme"
+        },
+        "observation": "Observation",
+        "incidentQualite": "Une non-conformité ouvre automatiquement un incident qualité à la soumission."
+      },
+      "production": {
+        "description": "Les travaux des tâcherons : pour chacun, l'activité et la quantité réalisée ce jour. L'avancement de leurs lots s'en déduit.",
+        "nouvelIntervenant": "Nouvel intervenant",
+        "supprimer": "Retirer {intervenant}",
+        "intervenant": "Intervenant",
+        "activite": "Activité",
+        "choisirActivite": "Choisir l'activité…",
+        "activiteLot": "{lot} · {code} — {libelle}",
+        "quantite": "Quantité réalisée",
+        "prix": "Prix unitaire",
+        "ajouter": "Ajouter un intervenant",
+        "total": "Montant estimé du jour",
+        "validation": "Quantité × prix du bordereau = bon de paiement, après validation du conducteur de travaux."
+      },
+      "avancement": {
+        "lotsTravailles": "Lots travaillés ce jour",
+        "nbActivites": "{nombre, plural, one {# activité} other {# activités}}",
+        "avancementLot": "Lot ce soir : {avancement} % · planning : {theorique} %",
+        "jaugeLot": "Avancement du lot {code}",
+        "retirerLot": "Retirer le lot {code} du rapport",
+        "pointLot": "Observations sur le lot",
+        "pointLotAide": "Ce qu'il faut retenir du lot aujourd'hui — obligatoire si aucune activité n'a avancé.",
+        "aucuneActivite": "Ces lots n'ont encore aucune activité : demandez au chef de projet de les créer.",
+        "activiteValeur": "{code} — {libelle}",
+        "unitePourcent": "%",
+        "jauge": "Avancement de {libelle}",
+        "repere": "Veille : {veille} · ce soir : {cumul} / {prevu} {unite} · planning : {theorique} %",
+        "quantiteJour": "Quantité réalisée",
+        "observation": "Observations",
+        "depassement": "Le cumul dépasse la quantité prévue : vérifiez le métré, ou signalez un avenant.",
+        "localisation": "Localisation / zone / bâtiment",
+        "localisationExemple": "Ex. : bâtiment B, R+1",
+        "niveau": "Niveau d'avancement"
+      },
+      "materiaux": {
+        "description": "Ce que le chantier a consommé aujourd'hui, saisi librement. Les matériaux du stock et les unités courantes sont proposés.",
+        "titre": "Matériau {rang}",
+        "supprimer": "Retirer le matériau {rang}",
+        "designation": "Matériau",
+        "designationExemple": "Ex. : ciment CPJ 42,5",
+        "consomme": "Quantité consommée",
+        "unite": "Unité",
+        "uniteExemple": "Ex. : sac",
+        "ajouter": "Ajouter un matériau consommé"
+      },
+      "livraisons": {
+        "description": "Ce qui est arrivé sur le chantier — déclaratif : le bon de réception reste établi par le magasin.",
+        "titre": "Réception {rang}",
+        "supprimer": "Retirer la réception {rang}",
+        "fournisseur": "Fournisseur",
+        "designation": "Matériau reçu",
+        "quantite": "Quantité réceptionnée",
+        "quantiteExemple": "Ex. : 120 sacs",
+        "heure": "Heure",
+        "bon": "N° bon de livraison",
+        "conformite": "Conformité",
+        "anomalie": "Anomalie de livraison",
+        "anomalieExemple": "Ex. : 3 sacs percés, refusés et retournés",
+        "ajouter": "Ajouter un matériau reçu"
+      },
+      "equipements": {
+        "description": "Pour chaque engin : ses heures d'utilisation, son état, et la durée d'arrêt s'il a été en panne ou immobilisé.",
+        "titre": "Engin {rang}",
+        "supprimer": "Retirer l'engin {rang}",
+        "designation": "Engin utilisé",
+        "designationExemple": "Ex. : bétonnière 350 L",
+        "reference": "Référence",
+        "utilisation": "Heures d'utilisation",
+        "utilisationExemple": "Ex. : 6",
+        "operateur": "Opérateur",
+        "propriete": "Propriété",
+        "etat": "Panne ou immobilisation",
+        "panne": "Nature de la panne",
+        "observation": "Observations",
+        "panneExemple": "Ex. : arrêtée de 10 h 20 à 11 h 45, courroie cassée",
+        "panneNotification": "Une panne est signalée au conducteur de travaux à la soumission.",
+        "ajouter": "Ajouter un engin",
+        "etats": {
+          "BON": "En service",
+          "ENTRETIEN": "Immobilisé",
+          "PANNE": "En panne"
+        },
+        "dureeArret": "Durée d'arrêt",
+        "dureeArretExemple": "Ex. : 1,5"
+      },
+      "incidents": {
+        "description": "Déclarez d'un geste ce qui a marqué la journée.",
+        "titre": "{nature} {rang}",
+        "supprimer": "Retirer l'événement {rang}",
+        "type": "Catégorie",
+        "gravite": "Gravité",
+        "alerteGrave": "Grave : le conducteur de travaux et le chef de projet sont alertés immédiatement, sans attendre la soumission.",
+        "descriptionChamp": "Description",
+        "descriptionExemple": "Ce qui s'est passé, la cause, l'effet sur le chantier…",
+        "compteur": "{n} caractères — {min} au minimum",
+        "action": "Action engagée",
+        "actionExemple": "Ex. : bon de retour signé, avoir demandé",
+        "decidePar": "Décidé par",
+        "aucun": "Aucun événement déclaré ce jour.",
+        "declarer": "Déclarer rapidement",
+        "natures": {
+          "INCIDENT": "Incident",
+          "DIFFICULTE_TECHNIQUE": "Difficulté technique",
+          "NON_CONFORMITE": "Non-conformité",
+          "RETARD": "Retard",
+          "INTEMPERIE": "Intempérie",
+          "ARRET_TRAVAUX": "Arrêt de travaux",
+          "INSTRUCTION": "Instruction reçue",
+          "EVENEMENT_PARTICULIER": "Événement particulier"
+        },
+        "heureDebut": "De",
+        "heureFin": "À"
+      },
+      "blocage": {
+        "niveau": "Incidence sur le chantier",
+        "niveaux": {
+          "AUCUN": "Aucun",
+          "MINEUR": "Mineur",
+          "SIGNIFICATIF": "Significatif",
+          "BLOQUANT": "Bloquant"
+        },
+        "details": {
+          "AUCUN": "Chantier opérationnel",
+          "MINEUR": "Le chef de chantier décide",
+          "SIGNIFICATIF": "Le CT arbitre",
+          "BLOQUANT": "Alerte CT + CP immédiate"
+        },
+        "nature": "Nature du blocage",
+        "description": "Description",
+        "impact": "Impact",
+        "impactExemple": "Ex. : coulage reporté à jeudi",
+        "alerteBloquant": "Blocage bloquant : le conducteur de travaux et le chef de projet sont alertés immédiatement.",
+        "escalade": "Remonté au {role} à la soumission."
+      },
+      "alertes": {
+        "enCours": "Alerte en cours d'envoi",
+        "envoyee": "Alerte envoyée",
+        "echec": "Alerte non envoyée",
+        "blocageEnvoye": "Blocage signalé au conducteur de travaux et au chef de projet.",
+        "incidentEnvoye": "Incident grave signalé au conducteur de travaux et au chef de projet.",
+        "echecEnvoi": "L'alerte n'a pas pu partir. Elle sera renvoyée au retour du réseau."
+      },
+      "photos": {
+        "description": "Jusqu'à 5 photos, horodatées et géolocalisées à la prise de vue.",
+        "prendre": "Prendre une photo",
+        "choisir": "Depuis la galerie",
+        "limite": "{max} photos au plus par rapport : les suivantes n'ont pas été ajoutées.",
+        "illisible": "La photo « {nom} » n'a pas pu être lue.",
+        "alt": "Photo {rang} du rapport",
+        "supprimer": "Retirer la photo {rang}",
+        "gps": "GPS",
+        "sansGps": "sans GPS",
+        "legende": "Légende de la photo {rang}",
+        "legendeExemple": "Légende",
+        "traitement": "Photo en cours de préparation"
+      },
+      "previsions": {
+        "description": "Les actions à engager et ce que le chantier prévoit demain — ce que le conducteur de travaux lit en premier.",
+        "titre": "Action {rang}",
+        "supprimer": "Retirer l'action {rang}",
+        "activite": "Activité",
+        "equipe": "Équipe",
+        "objectif": "Objectif",
+        "objectifExemple": "Ex. : 90 m² de maçonnerie",
+        "prerequis": "Prérequis",
+        "ajouter": "Ajouter une action"
+      },
+      "note": {
+        "libelle": "Points d'attention",
+        "exemple": "Ce que le conducteur de travaux doit retenir de la journée, les demandes à lui faire…",
+        "compteur": "{n} caractères — {min} au minimum"
+      },
+      "soumission": {
+        "titre": "Soumettre le rapport ?",
+        "description": "{chantier} — {jour}. Relisez ce que vous certifiez :",
+        "effectifs": "Effectifs présents",
+        "effectifsValeur": "{presents} / {prevus} ({taux} %)",
+        "heures": "Heures travaillées",
+        "activites": "Activités avancées",
+        "activitesValeur": "{avancees} sur {total}",
+        "avancementLot": "Avancement du chantier ce soir",
+        "materiaux": "Matériaux consommés",
+        "livraisons": "Livraisons",
+        "incidents": "Incidents",
+        "incidentsValeur": "{n} (dont {graves} grave(s))",
+        "blocage": "Blocage",
+        "photos": "Photos",
+        "immuable": "Une fois soumis, le rapport part au conducteur de travaux et ne se modifie plus.",
+        "relire": "Relire",
+        "confirmer": "Soumettre",
+        "succes": "Rapport {reference} soumis au conducteur de travaux."
+      },
+      "erreurs": {
+        "requis": "Ce champ est requis.",
+        "dateHorsDelai": "Un rapport se rédige pour le jour même ou les deux jours précédents.",
+        "heuresIncoherentes": "La fin de journée doit suivre le début.",
+        "nombre": "Saisissez un nombre.",
+        "pourcentage": "Entre 0 et 100.",
+        "effectifsVides": "Ajoutez au moins une catégorie d'ouvriers.",
+        "entier": "Un nombre entier, positif ou nul.",
+        "heuresTravaillees": "Entre 0 et {max} heures.",
+        "motifAbsence": "Indiquez le motif des absences ou des retards.",
+        "motifAbsenceSousTraitant": "Indiquez pourquoi le sous-traitant était absent.",
+        "nonConformite": "Décrivez la non-conformité constatée.",
+        "productionVide": "Ajoutez la production d'au moins un intervenant.",
+        "quantite": "Une quantité positive ou nulle.",
+        "quantiteConsommee": "Une quantité supérieure à zéro.",
+        "lotsVides": "Choisissez au moins un lot travaillé ce jour, ou déclarez une journée d'arrêt.",
+        "lotSansAvancement": "Aucune quantité sur ce lot : dites ce qui s'y est fait, ou retirez-le du rapport.",
+        "materiauxVides": "Le lot a avancé : indiquez les matériaux consommés.",
+        "livraisonNonConforme": "Décrivez l'anomalie de livraison.",
+        "panne": "Décrivez la panne.",
+        "descriptionCourte": "{min} caractères au minimum.",
+        "actionRequise": "Indiquez l'action engagée.",
+        "tropDePhotos": "{max} photos au plus.",
+        "noteCourte": "{min} caractères au minimum.",
+        "retardsPresents": "Pas plus de retards que de présents.",
+        "dureeArret": "La durée d'arrêt, entre 0 et {max} heures.",
+        "tropDePieces": "{max} pièces jointes au plus."
+      },
+      "rubriques": {
+        "journee": "Journée",
+        "travaux": "Travaux réalisés",
+        "rh": "Ressources humaines",
+        "materiels": "Matériels et engins",
+        "materiaux": "Matériaux / approvisionnement",
+        "evenements": "Événements chantier",
+        "photos": "Photos et pièces jointes",
+        "synthese": "Points d'attention et actions à engager"
+      },
+      "contenuRubriques": {
+        "journee": "Horaires, journée d'arrêt éventuelle et météo du jour.",
+        "travaux": "Travaux réalisés dans la journée · localisation / zone / bâtiment · quantités réalisées · unités de mesure · niveau d'avancement · observations.",
+        "rh": "Effectif présent · équipes présentes · personnel affecté · heures travaillées · absences / retards.",
+        "materiels": "Engins utilisés · heures d'utilisation · pannes ou immobilisations · durée d'arrêt · observations.",
+        "materiaux": "Matériaux reçus · quantités réceptionnées · matériaux consommés · ruptures de stock · besoins urgents · anomalies de livraison.",
+        "evenements": "Incident · difficulté technique · non-conformité · retard · intempérie · arrêt de travaux · instruction reçue · événement particulier.",
+        "photos": "Photos prises depuis l'application, horodatées et géolocalisées · documents si nécessaire.",
+        "synthese": "Ce que le conducteur de travaux doit retenir, et ce que le chantier engage demain."
+      },
+      "navigationRubriques": {
+        "journee": "Journée",
+        "travaux": "Travaux",
+        "rh": "Ressources humaines",
+        "materiels": "Matériels",
+        "materiaux": "Matériaux",
+        "evenements": "Événements",
+        "photos": "Photos",
+        "synthese": "Synthèse"
+      },
+      "sansObjet": {
+        "travauxArret": "Journée d'arrêt : aucun travail à déclarer.",
+        "rh": "Les lots de ce chantier ne suivent pas d'effectif : leurs tâcherons se déclarent dans « Travaux réalisés ».",
+        "rhArret": "Journée d'arrêt : aucun effectif à déclarer.",
+        "materiels": "Les lots de ce chantier ne suivent pas leurs engins au journal.",
+        "materielsArret": "Journée d'arrêt : aucun engin à déclarer."
+      },
+      "besoins": {
+        "description": "Ce que l'approvisionnement doit savoir le jour même.",
+        "nature": "Nature",
+        "natures": {
+          "RUPTURE": "Rupture de stock",
+          "URGENT": "Besoin urgent"
+        },
+        "titre": "{nature} {rang}",
+        "supprimer": "Retirer la ligne {rang}",
+        "designation": "Matériau",
+        "quantite": "Quantité nécessaire",
+        "quantiteExemple": "Ex. : 200 sacs",
+        "observation": "Observation",
+        "observationExemple": "Ex. : nécessaire avant le coulage de jeudi",
+        "ajouter": "Signaler : {nature}"
+      },
+      "piecesJointes": {
+        "description": "Joignez les documents utiles au rapport.",
+        "ajouter": "Joindre un document",
+        "tropLourd": "« {nom} » dépasse {taille} Mo : il n'a pas été joint.",
+        "limite": "{max} pièces jointes au plus par rapport.",
+        "illisible": "« {nom} » n'a pas pu être lu.",
+        "supprimer": "Retirer {nom}",
+        "taille": "{valeur} Ko",
+        "traitement": "Document en cours de lecture",
+        "nonDocument": "« {nom} » n'est pas un document (PDF, Word ou Excel) : il n'a pas été joint."
+      },
+      "choisirHeure": "Choisir l'heure"
     }
   },
   "profil": {
@@ -3091,5 +3564,9 @@
       "formatInvalide": "Ce format n’est pas accepté.",
       "tropLourde": "Cette photo dépasse 2 Mo."
     }
+  },
+  "selecteurHeure": {
+    "heures": "Heures",
+    "minutes": "Minutes"
   }
 }

@@ -7,7 +7,7 @@
  */
 
 import { fonctionsDansProjet, projetModifiable } from "@/features/projets/regles";
-import type { Projet } from "@/features/projets/types";
+import type { FonctionProjet, Projet } from "@/features/projets/types";
 import { ACCES_MODULE, MODULES_CCD } from "@/features/roles/types";
 
 import type { AccesModule, CodeModule, ConditionAcces, Droits } from "./types";
@@ -45,6 +45,9 @@ const DIRECTION: ConditionAcces = { type: "DIRECTION" };
 function lecture(module: CodeModule): ConditionAcces {
   return { type: "MODULE", module, acces: "lecture" };
 }
+function saisie(module: CodeModule): ConditionAcces {
+  return { type: "MODULE", module, acces: "saisie" };
+}
 
 /**
  * Le module dont relève chaque écran de l'espace entreprise, par préfixe
@@ -59,6 +62,8 @@ export const CONDITIONS_ROUTES: readonly (readonly [string, ConditionAcces])[] =
   ["/projets", lecture("projets")],
   ["/planning", lecture("projets")],
   ["/rapports", lecture("chantier")],
+  // Rédiger le rapport journalier : le chef de chantier (SFD F2 §3.2).
+  ["/rapports/saisie", saisie("chantier")],
   ["/finance", lecture("finance")],
   ["/achats", lecture("achats")],
   ["/stocks", lecture("stocks")],
@@ -97,8 +102,19 @@ export function routeAutorisee(droits: Droits | null, chemin: string): boolean {
 export function projetsVisibles(projets: Projet[], droits: Droits | null): Projet[] {
   if (!droits) return [];
   if (droits.portee.type === "TOUS") return projets;
-  const { collaborateurId } = droits.portee;
-  return projets.filter((projet) => fonctionsDansProjet(projet, collaborateurId).length > 0);
+  const portee = droits.portee;
+  return projets.filter((projet) => fonctionsDuCompte(projet, portee).length > 0);
+}
+
+/** Les fonctions du compte sur ce chantier : celles des données, plus les simulées. */
+function fonctionsDuCompte(
+  projet: Projet,
+  portee: Extract<Droits["portee"], { type: "PERSONNE" }>,
+): FonctionProjet[] {
+  return [
+    ...fonctionsDansProjet(projet, portee.collaborateurId),
+    ...(portee.fonctionsSimulees?.[projet.id] ?? []),
+  ];
 }
 
 export function projetVisible(projet: Projet, droits: Droits | null): boolean {
@@ -112,7 +128,25 @@ export function projetVisible(projet: Projet, droits: Droits | null): boolean {
  */
 export function estChefDuProjet(projet: Projet, droits: Droits | null): boolean {
   if (!droits || droits.portee.type !== "PERSONNE") return false;
-  return projet.chefProjet !== null && projet.chefProjet.id === droits.portee.collaborateurId;
+  return fonctionsDuCompte(projet, droits.portee).includes("CHEF_PROJET");
+}
+
+/**
+ * Rédiger le rapport journalier : l'accès « saisie » du journal de chantier.
+ * La direction, qui a tous les accès, y entre aussi : le formulaire lui est
+ * montré (demande du 05/10, pour que le backend voie l'écran de saisie).
+ */
+export function peutRedigerJournal(droits: Droits | null): boolean {
+  return peut(droits, "chantier", "saisie");
+}
+
+/**
+ * Le journal vu de celui qui le tient — le chef de chantier. Le DG **consulte**
+ * le journal sans le tenir (SFD F2 §3.1) : même s'il peut ouvrir le
+ * formulaire, son onglet « Aujourd'hui » reste celui du suivi et de la relance.
+ */
+export function estRedacteurJournal(droits: Droits | null): boolean {
+  return !(droits?.estDirection ?? false) && peutRedigerJournal(droits);
 }
 
 /** Désigner (ou remplacer) le chef de projet : un acte de direction. */

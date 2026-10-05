@@ -330,6 +330,9 @@ const eslintConfig = defineConfig([
       // Le journal de chantier de démonstration, en attendant ses routes :
       // des libellés d'ouvrages, des noms de fournisseurs et des notes de CC.
       "features/chantier/simulationJournal.ts",
+      // La saisie du rapport journalier rejouée : le stock de matériaux de
+      // démonstration et les messages de refus du serveur.
+      "features/chantier/simulationSaisie.ts",
       // La matrice de rôles de démonstration, en attendant « GET /roles/ » :
       // des libellés et descriptions de rôles, et les messages du serveur.
       "features/roles/simulationRoles.ts",
