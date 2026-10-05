@@ -28,6 +28,8 @@ import {
   ROLES_MEMBRE_EQUIPE,
   TYPES_BORDEREAU,
   NOMBRE_MAX_CONTRATS,
+  STATUT_DECLARE_PAR_DEFAUT,
+  STATUTS_DECLARES,
   UNITES_ACTIVITE,
   budgetRecevable,
   datesChantierCoherentes,
@@ -50,6 +52,7 @@ import type {
   RoleMembreEquipe,
   SaisieActiviteDomaine,
   SaisieMembreEquipe,
+  StatutDeclare,
   TypeBordereau,
   UniteActivite,
 } from "./types";
@@ -196,6 +199,7 @@ export const schemaLot = z
     nom: chaineNonVide(texte("projets.tiroirCreation.erreurLotNomRequis")),
     modeExecution: choixParmi(MODES_EXECUTION_LOT, texte("projets.tiroirCreation.erreurLotModeRequis")),
     typeBordereau: choixParmi(TYPES_BORDEREAU, texte("projets.tiroirCreation.erreurLotBordereauRequis")),
+    statut: choixParmi(STATUTS_DECLARES, texte("projets.lotsActivites.erreurStatutRequis")),
     budget: z
       .string()
       .trim()
@@ -219,7 +223,15 @@ export type SaisieLotProjet = z.input<typeof schemaLot>;
 
 /** Un lot vierge. */
 export function lotVide(): SaisieLotProjet {
-  return { nom: "", modeExecution: "", typeBordereau: "", budget: "", dateDebut: "", dateFin: "" };
+  return {
+    nom: "",
+    modeExecution: "",
+    typeBordereau: "",
+    statut: STATUT_DECLARE_PAR_DEFAUT,
+    budget: "",
+    dateDebut: "",
+    dateFin: "",
+  };
 }
 
 /** Un lot existant, remis en saisie pour sa modification. Le budget repasse en francs groupés. */
@@ -228,6 +240,7 @@ export function lotEnSaisie(lot: Lot): SaisieLotProjet {
     nom: lot.nom,
     modeExecution: lot.modeExecution,
     typeBordereau: lot.typeBordereau,
+    statut: lot.statut,
     budget: lot.budget === null ? "" : formaterSaisieMontant(String(Math.round(lot.budget / 100))),
     dateDebut: lot.dateDebut ?? "",
     dateFin: lot.dateFin ?? "",
@@ -239,6 +252,7 @@ export function versCreationLotProjet(saisie: z.output<typeof schemaLot>): Creat
     nom: saisie.nom,
     modeExecution: saisie.modeExecution as ModeExecutionLot,
     typeBordereau: saisie.typeBordereau as TypeBordereau,
+    statut: saisie.statut as StatutDeclare,
     budget: saisie.budget ? (saisieEnCentimes(saisie.budget) ?? undefined) : undefined,
     dateDebut: saisie.dateDebut || undefined,
     dateFin: saisie.dateFin || undefined,
@@ -280,8 +294,9 @@ export const schemaActivite = z
     // Facultatives : une activité se déclare souvent avant d'être planifiée.
     dateDebut: z.string(),
     dateFin: z.string(),
-    dependanceId: z.string(),
+    responsableId: z.string(),
     equipeId: z.string(),
+    statut: choixParmi(STATUTS_DECLARES, texte("projets.lotsActivites.erreurStatutRequis")),
   })
   .superRefine((saisie, ctx) => {
     if (!datesChantierCoherentes(saisie.dateDebut, saisie.dateFin)) {
@@ -309,8 +324,9 @@ export function saisieActiviteVide(lotId = ""): SaisieActivite {
     unite: "M2",
     dateDebut: "",
     dateFin: "",
-    dependanceId: "",
+    responsableId: "",
     equipeId: "",
+    statut: STATUT_DECLARE_PAR_DEFAUT,
   };
 }
 
@@ -323,8 +339,9 @@ export function saisieDepuisActivite(activite: Activite): SaisieActivite {
     unite: activite.unite ?? "M2",
     dateDebut: activite.dateDebutPrevue ?? "",
     dateFin: activite.dateFinPrevue ?? "",
-    dependanceId: activite.dependanceId ?? "",
+    responsableId: activite.responsableId ?? "",
     equipeId: activite.equipe?.id ?? "",
+    statut: activite.statut,
   };
 }
 
@@ -339,8 +356,9 @@ export function versSaisieActiviteDomaine(valeurs: ValeursActivite): SaisieActiv
     unite: quantitePrevue === null ? null : (valeurs.unite as UniteActivite),
     dateDebutPrevue: valeurs.dateDebut || null,
     dateFinPrevue: valeurs.dateFin || null,
-    dependanceId: valeurs.dependanceId || null,
+    responsableId: valeurs.responsableId || null,
     equipeId: valeurs.equipeId || null,
+    statut: valeurs.statut as StatutDeclare,
   };
 }
 

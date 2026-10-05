@@ -15,6 +15,11 @@ export function cleLots(projetId: string) {
   return ["projets", projetId, "lots"] as const;
 }
 
+/** Les chiffres de structure d'un chantier, recomptés par le serveur. */
+export function cleStatistiques(projetId: string) {
+  return ["projets", projetId, "statistiques"] as const;
+}
+
 /** Les équipes constituées sur un chantier. */
 export function cleEquipes(projetId: string) {
   return ["projets", projetId, "equipes"] as const;

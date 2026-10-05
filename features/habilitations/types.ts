@@ -7,6 +7,7 @@
  * accès accordés, et une seule exception nommée — la direction.
  */
 
+import type { FonctionProjet } from "@/features/projets/types";
 import type { AccesModule, CodeModule, PermissionsModules } from "@/features/roles/types";
 
 export type { AccesModule, CodeModule };
@@ -14,8 +15,19 @@ export type { AccesModule, CodeModule };
 /**
  * Les chantiers qu'un compte voit : tous (direction), ou ceux de la personne
  * — ceux où elle est désignée dans l'équipe projet.
+ *
+ * `fonctionsSimulees` (identifiant de chantier → fonctions) ajoute des
+ * affectations que les données du chantier ne portent pas encore. Seul l'outil
+ * de test « Voir en tant que… » le remplit, tant que l'encadrement n'est pas
+ * livré côté serveur ; le profil réel ne le porte jamais.
  */
-export type PorteeProjets = { type: "TOUS" } | { type: "PERSONNE"; collaborateurId: string };
+export type PorteeProjets =
+  | { type: "TOUS" }
+  | {
+      type: "PERSONNE";
+      collaborateurId: string;
+      fonctionsSimulees?: Record<string, FonctionProjet[]>;
+    };
 
 export interface Droits {
   /**

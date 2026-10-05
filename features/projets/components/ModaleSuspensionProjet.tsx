@@ -37,7 +37,7 @@ export function ModaleSuspensionProjet({ projet, onFermer, onTermine }: Props) {
 
   const mutation = useMutation({
     mutationFn: (cible: Projet) =>
-      peutReprendre(cible) ? reprendreProjet(cible.id) : suspendreProjet(cible.id),
+      peutReprendre(cible) ? reprendreProjet(cible) : suspendreProjet(cible.id),
     onSuccess: (modifie) => {
       onTermine(modifie);
       onFermer();

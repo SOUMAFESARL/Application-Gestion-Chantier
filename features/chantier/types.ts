@@ -19,7 +19,7 @@
  * `adaptateur.ts`.
  */
 
-import type { ModeExecutionLot } from "@/features/projets/types";
+import type { ModeExecutionLot, UniteActivite } from "@/features/projets/types";
 
 /* ------------------------------------------------------------------ *
  * Statuts et circuit de validation.
@@ -159,13 +159,18 @@ export interface LigneActivite {
   observation: string | null;
 }
 
+/**
+ * `stockDebut` et `seuilAlerte` à `null` : un matériau saisi librement par le
+ * chef de chantier, sans fiche au stock — on sait ce qui a été consommé, pas
+ * ce qui reste.
+ */
 export interface LigneMateriau {
   designation: string;
   unite: string;
-  stockDebut: number;
+  stockDebut: number | null;
   livre: number;
   utilise: number;
-  seuilAlerte: number;
+  seuilAlerte: number | null;
 }
 
 export type Conformite = "CONFORME" | "PARTIELLE" | "NON_CONFORME";
@@ -225,6 +230,8 @@ export interface Blocage {
 }
 
 export interface Photo {
+  /** L'image elle-même ; `null` quand le serveur n'en sert que les métadonnées. */
+  url: string | null;
   legende: string;
   heure: string;
   latitude: number;
@@ -317,14 +324,15 @@ export interface EffectifSynthese {
   observation: string | null;
 }
 
+/** Les stocks à `null` : un matériau saisi librement, sans fiche au stock (voir `LigneMateriau`). */
 export interface MateriauSynthese {
   designation: string;
   unite: string;
-  stockDebut: number;
+  stockDebut: number | null;
   consomme: number;
   livre: number;
-  stockFin: number;
-  seuilAlerte: number;
+  stockFin: number | null;
+  seuilAlerte: number | null;
 }
 
 export interface IncidentSynthese extends Incident {
@@ -388,3 +396,287 @@ export interface SynthesePeriodique {
   objectifs: ObjectifSuivant[];
   circuit: EtapeCircuit[];
 }
+
+/* ------------------------------------------------------------------ *
+ * La saisie du rapport journalier — l'écran du chef de chantier.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Les sections propres au mode d'exécution du lot. Le contexte, les
+ * incidents, le blocage, les photos, les prévisions et la note sont communs à
+ * tous les modes et ne figurent donc pas ici.
+ *
+ * **Le serveur les donne, l'écran ne les déduit pas** (SFD F2, RG-F2-07) : si
+ * le mode d'un lot est corrigé avant son premier rapport, le formulaire suit
+ * sans mise à jour de l'application.
+ */
+export type SectionSaisie =
+  | "EFFECTIFS"
+  | "PRESENCE_SOUS_TRAITANT"
+  | "PRODUCTION"
+  | "AVANCEMENT"
+  | "MATERIAUX"
+  | "LIVRAISONS"
+  | "EQUIPEMENTS";
+
+/** Une journée sans travaux (SFD §4.4) : comptée dans le taux de remise, sans avancement ni consommation. */
+export type MotifArret = "INTEMPERIES" | "JOUR_FERIE" | "AUTRE";
+
+/** Le blocage se déclare en un choix unique ; « aucun » est une réponse, pas un oubli. */
+export type NiveauBlocageSaisi = "AUCUN" | NiveauBlocage;
+
+export type PresenceSousTraitant = "PRESENT" | "PARTIEL" | "ABSENT";
+export type QualiteExecution = "CONFORME" | "NON_CONFORME";
+
+/**
+ * Comment une activité se déclare au jour le jour : par la quantité réalisée
+ * (régie directe, sous-traitance structurée) ou par la production des
+ * tâcherons (sous-traitance informelle) — selon le mode de **son** lot.
+ */
+export type SuiviActivite = "AVANCEMENT" | "PRODUCTION";
+
+/** Une activité d'un lot du chantier, telle que le chef de chantier la renseigne ce jour. */
+export interface ActivitePreparee {
+  activiteId: string;
+  /** Le lot de l'activité : le rapport couvre tout le chantier, l'écran les regroupe par lot. */
+  lotId: string;
+  suivi: SuiviActivite;
+  code: string;
+  libelle: string;
+  /** `null` : activité suivie au pourcentage — sa quantité prévue vaut alors 100. */
+  unite: UniteActivite | null;
+  quantitePrevue: number;
+  /** Le cumul réalisé à la veille, calculé par le serveur. */
+  cumulVeille: number;
+  /** L'avancement attendu ce jour par le planning, en %. */
+  avancementTheorique: number;
+}
+
+/**
+ * Un matériau du stock du chantier (bon de réception valide, RG-F2-06). La
+ * saisie ne s'y limite plus : sa désignation et son unité sont seulement
+ * proposées au chef de chantier.
+ */
+export interface MateriauDisponible {
+  materiauId: string;
+  designation: string;
+  unite: string;
+  stockDebut: number;
+  seuilAlerte: number;
+}
+
+/** Ce que le rapport précédent du lot permet de ne pas ressaisir. */
+export interface ReprisesRapport {
+  effectifs: { categorie: string; prevus: number }[];
+  equipements: Pick<LigneEquipement, "designation" | "reference" | "propriete" | "operateur">[];
+  intervenants: { intervenant: string; activiteId: string; prixUnitaire: number }[];
+}
+
+/** Le point d'un lot travaillé ce jour : ce qui s'y est passé, au-delà des quantités. */
+export interface PointLot {
+  lotId: string;
+  observation: string;
+}
+
+/**
+ * Ce que le chef de chantier déclare d'un geste dans la rubrique « Événements
+ * chantier » — la liste du cahier « Journal de chantier intelligent » §2.
+ */
+export type NatureEvenement =
+  | "INCIDENT"
+  | "DIFFICULTE_TECHNIQUE"
+  | "NON_CONFORMITE"
+  | "RETARD"
+  | "INTEMPERIE"
+  | "ARRET_TRAVAUX"
+  | "INSTRUCTION"
+  | "EVENEMENT_PARTICULIER";
+
+/** Un événement du chantier tel que le chef de chantier le déclare. */
+export interface IncidentSaisi {
+  /** Identifiant local de la ligne : il suit l'alerte immédiate envoyée pour elle. */
+  cle: string;
+  nature: NatureEvenement;
+  /** La catégorie HSE / qualité que lit la synthèse ; choisie pour un incident, déduite de la nature sinon. */
+  type: TypeIncident;
+  /** La plage de l'événement (« pluie de 14 h à 15 h 30 ») — facultative. */
+  heureDebut: string;
+  heureFin: string;
+  gravite: GraviteIncident;
+  decidePar: RoleSignataire;
+  description: string;
+  action: string;
+}
+
+/**
+ * Un matériau consommé, tel que le chef de chantier le déclare : désignation
+ * et unité libres, sans lien obligé avec une fiche du stock.
+ */
+export interface MateriauConsomme {
+  designation: string;
+  quantite: number | null;
+  unite: string;
+}
+
+/** Une rupture constatée ou un besoin urgent — ce que l'approvisionnement doit lire le jour même. */
+export interface BesoinMateriau {
+  nature: "RUPTURE" | "URGENT";
+  designation: string;
+  quantite: string;
+  observation: string;
+}
+
+/** Un document joint au rapport. */
+export interface PieceJointe {
+  cle: string;
+  nom: string;
+  type: string;
+  /** En octets. */
+  taille: number;
+  /** Le fichier en `data:` — le serveur le remplace par son URL à l'envoi. */
+  url: string;
+}
+
+export interface PhotoSaisie {
+  cle: string;
+  /** L'image compressée, en `data:` — le serveur la remplace par son URL à l'envoi. */
+  url: string;
+  legende: string;
+  /** L'heure de prise de vue, en UTC. */
+  priseLe: string;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+/**
+ * Le rapport tel que le chef de chantier le remplit. Un brouillon peut être
+ * incomplet : les nombres non renseignés valent `null`, et c'est la
+ * soumission, pas l'enregistrement, qui exige les champs obligatoires.
+ */
+export interface SaisieRapport {
+  projetId: string;
+  /** `AAAA-MM-JJ`, de J-2 à J. */
+  date: string;
+  heureDebut: string;
+  heureFin: string;
+  /** Journée d'arrêt : intempéries, jour férié… `null` : journée travaillée. */
+  arret: { motif: MotifArret; precision: string } | null;
+  meteo: {
+    matin: Meteo;
+    apresMidi: Meteo;
+    conditions: ConditionsTravail;
+    temperatureMin: number | null;
+    temperatureMax: number | null;
+    humidite: number | null;
+    vent: string;
+    prevision: string;
+  };
+  effectifs: {
+    categorie: string;
+    /** Le personnel affecté à la catégorie. */
+    prevus: number | null;
+    presents: number | null;
+    /** Les arrivées en retard, parmi les présents. */
+    retards: number | null;
+    heures: number | null;
+    observation: string;
+  }[];
+  presenceSousTraitant: {
+    presence: PresenceSousTraitant;
+    motif: string;
+    qualite: QualiteExecution;
+    observation: string;
+  } | null;
+  production: { intervenant: string; activiteId: string; quantiteJour: number | null; prixUnitaire: number | null }[];
+  /**
+   * Les lots suivis à l'avancement sur lesquels on a travaillé ce jour, et le
+   * point du chef de chantier sur chacun. Le rapport couvre le chantier : c'est
+   * ici qu'il dit lot par lot où il en est. Seules les activités de ces lots
+   * figurent dans `activites`.
+   */
+  lotsTravailles: PointLot[];
+  /** `localisation` : la zone, le bâtiment, le niveau où l'activité a avancé. */
+  activites: { activiteId: string; quantiteJour: number | null; localisation: string; observation: string }[];
+  materiaux: MateriauConsomme[];
+  livraisons: (Omit<Livraison, "observation"> & { observation: string })[];
+  besoins: BesoinMateriau[];
+  /** `dureeArret` : les heures d'immobilisation d'un engin en panne ou en entretien. */
+  equipements: (Omit<LigneEquipement, "observation"> & { observation: string; dureeArret: number | null })[];
+  incidents: IncidentSaisi[];
+  blocage: { niveau: NiveauBlocageSaisi; nature: NatureBlocage | null; description: string; impact: string };
+  photos: PhotoSaisie[];
+  piecesJointes: PieceJointe[];
+  previsions: Prevision[];
+  note: string;
+}
+
+/** Un rapport déjà commencé pour ce chantier et ce jour — il n'en existe qu'un (RG-F2-01). */
+export interface RapportExistant {
+  id: string;
+  statut: StatutRapport;
+  saisie: SaisieRapport;
+  enregistreLe: string;
+  /** Le motif du CT quand il a rejeté le rapport. */
+  commentaireRejet: string | null;
+  /** Les alertes immédiates déjà parties (`BLOCAGE`, ou la clé d'un incident). */
+  alertesEnvoyees: string[];
+}
+
+/** Le chantier tel que la saisie le voit. */
+export interface ProjetSaisie {
+  id: string;
+  nom: string;
+  reference: string;
+  chefChantier: string;
+}
+
+/**
+ * Tout ce qu'il faut pour ouvrir le formulaire d'un chantier pour un jour.
+ *
+ * Le rapport couvre **tous les lots en cours** du chantier : `sections` est
+ * la réunion des sections de leurs modes d'exécution, et chaque activité dit
+ * à quel lot elle appartient et comment elle se déclare.
+ */
+export interface PreparationSaisie {
+  /** Le jour du serveur. */
+  aujourdhui: string;
+  projet: ProjetSaisie;
+  /** Les lots en cours, avec leur mode d'exécution. */
+  lots: LotJournal[];
+  sections: SectionSaisie[];
+  activites: ActivitePreparee[];
+  materiaux: MateriauDisponible[];
+  reprises: ReprisesRapport;
+  rapport: RapportExistant | null;
+}
+
+/** Un rapport du chef de chantier sur un chantier, quel que soit son statut. */
+export interface RapportDuJour {
+  id: string;
+  date: string;
+  statut: StatutRapport;
+  enregistreLe: string;
+}
+
+/** Les rapports d'un chef de chantier sur un chantier, et le jour du serveur. */
+export interface RapportsProjet {
+  aujourdhui: string;
+  rapports: RapportDuJour[];
+}
+
+/**
+ * Un rapport attendu et pas encore remis : jamais commencé, resté en
+ * brouillon, ou rejeté. Au-delà de J-2, il ne se rédige plus (`redigeable`).
+ */
+export interface RapportEnAttente {
+  date: string;
+  etat: "A_REDIGER" | "BROUILLON" | "REJETE";
+  rapportId: string | null;
+  enregistreLe: string | null;
+  redigeable: boolean;
+}
+
+/** Une alerte qui part dès la sélection, avant la soumission (RG-F2-11). */
+export type AlerteImmediate =
+  | { type: "BLOCAGE_BLOQUANT"; description: string }
+  | { type: "INCIDENT_GRAVE"; cle: string; description: string };

@@ -43,8 +43,8 @@ import {
   projetVisible,
   useDroits,
 } from "@/features/habilitations";
-import { lireProjet, listerEquipes, listerLots } from "@/features/projets/adaptateur";
-import { cleEquipes, cleLots, cleProjet } from "@/features/projets/cles";
+import { lireProjet, lireStatistiques, listerEquipes, listerLots } from "@/features/projets/adaptateur";
+import { cleEquipes, cleLots, cleProjet, cleStatistiques } from "@/features/projets/cles";
 import { useGestionProjet } from "@/features/projets/components/GestionProjet";
 import {
   budgetRestant,
@@ -158,6 +158,10 @@ export function FicheProjet({ projetId }: { projetId: string }) {
     queryKey: cleEquipes(projetId),
     queryFn: ({ signal }) => listerEquipes(projetId, signal),
   });
+  const requeteStatistiques = useQuery({
+    queryKey: cleStatistiques(projetId),
+    queryFn: ({ signal }) => lireStatistiques(projetId, signal),
+  });
 
   /**
    * L'en-tête reste collé sous celui de l'application, comme le sélecteur
@@ -175,9 +179,13 @@ export function FicheProjet({ projetId }: { projetId: string }) {
   const peutValider = peut("projets", "validation");
   const voitFinance = peut("finance");
 
+  // Les chiffres du serveur quand il les tient ; sinon, ceux des lots affichés.
   const synthese = useMemo(
-    () => syntheseLots(requeteLots.data ?? []),
-    [requeteLots.data],
+    () =>
+      requeteStatistiques.data ??
+      requete.data?.statistiques ??
+      syntheseLots(requeteLots.data ?? []),
+    [requeteStatistiques.data, requete.data?.statistiques, requeteLots.data],
   );
 
   const retour = (
