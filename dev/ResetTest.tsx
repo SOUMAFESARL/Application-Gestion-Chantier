@@ -47,9 +47,8 @@ import { useOutilsTest } from "./garde";
  * qui a l'air d'un bouton du produit est un bouton sur lequel on clique par
  * réflexe. C'est l'esprit du §8 : rien de simulé ne doit pouvoir passer pour réel.
  *
- * **Double garde.** Voir `garde.ts` : la variable `NEXT_PUBLIC_OUTILS_TEST` et
- * un nom d'hôte local, deux verrous indépendants qu'un déploiement accidentel
- * n'ouvre ni l'un ni l'autre.
+ * **Garde.** Voir `garde.ts` : visible partout sauf dans le build de
+ * production (`NEXT_PUBLIC_ENVIRONNEMENT=production`).
  */
 
 /** Préfixe commun à tout ce que l'application écrit dans le navigateur. */

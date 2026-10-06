@@ -44,7 +44,8 @@ import {
  * DG — une écriture faite « en tant que » est donc faite par le DG. Pour
  * tester les refus du **serveur**, il faudra les vrais comptes.
  *
- * **Deux verrous** (`garde.ts`), et l'incarnation n'est retenue que si la
+ * **Garde** : `useOutilsTest` (`garde.ts`) — partout sauf en
+ * production. L'incarnation n'est retenue que si la
  * personne réellement connectée est le DG. Elle vit en `sessionStorage` :
  * elle disparaît avec l'onglet.
  */
@@ -110,7 +111,7 @@ export function quitterIncarnation(): void {
 
 /**
  * Les droits en vigueur dans la coquille : ceux du profil, ou ceux du rôle
- * incarné quand les deux verrous sont ouverts et que le DG est connecté.
+ * incarné hors production et quand le DG est connecté.
  * `null` tant qu'ils ne sont pas connus.
  */
 export function useDroitsEnVigueur(profil: ProfilUtilisateur | null) {
@@ -147,7 +148,7 @@ export function useDroitsEnVigueur(profil: ProfilUtilisateur | null) {
 }
 
 /**
- * L'outil dans la barre du haut. Rien du tout hors poste de dev ou hors DG.
+ * L'outil dans la barre du haut. Rien du tout en production ou hors DG.
  *
  * Hors incarnation : un bouton « Voir en tant que… ». Pendant : la pastille
  * qui rappelle en permanence qu'on n'est plus le DG — un clic dessus change

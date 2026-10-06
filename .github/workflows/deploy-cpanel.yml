@@ -26,6 +26,8 @@ jobs:
       NEXT_PUBLIC_API_PORT: ""
       NEXT_PUBLIC_DOMAINE_PRINCIPAL: api-chantier.soumafe.com
       NEXT_PUBLIC_API_SIMULE: "0"
+      # Masque « Voir en tant que… » (dev/garde.ts), visible partout ailleurs.
+      NEXT_PUBLIC_ENVIRONNEMENT: production
 
     steps:
       - name: Checkout
