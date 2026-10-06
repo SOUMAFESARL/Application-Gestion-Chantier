@@ -2352,8 +2352,7 @@
       "tiers": "Tiers",
       "chantierSynthese": "Synthèse périodique",
       "chantierRapport": "Rapport journalier",
-      "monProfil": "Mon profil",
-      "redigerRapport": "Rédiger mon rapport"
+      "monProfil": "Mon profil"
     },
     "portefeuille": {
       "budgetNonDefini": "Non défini",
@@ -2479,7 +2478,7 @@
       "rapportsRecusValeur": "{recus}/{attendus} — taux {taux} %",
       "manquants": "Rapports manquants",
       "aucunManquant": "Aucun",
-      "manquant": "{code} du {date}",
+      "manquant": "{date}",
       "intervenants": "Intervenants",
       "chefChantierLot": "Chef de chantier {code}",
       "progression": "Progression",
@@ -2522,11 +2521,11 @@
       "recapitulatif": {
         "complement": "{valides}/{attendus} rapports validés",
         "date": "Date",
-        "lot": "Lot",
+        "lots": "Lots travaillés",
         "chef": "Chef de chantier",
         "statut": "Statut",
         "effectifs": "Effectifs",
-        "avancement": "Av. lot",
+        "avancement": "Av. chantier",
         "incidents": "Incidents",
         "blocages": "Blocages",
         "vide": "Aucun rapport attendu sur cette période.",
@@ -2573,7 +2572,6 @@
       },
       "incidents": {
         "date": "Date",
-        "lot": "Lot",
         "type": "Type",
         "description": "Description",
         "gravite": "Gravité",
@@ -2587,7 +2585,7 @@
       },
       "appreciation": {
         "auteur": "{nom} — conducteur de travaux · {quand}",
-        "enAttente": "La période n'est pas close : le conducteur de travaux rédigera son appréciation à sa clôture."
+        "enAttente": "Le conducteur de travaux n'a pas encore rédigé son appréciation de la période."
       },
       "objectifs": {
         "lot": "Lot",
@@ -2607,10 +2605,10 @@
     "indicateurs": {
       "aria": "Situation des rapports journaliers",
       "attendus": "Rapports attendus aujourd'hui",
-      "detailAttendus": "Lots actifs sur {chantiers, plural, one {# chantier} other {# chantiers}}",
+      "detailAttendus": "Un rapport par chantier actif ({chantiers, plural, one {# chantier} other {# chantiers}})",
       "deposes": "Rapports déposés",
       "sansAttente": "Aucun rapport attendu",
-      "detailDeposes": "{taux} % des lots actifs",
+      "detailDeposes": "{taux} % des chantiers actifs",
       "manquants": "Rapports manquants",
       "detailManquants": "Relance automatique à 17h30",
       "validations": "En attente de validation",
@@ -2672,10 +2670,10 @@
     },
     "jour": {
       "videTitre": "Aucun rapport attendu aujourd'hui",
-      "videDescription": "Les rapports journaliers sont attendus du lundi au vendredi, pour chaque lot actif.",
-      "deposesChantier": "{deposes}/{total} rapports déposés",
-      "alerteAutomatique": "Un lot sans rapport déposé à {heure} déclenche une relance automatique (notification et e-mail) du chef de chantier ; le conducteur de travaux et le chef de projet sont alertés à {escalade} si le rapport manque toujours.",
-      "titreLot": "{code} · {nom}",
+      "videDescription": "Les rapports journaliers sont attendus du lundi au vendredi, un par chantier actif.",
+      "deposesChantiers": "{deposes}/{total} rapports déposés aujourd'hui — un rapport par chantier, qui couvre tous les lots travaillés.",
+      "alerteAutomatique": "Un chantier sans rapport déposé à {heure} déclenche une relance automatique (notification et e-mail) du chef de chantier ; le conducteur de travaux et le chef de projet sont alertés à {escalade} si le rapport manque toujours.",
+      "lotsTravailles": "{n, plural, one {# lot travaillé} other {# lots travaillés}} : {codes}",
       "chefChantier": "Chef de chantier",
       "dernierRapport": "Dernier rapport",
       "dernierRapportLe": "{date} ({jours, plural, =0 {hier} one {il y a # jour ouvré} other {il y a # jours ouvrés}})",
@@ -2683,7 +2681,7 @@
       "effectifs": "Effectifs",
       "nonRenseigne": "Non renseigné",
       "effectifsValeur": "{presents}/{prevus} ({taux} %)",
-      "avancement": "Avancement du lot",
+      "avancement": "Avancement du chantier",
       "avancementValeur": "{reel} % · prévu {theorique} %",
       "incidents": "Incidents",
       "blocages": "Blocages",
@@ -2693,7 +2691,7 @@
         "rediger": "Rédiger un rapport",
         "videTitre": "Aucun rapport rédigé aujourd'hui",
         "videDescription": "Le rapport du jour est attendu avant {heure} ; passé ce délai, une relance automatique vous est envoyée.",
-        "restants": "{n, plural, one {# lot attend encore son rapport du jour} other {# lots attendent encore leur rapport du jour}} — à déposer avant {heure}.",
+        "restants": "{n, plural, one {# chantier attend encore son rapport du jour} other {# chantiers attendent encore leur rapport du jour}} — à déposer avant {heure}.",
         "sousTitre": "{chantier}{reference, select, aucune {} other { · {reference}}}{quand, select, aucun {} other { · soumis à {quand}}}",
         "circuit": "Circuit de validation"
       }
@@ -2704,8 +2702,7 @@
       "videDescription": "Tous les rapports déposés ont été validés par le conducteur de travaux et approuvés par le chef de projet.",
       "rejetesTitre": "Rapports rejetés",
       "rejetesSousTitre": "Renvoyés au chef de chantier pour correction",
-      "explication": "Le conducteur de travaux valide chaque rapport sous {heures} h, puis le chef de projet l'approuve. Tant qu'il n'est pas approuvé, un rapport ne compte ni dans l'avancement ni dans les bons de paiement ; une fois approuvé, il n'est plus modifiable.",
-      "titre": "{code} {lot} — {chantier}",
+      "titre": "{chantier}{lots, select, aucun {} other { — {lots}}}",
       "horsDelai": "Hors délai",
       "details": "{date} · {chef} · effectifs {presents}/{prevus} ({taux} %) · avancement {avancement} % · {incidents, plural, =0 {aucun incident} one {# incident} other {# incidents}} · {blocages, plural, =0 {aucun blocage} one {# blocage} other {# blocages}}",
       "relancer": "Relancer le {role}",
@@ -2714,7 +2711,7 @@
     },
     "historique": {
       "recherche": "Rechercher un rapport",
-      "recherchePlaceholder": "Référence, lot, chantier, chef…",
+      "recherchePlaceholder": "Référence, chantier, lot, chef…",
       "filtreChantier": "Filtrer par chantier",
       "filtreChantierTous": "Tous les chantiers",
       "filtreStatut": "Filtrer par statut",
@@ -2727,13 +2724,12 @@
       },
       "aucunResultat": "Aucun rapport ne correspond à ces critères.",
       "aucuneLigne": "Aucun rapport journalier pour l'instant.",
-      "lot": "{code} · {nom}",
       "effectifs": "{presents}/{prevus} ({taux} %)",
       "pourcent": "{valeur} %",
       "voir": "Voir le rapport {reference}",
       "colonnes": {
         "date": "Date",
-        "lot": "Chantier / lot",
+        "chantier": "Chantier",
         "chefChantier": "Chef de chantier",
         "effectifs": "Effectifs",
         "avancement": "Av. lot",
@@ -2748,11 +2744,11 @@
         "date": "Date",
         "reference": "Référence",
         "chantier": "Chantier",
-        "lot": "Lot",
+        "lots": "Lots travaillés",
         "chefChantier": "Chef de chantier",
         "presents": "Présents",
         "prevus": "Prévus",
-        "avancement": "Avancement du lot (%)",
+        "avancement": "Avancement du chantier (%)",
         "theorique": "Avancement théorique (%)",
         "incidents": "Incidents",
         "blocages": "Blocages",
@@ -2853,6 +2849,12 @@
         "MINEUR": "Mineur",
         "SIGNIFICATIF": "Significatif",
         "BLOQUANT": "Bloquant"
+      },
+      "formatDocument": {
+        "PDF": "PDF",
+        "WORD": "Word",
+        "EXCEL": "Excel",
+        "AUTRE": "Autre"
       }
     },
     "rapport": {
@@ -2862,10 +2864,10 @@
       "erreurChargement": "Le rapport n'a pas pu être chargé.",
       "identification": "Identification",
       "projet": "Projet",
-      "lot": "Lot",
-      "lotValeur": "{code} — {nom}",
-      "titrePage": "Rapport du {jour}",
-      "mode": "Mode d'exécution",
+      "lots": "Lots travaillés",
+      "lotsValeur": "{n, plural, =0 {Aucun lot travaillé} one {# lot travaillé} other {# lots travaillés}}",
+      "lotMode": "{code} — {nom} ({mode})",
+      "titrePage": "{chantier} — rapport du {jour}",
       "referenceProjet": "Référence projet",
       "numero": "N° de rapport",
       "localisation": "Localisation",
@@ -2882,7 +2884,7 @@
       "total": "Total",
       "quantiteUnite": "{quantite} {unite}",
       "chiffres": {
-        "avancement": "Avancement du lot",
+        "avancement": "Avancement du chantier",
         "retard": "Retard {points} pts · prévu {theorique} %",
         "alHeure": "Dans le planning · prévu {theorique} %",
         "effectifs": "Effectifs",
@@ -2906,13 +2908,14 @@
         "meteo": "Conditions météorologiques et de travail",
         "effectifs": "Effectifs présents",
         "production": "Production des intervenants informels",
-        "avancement": "Avancement des travaux — lot {code} {nom}",
+        "avancement": "Avancement des travaux par lot",
         "materiaux": "Matériaux et consommables utilisés",
         "livraisons": "Livraisons reçues ce jour",
         "equipements": "Équipements et engins en service",
         "incidents": "Incidents et non-conformités",
         "blocages": "Blocages signalés",
         "photos": "Photos géolocalisées",
+        "documents": "Documents joints",
         "previsions": "Prévisions pour le jour suivant",
         "note": "Note du chef de chantier",
         "circuit": "Circuit de validation — CC → CT → CP"
@@ -2935,7 +2938,7 @@
         "presence": "Présence",
         "heures": "Heures",
         "observation": "Motif d'absence / observations",
-        "sousTraitant": "Lot en sous-traitance structurée : le détail des effectifs est tenu par le sous-traitant. Effectif déclaré ce jour : {presents}/{prevus}.",
+        "sousTraitant": "Lots en sous-traitance structurée : le détail des effectifs est tenu par le sous-traitant. Effectif déclaré ce jour : {presents}/{prevus}.",
         "appreciation": {
           "BONNE": "Bonne",
           "ACCEPTABLE": "Acceptable",
@@ -2953,7 +2956,11 @@
         "aide": "Quantités du jour × bordereau de prix = montant du bon de paiement. La validation du conducteur de travaux est obligatoire avant tout calcul de paiement."
       },
       "avancement": {
-        "global": "Avancement global : {reel} % · théorique {theorique} %",
+        "global": "Avancement du chantier : {reel} % · théorique {theorique} %",
+        "lot": "Lot {code} — {nom}",
+        "lotDetail": "{mode} · avancement {reel} % · prévu {theorique} %",
+        "point": "Point du chef de chantier : {texte}",
+        "aucunLot": "Aucun lot n'a été travaillé ce jour.",
         "activite": "Activité",
         "unite": "Unité",
         "prevue": "Qté prévue",
@@ -3021,6 +3028,13 @@
         "meta": "{heure} · {latitude}° N, {longitude}° O",
         "gps": "GPS confirmé"
       },
+      "documents": {
+        "nom": "Document",
+        "type": "Type",
+        "taille": "Taille",
+        "tailleValeur": "{valeur} Ko",
+        "vide": "Aucun document joint à ce rapport."
+      },
       "previsions": {
         "activite": "Activité prévue",
         "equipe": "Équipe affectée",
@@ -3034,6 +3048,8 @@
       },
       "pdf": {
         "nomFichier": "rapport-journalier-{reference}.pdf",
+        "lot": "{lot} — {detail}",
+        "separateurLots": " ; ",
         "dateGeneration": "Date de génération : {date}",
         "identification": "Identification et chiffres du jour",
         "retard": "Retard {points} pts",
@@ -3041,7 +3057,8 @@
         "photo": "{titre} — {legende} · {meta}",
         "signeLe": "Signé le : {quand}",
         "signeLeVide": "Signé le :",
-        "page": "Page {page}/{total}"
+        "page": "Page {page}/{total}",
+        "chiffre": "{valeur} — {detail}"
       }
     },
     "saisie": {
@@ -3057,14 +3074,10 @@
       "erreurGenerique": "L'opération n'a pas abouti. Réessayez dans un instant.",
       "retourRapports": "Mes rapports",
       "lotsCouverts": "{n, plural, one {Un lot en cours} other {# lots en cours}}",
-      "ensemble": {
-        "code": "Chantier"
-      },
       "aucunLot": {
         "titre": "Aucun lot en cours sur ce chantier",
         "description": "Le rapport journalier couvre les lots en cours du chantier. Rapprochez-vous de votre chef de projet pour structurer les lots."
       },
-      "copieRestauree": "Votre saisie non envoyée a été restaurée depuis ce téléphone.",
       "horsLigneConserve": "Hors connexion : la saisie est conservée sur ce téléphone et partira au retour du réseau.",
       "brouillonEnregistre": "Brouillon enregistré.",
       "aCorriger": "{n, plural, one {Une section est à compléter avant de soumettre.} other {# sections sont à compléter avant de soumettre.}}",
@@ -3111,7 +3124,12 @@
         "prevuLe": "Prévu le {jour}",
         "horsDelai": "Hors délai",
         "horsDelaiDetail": "Au-delà de deux jours, seul le conducteur de travaux peut établir un rapport de substitution.",
-        "enregistreA": "enregistré à {heure}"
+        "enregistreA": "enregistré à {heure}",
+        "brouillons": {
+          "titre": "{n, plural, =0 {Mes brouillons} other {Mes brouillons (#)}}",
+          "aucun": "Aucun brouillon en cours, tous chantiers confondus.",
+          "incomplet": "Certains chantiers n'ont pas pu être consultés : la liste peut être incomplète."
+        }
       },
       "horsDelai": {
         "titre": "Ce jour ne peut plus être rapporté",
@@ -3155,7 +3173,6 @@
         "motifArret": "Motif de l'arrêt",
         "precisionArret": "Précision",
         "precisionArretExemple": "Ex. : pluie continue de 7 h à 13 h",
-        "arretEffet": "Le rapport compte dans le taux de remise, sans créer de sortie de stock ni d'avancement.",
         "meteo": "Météo",
         "reprendreReleve": "Reprendre le relevé ({temperature} °C, {ville})",
         "matin": "Matin",
@@ -3165,9 +3182,7 @@
         "temperatureMax": "T° max",
         "humidite": "Humidité",
         "vent": "Vent",
-        "ventExemple": "Ex. : faible, sud-ouest",
-        "prevision": "Prévision pour demain",
-        "previsionExemple": "Ex. : orages annoncés l'après-midi — décaler le coulage"
+        "ventExemple": "Ex. : faible, sud-ouest"
       },
       "motifsArret": {
         "INTEMPERIES": "Intempéries",
@@ -3241,23 +3256,35 @@
       },
       "avancement": {
         "lotsTravailles": "Lots travaillés ce jour",
+        "lotsChoisis": "{n, plural, =0 {Aucun lot choisi} one {# lot choisi} other {# lots choisis}} sur {total}",
+        "ajouterLot": "Ajouter un lot",
+        "rechercherLot": "Rechercher un lot par code ou nom",
+        "aucunLotTrouve": "Aucun lot ne correspond.",
+        "aucunLotChoisi": "Aucun lot travaillé pour l'instant",
+        "aucunLotChoisiAide": "Ajoutez les lots sur lesquels l'équipe a travaillé aujourd'hui.",
+        "activitesRenseignees": "{n}/{total} activités renseignées",
+        "activitesDuJour": "{n, plural, =0 {Aucune activité du jour} one {# activité du jour} other {# activités du jour}} sur {total}",
+        "ajouterActivite": "Ajouter une activité",
+        "rechercherActivite": "Rechercher une activité par code ou libellé",
+        "aucuneActiviteTrouvee": "Aucune activité ne correspond.",
+        "aucuneActiviteChoisie": "Aucune activité ajoutée",
+        "aucuneActiviteChoisieAide": "Ajoutez celles réalisées aujourd'hui ; les autres ne figurent pas au rapport.",
+        "activiteAvancement": "À la veille : {avancement} % · planning : {theorique} %",
+        "retirerActivite": "Retirer l'activité {code} du rapport",
         "nbActivites": "{nombre, plural, one {# activité} other {# activités}}",
         "avancementLot": "Lot ce soir : {avancement} % · planning : {theorique} %",
-        "jaugeLot": "Avancement du lot {code}",
         "retirerLot": "Retirer le lot {code} du rapport",
         "pointLot": "Observations sur le lot",
         "pointLotAide": "Ce qu'il faut retenir du lot aujourd'hui — obligatoire si aucune activité n'a avancé.",
         "aucuneActivite": "Ces lots n'ont encore aucune activité : demandez au chef de projet de les créer.",
         "activiteValeur": "{code} — {libelle}",
         "unitePourcent": "%",
-        "jauge": "Avancement de {libelle}",
         "repere": "Veille : {veille} · ce soir : {cumul} / {prevu} {unite} · planning : {theorique} %",
         "quantiteJour": "Quantité réalisée",
         "observation": "Observations",
         "depassement": "Le cumul dépasse la quantité prévue : vérifiez le métré, ou signalez un avenant.",
         "localisation": "Localisation / zone / bâtiment",
-        "localisationExemple": "Ex. : bâtiment B, R+1",
-        "niveau": "Niveau d'avancement"
+        "localisationExemple": "Ex. : bâtiment B, R+1"
       },
       "materiaux": {
         "description": "Ce que le chantier a consommé aujourd'hui, saisi librement. Les matériaux du stock et les unités courantes sont proposés.",
@@ -3368,7 +3395,6 @@
         "echecEnvoi": "L'alerte n'a pas pu partir. Elle sera renvoyée au retour du réseau."
       },
       "photos": {
-        "description": "Jusqu'à 5 photos, horodatées et géolocalisées à la prise de vue.",
         "prendre": "Prendre une photo",
         "choisir": "Depuis la galerie",
         "limite": "{max} photos au plus par rapport : les suivantes n'ont pas été ajoutées.",
@@ -3476,11 +3502,8 @@
         "synthese": "Synthèse"
       },
       "sansObjet": {
-        "travauxArret": "Journée d'arrêt : aucun travail à déclarer.",
         "rh": "Les lots de ce chantier ne suivent pas d'effectif : leurs tâcherons se déclarent dans « Travaux réalisés ».",
-        "rhArret": "Journée d'arrêt : aucun effectif à déclarer.",
-        "materiels": "Les lots de ce chantier ne suivent pas leurs engins au journal.",
-        "materielsArret": "Journée d'arrêt : aucun engin à déclarer."
+        "materiels": "Les lots de ce chantier ne suivent pas leurs engins au journal."
       },
       "besoins": {
         "description": "Ce que l'approvisionnement doit savoir le jour même.",

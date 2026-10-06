@@ -1,5 +1,6 @@
 import {
   CIBLE_PRESENCE,
+  codesLots,
   ecartObjectif,
   enAlerteStock,
   estManquant,
@@ -116,9 +117,7 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
               manquants.length === 0
                 ? s("aucunManquant")
                 : manquants
-                    .map((entree) =>
-                      s("manquant", { code: entree.lot.code, date: formaterJourMoisNumerique(entree.date) }),
-                    )
+                    .map((entree) => s("manquant", { date: formaterJourMoisNumerique(entree.date) }))
                     .join(separateur),
             ton: manquants.length ? "erreur" : undefined,
             large: true,
@@ -218,7 +217,7 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
       tableau(
         [
           s("recapitulatif.date"),
-          s("recapitulatif.lot"),
+          s("recapitulatif.lots"),
           s("recapitulatif.chef"),
           s("recapitulatif.statut"),
           s("recapitulatif.effectifs"),
@@ -231,17 +230,17 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
             const absent = estManquant(entree.situation);
             return [
               cellule(formaterJourMoisNumerique(entree.date)),
-              cellule(entree.lot.code),
-              cellule(entree.lot.chefChantier),
+              cellule(codesLots(entree.lots) || ABSENT),
+              cellule(entree.chantier.chefChantier),
               cellule(t(`situation.${entree.situation}`), { gras: true, ton: TON_SITUATION[entree.situation] }),
               cellule(
                 absent || entree.effectifPresent === null
                   ? ABSENT
                   : fraction(entree.effectifPresent, entree.effectifPrevu ?? 0),
               ),
-              absent || entree.avancementLot === null
+              absent || entree.avancement === null
                 ? cellule(s("recapitulatif.nonDisponible"), { ton: "neutre" })
-                : cellule(pourcent(entree.avancementLot), { gras: true }),
+                : cellule(pourcent(entree.avancement), { gras: true }),
               cellule(absent ? ABSENT : (entree.incidents ?? 0)),
               cellule(absent ? ABSENT : (entree.blocages ?? 0)),
             ];
@@ -408,7 +407,6 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
       tableau(
         [
           s("incidents.date"),
-          s("incidents.lot"),
           s("incidents.type"),
           s("incidents.description"),
           s("incidents.gravite"),
@@ -417,7 +415,6 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
         [
           ...synthese.incidents.map((incident) => [
             cellule(formaterJourMoisNumerique(incident.date)),
-            cellule(incident.lotCode),
             cellule(t(`enumerations.typeIncident.${incident.type}`)),
             cellule(incident.description),
             cellule(t(`enumerations.gravite.${incident.gravite}`), { gras: true, ton: TON_GRAVITE[incident.gravite] }),
@@ -432,7 +429,6 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
             ? [
                 [
                   cellule(s("incidents.total", { n: synthese.incidents.length }), { gras: true }),
-                  cellule(""),
                   cellule(""),
                   cellule(""),
                   cellule(s("incidents.totalGravite", { majeurs: chiffres.incidentsMajeurs }), { gras: true }),

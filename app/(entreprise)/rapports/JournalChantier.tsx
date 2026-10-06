@@ -9,7 +9,7 @@ import { useMemo, useState } from "react";
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { Bouton, EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import { situationDuJour, tauxSoumission, validationsEnAttente } from "@/features/chantier";
-import { JOURNAL_SIMULE, lireJournal } from "@/features/chantier/adaptateur";
+import { lireJournal } from "@/features/chantier/adaptateur";
 import { CLE_JOURNAL } from "@/features/chantier/cles";
 import { estRedacteurJournal, useDroits, useProjetsVisibles } from "@/features/habilitations";
 
@@ -58,10 +58,7 @@ export function JournalChantier() {
   // espace neuf afficherait une erreur là où il n'y a simplement rien.
   // Hors direction, seulement ses chantiers — et le journal de ceux-là.
   const requeteProjets = useProjetsVisibles();
-  // Tant que le journal est simulé, ses chantiers sont ceux du jeu de
-  // démonstration, pas ceux de l'API : il s'affiche en entier, sans filtre ni
-  // garde « aucun projet », pour que l'écran reste lisible (backend compris).
-  const sansProjet = !JOURNAL_SIMULE && requeteProjets.isSuccess && requeteProjets.data.length === 0;
+  const sansProjet = requeteProjets.isSuccess && requeteProjets.data.length === 0;
 
   const requete = useQuery({
     queryKey: CLE_JOURNAL,
@@ -73,11 +70,11 @@ export function JournalChantier() {
   });
 
   const journal = useMemo(() => {
-    if (JOURNAL_SIMULE || !requete.data || !requeteProjets.data) return requete.data;
+    if (!requete.data || !requeteProjets.data) return requete.data;
     const visibles = new Set(requeteProjets.data.map((projet) => projet.id));
     return {
       ...requete.data,
-      entrees: requete.data.entrees.filter((entree) => visibles.has(entree.lot.projetId)),
+      entrees: requete.data.entrees.filter((entree) => visibles.has(entree.chantier.projetId)),
     };
   }, [requete.data, requeteProjets.data]);
   const maintenant = useMemo(() => (journal ? new Date(journal.luLe) : null), [journal]);

@@ -8,15 +8,17 @@
  * backend (`backend/apps/chantier/`) d'après les maquettes F2 et le message
  * du 25/09 :
  *
- * - `GET  /chantier/journal/?date_debut=&date_fin=` — les lignes lot × jour,
- *   absences comprises (le serveur sait quels lots étaient attendus) ;
+ * - `GET  /chantier/journal/?date_debut=&date_fin=` — les lignes chantier ×
+ *   jour, absences comprises (le serveur sait quels chantiers étaient
+ *   attendus) ; chaque ligne nomme les lots dont le rapport rend compte ;
  * - `GET  /chantier/rapports/{id}/` — un rapport journalier complet ;
  * - `POST /chantier/journal/{id}/relancer/` — relance du CC ou du signataire ;
  * - `GET  /chantier/syntheses/?projet=&type=&date_debut=&date_fin=` — la
  *   synthèse agrégée à la demande par l'ORM.
  *
  * Tant que Django ne les sert pas, `JOURNAL_SIMULE` aiguille vers
- * `simulationJournal`. Les noms de champs sont **à confirmer** : c'est ici,
+ * `simulationJournal` (rapports du formulaire de saisie, complétés de rapports de
+ * démonstration sur les vrais chantiers). Les noms de champs sont **à confirmer** : c'est ici,
  * et seulement ici, qu'il faudra les corriger.
  */
 
@@ -63,6 +65,7 @@ import type {
   SituationRapport,
   StatutRapport,
   SynthesePeriodique,
+  TravauxLot,
   TypePeriode,
 } from "./types";
 
@@ -75,6 +78,13 @@ interface ChargeLot {
   code: string;
   nom: string;
   mode_execution: ModeExecutionLot;
+  projet_id: string;
+  projet_nom: string;
+  projet_reference: string;
+  chef_chantier_nom: string;
+}
+
+interface ChargeChantier {
   projet_id: string;
   projet_nom: string;
   projet_reference: string;
@@ -94,11 +104,12 @@ interface ChargeEntree {
   id: string;
   reference: string | null;
   date: string;
-  lot: ChargeLot;
+  chantier: ChargeChantier;
+  lots: ChargeLot[];
   statut: StatutRapport | "NON_SOUMIS";
   effectif_present: number | null;
   effectif_prevu: number | null;
-  avancement_lot: number | null;
+  avancement: number | null;
   avancement_theorique: number | null;
   nb_incidents: number | null;
   nb_blocages: number | null;
@@ -143,14 +154,20 @@ interface ChargeRapport extends ChargeEntree {
         cumul: number;
       }[]
     | null;
-  activites: {
-    libelle: string;
-    unite: string;
-    quantite_prevue: number;
-    cumul_veille: number;
-    quantite_jour: number;
+  travaux: {
+    lot: ChargeLot;
+    avancement: number;
     avancement_theorique: number;
     observation?: string | null;
+    activites: {
+      libelle: string;
+      unite: string;
+      quantite_prevue: number;
+      cumul_veille: number;
+      quantite_jour: number;
+      avancement_theorique: number;
+      observation?: string | null;
+    }[];
   }[];
   materiaux: {
     designation: string;
@@ -195,6 +212,8 @@ interface ChargeRapport extends ChargeEntree {
     longitude: number;
     gps_confirme: boolean;
   }[];
+  /** Absent d'un serveur qui ne les renvoie pas encore : aucun document. */
+  pieces_jointes?: { nom: string; type_mime: string; taille: number; fichier?: string | null }[];
   previsions: { activite: string; equipe: string; objectif: string; prerequis: string }[];
 }
 
@@ -265,7 +284,7 @@ interface ChargeSynthese {
     stock_fin: number;
     seuil_alerte: number;
   }[];
-  incidents: (ChargeIncident & { date: string; lot_code: string })[];
+  incidents: (ChargeIncident & { date: string })[];
   appreciation: { auteur_nom: string; redigee_le: string; texte: string } | null;
   objectifs: { lot_code: string; activite: string; objectif: string; cible: number; prerequis: string }[];
   circuit: ChargeEtape[];
@@ -309,11 +328,17 @@ function versEntree(charge: ChargeEntree): EntreeJournal {
     id: charge.id,
     reference: charge.reference,
     date: charge.date,
-    lot: versLot(charge.lot),
+    chantier: {
+      projetId: charge.chantier.projet_id,
+      projetNom: charge.chantier.projet_nom,
+      projetReference: charge.chantier.projet_reference,
+      chefChantier: charge.chantier.chef_chantier_nom,
+    },
+    lots: charge.lots.map(versLot),
     situation: versSituation(charge.statut),
     effectifPresent: charge.effectif_present,
     effectifPrevu: charge.effectif_prevu,
-    avancementLot: charge.avancement_lot,
+    avancement: charge.avancement,
     avancementTheorique: charge.avancement_theorique,
     incidents: charge.nb_incidents,
     blocages: charge.nb_blocages,
@@ -350,14 +375,22 @@ function versRapport(charge: ChargeRapport): RapportJournalier {
       quantiteJour: ligne.quantite_jour,
       cumul: ligne.cumul,
     })) ?? null;
-  const activites: LigneActivite[] = charge.activites.map((ligne) => ({
-    libelle: ligne.libelle,
-    unite: ligne.unite,
-    quantitePrevue: ligne.quantite_prevue,
-    cumulVeille: ligne.cumul_veille,
-    quantiteJour: ligne.quantite_jour,
-    avancementTheorique: ligne.avancement_theorique,
-    observation: ligne.observation ?? null,
+  const travaux: TravauxLot[] = charge.travaux.map((bloc) => ({
+    lot: versLot(bloc.lot),
+    avancement: bloc.avancement,
+    avancementTheorique: bloc.avancement_theorique,
+    observation: bloc.observation ?? null,
+    activites: bloc.activites.map(
+      (ligne): LigneActivite => ({
+        libelle: ligne.libelle,
+        unite: ligne.unite,
+        quantitePrevue: ligne.quantite_prevue,
+        cumulVeille: ligne.cumul_veille,
+        quantiteJour: ligne.quantite_jour,
+        avancementTheorique: ligne.avancement_theorique,
+        observation: ligne.observation ?? null,
+      }),
+    ),
   }));
   const materiaux: LigneMateriau[] = charge.materiaux.map((ligne) => ({
     designation: ligne.designation,
@@ -395,7 +428,7 @@ function versRapport(charge: ChargeRapport): RapportJournalier {
     ...versEntree(charge),
     localisation: charge.localisation,
     intervenants: {
-      chefChantier: charge.lot.chef_chantier_nom,
+      chefChantier: charge.chantier.chef_chantier_nom,
       conducteurTravaux: charge.conducteur_travaux_nom,
       chefProjet: charge.chef_projet_nom,
     },
@@ -413,13 +446,19 @@ function versRapport(charge: ChargeRapport): RapportJournalier {
     },
     effectifs,
     production,
-    activites,
+    travaux,
     materiaux,
     livraisons,
     equipements,
     listeIncidents: charge.incidents.map(versIncident),
     listeBlocages: blocages,
     listePhotos: photos,
+    documents: (charge.pieces_jointes ?? []).map((piece) => ({
+      nom: piece.nom,
+      type: piece.type_mime,
+      taille: piece.taille,
+      url: piece.fichier ?? null,
+    })),
     previsions,
   };
 }
@@ -500,7 +539,6 @@ function versSynthese(charge: ChargeSynthese): SynthesePeriodique {
     incidents: charge.incidents.map((incident) => ({
       ...versIncident(incident),
       date: incident.date,
-      lotCode: incident.lot_code,
     })),
     appreciation,
     objectifs,

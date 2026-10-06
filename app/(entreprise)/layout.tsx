@@ -10,7 +10,6 @@ import {
   CloudRain,
   CloudSun,
   Contact,
-  FilePen,
   FileText,
   Handshake,
   HardHat,
@@ -30,7 +29,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { LogoPlateforme } from "@/components/layout/LogoPlateforme";
 import { FilAriane } from "@/components/layout/FilAriane";
@@ -68,14 +67,16 @@ import { initialesProfil } from "@/features/auth/reglesProfil";
 import { EVENEMENT_SESSION_EXPIREE, sessionOuverte } from "@/lib/api";
 import { lireAbonnement } from "@/features/abonnement/api";
 import type { Abonnement } from "@/features/abonnement/api";
-import { EVENEMENT_PROFIL_MODIFIE, obtenirProfilMoi } from "@/features/auth/api";
+import { EVENEMENT_PROFIL_MODIFIE, lireProfilLocal, obtenirProfilMoi } from "@/features/auth/api";
 import type { ProfilUtilisateur } from "@/features/auth/api";
 import { EVENEMENT_ENTREPRISE_MODIFIEE, lireEntreprise } from "@/features/configuration/api";
 import type { DonneesEntreprise } from "@/features/configuration/api";
 import { obtenirMeteo } from "@/features/projets/adaptateur";
 import type { MeteoProjet } from "@/features/projets/types";
 import { useIdentitePlateforme } from "@/features/plateforme/hooks";
-import { FournisseurDroits, GardeRoute, peutRedigerJournal, routeAutorisee } from "@/features/habilitations";
+import { useDefile } from "@/hooks/use-defilement";
+import { cn } from "@/lib/utils";
+import { FournisseurDroits, GardeRoute, routeAutorisee } from "@/features/habilitations";
 import {
   IncarnationBarreHaut,
   quitterIncarnation,
@@ -101,6 +102,8 @@ const MODULES_SECONDAIRES = ["/stocks", "/rh", "/equipements", "/qhse", "/contra
  * projet : sans ce filtre, la météo serait demandée pour le projet « lots-activites ».
  */
 const SEGMENTS_PROJETS_STATIQUES = new Set(["lots-activites", "equipe-affectations"]);
+
+const abonnementVide = () => () => {};
 
 const abonnementSession =(rappel: () => void) => {
   if (typeof window === "undefined") return () => {};
@@ -203,11 +206,20 @@ export default function LayoutApp({ children }: LayoutAppProps) {
     () => null
   );
   const [abonnement, setAbonnement] = useState<Abonnement | null>(null);
-  const [profil, setProfil] = useState<ProfilUtilisateur | null>(null);
+  const [profilServeur, setProfil] = useState<ProfilUtilisateur | null>(null);
+  // Le profil de la dernière connexion ouvre la coquille tout de suite —
+  // comme au back-office — au lieu de la garder en chargement le temps d'un
+  // aller-retour à `/auth/profil/`, qui le remplace dès qu'il répond. Lu
+  // après l'hydratation seulement : le serveur n'a pas de `localStorage`.
+  // Se souvenir n'est pas inventer : la déconnexion efface cette copie.
+  const hydrate = useSyncExternalStore(abonnementVide, () => true, () => false);
+  const profilLocal = useMemo(() => (hydrate ? lireProfilLocal() : null), [hydrate]);
+  const profil = profilServeur ?? profilLocal;
   const [entreprise, setEntreprise] = useState<DonneesEntreprise | null>(null);
   const [meteo, setMeteo] = useState<MeteoProjet | null>(null);
   // Le nom et le logo de la plateforme, paramétrés au back-office.
   const identitePlateforme = useIdentitePlateforme().data;
+  const defile = useDefile();
 
   // Garde de session : redirection immédiate vers la connexion si aucune session
   useEffect(() => {
@@ -312,7 +324,6 @@ export default function LayoutApp({ children }: LayoutAppProps) {
         ?.href ?? "/projets")
     : null;
   const estSurChantier = pathname.startsWith("/rapports");
-  const estSurSaisie = pathname.startsWith("/rapports/saisie");
   const estSurPlanning = pathname.startsWith("/planning");
   const estSurFinance = pathname.startsWith("/finance");
   const estSurAchats = pathname.startsWith("/achats");
@@ -491,25 +502,10 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                 )}
                 {voit("/rapports") && (
                   <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={estSurChantier && !estSurSaisie}
-                      tooltip={t("chantier")}
-                    >
+                    <SidebarMenuButton asChild isActive={estSurChantier} tooltip={t("chantier")}>
                       <Link href="/rapports">
                         <HardHat />
                         <span>{t("chantier")}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {/* Le geste quotidien du terrain, à un toucher du menu. */}
-                {peutRedigerJournal(droits) && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={estSurSaisie} tooltip={t("redigerRapport")}>
-                      <Link href="/rapports/saisie">
-                        <FilePen />
-                        <span>{t("redigerRapport")}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -779,7 +775,14 @@ export default function LayoutApp({ children }: LayoutAppProps) {
       </Sidebar>
 
       <SidebarInset>
-        <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
+        {/* L'ombre au défilement — sauf quand un écran colle sa propre barre
+            juste dessous (`data-barre-collante`) : c'est elle qui la porte. */}
+        <header
+          className={cn(
+            "sticky top-0 z-40 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-background px-4 transition-shadow",
+            defile && "shadow-collant [body:has([data-barre-collante])_&]:shadow-none",
+          )}
+        >
           <SidebarTrigger />
           {/* Le fil d'Ariane disparaît sous 1020 px : deux niveaux et une
               flèche de retour mangeaient la barre, qui porte aussi le compteur

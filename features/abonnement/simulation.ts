@@ -7,6 +7,7 @@
  * l'écran de tarifs et l'historique puissent être parcourus dès maintenant.
  */
 
+import { attendre } from "@/lib/api/simulation";
 import { simulationParametresPublics } from "@/lib/api/simulationAdministration";
 
 import { decomposerTva, planParCode, prixPeriode } from "./regles";
@@ -15,10 +16,6 @@ import type { DemandeSouscription, LignePaiement, RecuPaiement } from "./types";
 
 const LATENCE = 700;
 const CLE_HISTORIQUE = "ccd.simulation.abonnement.paiements";
-
-function attendre<T>(valeur: T, delai = LATENCE): Promise<T> {
-  return new Promise((resoudre) => setTimeout(() => resoudre(valeur), delai));
-}
 
 function reference(): string {
   return `CPY-TX-${Math.floor(100_000 + Math.random() * 900_000)}`;
@@ -141,9 +138,9 @@ export async function simulerSouscription(demande: DemandeSouscription): Promise
   };
 
   ecrireHistorique([recu, ...historique]);
-  return attendre(recu);
+  return attendre(recu, LATENCE);
 }
 
 export async function historiquePaiementsSimule(): Promise<LignePaiement[]> {
-  return attendre(lireHistorique());
+  return attendre(lireHistorique(), LATENCE);
 }

@@ -152,6 +152,8 @@
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
+  --shadow-collant: var(--shadow-collant);
+  --shadow-collant-haut: var(--shadow-collant-haut);
 
   /* --- Points de rupture — ceux de la charte (tokens.css §2) --------
      Tailwind livre `sm: 640px` et `2xl: 1536px` ; la charte dit 480 et

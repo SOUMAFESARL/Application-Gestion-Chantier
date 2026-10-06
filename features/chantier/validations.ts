@@ -220,7 +220,7 @@ function enChaine(nombre: number | null | undefined): string {
   return nombre === null || nombre === undefined ? "" : String(nombre).replace(".", ",");
 }
 
-function estRenseigne(saisie: string): boolean {
+export function estRenseigne(saisie: string): boolean {
   return saisie.trim() !== "";
 }
 
@@ -262,6 +262,10 @@ export function schemaRapport(
     }
     const humidite = versNombre(valeurs.meteo.humidite);
     if (humidite !== null && (humidite < 0 || humidite > 100)) signaler(["meteo", "humidite"], erreur("pourcentage"));
+
+    // Une journée d'arrêt s'arrête à la journée : les autres étapes ne
+    // s'affichent pas, rien de ce qu'elles portent ne peut être exigé.
+    if (valeurs.arret) return;
 
     // Les effectifs — régie directe.
     if (sections.includes("EFFECTIFS")) {
@@ -563,6 +567,35 @@ export function valeursDepuis(preparation: PreparationSaisie, date: string): Val
  * retrouve) mais ne partent pas.
  */
 export function versSaisie(
+  valeurs: ValeursRapport,
+  preparation: Pick<PreparationSaisie, "projet" | "activites">,
+): SaisieRapport {
+  const saisie = versSaisieComplete(valeurs, preparation);
+  if (!valeurs.arret) return saisie;
+  // Une journée d'arrêt ne porte que la journée : ce qu'on avait rempli
+  // ailleurs avant de cocher reste dans le formulaire (décocher le retrouve),
+  // mais ne part pas.
+  return {
+    ...saisie,
+    effectifs: [],
+    presenceSousTraitant: null,
+    production: [],
+    lotsTravailles: [],
+    activites: [],
+    materiaux: [],
+    livraisons: [],
+    besoins: [],
+    equipements: [],
+    incidents: [],
+    blocage: { niveau: "AUCUN", nature: null, description: "", impact: "" },
+    photos: [],
+    piecesJointes: [],
+    previsions: [],
+    note: "",
+  };
+}
+
+function versSaisieComplete(
   valeurs: ValeursRapport,
   preparation: Pick<PreparationSaisie, "projet" | "activites">,
 ): SaisieRapport {

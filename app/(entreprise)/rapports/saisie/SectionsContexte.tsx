@@ -1,12 +1,14 @@
 "use client";
 
-import { CloudSun } from "lucide-react";
+import { CloudSun, OctagonMinus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { cielDepuisReleve, LONGUEUR_MIN_NOTE } from "@/features/chantier";
+import { cn } from "@/lib/utils";
 import {
   CONDITIONS_TRAVAIL,
   METEOS,
@@ -25,7 +27,6 @@ import {
   PAIRE,
   RANGEE,
   RANGEE_TROIS,
-  Signal,
   SousRubrique,
 } from "./elementsSaisie";
 
@@ -63,18 +64,40 @@ export function SectionContexte({ releve }: { releve: MeteoProjet | null }) {
         <ChampTexte name="heureFin" libelle={t("contexte.heureFin")} type="time" requis />
       </div>
 
-      <div className="flex items-start gap-3 rounded-lg border border-neutral-200 p-3">
-        <Checkbox
-          id="journee-arret"
-          className="mt-0.5"
-          checked={arret}
-          onCheckedChange={(valeur) => setValue("arret", valeur === true, { shouldDirty: true })}
-        />
-        <label htmlFor="journee-arret" className="flex cursor-pointer flex-col gap-0.5">
-          <span className="text-sm font-medium text-neutral-900">{t("contexte.arret")}</span>
-          <span className="text-xs text-neutral-500">{t("contexte.arretAide")}</span>
+      {/* Un `Item` tout entier cliquable : cocher l'arrêt change le rapport
+          entier, le geste doit se voir et se trouver du pouce. */}
+      <Item
+        asChild
+        variant="outline"
+        size="sm"
+        className={cn(
+          "cursor-pointer",
+          arret
+            ? "border-avertissement/40 bg-avertissement-fond"
+            : "border-neutral-200 bg-neutral-50 hover:bg-neutral-100",
+        )}
+      >
+        <label htmlFor="journee-arret">
+          <ItemMedia
+            variant="icon"
+            className={cn("bg-card", arret && "border-avertissement/30 text-avertissement")}
+          >
+            <OctagonMinus aria-hidden="true" />
+          </ItemMedia>
+          <ItemContent>
+            <ItemTitle>{t("contexte.arret")}</ItemTitle>
+            <ItemDescription className="text-xs">{t("contexte.arretAide")}</ItemDescription>
+          </ItemContent>
+          <ItemActions>
+            <Checkbox
+              id="journee-arret"
+              className="size-5 rounded-full border-neutral-300 bg-card data-[state=checked]:border-avertissement data-[state=checked]:bg-avertissement data-[state=checked]:text-white"
+              checked={arret}
+              onCheckedChange={(valeur) => setValue("arret", valeur === true, { shouldDirty: true })}
+            />
+          </ItemActions>
         </label>
-      </div>
+      </Item>
       {arret && (
         <div className="flex flex-col gap-3">
           <ChampPuces
@@ -85,7 +108,6 @@ export function SectionContexte({ releve }: { releve: MeteoProjet | null }) {
             options={MOTIFS_ARRET.map((valeur) => ({ valeur, libelle: t(`motifsArret.${valeur}`) }))}
           />
           <ChampTexte name="precisionArret" libelle={t("contexte.precisionArret")} placeholder={t("contexte.precisionArretExemple")} />
-          <Signal ton="information">{t("contexte.arretEffet")}</Signal>
         </div>
       )}
 
@@ -125,7 +147,6 @@ export function SectionContexte({ releve }: { releve: MeteoProjet | null }) {
           <ChampTexte name="meteo.humidite" libelle={t("contexte.humidite")} inputMode="numeric" suffixe={t("unites.pourcent")} />
           <ChampTexte name="meteo.vent" libelle={t("contexte.vent")} placeholder={t("contexte.ventExemple")} />
         </div>
-        <ChampTexte name="meteo.prevision" libelle={t("contexte.prevision")} placeholder={t("contexte.previsionExemple")} />
       </div>
     </CarteSection>
   );

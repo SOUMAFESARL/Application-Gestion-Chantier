@@ -83,7 +83,8 @@ export interface CasePdf {
 }
 
 export type BlocPdf =
-  | { type: "cles"; elements: CleValeurPdf[] }
+  /** `legeres` : les valeurs en graisse normale, la couleur suffisant à les distinguer des libellés. */
+  | { type: "cles"; elements: CleValeurPdf[]; legeres?: boolean }
   | { type: "tuiles"; tuiles: TuilePdf[] }
   | { type: "jauges"; jauges: JaugePdf[] }
   | { type: "tableau"; tableau: TableauPdf; vide: string }
@@ -260,10 +261,11 @@ function interligne(taille: number): number {
 /**
  * Les polices standard de jsPDF sont en WinAnsi : l'espace fine insécable
  * que `lib/format` met entre les milliers n'y existe pas et sortirait en
- * glyphe parasite. On la ramène à une espace insécable ordinaire.
+ * glyphe parasite. On la ramène à une espace insécable ordinaire. La flèche
+ * n'y existe pas davantage (« CC → CT » sortait en « CC !' CT ») : un chevron.
  */
 function propre(texte: string): string {
-  return texte.replace(/[   ]/g, " ");
+  return texte.replace(/[   ]/g, " ").replace(/→/g, ">");
 }
 
 /** Télécharge le document, sous `contenu.nomFichier`. */
@@ -474,7 +476,8 @@ async function dessinerDocumentPdf(contenu: DocumentPdf) {
     y += 9;
   }
 
-  function dessinerCles(elements: CleValeurPdf[]) {
+  function dessinerCles(elements: CleValeurPdf[], legeres = false) {
+    const graisse = legeres ? "normal" : "bold";
     const colonne = (LARGEUR - 8) / 2;
     const largeurLibelle = 32;
 
@@ -491,7 +494,7 @@ async function dessinerDocumentPdf(contenu: DocumentPdf) {
 
     for (const rangee of rangees) {
       const largeurValeur = (rangee[0].large ? LARGEUR : colonne) - largeurLibelle;
-      police(8.5, "bold");
+      police(8.5, graisse);
       const valeurs = rangee.map((element) => couper(element.valeur, largeurValeur));
       const hauteur = Math.max(...valeurs.map((lignes) => lignes.length)) * interligne(8.5) + 2;
       assurer(hauteur);
@@ -499,7 +502,7 @@ async function dessinerDocumentPdf(contenu: DocumentPdf) {
         const x = MARGE + rang * (colonne + 8);
         police(7.5, "normal", palette.attenue);
         ecrire(element.libelle, x, y + 3);
-        police(8.5, "bold", element.ton ? palette.tons[element.ton].encre : palette.texte);
+        police(8.5, graisse, element.ton ? palette.tons[element.ton].encre : palette.texte);
         ecrire(valeurs[rang], x + largeurLibelle, y + 3);
       });
       tracer(palette.filet);
@@ -715,7 +718,7 @@ async function dessinerDocumentPdf(contenu: DocumentPdf) {
     for (const bloc of section.blocs) {
       switch (bloc.type) {
         case "cles":
-          dessinerCles(bloc.elements);
+          dessinerCles(bloc.elements, bloc.legeres);
           break;
         case "tuiles":
           dessinerTuiles(bloc.tuiles);
