@@ -1,12 +1,15 @@
 import {
   activitesActives,
+  activitesDuRapport,
   avancementActivite,
   cumulActivite,
   enAlerteStock,
+  formatDocument,
   montantProduction,
   presenceSuffisante,
   retardPoints,
   stockFin,
+  tailleKo,
   tauxPresence,
   totalProduction,
   totauxEffectifs,
@@ -14,7 +17,15 @@ import {
 import type { EtapeCircuit, RapportJournalier } from "@/features/chantier";
 import type { ModeExecutionLot } from "@/features/projets/types";
 import { formaterDate, formaterDateHeure, formaterMontant, formaterQuantite } from "@/lib/format";
-import type { BlocPdf, CasePdf, CellulePdf, DocumentPdf, SectionPdf } from "@/lib/export/documentPdf";
+import type {
+  BlocPdf,
+  CasePdf,
+  CellulePdf,
+  CleValeurPdf,
+  DocumentPdf,
+  SectionPdf,
+  TonPdf,
+} from "@/lib/export/documentPdf";
 
 import { emetteurDocument } from "../../projets/[id]/contenuFichePdf";
 import {
@@ -37,8 +48,10 @@ import type { SourcePdf } from "../GenerationDocumentPdf";
  *
  * Comme `contenuFicheProjet`, ce module ne calcule rien : les chiffres
  * viennent de `features/chantier` (les mêmes que l'écran), il les traduit.
- * Les sections suivent le mode d'exécution renvoyé par le serveur, comme à
- * l'écran : une section sans objet pour le lot n'apparaît pas.
+ * Le document est celui du chantier : il porte le nom du projet et rend
+ * compte, lot par lot, de tous les lots travaillés ce jour. Les sections
+ * suivent les modes d'exécution renvoyés par le serveur, comme à l'écran :
+ * une section sans objet ce jour n'apparaît pas.
  */
 
 /** Le traducteur de l'espace `journal` (next-intl). */
@@ -66,16 +79,24 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
   const role = (cle: EtapeCircuit["role"]) => t(`circuit.role.${cle}`);
   const neant = r("neant");
   const pourcent = (valeur: number) => r("pourcent", { valeur });
+  /** Un chiffre du jour en ligne : la valeur, son détail, et la teinte seulement si elle alerte. */
+  const chiffre = (libelle: string, valeur: string, detail: string, ton: TonPdf): CleValeurPdf => ({
+    libelle,
+    valeur: r("pdf.chiffre", { valeur, detail }),
+    ton: ton === "erreur" || ton === "avertissement" ? ton : undefined,
+  });
 
   const reference = rapport.reference ?? "";
-  const lot = r("lotValeur", { code: rapport.lot.code, nom: rapport.lot.nom });
+  const chantier = rapport.chantier.projetNom;
+  const activites = activitesDuRapport(rapport);
   const retard = retardPoints(rapport);
   const totaux = rapport.effectifs ? totauxEffectifs(rapport.effectifs) : null;
   const presence = totaux?.taux ?? tauxPresence(rapport.effectifPresent, rapport.effectifPrevu);
   const livraisonsPartielles = rapport.livraisons.filter((livraison) => livraison.conformite !== "CONFORME").length;
   const incidentsMajeurs = rapport.listeIncidents.filter((incident) => incident.gravite !== "MINEUR").length;
   const blocages = rapport.listeBlocages.length;
-  const sousTraitanceStructuree = !rapport.effectifs && rapport.lot.modeExecution === "SOUS_TRAITANCE_STRUCTUREE";
+  const sousTraitanceStructuree =
+    !rapport.effectifs && rapport.lots.some((lot) => lot.modeExecution === "SOUS_TRAITANCE_STRUCTUREE");
   // Les mêmes teintes que les cartes de l'écran.
   const teintes = teintesChiffresRapport({
     retard,
@@ -86,7 +107,7 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
     blocages,
   });
 
-  /* --- Les sections, numérotées d'après celles que le lot affiche --- */
+  /* --- Les sections, numérotées d'après celles que les lots affichent --- */
 
   const numerotees: { titre: string; blocs: BlocPdf[] }[] = [];
 
@@ -155,7 +176,7 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
                 cellule(ligne.prevus),
                 cellule(ligne.presents),
                 cellule(absents, absents > 0 ? { ton: "erreur", gras: true } : undefined),
-                cellule(pourcent(taux), { jauge: taux }),
+                cellule(pourcent(taux)),
                 cellule(r("heures", { valeur: formaterQuantite(ligne.heures) })),
                 cellule(ligne.observation ?? neant),
               ];
@@ -233,41 +254,59 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
   }
 
   numerotees.push({
-    titre: r("sections.avancement", { code: rapport.lot.code, nom: rapport.lot.nom }),
+    titre: r("sections.avancement"),
     blocs: [
       {
         type: "paragraphe",
         texte: r("avancement.global", {
-          reel: rapport.avancementLot ?? 0,
+          reel: rapport.avancement ?? 0,
           theorique: rapport.avancementTheorique ?? 0,
         }),
       },
-      tableau(
-        [
-          r("avancement.activite"),
-          r("avancement.unite"),
-          r("avancement.prevue"),
-          r("avancement.veille"),
-          r("avancement.jour"),
-          r("avancement.cumul"),
-          r("avancement.avancement"),
-          r("avancement.observation"),
-        ],
-        rapport.activites.map((ligne) => {
-          const avancement = avancementActivite(ligne);
-          return [
-            cellule(ligne.libelle, { gras: true }),
-            cellule(ligne.unite),
-            cellule(formaterQuantite(ligne.quantitePrevue)),
-            cellule(formaterQuantite(ligne.cumulVeille)),
-            cellule(formaterQuantite(ligne.quantiteJour), { ton: "primaire", gras: true }),
-            cellule(formaterQuantite(cumulActivite(ligne))),
-            cellule(pourcent(avancement), { jauge: avancement }),
-            cellule(ligne.observation ?? neant),
-          ];
-        }),
-        neant,
-      ),
+      ...(rapport.travaux.length === 0 ? [{ type: "paragraphe" as const, texte: r("avancement.aucunLot") }] : []),
+      // Un lot, un sous-titre et son tableau : le rapport du chantier se lit lot par lot.
+      ...rapport.travaux.flatMap((travaux): BlocPdf[] => [
+        {
+          type: "paragraphe",
+          texte: r("pdf.lot", {
+            lot: r("avancement.lot", { code: travaux.lot.code, nom: travaux.lot.nom }),
+            detail: r("avancement.lotDetail", {
+              mode: modeExecution(travaux.lot.modeExecution),
+              reel: travaux.avancement,
+              theorique: travaux.avancementTheorique,
+            }),
+          }),
+        },
+        ...(travaux.observation
+          ? [{ type: "paragraphe" as const, texte: r("avancement.point", { texte: travaux.observation }) }]
+          : []),
+        tableau(
+          [
+            r("avancement.activite"),
+            r("avancement.unite"),
+            r("avancement.prevue"),
+            r("avancement.veille"),
+            r("avancement.jour"),
+            r("avancement.cumul"),
+            r("avancement.avancement"),
+            r("avancement.observation"),
+          ],
+          travaux.activites.map((ligne) => {
+            const avancement = avancementActivite(ligne);
+            return [
+              cellule(ligne.libelle, { gras: true }),
+              cellule(ligne.unite),
+              cellule(formaterQuantite(ligne.quantitePrevue)),
+              cellule(formaterQuantite(ligne.cumulVeille)),
+              cellule(formaterQuantite(ligne.quantiteJour), { ton: "primaire", gras: true }),
+              cellule(formaterQuantite(cumulActivite(ligne))),
+              cellule(pourcent(avancement)),
+              cellule(ligne.observation ?? neant),
+            ];
+          }),
+          neant,
+        ),
+      ]),
     ],
   });
 
@@ -443,6 +482,21 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
   });
 
   numerotees.push({
+    titre: r("sections.documents"),
+    blocs: [
+      tableau(
+        [r("documents.nom"), r("documents.type"), r("documents.taille")],
+        rapport.documents.map((piece) => [
+          cellule(piece.nom, { gras: true }),
+          cellule(t(`enumerations.formatDocument.${formatDocument(piece.nom)}`)),
+          cellule(r("documents.tailleValeur", { valeur: formaterQuantite(tailleKo(piece.taille)) })),
+        ]),
+        r("documents.vide"),
+      ),
+    ],
+  });
+
+  numerotees.push({
     titre: r("sections.previsions"),
     blocs: [
       tableau(
@@ -491,14 +545,22 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
       blocs: [
         {
           type: "cles",
+          legeres: true,
           elements: [
-            { libelle: r("projet"), valeur: rapport.lot.projetNom },
+            { libelle: r("projet"), valeur: chantier },
             { libelle: role("CC"), valeur: rapport.intervenants.chefChantier },
-            { libelle: r("lot"), valeur: lot },
+            { libelle: r("referenceProjet"), valeur: rapport.chantier.projetReference },
             { libelle: role("CT"), valeur: rapport.intervenants.conducteurTravaux },
-            { libelle: r("mode"), valeur: modeExecution(rapport.lot.modeExecution) },
+            {
+              libelle: r("lots"),
+              valeur:
+                rapport.lots.length === 0
+                  ? r("lotsValeur", { n: 0 })
+                  : rapport.lots
+                      .map((lot) => r("lotMode", { code: lot.code, nom: lot.nom, mode: modeExecution(lot.modeExecution) }))
+                      .join(r("pdf.separateurLots")),
+            },
             { libelle: role("CP"), valeur: rapport.intervenants.chefProjet },
-            { libelle: r("referenceProjet"), valeur: rapport.lot.projetReference },
             { libelle: r("date"), valeur: jour },
             { libelle: r("numero"), valeur: reference },
             {
@@ -514,55 +576,53 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
           ],
         },
         {
-          type: "tuiles",
-          tuiles: [
-            {
-              libelle: r("chiffres.effectifs"),
-              valeur: r("fraction", { a: rapport.effectifPresent ?? 0, b: rapport.effectifPrevu ?? 0 }),
-              detail: r("chiffres.presence", { taux: presence ?? 0 }),
-              ton: teintes.effectifs,
-            },
-            {
-              libelle: r("chiffres.heures"),
-              valeur: totaux ? r("heures", { valeur: formaterQuantite(totaux.heures) }) : r("sansObjet"),
-              detail: totaux ? r("chiffres.heuresDetail") : r("chiffres.heuresSousTraitant"),
-              ton: teintes.heures,
-            },
-            {
-              libelle: r("chiffres.activites"),
-              valeur: r("fraction", { a: activitesActives(rapport.activites), b: rapport.activites.length }),
-              detail: r("chiffres.activitesDetail"),
-              ton: teintes.activites,
-            },
-            {
-              libelle: r("chiffres.photos"),
-              valeur: String(rapport.listePhotos.length),
-              detail: r("chiffres.photosDetail"),
-              ton: teintes.photos,
-            },
-          ],
-        },
-        {
-          type: "tuiles",
-          tuiles: [
-            {
-              libelle: r("chiffres.livraisons"),
-              valeur: String(rapport.livraisons.length),
-              detail: r("chiffres.livraisonsDetail", { n: livraisonsPartielles }),
-              ton: teintes.livraisons,
-            },
-            {
-              libelle: r("chiffres.incidents"),
-              valeur: String(rapport.listeIncidents.length),
-              detail: r("chiffres.incidentsDetail", { n: incidentsMajeurs }),
-              ton: teintes.incidents,
-            },
-            {
-              libelle: r("chiffres.blocages"),
-              valeur: String(blocages),
-              detail: blocages ? r("chiffres.blocagesDetail") : r("chiffres.aucunBlocage"),
-              ton: teintes.blocages,
-            },
+          // Les chiffres du jour en lignes, à la suite de l'identification :
+          // la teinte ne reste que pour ce qui alerte.
+          type: "cles",
+          legeres: true,
+          elements: [
+            chiffre(
+              r("chiffres.effectifs"),
+              r("fraction", { a: rapport.effectifPresent ?? 0, b: rapport.effectifPrevu ?? 0 }),
+              r("chiffres.presence", { taux: presence ?? 0 }),
+              teintes.effectifs,
+            ),
+            chiffre(
+              r("chiffres.heures"),
+              totaux ? r("heures", { valeur: formaterQuantite(totaux.heures) }) : r("sansObjet"),
+              totaux ? r("chiffres.heuresDetail") : r("chiffres.heuresSousTraitant"),
+              teintes.heures,
+            ),
+            chiffre(
+              r("chiffres.activites"),
+              r("fraction", { a: activitesActives(activites), b: activites.length }),
+              r("chiffres.activitesDetail"),
+              teintes.activites,
+            ),
+            chiffre(
+              r("chiffres.photos"),
+              String(rapport.listePhotos.length),
+              r("chiffres.photosDetail"),
+              teintes.photos,
+            ),
+            chiffre(
+              r("chiffres.livraisons"),
+              String(rapport.livraisons.length),
+              r("chiffres.livraisonsDetail", { n: livraisonsPartielles }),
+              teintes.livraisons,
+            ),
+            chiffre(
+              r("chiffres.incidents"),
+              String(rapport.listeIncidents.length),
+              r("chiffres.incidentsDetail", { n: incidentsMajeurs }),
+              teintes.incidents,
+            ),
+            chiffre(
+              r("chiffres.blocages"),
+              String(blocages),
+              blocages ? r("chiffres.blocagesDetail") : r("chiffres.aucunBlocage"),
+              teintes.blocages,
+            ),
           ],
         },
       ],
@@ -584,14 +644,13 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
       reference,
     },
     objet: {
-      titre: r("titrePage", { jour }),
+      titre: r("titrePage", { chantier, jour }),
       pastilles: [
-        { texte: lot, ton: "neutre" },
-        { texte: t(`situation.${rapport.situation}`), ton: TON_SITUATION[rapport.situation] },
+        { texte: r("lotsValeur", { n: rapport.lots.length }), ton: "neutre" },
       ],
       indicateur: {
         libelle: r("chiffres.avancement"),
-        valeur: pourcent(rapport.avancementLot ?? 0),
+        valeur: pourcent(rapport.avancement ?? 0),
         detail:
           retard !== null && retard > 0
             ? r("pdf.retard", { points: retard })

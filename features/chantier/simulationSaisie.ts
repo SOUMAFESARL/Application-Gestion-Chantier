@@ -14,10 +14,10 @@
  *
  * Les lots et les activités sont **les vrais**, lus sur `/projets/{id}/lots/` :
  * seuls les rapports vivent ici, dans le `localStorage` du poste. Un rapport
- * soumis rejoint le journal que lit le Directeur Général
- * (`simulationJournal.lireJournal`). Ce journal-là compte encore en lignes
- * « lot × jour » : un rapport de chantier y paraît comme une seule ligne
- * qui réunit tous ses lots (`lotEnsemble`).
+ * soumis **est** le journal que lit le Directeur Général
+ * (`simulationJournal.lireJournal`, qui n'a pas d'autre source), une ligne
+ * par chantier et par jour, qui rend compte des lots travaillés
+ * (`lotsCouverts`).
  */
 
 import { texte } from "@/i18n/horsReact";
@@ -56,6 +56,7 @@ import type {
   SituationRapport,
   StatutRapport,
   SuiviActivite,
+  TravauxLot,
 } from "./types";
 
 // `.v2` : depuis le 05/10/2026, un rapport couvre un chantier, plus un lot.
@@ -198,28 +199,17 @@ function horodatage(): string {
  * ------------------------------------------------------------------ */
 
 /**
- * Le rapport de chantier vu par le journal du DG, qui compte encore en lots :
- * une seule ligne, qui réunit tous les lots couverts.
+ * Les lots dont le rapport rend compte : ceux travaillés ce jour, et ceux où
+ * un tâcheron a produit. Une journée d'arrêt n'en couvre aucun.
  */
-function lotEnsemble(contexte: ContexteSimule, saisie: SaisieRapport): LotJournal {
-  // Les lots travaillés ce jour, et ceux où un tâcheron a produit ; une
-  // journée d'arrêt n'en a aucun, elle couvre alors tout le chantier.
+function lotsCouverts(contexte: ContexteSimule, saisie: SaisieRapport): LotJournal[] {
+  if (saisie.arret) return [];
   const lotDe = new Map(contexte.activites.map((activite) => [activite.activiteId, activite.lotId]));
   const couverts = new Set([
     ...lotsTravaillesDe(saisie, contexte.activites).map((point) => point.lotId),
     ...saisie.production.flatMap((ligne) => lotDe.get(ligne.activiteId) ?? []),
   ]);
-  const lots = couverts.size > 0 ? contexte.lots.filter((lot) => couverts.has(lot.id)) : contexte.lots;
-  return {
-    id: contexte.projet.id,
-    code: texte("journal.saisie.ensemble.code"),
-    nom: lots.map((lot) => lot.code).join(" · ") || ABSENT,
-    modeExecution: lots[0]?.modeExecution ?? "REGIE_DIRECTE",
-    projetId: contexte.projet.id,
-    projetNom: contexte.projet.nom,
-    projetReference: contexte.projet.reference,
-    chefChantier: contexte.projet.chefChantier,
-  };
+  return contexte.lots.filter((lot) => couverts.has(lot.id));
 }
 
 function versLotJournal(projet: Projet, lot: Lot, chefChantier: string): LotJournal {
@@ -392,15 +382,28 @@ function versRapportJournalier(rapport: RapportSimule): RapportJournalier {
   const activiteDe = new Map(contexte.activites.map((activite) => [activite.activiteId, activite]));
   const observations = new Map(saisie.activites.map((ligne) => [ligne.activiteId, ligne.observation]));
 
-  const activites: LigneActivite[] = contexte.activites.map((activite) => ({
-    libelle: activite.libelle,
-    unite: libelleUnite(activite),
-    quantitePrevue: activite.quantitePrevue,
-    cumulVeille: activite.cumulVeille,
-    quantiteJour: quantites.get(activite.activiteId) ?? 0,
-    avancementTheorique: activite.avancementTheorique,
-    observation: observations.get(activite.activiteId) || null,
-  }));
+  const lots = lotsCouverts(contexte, saisie);
+  const points = new Map(lotsTravaillesDe(saisie, contexte.activites).map((point) => [point.lotId, point.observation]));
+  const travaux: TravauxLot[] = lots.map((lot) => {
+    const duLot = contexte.activites.filter((activite) => activite.lotId === lot.id);
+    return {
+      lot,
+      avancement: avancementLotSaisi(duLot, quantites) ?? 0,
+      avancementTheorique: avancementTheoriqueLot(duLot) ?? 0,
+      observation: points.get(lot.id) || null,
+      activites: duLot.map(
+        (activite): LigneActivite => ({
+          libelle: activite.libelle,
+          unite: libelleUnite(activite),
+          quantitePrevue: activite.quantitePrevue,
+          cumulVeille: activite.cumulVeille,
+          quantiteJour: quantites.get(activite.activiteId) ?? 0,
+          avancementTheorique: activite.avancementTheorique,
+          observation: observations.get(activite.activiteId) || null,
+        }),
+      ),
+    };
+  });
 
   const production: LigneProduction[] | null = sections.includes("PRODUCTION")
     ? saisie.production.map((ligne) => {
@@ -445,11 +448,17 @@ function versRapportJournalier(rapport: RapportSimule): RapportJournalier {
     id: rapport.id,
     reference: rapport.reference,
     date: saisie.date,
-    lot: lotEnsemble(contexte, saisie),
+    chantier: {
+      projetId: contexte.projet.id,
+      projetNom: contexte.projet.nom,
+      projetReference: contexte.projet.reference,
+      chefChantier: contexte.projet.chefChantier,
+    },
+    lots,
     situation: situationDe(rapport.statut),
     effectifPresent: presents,
     effectifPrevu: prevus,
-    avancementLot: avancementLotSaisi(contexte.activites, quantites),
+    avancement: avancementLotSaisi(contexte.activites, quantites),
     avancementTheorique: avancementTheoriqueLot(contexte.activites),
     incidents: saisie.incidents.length,
     blocages: blocage.niveau === "AUCUN" ? 0 : 1,
@@ -485,7 +494,7 @@ function versRapportJournalier(rapport: RapportSimule): RapportJournalier {
       observation: ligne.observation || null,
     })) ?? null,
     production,
-    activites: sections.includes("AVANCEMENT") || sections.includes("PRODUCTION") ? activites : [],
+    travaux: sections.includes("AVANCEMENT") || sections.includes("PRODUCTION") ? travaux : [],
     materiaux,
     livraisons: sections.includes("LIVRAISONS")
       ? saisie.livraisons.map((ligne) => ({ ...ligne, observation: ligne.observation || null }))
@@ -522,6 +531,12 @@ function versRapportJournalier(rapport: RapportSimule): RapportJournalier {
       latitude: photo.latitude ?? 0,
       longitude: photo.longitude ?? 0,
       gpsConfirme: photo.latitude !== null && photo.longitude !== null,
+    })),
+    documents: (saisie.piecesJointes ?? []).map((piece) => ({
+      nom: piece.nom,
+      type: piece.type,
+      taille: piece.taille,
+      url: piece.url || null,
     })),
     previsions: saisie.previsions,
   };

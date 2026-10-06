@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { BARRE_PROJET, BARRE_PROJET_COLLEE, CHIFFRE_ALERTE, FOND_INDICATEUR } from "../projets/classes";
 import type { FondIndicateur } from "../projets/classes";
 import { useEstColle } from "../projets/EnteteChantier";
-import { JAUGE, JAUGE_REMPLIE, PASTILLE_ETAPE } from "./classes";
+import { PASTILLE_ETAPE } from "./classes";
 
 /**
  * Les pièces des deux documents du journal — le rapport journalier et la
@@ -312,18 +312,6 @@ export function TableauDocument({
         )}
       </Table>
     </div>
-  );
-}
-
-/** Une jauge d'avancement et son pourcentage. */
-export function Jauge({ valeur, libelle }: { valeur: number; libelle: string }) {
-  return (
-    <span className="inline-flex items-center justify-end gap-2">
-      <span className={JAUGE} aria-hidden="true">
-        <span className={JAUGE_REMPLIE} style={{ width: `${Math.max(0, Math.min(100, valeur))}%` }} />
-      </span>
-      <span className="w-9 text-right font-semibold tabular-nums">{libelle}</span>
-    </span>
   );
 }
 

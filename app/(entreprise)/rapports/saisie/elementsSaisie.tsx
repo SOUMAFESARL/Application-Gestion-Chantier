@@ -320,6 +320,10 @@ export function ChampTexte({
   );
 }
 
+/** Les deux boutons du compteur : des segments du même cadre que le champ, pas des boutons posés à côté. */
+const BOUTON_COMPTEUR =
+  "flex w-10 shrink-0 cursor-pointer appearance-none items-center justify-center border-0 bg-neutral-50 p-0 text-neutral-600 transition-colors first:border-r last:border-l border-solid border-neutral-200 hover:bg-primary-50 hover:text-primary-700 active:bg-primary-100 focus-visible:bg-primary-50 focus-visible:text-primary-700 focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:text-neutral-300";
+
 /** Un nombre entier qu'on ajuste au pouce : − / champ / +. */
 export function ChampCompteur({
   name,
@@ -347,40 +351,45 @@ export function ChampCompteur({
           if (suivant < min || (max !== undefined && suivant > max)) return;
           field.onChange(String(suivant));
         };
+        const valeur = Number.isNaN(actuel) ? 0 : actuel;
         return (
           <FormItem className="gap-1.5">
             <FormLabel>
               {libelle} {requis && <Requis />}
             </FormLabel>
-            <div className="flex items-stretch gap-1">
-              <Button
+            <div
+              className={cn(
+                CHAMP,
+                "flex items-stretch overflow-hidden rounded-md border border-solid border-neutral-300 bg-neutral-0 shadow-xs transition-colors",
+                "focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/20",
+              )}
+            >
+              <button
                 type="button"
-                variant="outline"
-                size="icon"
-                className="shrink-0"
+                className={BOUTON_COMPTEUR}
                 aria-label={t("moins", { champ: libelle })}
+                disabled={valeur <= min}
                 onClick={() => ajuster(-1)}
               >
-                <Minus aria-hidden="true" />
-              </Button>
+                <Minus className="size-4" aria-hidden="true" />
+              </button>
               <FormControl>
                 <Input
                   {...field}
                   value={String(field.value ?? "")}
                   inputMode="numeric"
-                  className={cn(CHAMP, "min-w-0 text-center tabular-nums")}
+                  className="h-full min-w-0 flex-1 rounded-none border-0 bg-transparent px-1 text-center font-semibold tabular-nums shadow-none focus-visible:ring-0"
                 />
               </FormControl>
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                size="icon"
-                className="shrink-0"
+                className={BOUTON_COMPTEUR}
                 aria-label={t("plus", { champ: libelle })}
+                disabled={max !== undefined && valeur >= max}
                 onClick={() => ajuster(1)}
               >
-                <Plus aria-hidden="true" />
-              </Button>
+                <Plus className="size-4" aria-hidden="true" />
+              </button>
             </div>
             <FormMessage />
           </FormItem>

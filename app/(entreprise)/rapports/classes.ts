@@ -129,7 +129,3 @@ export const TEINTE_CONDITIONS: Record<ConditionsTravail, FondIndicateur> = {
 export function fondSiAlerte(valeur: number, fond: FondIndicateur): FondIndicateur {
   return valeur > 0 ? fond : "neutre";
 }
-
-/** La jauge d'avancement d'un tableau de document. */
-export const JAUGE = "h-1.5 w-16 overflow-hidden rounded-full bg-neutral-200";
-export const JAUGE_REMPLIE = "block h-full rounded-full bg-primary-500";

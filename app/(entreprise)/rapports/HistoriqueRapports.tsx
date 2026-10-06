@@ -12,6 +12,7 @@ import { BORD_DROIT_TABLEAU, FiltreTableau, RechercheTableau, TableauListe } fro
 import {
   CRITERES_JOURNAL_INITIAUX,
   aUnDocument,
+  codesLots,
   criteresActifs,
   filtrerEntrees,
   tauxPresence,
@@ -46,7 +47,7 @@ export function HistoriqueRapports({ journal }: { journal: Journal }) {
 
   const chantiers = useMemo(() => {
     const connus = new Map<string, string>();
-    for (const entree of journal.entrees) connus.set(entree.lot.projetId, entree.lot.projetNom);
+    for (const entree of journal.entrees) connus.set(entree.chantier.projetId, entree.chantier.projetNom);
     return [...connus.entries()]
       .map(([valeur, libelle]) => ({ valeur, libelle }))
       .sort((a, b) => a.libelle.localeCompare(b.libelle));
@@ -59,12 +60,12 @@ export function HistoriqueRapports({ journal }: { journal: Journal }) {
       colonnes: [
         { entete: t("export.date"), valeur: (entree) => entree.date },
         { entete: t("export.reference"), valeur: (entree) => entree.reference },
-        { entete: t("export.chantier"), valeur: (entree) => entree.lot.projetNom },
-        { entete: t("export.lot"), valeur: (entree) => `${entree.lot.code} ${entree.lot.nom}` },
-        { entete: t("export.chefChantier"), valeur: (entree) => entree.lot.chefChantier },
+        { entete: t("export.chantier"), valeur: (entree) => entree.chantier.projetNom },
+        { entete: t("export.lots"), valeur: (entree) => codesLots(entree.lots) },
+        { entete: t("export.chefChantier"), valeur: (entree) => entree.chantier.chefChantier },
         { entete: t("export.presents"), valeur: (entree) => entree.effectifPresent },
         { entete: t("export.prevus"), valeur: (entree) => entree.effectifPrevu },
-        { entete: t("export.avancement"), valeur: (entree) => entree.avancementLot },
+        { entete: t("export.avancement"), valeur: (entree) => entree.avancement },
         { entete: t("export.theorique"), valeur: (entree) => entree.avancementTheorique },
         { entete: t("export.incidents"), valeur: (entree) => entree.incidents },
         { entete: t("export.blocages"), valeur: (entree) => entree.blocages },
@@ -87,14 +88,14 @@ export function HistoriqueRapports({ journal }: { journal: Journal }) {
           ),
         }),
         colonne.display({
-          id: "lot",
-          header: t("colonnes.lot"),
+          id: "chantier",
+          header: t("colonnes.chantier"),
           cell: ({ row }) => (
             <span className="flex flex-col">
-              <span className="font-medium text-neutral-900">
-                {t("lot", { code: row.original.lot.code, nom: row.original.lot.nom })}
-              </span>
-              <span className="text-xs text-neutral-600">{row.original.lot.projetNom}</span>
+              <span className="font-medium text-neutral-900">{row.original.chantier.projetNom}</span>
+              {row.original.lots.length > 0 && (
+                <span className="text-xs text-neutral-600">{codesLots(row.original.lots)}</span>
+              )}
             </span>
           ),
         }),
@@ -102,7 +103,7 @@ export function HistoriqueRapports({ journal }: { journal: Journal }) {
           id: "chef",
           header: t("colonnes.chefChantier"),
           meta: { classe: "text-neutral-700" },
-          cell: ({ row }) => row.original.lot.chefChantier,
+          cell: ({ row }) => row.original.chantier.chefChantier,
         }),
         colonne.display({
           id: "effectifs",
@@ -121,7 +122,7 @@ export function HistoriqueRapports({ journal }: { journal: Journal }) {
             );
           },
         }),
-        colonne.accessor("avancementLot", {
+        colonne.accessor("avancement", {
           header: t("colonnes.avancement"),
           cell: ({ getValue }) =>
             getValue() === null ? ABSENT : <span className="tabular-nums">{t("pourcent", { valeur: getValue() ?? 0 })}</span>,

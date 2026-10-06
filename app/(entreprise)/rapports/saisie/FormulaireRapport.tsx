@@ -27,6 +27,7 @@ import { CLE_JOURNAL, cleRapportsProjet } from "@/features/chantier/cles";
 import { schemaRapport, valeursDepuis, versSaisie, type ValeursRapport } from "@/features/chantier/validations";
 import type { MeteoProjet, ModeExecutionLot } from "@/features/projets/types";
 import { ErreurApi } from "@/lib/api";
+import { useDefile, useResteEnBas } from "@/hooks/use-defilement";
 import { cn } from "@/lib/utils";
 
 import { ModaleSoumission } from "./ModaleSoumission";
@@ -61,6 +62,8 @@ const ORDRE_SECTIONS: CleSection[] = [
   "photos",
   "synthese",
 ];
+
+const ORDRE_JOURNEE_ARRET: CleSection[] = ["journee"];
 
 /** Les étapes numérotées : les rubriques du cahier, et elles seules. */
 const RUBRIQUES: CleSection[] = ["travaux", "rh", "materiels", "materiaux", "evenements", "photos"];
@@ -185,10 +188,6 @@ export function FormulaireRapport({
   const [sauvegarde, setSauvegarde] = useState<EtatSauvegarde>(
     depart.restauree ? { type: "MODIFIE" } : { type: "AJOUR", le: preparation.rapport?.enregistreLe ?? null },
   );
-
-  useEffect(() => {
-    if (depart.restauree) toast.info(t("copieRestauree"));
-  }, [depart.restauree, t]);
 
   /* -------- La copie locale, à chaque frappe (avec un léger amorti). -------- */
   useEffect(() => {
@@ -339,7 +338,8 @@ export function FormulaireRapport({
   /* -------- Les blocs à afficher dans chaque rubrique. -------- */
   const arret = useWatch({ control, name: "arret" });
   const sections = sectionsActives(preparation.sections, arret);
-  const ordre = ORDRE_SECTIONS;
+  // Une journée d'arrêt se réduit à la journée : les autres étapes disparaissent.
+  const ordre = arret ? ORDRE_JOURNEE_ARRET : ORDRE_SECTIONS;
   const numero = (cle: CleSection) => (RUBRIQUES.includes(cle) ? RUBRIQUES.indexOf(cle) + 1 : undefined);
   const rubrique = (cle: Exclude<CleSection, "journee">) => ({
     id: `section-${cle}`,
@@ -352,6 +352,8 @@ export function FormulaireRapport({
   const activitesProduction = activitesSuivies(preparation, "PRODUCTION");
 
   const active = useSectionVisible(ordre);
+  const defile = useDefile();
+  const resteEnBas = useResteEnBas();
 
   const allerA = useCallback((cle: CleSection) => {
     document.getElementById(`section-${cle}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -375,11 +377,20 @@ export function FormulaireRapport({
           le restent — l'écran est trop court pour les deux. `contents` : sans boîte
           propre, le conteneur laisse les étapes coller au formulaire entier.
         */}
-        <div className="contents lg:sticky lg:flex lg:flex-col lg:gap-3 lg:top-16 lg:z-30 lg:-mx-6 lg:border-b lg:border-neutral-200 lg:bg-background/95 lg:px-6 lg:pt-3 lg:backdrop-blur">
+        <div
+          data-barre-collante
+          className={cn(
+            "contents lg:sticky lg:flex lg:flex-col lg:gap-3 lg:top-16 lg:z-30 lg:-mx-6 lg:border-b lg:border-neutral-200 lg:bg-background/95 lg:px-6 lg:pt-3 lg:backdrop-blur lg:transition-shadow",
+            defile && "lg:shadow-collant",
+          )}
+        >
           {titre}
           <nav
             aria-label={t("navigation")}
-            className="sticky top-16 z-30 -mx-2 overflow-x-auto border-b border-neutral-200 bg-background/95 px-2 py-1.5 backdrop-blur [scrollbar-width:thin] [scrollbar-color:var(--color-neutral-200)_transparent] sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:border-b-0 lg:bg-transparent lg:px-0 lg:backdrop-blur-none"
+            className={cn(
+              "sticky top-16 z-30 -mx-2 overflow-x-auto border-b border-neutral-200 bg-background/95 px-2 py-1.5 backdrop-blur transition-shadow [scrollbar-width:thin] [scrollbar-color:var(--color-neutral-200)_transparent] sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:border-b-0 lg:bg-transparent lg:px-0 lg:shadow-none lg:backdrop-blur-none",
+              defile && "shadow-collant",
+            )}
           >
             <ol className="m-0 flex w-max list-none gap-1.5 p-0">
               {ordre.map((cle) => {
@@ -435,63 +446,71 @@ export function FormulaireRapport({
 
         <SectionContexte releve={releve} />
 
-        <CarteSection {...rubrique("travaux")}>
-          {sections.includes("AVANCEMENT") && (
-            <SectionAvancement activites={activitesAvancement} lots={preparation.lots} />
-          )}
-          {sections.includes("PRODUCTION") && (
-            <SectionProduction
-              complement={lotsDuMode(preparation.lots, "SOUS_TRAITANCE_INFORMELLE")}
-              activites={activitesProduction}
-              lots={preparation.lots}
-            />
-          )}
-          {arret && <Signal ton="information">{t("sansObjet.travauxArret")}</Signal>}
-        </CarteSection>
+        {!arret && (
+          <>
+            <CarteSection {...rubrique("travaux")}>
+              {sections.includes("AVANCEMENT") && (
+                <SectionAvancement activites={activitesAvancement} lots={preparation.lots} />
+              )}
+              {sections.includes("PRODUCTION") && (
+                <SectionProduction
+                  complement={lotsDuMode(preparation.lots, "SOUS_TRAITANCE_INFORMELLE")}
+                  activites={activitesProduction}
+                  lots={preparation.lots}
+                />
+              )}
+            </CarteSection>
 
-        <CarteSection {...rubrique("rh")}>
-          {sections.includes("EFFECTIFS") && (
-            <SectionEffectifs complement={lotsDuMode(preparation.lots, "REGIE_DIRECTE")} />
-          )}
-          {sections.includes("PRESENCE_SOUS_TRAITANT") && (
-            <SectionPresenceSousTraitant complement={lotsDuMode(preparation.lots, "SOUS_TRAITANCE_STRUCTUREE")} />
-          )}
-          {!sections.includes("EFFECTIFS") && !sections.includes("PRESENCE_SOUS_TRAITANT") && (
-            <Signal ton="information">{arret ? t("sansObjet.rhArret") : t("sansObjet.rh")}</Signal>
-          )}
-        </CarteSection>
+            <CarteSection {...rubrique("rh")}>
+              {sections.includes("EFFECTIFS") && (
+                <SectionEffectifs />
+              )}
+              {sections.includes("PRESENCE_SOUS_TRAITANT") && (
+                <SectionPresenceSousTraitant />
+              )}
+              {!sections.includes("EFFECTIFS") && !sections.includes("PRESENCE_SOUS_TRAITANT") && (
+                <Signal ton="information">{t("sansObjet.rh")}</Signal>
+              )}
+            </CarteSection>
 
-        <CarteSection {...rubrique("materiels")}>
-          {sections.includes("EQUIPEMENTS") ? (
-            <SectionEquipements />
-          ) : (
-            <Signal ton="information">{arret ? t("sansObjet.materielsArret") : t("sansObjet.materiels")}</Signal>
-          )}
-        </CarteSection>
+            <CarteSection {...rubrique("materiels")}>
+              {sections.includes("EQUIPEMENTS") ? (
+                <SectionEquipements />
+              ) : (
+                <Signal ton="information">{t("sansObjet.materiels")}</Signal>
+              )}
+            </CarteSection>
 
-        <CarteSection {...rubrique("materiaux")}>
-          {sections.includes("LIVRAISONS") && <SectionLivraisons />}
-          {sections.includes("MATERIAUX") && <SectionMateriaux materiaux={preparation.materiaux} />}
-          <SectionBesoins />
-        </CarteSection>
+            <CarteSection {...rubrique("materiaux")}>
+              {sections.includes("LIVRAISONS") && <SectionLivraisons />}
+              {sections.includes("MATERIAUX") && <SectionMateriaux materiaux={preparation.materiaux} />}
+              <SectionBesoins />
+            </CarteSection>
 
-        <CarteSection {...rubrique("evenements")}>
-          <SectionEvenements alertes={alertes} />
-          <SectionBlocage alerte={alertes.BLOCAGE} />
-        </CarteSection>
+            <CarteSection {...rubrique("evenements")}>
+              <SectionEvenements alertes={alertes} />
+              <SectionBlocage alerte={alertes.BLOCAGE} />
+            </CarteSection>
 
-        <CarteSection {...rubrique("photos")}>
-          <SectionPhotos />
-          <SectionPiecesJointes />
-        </CarteSection>
+            <CarteSection {...rubrique("photos")}>
+              <SectionPhotos />
+              <SectionPiecesJointes />
+            </CarteSection>
 
-        <CarteSection {...rubrique("synthese")}>
-          <SectionNote />
-          <SectionPrevisions />
-        </CarteSection>
+            <CarteSection {...rubrique("synthese")}>
+              <SectionNote />
+              <SectionPrevisions />
+            </CarteSection>
+          </>
+        )}
 
         {/* La barre d'actions : collée en bas de l'écran, à portée de pouce. */}
-        <div className="sticky bottom-0 z-30 -mx-2 border-t border-neutral-200 bg-card/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:-mx-6 sm:px-6">
+        <div
+          className={cn(
+            "sticky bottom-0 z-30 -mx-2 border-t border-neutral-200 bg-card/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur transition-shadow sm:-mx-6 sm:px-6",
+            resteEnBas && "shadow-collant-haut",
+          )}
+        >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <EtatEnregistrement etat={sauvegarde} enLigne={enLigne} format={format} />
             <div className="grid grid-cols-2 gap-2 sm:flex">

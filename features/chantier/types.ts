@@ -4,14 +4,15 @@
  *
  * Deux documents, et une ligne qui les relie :
  *
- * - le **rapport journalier** (`RAP-…`) couvre **un lot sur un jour**. Il est
+ * - le **rapport journalier** (`RAP-…`) couvre **un chantier sur un jour** :
+ *   tous les lots travaillés ce jour-là, chacun avec ses activités. Il est
  *   saisi par le chef de chantier, puis signé CC → CT → CP ; une fois
  *   approuvé par le CP il est immuable — c'est lui qui alimente l'avancement
  *   et les bons de paiement ;
  * - la **synthèse périodique** (`SYNT-…`) couvre **plusieurs lots sur
  *   plusieurs jours**. Elle n'est pas saisie : Django l'agrège à la demande
  *   depuis les rapports journaliers, puis elle est signée CT → CP ;
- * - l'**entrée de journal** est la ligne « tel lot, tel jour » : un rapport
+ * - l'**entrée de journal** est la ligne « tel chantier, tel jour » : un rapport
  *   quand il existe, son absence quand il manque. Une absence est une donnée
  *   (elle se trace, se relance, apparaît dans la synthèse), pas un trou.
  *
@@ -60,6 +61,14 @@ export interface EtapeCircuit {
  * Le lot et l'entrée de journal.
  * ------------------------------------------------------------------ */
 
+/** Le chantier tel que le journal le voit : c'est lui qui titre un rapport, pas un lot. */
+export interface ChantierJournal {
+  projetId: string;
+  projetNom: string;
+  projetReference: string;
+  chefChantier: string;
+}
+
 /** Un lot tel que le journal le voit : son chantier et son chef de chantier. */
 export interface LotJournal {
   id: string;
@@ -72,26 +81,31 @@ export interface LotJournal {
   chefChantier: string;
 }
 
-/** Une ligne « tel lot, tel jour » — rapport déposé ou attendu. */
+/** Une ligne « tel chantier, tel jour » — rapport déposé ou attendu. */
 export interface EntreeJournal {
   /** L'identifiant du rapport ; pour une absence, celui de la ligne attendue. */
   id: string;
-  /** `RAP-2026-001-L03-042` — `null` tant qu'aucun rapport n'existe. */
+  /** `RAP-2026-001-042` — `null` tant qu'aucun rapport n'existe. */
   reference: string | null;
   /** Le jour couvert, `AAAA-MM-JJ`. */
   date: string;
-  lot: LotJournal;
+  chantier: ChantierJournal;
+  /**
+   * Les lots dont le rapport rend compte ce jour — ceux où l'on a travaillé.
+   * Vide pour une absence ou une journée d'arrêt.
+   */
+  lots: LotJournal[];
   situation: SituationRapport;
   effectifPresent: number | null;
   effectifPrevu: number | null;
-  /** L'avancement du lot au soir de ce jour, en %. */
-  avancementLot: number | null;
+  /** L'avancement du chantier au soir de ce jour, en %. */
+  avancement: number | null;
   avancementTheorique: number | null;
   incidents: number | null;
   blocages: number | null;
   photos: number | null;
   soumisLe: string | null;
-  /** Pour une absence : le dernier jour où ce lot a eu un rapport. */
+  /** Pour une absence : le dernier jour où ce chantier a eu un rapport. */
   dernierRapportLe: string | null;
   /** La dernière relance envoyée pour cette ligne. */
   relanceLe: string | null;
@@ -127,7 +141,7 @@ export interface ConditionsMeteo {
   prevision: string | null;
 }
 
-/** Une catégorie d'ouvriers présents — lot en régie directe seulement. */
+/** Une catégorie d'ouvriers présents — lots en régie directe seulement. */
 export interface LigneEffectif {
   categorie: string;
   prevus: number;
@@ -136,7 +150,7 @@ export interface LigneEffectif {
   observation: string | null;
 }
 
-/** La production d'un tâcheron — lot en sous-traitance informelle seulement. */
+/** La production d'un tâcheron — lots en sous-traitance informelle seulement. */
 export interface LigneProduction {
   intervenant: string;
   activite: string;
@@ -157,6 +171,16 @@ export interface LigneActivite {
   /** L'avancement attendu à cette date par le planning, en %. */
   avancementTheorique: number;
   observation: string | null;
+}
+
+/** Ce qu'un lot a vu ce jour : son avancement, le point du chef de chantier, ses activités. */
+export interface TravauxLot {
+  lot: LotJournal;
+  /** L'avancement du lot au soir de ce jour, en %. */
+  avancement: number;
+  avancementTheorique: number;
+  observation: string | null;
+  activites: LigneActivite[];
 }
 
 /**
@@ -239,6 +263,17 @@ export interface Photo {
   gpsConfirme: boolean;
 }
 
+/** Un document joint au rapport par le chef de chantier (PV, plan, métré). */
+export interface DocumentRapport {
+  nom: string;
+  /** Le type MIME. */
+  type: string;
+  /** En octets. */
+  taille: number;
+  /** Le fichier ; `null` quand le serveur n'en sert que les métadonnées. */
+  url: string | null;
+}
+
 export interface Prevision {
   activite: string;
   equipe: string;
@@ -254,12 +289,14 @@ export interface IntervenantsRapport {
 }
 
 /**
- * Le rapport journalier complet — le document que le CC a signé.
+ * Le rapport journalier complet — le document que le CC a signé, pour tout
+ * le chantier.
  *
- * Les sections suivent le mode d'exécution du lot, **tel que le serveur le
- * renvoie** : `effectifs` n'existe qu'en régie directe, `production` qu'en
- * sous-traitance informelle. Un `null` veut dire « section sans objet pour
- * ce lot », un tableau vide « rien à signaler ce jour ».
+ * Les sections suivent les modes d'exécution des lots, **tels que le serveur
+ * les renvoie** : `effectifs` n'existe que si un lot est en régie directe,
+ * `production` qu'en sous-traitance informelle. Un `null` veut dire
+ * « section sans objet ce jour », un tableau vide « rien à signaler ».
+ * L'avancement se lit lot par lot (`travaux`).
  */
 export interface RapportJournalier extends EntreeJournal {
   localisation: string;
@@ -269,13 +306,15 @@ export interface RapportJournalier extends EntreeJournal {
   meteo: ConditionsMeteo;
   effectifs: LigneEffectif[] | null;
   production: LigneProduction[] | null;
-  activites: LigneActivite[];
+  travaux: TravauxLot[];
   materiaux: LigneMateriau[];
   livraisons: Livraison[];
   equipements: LigneEquipement[];
   listeIncidents: Incident[];
   listeBlocages: Blocage[];
   listePhotos: Photo[];
+  /** Les documents joints au formulaire ; vide : aucun. */
+  documents: DocumentRapport[];
   previsions: Prevision[];
 }
 
@@ -337,7 +376,6 @@ export interface MateriauSynthese {
 
 export interface IncidentSynthese extends Incident {
   date: string;
-  lotCode: string;
 }
 
 export interface Appreciation {

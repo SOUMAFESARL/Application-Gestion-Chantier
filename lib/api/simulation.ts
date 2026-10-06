@@ -55,8 +55,17 @@ export function routesSimulees(livrees: boolean): boolean {
 
 const CLE_ETAT = "ccd.simulation.onboarding";
 
-/** Latence simulée — de quoi voir passer l'état de chargement, charte §8.3. */
+/**
+ * Latence simulée — de quoi voir passer l'état de chargement, charte §8.3.
+ *
+ * **Désactivée par défaut.** Chaque lecture simulée attendait 300 à 700 ms
+ * pour des données déjà en mémoire ; enchaînées (coquille, garde de route,
+ * écran), elles faisaient d'une plateforme sans serveur une plateforme lente,
+ * et donnaient du produit une image fausse. On la rallume pour travailler un
+ * état de chargement : `NEXT_PUBLIC_API_LATENCE_SIMULEE=1`.
+ */
 const LATENCE = 600;
+const LATENCE_ACTIVE = process.env.NEXT_PUBLIC_API_LATENCE_SIMULEE === "1";
 
 // ---------------------------------------------------------------------------
 // L'état, conservé le temps de l'onglet
@@ -106,6 +115,7 @@ function ecrireEtat(etat: EtatSimule): void {
  * importe, et rien d'autre ne le doit.
  */
 export function attendre<T>(valeur: T, delai = LATENCE): Promise<T> {
+  if (!LATENCE_ACTIVE) return Promise.resolve(valeur);
   return new Promise((resoudre) => setTimeout(() => resoudre(valeur), delai));
 }
 

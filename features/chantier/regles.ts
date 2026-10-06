@@ -50,7 +50,7 @@ import type {
  * Les constantes du circuit.
  * ------------------------------------------------------------------ */
 
-/** L'heure à laquelle un lot sans rapport déclenche la relance automatique du CC. */
+/** L'heure à laquelle un chantier sans rapport déclenche la relance automatique du CC. */
 export const HEURE_ALERTE_NON_SOUMIS = "17:30";
 /** L'heure à laquelle le CT et le CP sont alertés à leur tour. */
 export const HEURE_ESCALADE = "18:00";
@@ -212,7 +212,7 @@ const ORDRE_SITUATION: Record<SituationRapport, number> = {
 export function comparerSituations(a: EntreeJournal, b: EntreeJournal): number {
   return (
     ORDRE_SITUATION[a.situation] - ORDRE_SITUATION[b.situation] ||
-    a.lot.code.localeCompare(b.lot.code)
+    a.chantier.projetNom.localeCompare(b.chantier.projetNom)
   );
 }
 
@@ -295,7 +295,7 @@ export function situationDuJour(entrees: EntreeJournal[], jour: string): Situati
     enAttenteCp: compter("VALIDE_CT"),
     approuves: compter("APPROUVE_CP"),
     rejetes: compter("REJETE"),
-    chantiers: new Set(duJour.map((entree) => entree.lot.projetId)).size,
+    chantiers: new Set(duJour.map((entree) => entree.chantier.projetId)).size,
     taux: pourcentage(deposes, duJour.length),
   };
 }
@@ -318,34 +318,7 @@ export function tauxSoumission(
   return { deposes, attendus: periode.length, taux: pourcentage(deposes, periode.length) };
 }
 
-export interface GroupeChantier {
-  projetId: string;
-  projetNom: string;
-  projetReference: string;
-  entrees: EntreeJournal[];
-}
-
-/** Les lignes regroupées par chantier ; le chantier le plus en défaut d'abord. */
-export function grouperParChantier(entrees: EntreeJournal[]): GroupeChantier[] {
-  const groupes = new Map<string, GroupeChantier>();
-  for (const entree of entrees) {
-    const groupe = groupes.get(entree.lot.projetId) ?? {
-      projetId: entree.lot.projetId,
-      projetNom: entree.lot.projetNom,
-      projetReference: entree.lot.projetReference,
-      entrees: [],
-    };
-    groupe.entrees.push(entree);
-    groupes.set(entree.lot.projetId, groupe);
-  }
-  const manquants = (groupe: GroupeChantier) =>
-    groupe.entrees.filter((entree) => estManquant(entree.situation)).length;
-  return [...groupes.values()]
-    .map((groupe) => ({ ...groupe, entrees: [...groupe.entrees].sort(comparerSituations) }))
-    .sort((a, b) => manquants(b) - manquants(a) || a.projetNom.localeCompare(b.projetNom));
-}
-
-/** Le nombre de jours ouvrés écoulés depuis le dernier rapport d'un lot. */
+/** Le nombre de jours ouvrés écoulés depuis le dernier rapport d'un chantier. */
 export function joursSansRapport(entree: EntreeJournal): number | null {
   if (!entree.dernierRapportLe) return null;
   return Math.max(0, joursOuvres(ajouterJours(entree.dernierRapportLe, 1), entree.date).length);
@@ -395,7 +368,7 @@ export function filtrerEntrees(
   const recherche = normaliser(criteres.recherche);
   const debut = debutFenetre(criteres.fenetre, aujourdhui);
   return entrees
-    .filter((entree) => !criteres.projetId || entree.lot.projetId === criteres.projetId)
+    .filter((entree) => !criteres.projetId || entree.chantier.projetId === criteres.projetId)
     .filter((entree) => !criteres.situation || entree.situation === criteres.situation)
     .filter((entree) => !debut || entree.date >= debut)
     .filter(
@@ -404,14 +377,14 @@ export function filtrerEntrees(
         normaliser(
           [
             entree.reference ?? "",
-            entree.lot.code,
-            entree.lot.nom,
-            entree.lot.projetNom,
-            entree.lot.chefChantier,
+            entree.chantier.projetNom,
+            entree.chantier.projetReference,
+            entree.chantier.chefChantier,
+            ...entree.lots.flatMap((lot) => [lot.code, lot.nom]),
           ].join(" "),
         ).includes(recherche),
     )
-    .sort((a, b) => b.date.localeCompare(a.date) || a.lot.projetNom.localeCompare(b.lot.projetNom) || a.lot.code.localeCompare(b.lot.code));
+    .sort((a, b) => b.date.localeCompare(a.date) || a.chantier.projetNom.localeCompare(b.chantier.projetNom));
 }
 
 export function criteresActifs(criteres: CriteresJournal): boolean {
@@ -436,10 +409,15 @@ export function tauxPresence(presents: number | null, prevus: number | null): nu
   return pourcentage(presents, prevus);
 }
 
-/** Le retard d'un lot sur son planning, en points (positif : en retard). */
-export function retardPoints(entree: Pick<EntreeJournal, "avancementLot" | "avancementTheorique">): number | null {
-  if (entree.avancementLot === null || entree.avancementTheorique === null) return null;
-  return Math.round(entree.avancementTheorique - entree.avancementLot);
+/** Le retard d'un chantier ou d'un lot sur son planning, en points (positif : en retard). */
+export function retardPoints(entree: { avancement: number | null; avancementTheorique: number | null }): number | null {
+  if (entree.avancement === null || entree.avancementTheorique === null) return null;
+  return Math.round(entree.avancementTheorique - entree.avancement);
+}
+
+/** Les codes des lots couverts par un rapport, dans l'ordre : `L-03 · L-04`. */
+export function codesLots(lots: Pick<LotJournal, "code">[]): string {
+  return lots.map((lot) => lot.code).join(" · ");
 }
 
 export interface TotauxEffectifs {
@@ -504,6 +482,11 @@ export function activitesActives(lignes: LigneActivite[]): number {
   return lignes.filter((ligne) => ligne.quantiteJour > 0).length;
 }
 
+/** Toutes les activités d'un rapport, lots confondus. */
+export function activitesDuRapport(rapport: Pick<RapportJournalier, "travaux">): LigneActivite[] {
+  return rapport.travaux.flatMap((travaux) => travaux.activites);
+}
+
 /* ------------------------------------------------------------------ *
  * La synthèse périodique — l'agrégation.
  * ------------------------------------------------------------------ */
@@ -530,8 +513,8 @@ function arrondi(valeur: number, decimales = 0): number {
   return Math.round(valeur * facteur) / facteur;
 }
 
-/** Le dernier avancement connu d'un lot à une date, rapports antérieurs compris. */
-function avancementAu(entrees: EntreeJournal[], jour: string, cle: "avancementLot" | "avancementTheorique"): number | null {
+/** Le dernier avancement connu du chantier à une date, rapports antérieurs compris. */
+function avancementAu(entrees: EntreeJournal[], jour: string, cle: "avancement" | "avancementTheorique"): number | null {
   const connues = entrees
     .filter((entree) => entree.date <= jour && entree[cle] !== null)
     .sort((a, b) => b.date.localeCompare(a.date));
@@ -557,27 +540,27 @@ export function agregerSynthese(
   const dansPeriode = (jour: string) => jour >= periode.debut && jour <= periode.fin;
   const recapitulatif = entrees
     .filter((entree) => dansPeriode(entree.date))
-    .sort((a, b) => a.date.localeCompare(b.date) || a.lot.code.localeCompare(b.lot.code));
+    .sort((a, b) => a.date.localeCompare(b.date));
   const detailles = rapports
     .filter((rapport) => dansPeriode(rapport.date) && estDepose(rapport.situation))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const veille = ajouterJours(periode.debut, -1);
   const finConnue = recapitulatif.at(-1)?.date ?? periode.fin;
-  const parLot = lots.map((lot) => entrees.filter((entree) => entree.lot.id === lot.id));
-  const releves = (jour: string, cle: "avancementLot" | "avancementTheorique") =>
-    parLot.map((liste) => avancementAu(liste, jour, cle)).filter((valeur): valeur is number => valeur !== null);
+  const releve = (jour: string, cle: "avancement" | "avancementTheorique") => avancementAu(entrees, jour, cle) ?? 0;
 
-  const debut = arrondi(moyenne(releves(veille, "avancementLot")));
-  const fin = arrondi(moyenne(releves(finConnue, "avancementLot")));
-  const theoriqueDebut = arrondi(moyenne(releves(veille, "avancementTheorique")));
-  const theorique = arrondi(moyenne(releves(finConnue, "avancementTheorique")));
+  const debut = arrondi(releve(veille, "avancement"));
+  const fin = arrondi(releve(finConnue, "avancement"));
+  const theoriqueDebut = arrondi(releve(veille, "avancementTheorique"));
+  const theorique = arrondi(releve(finConnue, "avancementTheorique"));
 
   const deposes = recapitulatif.filter((entree) => estDepose(entree.situation));
   const avecEffectifs = deposes.filter((entree) => entree.effectifPresent !== null && entree.effectifPrevu !== null);
 
   const avancement: LotSynthese[] = lots.map((lot) => {
-    const duLot = detailles.filter((rapport) => rapport.lot.id === lot.id);
+    // Un rapport couvre tout le chantier : on y relève les travaux de ce lot,
+    // les jours où il a été travaillé.
+    const duLot = detailles.flatMap((rapport) => rapport.travaux.filter((travaux) => travaux.lot.id === lot.id));
     const premier = duLot[0];
     const dernier = duLot.at(-1);
     if (!premier || !dernier) return { lot, activites: [] };
@@ -637,7 +620,7 @@ export function agregerSynthese(
   });
 
   const incidents: IncidentSynthese[] = detailles.flatMap((rapport) =>
-    rapport.listeIncidents.map((incident) => ({ ...incident, date: rapport.date, lotCode: rapport.lot.code })),
+    rapport.listeIncidents.map((incident) => ({ ...incident, date: rapport.date })),
   );
   const livraisons = detailles.flatMap((rapport) => rapport.livraisons);
 
@@ -713,7 +696,7 @@ export function indicateursJournalProjet(
   projetId: string,
   aujourdhui: string,
 ): IndicateursJournalProjet {
-  const duProjet = entrees.filter((entree) => entree.lot.projetId === projetId);
+  const duProjet = entrees.filter((entree) => entree.chantier.projetId === projetId);
   return {
     soumission: tauxSoumission(duProjet, aujourdhui, FENETRE_SOUMISSION_JOURS),
     incidents: duProjet.reduce((somme, entree) => somme + (entree.incidents ?? 0), 0),
@@ -741,6 +724,22 @@ export const EXTENSIONS_DOCUMENT: readonly string[] = [".pdf", ".doc", ".docx", 
 export function estDocumentAccepte(nomFichier: string): boolean {
   const nom = nomFichier.toLowerCase();
   return EXTENSIONS_DOCUMENT.some((extension) => nom.endsWith(extension));
+}
+
+/** Le format d'un document joint, d'après son extension — ce que le rapport en affiche. */
+export type FormatDocument = "PDF" | "WORD" | "EXCEL" | "AUTRE";
+
+export function formatDocument(nomFichier: string): FormatDocument {
+  const nom = nomFichier.toLowerCase();
+  if (nom.endsWith(".pdf")) return "PDF";
+  if (nom.endsWith(".doc") || nom.endsWith(".docx")) return "WORD";
+  if (nom.endsWith(".xls") || nom.endsWith(".xlsx")) return "EXCEL";
+  return "AUTRE";
+}
+
+/** Une taille en octets, arrondie au kilo-octet supérieur : un document de 200 o pèse 1 Ko, pas 0. */
+export function tailleKo(octets: number): number {
+  return Math.ceil(octets / 1024);
 }
 export const LONGUEUR_MIN_NOTE = 10;
 export const LONGUEUR_MIN_DESCRIPTION_INCIDENT = 20;
@@ -826,6 +825,27 @@ export function rapportsEnAttente(
 }
 
 /**
+ * Les brouillons d'un chef de chantier, tous chantiers confondus, du plus
+ * récent au plus ancien. Un brouillon au-delà de J-2 reste listé — il ne se
+ * reprend plus (`redigeable`), mais le chef de chantier doit savoir qu'il
+ * n'a jamais été soumis.
+ */
+export function brouillonsEnCours<P>(
+  parProjet: { projet: P; aujourdhui: string; rapports: RapportDuJour[] }[],
+): { projet: P; rapport: RapportDuJour; redigeable: boolean }[] {
+  return parProjet
+    .flatMap(({ projet, aujourdhui, rapports }) =>
+      rapports
+        .filter((rapport) => rapport.statut === "BROUILLON")
+        .map((rapport) => ({ projet, rapport, redigeable: jourSaisissable(rapport.date, aujourdhui) })),
+    )
+    .sort(
+      (a, b) =>
+        b.rapport.date.localeCompare(a.rapport.date) || b.rapport.enregistreLe.localeCompare(a.rapport.enregistreLe),
+    );
+}
+
+/**
  * Le chef de chantier ne touche plus un rapport soumis (RG-F2-03) : seul un
  * rejet du CT le lui rend. Un rapport qui n'existe pas encore se rédige.
  */
@@ -836,12 +856,12 @@ export function rapportModifiable(statut: StatutRapport | null): boolean {
 /**
  * Les sections à remplir, d'après celles que le serveur donne pour le chantier.
  * Une journée d'arrêt n'a ni avancement ni consommation (SFD §4.4) : elle ne
- * crée aucun mouvement de stock, aucune production à payer.
+ * crée aucun mouvement de stock, aucune production à payer. Elle ne déclare
+ * pas davantage d'effectif, d'engin ou de livraison : le rapport se réduit à
+ * la journée — horaires, motif de l'arrêt, météo.
  */
 export function sectionsActives(sections: SectionSaisie[], arret: boolean): SectionSaisie[] {
-  if (!arret) return sections;
-  const sansTravaux: SectionSaisie[] = ["AVANCEMENT", "PRODUCTION", "MATERIAUX"];
-  return sections.filter((section) => !sansTravaux.includes(section));
+  return arret ? [] : sections;
 }
 
 /**
