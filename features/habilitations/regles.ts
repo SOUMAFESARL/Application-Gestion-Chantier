@@ -117,6 +117,15 @@ function fonctionsDuCompte(
   ];
 }
 
+/**
+ * Ce que le compte tient sur ce chantier — chef de projet, conducteur… La
+ * direction n'y tient aucune fonction : elle voit tout, sans y être nommée.
+ */
+export function fonctionsSurProjet(projet: Projet, droits: Droits | null): FonctionProjet[] {
+  if (!droits || droits.portee.type !== "PERSONNE") return [];
+  return fonctionsDuCompte(projet, droits.portee);
+}
+
 export function projetVisible(projet: Projet, droits: Droits | null): boolean {
   return projetsVisibles([projet], droits).length === 1;
 }
@@ -127,8 +136,7 @@ export function projetVisible(projet: Projet, droits: Droits | null): boolean {
  * d'identifiant.
  */
 export function estChefDuProjet(projet: Projet, droits: Droits | null): boolean {
-  if (!droits || droits.portee.type !== "PERSONNE") return false;
-  return fonctionsDuCompte(projet, droits.portee).includes("CHEF_PROJET");
+  return fonctionsSurProjet(projet, droits).includes("CHEF_PROJET");
 }
 
 /**

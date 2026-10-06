@@ -13,6 +13,7 @@ import { restreindreTableauDeBord } from "@/features/tableauDeBord/regles";
 import { cn } from "@/lib/utils";
 
 import { AlertesPilotage } from "./AlertesPilotage";
+import { BlocsStock } from "./BlocsStock";
 import { ChantiersAttention } from "./ChantiersAttention";
 import { CLE_TABLEAU_DE_BORD } from "./cles";
 import { EcheancesAVenir } from "./EcheancesAVenir";
@@ -33,7 +34,8 @@ const CLE_LISTE_PROJETS = ["projets", "liste"] as const;
  * « l'état réel de tous ses chantiers en moins de 30 secondes ») :
  *
  * 1. **la phrase de synthèse et les quatre chiffres** — l'état de l'entreprise ;
- * 2. **ce qui réclame le DG** — les chantiers qui dérivent, ce qu'il doit signer ;
+ * 2. **ce qui réclame le DG** — les chantiers qui dérivent, ce qu'il doit signer,
+ *    les demandes d'approvisionnement à commander (F9) ;
  * 3. **pourquoi** — l'argent chantier par chantier, les alertes du terrain ;
  * 4. **le détail** — le portefeuille complet ;
  * 5. **ce qui vient** — les échéances, la sécurité.
@@ -127,6 +129,8 @@ export function TableauDeBordDirection() {
         <ChantiersAttention chantiers={donnees.chantiers} />
         {peut("finance", "validation") && <ValidationsEnAttente validations={donnees.validations} />}
       </div>
+
+      <BlocsStock />
 
       <div className={cn("grid items-start gap-6", peut("finance") && "lg:grid-cols-3")}>
         {peut("finance") && (

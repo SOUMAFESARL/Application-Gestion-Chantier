@@ -17,7 +17,6 @@ import {
   LayoutDashboard,
   LogOut,
   Package,
-  Settings,
   ShieldCheck,
   ShoppingCart,
   Sun,
@@ -114,6 +113,14 @@ const abonnementSession =(rappel: () => void) => {
     window.removeEventListener("storage", rappel);
   };
 };
+
+/**
+ * La météo est **retirée de la barre du haut** à la demande du produit (06/10),
+ * mais le code reste en place pour la remettre plus tard : repasser cette
+ * constante à `true` rétablit à la fois l'appel au service et l'affichage.
+ * Tant qu'elle vaut `false`, aucun appel météo n'est émis.
+ */
+const METEO_DANS_BARRE = false;
 
 /**
  * Le relevé de repli quand le service météo ne répond pas.
@@ -294,6 +301,7 @@ export default function LayoutApp({ children }: LayoutAppProps) {
   const voit = (href: string) => routeAutorisee(droits, href);
 
   useEffect(() => {
+    if (!METEO_DANS_BARRE) return;
     let vivant = true;
 
     const params = !estDirecteurGeneral && projetIdDansUrl
@@ -339,11 +347,6 @@ export default function LayoutApp({ children }: LayoutAppProps) {
   const estSurCollaborateurs = pathname.startsWith("/parametres/collaborateurs");
   const estSurRoles = pathname.startsWith("/parametres/roles");
   const estSurConfigurationEntreprise = pathname.startsWith("/parametres/configuration");
-  const estSurParametres =
-    pathname.startsWith("/parametres") &&
-    !estSurCollaborateurs &&
-    !estSurRoles &&
-    !estSurConfigurationEntreprise;
 
   const roleLibelle = profil
     ? profil.is_dg
@@ -658,21 +661,17 @@ export default function LayoutApp({ children }: LayoutAppProps) {
             </SidebarGroup>
           )}
 
-          {voit("/parametres") && (
-  <SidebarGroup>
+          {/* Plus d'entrée « Paramètres » propre : la configuration de
+              l'entreprise s'ouvre aussi depuis son nom, dans la barre du
+              haut. Le groupe n'apparaît que si l'une de ses entrées est
+              ouverte. */}
+          {(voit("/parametres/collaborateurs") ||
+            voit("/parametres/roles") ||
+            voit("/parametres/configuration")) && (
+            <SidebarGroup>
               <SidebarGroupLabel>{t("parametres")}</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {voit("/parametres") && (
-                    <SidebarMenuItem>
-                      <SidebarMenuButton asChild isActive={estSurParametres} tooltip={t("parametres")}>
-                        <Link href="/parametres">
-                          <Settings />
-                          <span>{t("parametres")}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )}
                   {voit("/parametres/collaborateurs") && (
                     <SidebarMenuItem>
                       <SidebarMenuButton asChild isActive={estSurCollaborateurs} tooltip={t("collaborateurs")}>
@@ -809,8 +808,9 @@ export default function LayoutApp({ children }: LayoutAppProps) {
             {/* Météo locale dynamique issue de l'API temps réel — affichée
                 seulement une fois un relevé obtenu. Montrée pendant le
                 chargement, elle apparaissait puis disparaissait à chaque
-                actualisation quand le relevé s'avérait indisponible. */}
-            {meteo?.disponible && meteo.temperature !== null && (
+                actualisation quand le relevé s'avérait indisponible.
+                Masquée pour l'instant : voir `METEO_DANS_BARRE`. */}
+            {METEO_DANS_BARRE && meteo?.disponible && meteo.temperature !== null && (
               <div
                 className="hidden items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground sm:flex"
                 title={bulleMeteo}
@@ -825,13 +825,39 @@ export default function LayoutApp({ children }: LayoutAppProps) {
               </div>
             )}
 
-            {/* Le nom de l'entreprise connectée */}
+            {/* Le logo et le nom de l'entreprise connectée. Le logo est celui
+                téléversé à la configuration (`logo_1x` / `logo`, les deux
+                densités d'écran), posé dans un avatar rond. `object-contain`
+                plutôt que `cover` : un logo large serait rogné par le cercle,
+                il y est inscrit en entier. Le nom suit : le logo reste
+                décoratif (`alt` vide). Sans logo, ou s'il ne charge pas,
+                l'initiale de l'entreprise prend sa place. */}
             {entreprise ? (
               <Link
-                href="/parametres"
-                className="hidden items-center rounded-full px-2 py-1 text-sm font-medium text-foreground hover:bg-accent md:flex"
+                href="/parametres/configuration"
+                className="hidden items-center gap-2 rounded-full px-2 py-1 text-sm font-medium text-foreground no-underline hover:bg-accent hover:no-underline md:flex"
                 title={entreprise.nom_commercial || entreprise.raison_sociale}
               >
+                <Avatar
+                  key={entreprise.logo_1x || entreprise.logo || "sans-logo"}
+                  className="size-8 border border-border bg-background"
+                >
+                  {(entreprise.logo_1x || entreprise.logo) && (
+                    <AvatarImage
+                      src={entreprise.logo_1x || entreprise.logo}
+                      srcSet={
+                        entreprise.logo_1x && entreprise.logo
+                          ? `${entreprise.logo_1x} 1x, ${entreprise.logo} 2x`
+                          : undefined
+                      }
+                      alt=""
+                      className="rounded-full object-contain p-0.5"
+                    />
+                  )}
+                  <AvatarFallback className="rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                    {(entreprise.nom_commercial || entreprise.raison_sociale).charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
                 <span className="max-w-32 truncate">
                   {entreprise.nom_commercial || entreprise.raison_sociale}
                 </span>

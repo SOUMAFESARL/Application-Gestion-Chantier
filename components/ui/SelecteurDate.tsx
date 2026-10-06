@@ -41,6 +41,11 @@ interface Props extends Omit<ComponentProps<"button">, "value" | "onChange" | "c
   auPlusTot?: string;
   /** Les jours postérieurs à cette date (ISO court) ne sont pas proposés. */
   auPlusTard?: string;
+  /**
+   * Classes du calendrier ouvert. Il s'ouvre dans un portail en `z-50` :
+   * dans une `Modale` (`z-100`), passer `z-110` pour qu'il passe devant.
+   */
+  classeCalendrier?: string;
 }
 
 /**
@@ -63,6 +68,7 @@ export function SelecteurDate({
   placeholder,
   auPlusTot,
   auPlusTard,
+  classeCalendrier,
   className,
   disabled,
   ...props
@@ -101,7 +107,7 @@ export function SelecteurDate({
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className={cn("w-auto p-0", classeCalendrier)} align="start">
         <Calendar
           mode="single"
           captionLayout="dropdown"

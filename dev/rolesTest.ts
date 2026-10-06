@@ -6,14 +6,14 @@ import type { PorteeProjets } from "@/features/habilitations/types";
 import type { FonctionProjet, Projet } from "@/features/projets/types";
 import { listerRoles } from "@/features/roles/api";
 import { permissionsNormalisees } from "@/features/roles/regles";
-import type { NiveauAcces, RoleItem } from "@/features/roles/types";
+import type { AccesModule, NiveauAcces, RoleItem } from "@/features/roles/types";
 import { MODULES_CCD } from "@/features/roles/types";
 
 /**
  * Les rôles proposés par « Voir en tant que… » — OUTIL DE DÉVELOPPEMENT.
  *
  * `GET /parametres/roles/` revient vide tant que le backend n'a pas semé les
- * rôles de l'entreprise : l'outil n'avait alors rien à incarner. Ces cinq
+ * rôles de l'entreprise : l'outil n'avait alors rien à incarner. Ces sept
  * rôles comblent le trou **dans l'outil seulement** — l'écran
  * `/parametres/roles` n'en voit aucun (clé de cache distincte), et un rôle du
  * serveur portant le même code l'emporte toujours sur sa version en dur.
@@ -31,7 +31,7 @@ function partout(niveau: NiveauAcces): Record<string, NiveauAcces> {
 function roleTest(
   code: string,
   libelle: string,
-  permissions: Record<string, NiveauAcces>,
+  permissions: Record<string, NiveauAcces | AccesModule[]>,
 ): RoleItem {
   return {
     id: `test-${code}`,
@@ -50,12 +50,31 @@ const ROLES_EN_DUR: RoleItem[] = [
   // Paramètres et Abonnement lui restent fermés, comme à tout rôle.
   roleTest("DG", "Directeur général", partout(3)),
   roleTest("ADMINISTRATEUR", "Administrateur", partout(3)),
+  /*
+   * Le stock (F9 v1.2, matrice §3.2) : des listes d'accès plutôt qu'un niveau,
+   * car les accès y sont indépendants — le chef de projet valide le stock sans
+   * le saisir. `achats` porte la DA (saisie) et le BC (validation) ; `stocks`,
+   * le terrain (saisie) et sa validation. Voir docs/PLAN_F9_STOCK.md §3.
+   */
+  roleTest("DIRECTEUR_OPERATIONS", "Directeur des opérations", {
+    projets: 1,
+    chantier: 1,
+    finance: 1,
+    // Reçoit les DA, émet les BC (standard ou commande directe).
+    achats: ["lecture", "validation"],
+    stocks: ["lecture"],
+    tiers: 1,
+    ged: 1,
+    pilotage: 1,
+  }),
   roleTest("CHEF_PROJET", "Chef de projet", {
     projets: 3,
     chantier: 3,
     finance: 2,
-    achats: 2,
-    stocks: 1,
+    // Émet et modifie ses DA, clôture un BC partiel.
+    achats: ["lecture", "saisie"],
+    // Valide les BRV équipements (2ᵉ niveau), les inventaires, les transferts inter-chantiers.
+    stocks: ["lecture", "validation"],
     rh: 1,
     equipements: 2,
     qhse: 2,
@@ -64,25 +83,37 @@ const ROLES_EN_DUR: RoleItem[] = [
     ged: 2,
     pilotage: 1,
   }),
-  roleTest("CHEF_CHANTIER", "Chef de chantier", {
-    projets: 1,
-    chantier: 2,
-    achats: 1,
-    stocks: 2,
-    rh: 1,
-    equipements: 1,
-    qhse: 2,
-    ged: 1,
-  }),
   roleTest("CONDUCTEUR_TRAVAUX", "Conducteur des travaux", {
     projets: 1,
     chantier: 3,
-    achats: 1,
-    stocks: 2,
+    // Lit les BC ; ne voit pas les DA.
+    achats: ["lecture"],
+    // Valide les BRV (1ᵉʳ niveau), dépose le BL, mouvements manuels, transferts inter-lots.
+    stocks: ["lecture", "saisie", "validation"],
     rh: 2,
     equipements: 2,
     qhse: 3,
     tiers: 1,
+    ged: 1,
+  }),
+  roleTest("MAGASINIER", "Magasinier", {
+    projets: 1,
+    chantier: 1,
+    // Émet ses DA, clôture un BC partiel.
+    achats: ["lecture", "saisie"],
+    // Réceptionne, photographie le BL, mouvements manuels, inventaires.
+    stocks: ["lecture", "saisie"],
+    equipements: 1,
+    ged: 1,
+  }),
+  roleTest("CHEF_CHANTIER", "Chef de chantier", {
+    projets: 1,
+    chantier: 2,
+    // Consulte le stock : il le consomme par son rapport (F2), sans le gérer.
+    stocks: ["lecture"],
+    rh: 1,
+    equipements: 1,
+    qhse: 2,
     ged: 1,
   }),
 ];

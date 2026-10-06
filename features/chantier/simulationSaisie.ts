@@ -24,6 +24,8 @@ import { texte } from "@/i18n/horsReact";
 import type { Lot, Projet } from "@/features/projets/types";
 import { ABSENT } from "@/lib/format";
 import { attendre, refuser } from "@/lib/api/simulation";
+import { consommablesDuChantier } from "@/features/stocks/regles";
+import { lireStock } from "@/features/stocks/adaptateur";
 
 import {
   avancementLotSaisi,
@@ -117,28 +119,6 @@ function sectionsDuChantier(lots: Lot[]): SectionSaisie[] {
 function suiviDe(lot: Lot): SuiviActivite {
   return lot.modeExecution === "SOUS_TRAITANCE_INFORMELLE" ? "PRODUCTION" : "AVANCEMENT";
 }
-
-/**
- * Le stock du lot, tel que F9 le servira : seuls les matériaux qui ont un bon
- * de réception valide sont consommables (RG-F2-06). F9 n'existant pas encore,
- * un catalogue de gros œuvre tient lieu de stock.
- */
-const CATALOGUE_MATERIAUX: Omit<MateriauDisponible, "stockDebut">[] = [
-  { materiauId: "mat-ciment", designation: "Ciment CPJ 42,5 (sac 50 kg)", unite: "sac", seuilAlerte: 40 },
-  { materiauId: "mat-sable", designation: "Sable lagunaire", unite: "m³", seuilAlerte: 6 },
-  { materiauId: "mat-gravier", designation: "Gravier concassé 5/15", unite: "m³", seuilAlerte: 6 },
-  { materiauId: "mat-ha10", designation: "Acier HA 10", unite: "barre", seuilAlerte: 50 },
-  { materiauId: "mat-ha12", designation: "Acier HA 12", unite: "barre", seuilAlerte: 50 },
-  { materiauId: "mat-agglos", designation: "Agglos creux 15×20×40", unite: "u", seuilAlerte: 300 },
-];
-const STOCK_INITIAL: Record<string, number> = {
-  "mat-ciment": 320,
-  "mat-sable": 30,
-  "mat-gravier": 28,
-  "mat-ha10": 260,
-  "mat-ha12": 220,
-  "mat-agglos": 2400,
-};
 
 /* ------------------------------------------------------------------ *
  * Le stockage du poste.
@@ -268,29 +248,46 @@ function activitesPreparees(projetId: string, lot: Lot, jour: string): ActiviteP
   });
 }
 
-function materiauxDisponibles(projetId: string, jour: string, sections: SectionSaisie[]): MateriauDisponible[] {
+/**
+ * Le stock du chantier, lu dans F9 (RG-STK-02) : seuls les matériaux entrés
+ * par un BRV complet — validé ET justifié — sont proposés. F9 ne décompte une
+ * consommation qu'à la validation du rapport par le CT (signal Django) : les
+ * rapports déjà soumis mais pas encore validés sont donc retranchés ici, pour
+ * que le chef de chantier ne voie pas un stock qu'il a déjà consommé.
+ */
+async function materiauxDisponibles(projetId: string, jour: string, sections: SectionSaisie[]): Promise<MateriauDisponible[]> {
   if (!sections.includes("MATERIAUX")) return [];
+  const stock = await lireStock()
+    .then((donnees) => consommablesDuChantier(donnees, projetId))
+    .catch(() => []);
+  const materiaux: MateriauDisponible[] = stock.map((ligne) => ({
+    materiauId: ligne.materiau.id,
+    designation: ligne.materiau.designation,
+    unite: ligne.materiau.unite,
+    stockDebut: ligne.stock,
+    seuilAlerte: ligne.seuil,
+  }));
   const consommes = new Map<string, number>();
   for (const rapport of anterieurs(projetId, jour)) {
     for (const ligne of rapport.saisie.materiaux) {
-      const materiau = materiauDuCatalogue(ligne);
+      const materiau = materiauDuStock(ligne, materiaux);
       if (materiau) consommes.set(materiau.materiauId, (consommes.get(materiau.materiauId) ?? 0) + (ligne.quantite ?? 0));
     }
   }
-  return CATALOGUE_MATERIAUX.map((materiau) => ({
+  return materiaux.map((materiau) => ({
     ...materiau,
-    stockDebut: Math.max(0, STOCK_INITIAL[materiau.materiauId] - (consommes.get(materiau.materiauId) ?? 0)),
+    stockDebut: Math.max(0, materiau.stockDebut - (consommes.get(materiau.materiauId) ?? 0)),
   }));
 }
 
 /**
- * La saisie est libre : une ligne ne rejoint le stock simulé que si elle en
+ * La saisie est libre : une ligne ne se rattache au stock que si elle en
  * reprend exactement la désignation et l'unité. Le serveur fera ce
  * rapprochement à sa façon.
  */
-function materiauDuCatalogue(ligne: { designation: string; unite: string }) {
+function materiauDuStock(ligne: { designation: string; unite: string }, materiaux: readonly MateriauDisponible[]) {
   const designation = ligne.designation.trim().toLocaleLowerCase("fr");
-  return CATALOGUE_MATERIAUX.find(
+  return materiaux.find(
     (materiau) => materiau.designation.toLocaleLowerCase("fr") === designation && materiau.unite === ligne.unite.trim(),
   );
 }
@@ -427,8 +424,7 @@ function versRapportJournalier(rapport: RapportSimule): RapportJournalier {
     ? saisie.materiaux
         .filter((ligne) => (ligne.quantite ?? 0) > 0)
         .map((ligne) => {
-          const catalogue = materiauDuCatalogue(ligne);
-          const stock = catalogue && contexte.materiaux.find((materiau) => materiau.materiauId === catalogue.materiauId);
+          const stock = materiauDuStock(ligne, contexte.materiaux);
           return {
             designation: ligne.designation,
             unite: ligne.unite,
@@ -633,7 +629,7 @@ export const simulationSaisie = {
           chefProjet: nomComplet(projet.chefProjet),
           sections,
           activites: enCours.flatMap((lot) => activitesPreparees(projet.id, lot, date)),
-          materiaux: materiauxDisponibles(projet.id, date, sections),
+          materiaux: await materiauxDisponibles(projet.id, date, sections),
         };
     contextes.set(cleContexte(projet.id, date), contexte);
     return attendre(
