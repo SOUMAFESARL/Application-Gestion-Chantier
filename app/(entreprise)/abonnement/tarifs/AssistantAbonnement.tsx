@@ -603,7 +603,7 @@ export function AssistantAbonnement() {
             <CheckCircle2 size={32} aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-h2 font-bold text-neutral-900">{tConfirmation("titre")}</h1>
+            <h1 className="text-h3 font-bold text-neutral-900">{tConfirmation("titre")}</h1>
             <p className="mt-1 text-sm text-neutral-600">
               {tConfirmation("sousTitre", { plan: libellePlan(plan.code) })}
             </p>

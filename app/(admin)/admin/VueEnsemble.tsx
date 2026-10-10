@@ -54,7 +54,7 @@ export function VueEnsemble() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-h2 font-bold text-neutral-900">{t("tableauDeBord.titre")}</h1>
+      <h1 className="text-h3 font-bold text-neutral-900">{t("tableauDeBord.titre")}</h1>
 
       <IndicateursCles clients={clients} />
 

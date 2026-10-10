@@ -12,7 +12,11 @@
  * F9 ne gère que des **quantités** : ni prix, ni valorisation (§1.3).
  */
 
-/** Matériau consommé, ou équipement — le second suit un circuit à deux niveaux (RG-STK-04). */
+/**
+ * Matériau consommé, ou équipement — le second suit un circuit à deux niveaux
+ * (RG-STK-04). C'est la nature **du circuit** : une livraison est l'une ou
+ * l'autre, quelle que soit la nature libre portée par l'article.
+ */
 export type NatureArticle = "MATERIAU" | "EQUIPEMENT";
 
 export type CategorieArticle =
@@ -26,13 +30,18 @@ export type CategorieArticle =
   | "FINITIONS"
   | "EQUIPEMENT";
 
-/** Un article du référentiel, commun à tous les projets de l'entreprise (F9-1). */
+/**
+ * Un article du référentiel, commun à tous les projets de l'entreprise (F9-1).
+ * Catégorie et nature sont **ouvertes** : un code connu (`CategorieArticle`,
+ * `NatureArticle`) se traduit, une valeur ajoutée par l'entreprise s'affiche
+ * telle quelle. Seule la nature `EQUIPEMENT` change le circuit de réception.
+ */
 export interface Materiau {
   id: string;
   code: string;
   designation: string;
-  categorie: CategorieArticle;
-  nature: NatureArticle;
+  categorie: CategorieArticle | (string & {});
+  nature: NatureArticle | (string & {});
   /** L'unité de mesure, telle qu'elle se compte sur le chantier : « sac », « m³ ». */
   unite: string;
   /** Proposé au premier approvisionnement d'un lot (RG-STK-09). */
@@ -426,8 +435,8 @@ export interface SaisieTransfert {
 export interface SaisieMateriau {
   code: string;
   designation: string;
-  categorie: CategorieArticle;
-  nature: NatureArticle;
+  categorie: Materiau["categorie"];
+  nature: Materiau["nature"];
   unite: string;
   seuilDefaut: number;
 }

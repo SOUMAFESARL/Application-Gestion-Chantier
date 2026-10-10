@@ -133,10 +133,6 @@ export function JournalChantier() {
         description={t("resume", {
           date: dateDuJour,
           heure: format.dateTime(maintenant, { hour: "2-digit", minute: "2-digit" }),
-          deposes: jour.deposes,
-          attendus: jour.attendus,
-          manquants: jour.manquants,
-          validations: chiffres.validations,
         })}
       />
 

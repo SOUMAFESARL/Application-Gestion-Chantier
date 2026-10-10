@@ -38,6 +38,7 @@ import {
   etapeAttendue,
   indexer,
   inventaireComplet,
+  materiauUtilise,
   natureDesLignes,
   reliquat,
   resteACommander,
@@ -1228,6 +1229,19 @@ export const simulationStock = {
         const materiau = trouver(etat.materiaux, id, "Cet article n’existe plus.");
         materiau.actif = !materiau.actif;
         return materiau;
+      }),
+      LATENCE_ECRITURE,
+    );
+  },
+
+  supprimerMateriau(id: string): Promise<void> {
+    return attendre(
+      ecrire((etat) => {
+        trouver(etat.materiaux, id, "Cet article n’existe plus.");
+        if (materiauUtilise(etat, id)) {
+          refuser("materiau_utilise", "Cet article est déjà utilisé : désactivez-le plutôt que de le supprimer.", 409);
+        }
+        etat.materiaux = etat.materiaux.filter((m) => m.id !== id);
       }),
       LATENCE_ECRITURE,
     );

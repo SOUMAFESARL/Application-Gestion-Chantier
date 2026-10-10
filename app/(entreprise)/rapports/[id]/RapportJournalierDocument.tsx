@@ -167,7 +167,6 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
         <EnTeteDocument
           titre={t("titre")}
           sousTitre={t("sousTitre")}
-          reference={reference}
         />
 
         <div className={CORPS_PAPIER}>
@@ -177,20 +176,6 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
               lignes={[
                 [t("projet"), rapport.chantier.projetNom],
                 [t("referenceProjet"), rapport.chantier.projetReference],
-                [
-                  t("lots"),
-                  rapport.lots.length === 0 ? (
-                    t("lotsValeur", { n: 0 })
-                  ) : (
-                    <span key="lots" className="flex flex-col">
-                      {rapport.lots.map((lot) => (
-                        <span key={lot.id}>
-                          {t("lotMode", { code: lot.code, nom: lot.nom, mode: tMode(lot.modeExecution) })}
-                        </span>
-                      ))}
-                    </span>
-                  ),
-                ],
                 [t("numero"), reference],
                 [
                   t("localisation"),
@@ -219,58 +204,46 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
               fond={teintes.avancement}
               libelle={t("chiffres.avancement")}
               valeur={t("pourcent", { valeur: rapport.avancement ?? 0 })}
-              detail={
-                retard !== null && retard > 0
-                  ? t("chiffres.retard", { points: retard, theorique: rapport.avancementTheorique ?? 0 })
-                  : t("chiffres.alHeure", { theorique: rapport.avancementTheorique ?? 0 })
-              }
               alerte={retard !== null && retard >= 10}
             />
             <ChiffreDocument
               fond={teintes.effectifs}
               libelle={t("chiffres.effectifs")}
               valeur={t("fraction", { a: rapport.effectifPresent ?? 0, b: rapport.effectifPrevu ?? 0 })}
-              detail={t("chiffres.presence", { taux: presence ?? 0 })}
               alerte={presenceSuffisante(presence) === "INSUFFISANTE"}
             />
             <ChiffreDocument
               fond={teintes.heures}
               libelle={t("chiffres.heures")}
               valeur={totaux ? t("heures", { valeur: formaterQuantite(totaux.heures) }) : t("sansObjet")}
-              detail={totaux ? t("chiffres.heuresDetail") : t("chiffres.heuresSousTraitant")}
             />
             <ChiffreDocument
               fond={teintes.activites}
               libelle={t("chiffres.activites")}
               valeur={t("fraction", { a: activitesActives(activites), b: activites.length })}
-              detail={t("chiffres.activitesDetail")}
             />
             <ChiffreDocument
               fond={teintes.livraisons}
               alerte={livraisonsPartielles > 0}
               libelle={t("chiffres.livraisons")}
               valeur={rapport.livraisons.length}
-              detail={t("chiffres.livraisonsDetail", { n: livraisonsPartielles })}
             />
             <ChiffreDocument
               fond={teintes.incidents}
               libelle={t("chiffres.incidents")}
               valeur={rapport.listeIncidents.length}
-              detail={t("chiffres.incidentsDetail", { n: incidentsMajeurs })}
               alerte={incidentsMajeurs > 0}
             />
             <ChiffreDocument
               fond={teintes.blocages}
               libelle={t("chiffres.blocages")}
               valeur={rapport.listeBlocages.length}
-              detail={rapport.listeBlocages.length ? t("chiffres.blocagesDetail") : t("chiffres.aucunBlocage")}
               alerte={rapport.listeBlocages.length > 0}
             />
             <ChiffreDocument
               fond={teintes.photos}
               libelle={t("chiffres.photos")}
               valeur={rapport.listePhotos.length}
-              detail={t("chiffres.photosDetail")}
             />
           </div>
 

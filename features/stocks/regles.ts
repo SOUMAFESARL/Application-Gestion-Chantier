@@ -14,7 +14,6 @@ import type { Projet } from "@/features/projets/types";
 import type {
   AlerteStock,
   BonCommande,
-  CategorieArticle,
   DemandeAppro,
   DonneesStock,
   EtatStock,
@@ -774,6 +773,28 @@ export function reapprovisionnementEnCours(donnees: DonneesStock, lotId: string,
   return demande || commande;
 }
 
+/**
+ * Un article du référentiel est « utilisé » dès qu'une pièce le cite —
+ * demande, commande, livraison, mouvement, transfert, inventaire ou seuil.
+ * Il ne se supprime plus alors : il se désactive, pour que la traçabilité
+ * de ces pièces reste lisible.
+ */
+export function materiauUtilise(
+  donnees: Pick<DonneesStock, "demandes" | "commandes" | "livraisons" | "mouvements" | "transferts" | "inventaires" | "seuils">,
+  materiauId: string,
+): boolean {
+  const cite = (lignes: readonly { materiauId: string }[]) => lignes.some((l) => l.materiauId === materiauId);
+  return (
+    donnees.demandes.some((d) => cite(d.lignes)) ||
+    donnees.commandes.some((c) => cite(c.lignes)) ||
+    donnees.livraisons.some((l) => cite(l.lignes)) ||
+    donnees.inventaires.some((i) => cite(i.lignes)) ||
+    cite(donnees.mouvements) ||
+    cite(donnees.transferts) ||
+    cite(donnees.seuils)
+  );
+}
+
 function tache(
   type: TypeTache,
   projetId: string,
@@ -960,7 +981,7 @@ export function filtrerInventaires(
 
 export function filtrerMateriaux(
   materiaux: readonly Materiau[],
-  criteres: CriteresListe<CategorieArticle>,
+  criteres: CriteresListe,
 ): Materiau[] {
   return materiaux.filter(
     (m) =>
@@ -973,4 +994,42 @@ export function filtrerMateriaux(
 export function valeursPresentes<V extends string>(ordre: readonly V[], valeurs: readonly V[]): V[] {
   const presentes = new Set(valeurs);
   return ordre.filter((v) => presentes.has(v));
+}
+
+/**
+ * Les valeurs d'une liste **ouverte** (catégorie, nature, unité d'un article) :
+ * les valeurs prévues d'abord, dans leur ordre, puis celles que l'entreprise
+ * a ajoutées, par ordre alphabétique et sans doublon. `seulementPresentes` :
+ * un filtre ne propose que ce qui existe ; un formulaire propose tout.
+ */
+export function valeursOuvertes(
+  prevues: readonly string[],
+  valeurs: readonly string[],
+  seulementPresentes = false,
+): string[] {
+  const presentes = new Set(valeurs.map((v) => v.trim()).filter(Boolean));
+  const connues = new Set(prevues);
+  const ajoutees = [...presentes].filter((v) => !connues.has(v)).sort((a, b) => a.localeCompare(b, "fr"));
+  return [...(seulementPresentes ? prevues.filter((v) => presentes.has(v)) : prevues), ...ajoutees];
+}
+
+/** Le préfixe du code d'un article : `EQP` pour un équipement, `MAT` sinon. */
+export function prefixeCodeMateriau(nature: string): string {
+  return nature === "EQUIPEMENT" ? "EQP" : "MAT";
+}
+
+/**
+ * Le code d'un nouvel article : son préfixe, suivi du numéro qui suit le
+ * plus grand déjà attribué sous ce préfixe (`MAT-012` → `MAT-013`). Le plus
+ * grand, pas le nombre d'articles : après une suppression, compter
+ * redonnerait un code déjà porté.
+ */
+export function prochainCodeMateriau(materiaux: readonly Pick<Materiau, "code">[], nature: string): string {
+  const prefixe = prefixeCodeMateriau(nature);
+  const motif = new RegExp(`^${prefixe}-(\\d+)$`);
+  const dernier = materiaux.reduce((max, m) => {
+    const numero = motif.exec(m.code)?.[1];
+    return numero ? Math.max(max, Number(numero)) : max;
+  }, 0);
+  return `${prefixe}-${String(dernier + 1).padStart(3, "0")}`;
 }

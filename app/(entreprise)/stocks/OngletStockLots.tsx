@@ -12,16 +12,17 @@ import { BORD_DROIT_TABLEAU, FiltreTableau, RechercheTableau, TableauListe } fro
 import {
   filtrerLignesStock,
   lignesStock,
+  valeursOuvertes,
   valeursPresentes,
 } from "@/features/stocks";
-import type { CategorieArticle, EtatStock, LigneStock } from "@/features/stocks";
+import type { EtatStock, LigneStock } from "@/features/stocks";
 import { reglerSeuil } from "@/features/stocks/adaptateur";
 import { CATEGORIES_ARTICLE } from "@/features/stocks/validations";
 import { formaterDate, formaterQuantite } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { TON_ETAT_STOCK } from "./classes";
-import { ModaleSeuil } from "./composants";
+import { ModaleSeuil, useLibellesArticle } from "./composants";
 import { useEcriture, useStock } from "./contexte";
 import type { Intention } from "./contexte";
 import { TiroirDemande } from "./TiroirDemande";
@@ -38,11 +39,12 @@ const colonne = aideColonnes<LigneStock>();
 export function OngletStockLots({ intention }: { intention: Intention | null }) {
   const t = useTranslations("stocks.stock");
   const tc = useTranslations("stocks");
+  const libellesArticle = useLibellesArticle();
   const { donnees, gestes, gestesDe, libelleLot, libelleProjet, libelleMateriau, projets } = useStock();
   const ecrire = useEcriture();
   const [recherche, setRecherche] = useState("");
   const [etat, setEtat] = useState<EtatStock | "">("");
-  const [categorie, setCategorie] = useState<CategorieArticle | "">("");
+  const [categorie, setCategorie] = useState("");
 
   const lignes = useMemo(() => lignesStock(donnees), [donnees]);
   const cibleInitiale = intention?.cible ? lignes.find((l) => `${l.lotId}|${l.materiau.id}` === intention.cible) : undefined;
@@ -74,7 +76,7 @@ export function OngletStockLots({ intention }: { intention: Intention | null }) 
         { entete: t("colonnes.lot"), valeur: (l) => libelleLot(l.lotId) },
         { entete: t("colonnes.code"), valeur: (l) => l.materiau.code },
         { entete: t("colonnes.article"), valeur: (l) => l.materiau.designation },
-        { entete: t("colonnes.categorie"), valeur: (l) => tc(`categories.${l.materiau.categorie}`) },
+        { entete: t("colonnes.categorie"), valeur: (l) => libellesArticle.categorie(l.materiau.categorie) },
         { entete: t("colonnes.unite"), valeur: (l) => l.materiau.unite },
         { entete: t("colonnes.stock"), valeur: (l) => l.stock },
         { entete: t("colonnes.seuil"), valeur: (l) => l.seuil },
@@ -83,7 +85,7 @@ export function OngletStockLots({ intention }: { intention: Intention | null }) 
         { entete: t("colonnes.dernierMouvement"), valeur: (l) => l.dernierMouvement?.slice(0, 10) },
       ],
     }),
-    [t, tc, libelleLot, libelleProjet],
+    [t, tc, libelleLot, libelleProjet, libellesArticle],
   );
 
   const colonnes = useMemo(
@@ -98,7 +100,7 @@ export function OngletStockLots({ intention }: { intention: Intention | null }) 
               <span className="text-xs text-neutral-500">
                 {tc("codeEtCategorie", {
                   code: row.original.materiau.code,
-                  categorie: tc(`categories.${row.original.materiau.categorie}`),
+                  categorie: libellesArticle.categorie(row.original.materiau.categorie),
                 })}
               </span>
             </span>
@@ -196,7 +198,7 @@ export function OngletStockLots({ intention }: { intention: Intention | null }) 
           },
         }),
       ]),
-    [t, tc, libelleLot, libelleProjet, plusieurs, gestesDe],
+    [t, tc, libelleLot, libelleProjet, plusieurs, gestesDe, libellesArticle],
   );
 
   const peutTransferer = gestes.transfertInterLots || gestes.transfertInterChantiers;
@@ -235,9 +237,9 @@ export function OngletStockLots({ intention }: { intention: Intention | null }) 
               onChangement={setCategorie}
               libelle={t("filtreCategorie")}
               libelleTous={t("toutesCategories")}
-              options={valeursPresentes(CATEGORIES_ARTICLE, lignes.map((l) => l.materiau.categorie)).map((c) => ({
+              options={valeursOuvertes(CATEGORIES_ARTICLE, lignes.map((l) => l.materiau.categorie), true).map((c) => ({
                 valeur: c,
-                libelle: tc(`categories.${c}`),
+                libelle: libellesArticle.categorie(c),
               }))}
             />
           </>

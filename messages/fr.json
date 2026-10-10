@@ -752,8 +752,17 @@
     "export": {
       "action": "Exporter",
       "csv": "Tableur (CSV)",
-      "pdf": "Document (PDF)",
+      "imprimer": "Imprimer",
       "nomFichier": "{base}-{date}",
+      "apercu": {
+        "description": "Vérifiez le document avant de le télécharger ou de l'imprimer.",
+        "titreCadre": "Aperçu du document",
+        "enCours": "Préparation de l'aperçu…",
+        "erreur": "Le document n'a pas pu être généré. Réessayez.",
+        "fermer": "Fermer",
+        "telecharger": "Télécharger",
+        "imprimer": "Imprimer"
+      },
       "sousTitrePdf": "Édité le {date} — {nombre, plural, one {# ligne} other {# lignes}}"
     }
   },
@@ -2217,7 +2226,7 @@
       "receptions": "Réceptions",
       "mouvements": "Mouvements",
       "inventaires": "Inventaires",
-      "referentiel": "Référentiel"
+      "referentiel": "Référentiel matériaux"
     },
     "categories": {
       "LIANTS": "Liants",
@@ -2233,6 +2242,19 @@
     "nature": {
       "MATERIAU": "Matériau",
       "EQUIPEMENT": "Équipement"
+    },
+    "unites": {
+      "u": "Unité (u)",
+      "sac": "Sac",
+      "kg": "Kilogramme (kg)",
+      "t": "Tonne (t)",
+      "m": "Mètre (m)",
+      "m²": "Mètre carré (m²)",
+      "m³": "Mètre cube (m³)",
+      "l": "Litre (l)",
+      "barre": "Barre",
+      "rouleau": "Rouleau",
+      "paquet": "Paquet"
     },
     "etatStock": {
       "RUPTURE": "Rupture",
@@ -2297,8 +2319,9 @@
       "motifNonConforme": "Précisez ce qui n’est pas conforme.",
       "rienRecu": "Saisissez au moins une quantité reçue.",
       "memeLot": "Le lot destinataire doit être différent du lot source.",
-      "codeRequis": "Indiquez un code.",
       "designationRequise": "Indiquez une désignation.",
+      "categorieRequise": "Choisissez ou ajoutez une catégorie.",
+      "natureRequise": "Choisissez ou ajoutez une nature.",
       "uniteRequise": "Indiquez l’unité de mesure.",
       "justificatifFormat": "photo (JPEG, PNG, WebP) ou PDF attendu",
       "justificatifTaille": "10 Mo au plus",
@@ -2910,6 +2933,19 @@
       "reactiver": "Réactiver {nom}",
       "desactive": "{nom} désactivé : il n’est plus proposé.",
       "reactive": "{nom} réactivé.",
+      "supprimer": "Supprimer {nom}",
+      "suppression": {
+        "titre": "Supprimer l’article {code} · {nom} ?",
+        "description": "L’article sera retiré définitivement du référentiel commun à tous les chantiers. Cette action est irréversible.",
+        "impossible": "Cet article est déjà cité par une demande, une commande, une livraison, un mouvement, un inventaire ou un seuil : il ne peut plus être supprimé. Désactivez-le pour qu’il ne soit plus proposé.",
+        "impossibleInactif": "Cet article est déjà cité par une demande, une commande, une livraison, un mouvement, un inventaire ou un seuil : il ne peut plus être supprimé. Il est déjà désactivé et n’est plus proposé.",
+        "annuler": "Annuler",
+        "fermer": "Fermer",
+        "supprimer": "Supprimer",
+        "desactiver": "Désactiver",
+        "succes": "{nom} supprimé du référentiel.",
+        "desactive": "{nom} désactivé : il n’est plus proposé."
+      },
       "aucunResultat": "Aucun article ne correspond à ces critères.",
       "recherche": "Rechercher un article",
       "recherchePlaceholder": "Code, désignation…",
@@ -2921,8 +2957,11 @@
       "titre": "Nouvel article",
       "titreModification": "Modifier l’article",
       "sousTitre": "Le référentiel est commun à tous les chantiers de l’entreprise.",
-      "unitePlaceholder": "sac, m³, barre, u…",
-      "seuilAide": "Proposé au premier approvisionnement de chaque lot, qui peut l’accepter ou l’ajuster.",
+      "codeAide": "Attribué automatiquement.",
+      "choisir": "Choisir…",
+      "rechercher": "Rechercher ou ajouter…",
+      "aucuneValeur": "Aucune valeur.",
+      "ajouterValeur": "Ajouter « {valeur} »",
       "annuler": "Annuler",
       "enregistrer": "Enregistrer",
       "ajouter": "Ajouter"
@@ -3234,7 +3273,7 @@
       "description": "Le journal de chantier se remplit des rapports journaliers de vos projets. Votre entreprise n'en a encore ouvert aucun : il n'y a donc pas de journal à consulter.",
       "action": "Aller aux projets"
     },
-    "resume": "{date} · {heure} — {deposes} rapport(s) déposé(s) sur {attendus} attendu(s), {manquants, plural, =0 {aucun manquant} one {# manquant} other {# manquants}}, {validations, plural, =0 {aucune validation en attente} one {# validation en attente} other {# validations en attente}}.",
+    "resume": "{date} · {heure}",
     "synthese": {
       "titre": "Journal de chantier — rapport périodique",
       "sousTitre": "Synthèse des rapports journaliers sur une période · validée par le chef de projet",

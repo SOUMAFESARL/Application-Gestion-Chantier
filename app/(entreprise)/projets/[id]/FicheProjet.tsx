@@ -243,10 +243,10 @@ export function FicheProjet({ projetId }: { projetId: string }) {
       >
         {/*
          * Sur téléphone, le nom d'un chantier est long : collé à droite, les
-         * badges et boutons l'écrasaient sur trois lignes à 28 px, et la
+         * badges et boutons l'écrasaient sur trois lignes, et la
          * barre collante mangeait la moitié de l'écran. En dessous de `sm`,
          * les actions passent sous le titre, calées à gauche, et le titre
-         * descend à `text-xl` (`!` : `.text-h2` est une classe globale hors
+         * descend à `text-xl` (`!` : `.text-h3` est une classe globale hors
          * couche, qu'un utilitaire ne surclasse pas autrement).
          */}
         <EnTetePage

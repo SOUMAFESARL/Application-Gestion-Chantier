@@ -20,7 +20,8 @@
  *   /stocks/transferts/` (multipart) ;
  * - `POST  /stocks/inventaires/`, `PATCH /stocks/inventaires/{id}/`,
  *   `POST …/{id}/valider/` ;
- * - `PUT   /stocks/seuils/`, `POST /stocks/materiaux/`, `PATCH /stocks/materiaux/{id}/`.
+ * - `PUT   /stocks/seuils/`, `POST /stocks/materiaux/`, `PATCH /stocks/materiaux/{id}/`,
+ *   `DELETE /stocks/materiaux/{id}/` (409 `materiau_utilise` dès qu'une pièce le cite).
  *
  * Tant que Django ne les sert pas, `STOCK_SIMULE` aiguille vers
  * `simulationStock`. Les noms de champs sont **à confirmer** : c'est ici, et
@@ -33,7 +34,6 @@ import { routesSimulees } from "@/lib/api/simulation";
 import { simulationStock } from "./simulationStock";
 import type {
   BonCommande,
-  CategorieArticle,
   DecisionValidation,
   DemandeAppro,
   DonneesStock,
@@ -81,8 +81,8 @@ interface ChargeMateriau {
   id: string;
   code: string;
   designation: string;
-  categorie: CategorieArticle;
-  nature: NatureArticle;
+  categorie: Materiau["categorie"];
+  nature: Materiau["nature"];
   unite: string;
   seuil_defaut: number;
   actif: boolean;
@@ -626,4 +626,10 @@ export async function modifierMateriau(id: string, saisie: SaisieMateriau): Prom
 export async function basculerMateriau(materiau: Materiau): Promise<Materiau> {
   if (STOCK_SIMULE) return simulationStock.basculerMateriau(materiau.id);
   return versMateriau(await api.modifier<ChargeMateriau>(`/stocks/materiaux/${materiau.id}/`, { actif: !materiau.actif }));
+}
+
+/** Un article jamais utilisé — sinon le serveur répond 409 et il faut le désactiver. */
+export async function supprimerMateriau(id: string): Promise<void> {
+  if (STOCK_SIMULE) return simulationStock.supprimerMateriau(id);
+  await api.supprimer(`/stocks/materiaux/${id}/`);
 }

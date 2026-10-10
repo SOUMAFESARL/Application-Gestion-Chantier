@@ -37,12 +37,13 @@ import { OngletStockLots } from "./OngletStockLots";
 const ONGLETS: readonly OngletStock[] = [
   "afaire",
   "stock",
+  // Sous-modules F9-1 à F9-6, dans l'ordre du cahier.
+  "referentiel",
   "demandes",
   "commandes",
   "receptions",
   "mouvements",
   "inventaires",
-  "referentiel",
 ];
 
 /** Radix réserve la valeur vide : « tous les chantiers » a la sienne. */

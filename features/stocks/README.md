@@ -14,7 +14,7 @@ Miroir de `backend/apps/stocks/`. Plan et matrice des droits :
 | Clés | `cles.ts` | `CLE_STOCK` |
 
 Écran : `app/(entreprise)/stocks/` (onglets À faire · Stock · Demandes ·
-Commandes · Réceptions · Mouvements · Inventaires · Référentiel). Le tableau
+Commandes · Réceptions · Mouvements · Inventaires · Référentiel matériaux). Le tableau
 de bord y puise la file des DA (direction) et l'état du stock (encadrement) ;
 la saisie du journal (F2) y lit les matériaux consommables (RG-STK-02).
 

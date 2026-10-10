@@ -28,7 +28,7 @@ export function EnTetePage({ titre, description, actions, className }: EnTetePag
   return (
     <header className={cn("flex items-start justify-between gap-4", className)}>
       <div className="min-w-0">
-        <h1 className="text-h2 font-bold text-neutral-900">{titre}</h1>
+        <h1 className="text-h3 font-bold text-neutral-900">{titre}</h1>
         {description && <p className="mt-1 text-sm text-neutral-600">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center justify-end gap-3">{actions}</div>}

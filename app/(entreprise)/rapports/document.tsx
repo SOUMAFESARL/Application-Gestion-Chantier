@@ -115,33 +115,26 @@ export function BarreDocument({
 }
 
 /**
- * Le cartouche du document : son titre à gauche, sa référence à droite. Le
+ * Le cartouche du document : son titre et son sous-titre. Le
  * bandeau de statut dessous est facultatif — le rapport journalier n'en a
  * pas, son circuit de signatures dit déjà où en est la validation.
  */
 export function EnTeteDocument({
   titre,
   sousTitre,
-  reference,
   bandeau,
 }: {
   titre: string;
   sousTitre: string;
-  reference?: string;
   bandeau?: ReactNode;
 }) {
   return (
     <header className="overflow-hidden rounded-t-xl">
       <div className="flex flex-wrap items-start justify-between gap-4 bg-secondary-900 px-5 py-5 text-neutral-0 sm:px-8">
         <div className="min-w-0">
-          <h1 className="m-0 text-h3 font-bold !text-neutral-0">{titre}</h1>
+          <h1 className="m-0 text-h3 font-semibold !text-neutral-0">{titre}</h1>
           <p className="m-0 mt-1 text-sm text-secondary-200">{sousTitre}</p>
         </div>
-        {reference && (
-          <span className="rounded-md bg-neutral-0/10 px-3 py-1.5 font-mono text-sm font-semibold tracking-wide">
-            {reference}
-          </span>
-        )}
       </div>
       {bandeau}
     </header>
@@ -174,7 +167,7 @@ export function GrilleInfos({ titre, lignes }: { titre: string; lignes: [string,
         {lignes.map(([libelle, valeur]) => (
           <div key={libelle} className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3 px-4 py-2 text-sm">
             <dt className="text-neutral-500">{libelle}</dt>
-            <dd className="m-0 font-medium text-neutral-900">{valeur}</dd>
+            <dd className="m-0 text-neutral-900">{valeur}</dd>
           </div>
         ))}
       </dl>
@@ -197,7 +190,8 @@ export function ChiffreDocument({
 }: {
   libelle: string;
   valeur: ReactNode;
-  detail: ReactNode;
+  /** Facultatif : le rapport journalier n'affiche que le libellé et le chiffre. */
+  detail?: ReactNode;
   alerte?: boolean;
   accent?: boolean;
   fond?: FondIndicateur;
@@ -211,8 +205,8 @@ export function ChiffreDocument({
       )}
     >
       <span className="text-xs text-neutral-500">{libelle}</span>
-      <span className={cn("text-xl font-bold tabular-nums", alerte ? encreAlerte : "text-neutral-900")}>{valeur}</span>
-      <span className={cn("text-xs", alerte ? encreAlerte : "text-neutral-500")}>{detail}</span>
+      <span className={cn("text-sm font-semibold tabular-nums", alerte ? encreAlerte : "text-neutral-900")}>{valeur}</span>
+      {detail && <span className={cn("text-xs", alerte ? encreAlerte : "text-neutral-500")}>{detail}</span>}
     </div>
   );
 }

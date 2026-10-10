@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoaderCircle, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useFieldArray, useForm, useFormContext, useWatch } from "react-hook-form";
 
 import { Modale } from "@/components/ui";
@@ -28,6 +28,24 @@ export function Requis() {
     <span className="text-erreur" aria-hidden="true">
       *
     </span>
+  );
+}
+
+/**
+ * Le libellé d'une catégorie, d'une nature ou d'une unité d'article. Une
+ * valeur prévue se traduit (l'unité en toutes lettres, avec son abréviation :
+ * « Kilogramme (kg) ») ; une valeur ajoutée par l'entreprise est déjà un
+ * libellé, et s'affiche telle quelle. L'article stocke l'abréviation.
+ */
+export function useLibellesArticle() {
+  const t = useTranslations("stocks");
+  return useMemo(
+    () => ({
+      categorie: (valeur: string) => (t.has(`categories.${valeur}`) ? t(`categories.${valeur}`) : valeur),
+      nature: (valeur: string) => (t.has(`nature.${valeur}`) ? t(`nature.${valeur}`) : valeur),
+      unite: (valeur: string) => (t.has(`unites.${valeur}`) ? t(`unites.${valeur}`) : valeur),
+    }),
+    [t],
   );
 }
 
@@ -68,7 +86,7 @@ export function LignesArticles({
         const plafond = materiau ? plafonds?.get(materiau.id) : undefined;
         const options = materiaux
           .filter((m) => m.id === lignes[index]?.materiauId || !choisis.has(m.id))
-          .map((m) => ({ valeur: m.id, libelle: `${m.code} — ${m.designation}`, groupe: t(`nature.${m.nature}`) }));
+          .map((m) => ({ valeur: m.id, libelle: `${m.code} — ${m.designation}`, groupe: t.has(`nature.${m.nature}`) ? t(`nature.${m.nature}`) : m.nature }));
         return (
           <div key={champ.id} className="flex flex-col gap-1 rounded-lg border border-neutral-200 p-3">
             <div className="flex items-start gap-2 max-[480px]:flex-col max-[480px]:items-stretch">

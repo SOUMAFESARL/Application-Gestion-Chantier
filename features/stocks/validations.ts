@@ -32,6 +32,8 @@ export const CATEGORIES_ARTICLE: readonly CategorieArticle[] = [
   "EQUIPEMENT",
 ];
 export const NATURES_ARTICLE: readonly NatureArticle[] = ["MATERIAU", "EQUIPEMENT"];
+/** Les unités proposées d'emblée ; l'entreprise en ajoute d'autres à la saisie. */
+export const UNITES_ARTICLE: readonly string[] = ["u", "sac", "kg", "t", "m", "m²", "m³", "l", "barre", "rouleau", "paquet"];
 export const SENS_MOUVEMENT = ["SORTIE", "CORRECTION_ENTREE", "CORRECTION_SORTIE"] as const;
 
 /** Un motif se lit : quelques mots au moins. */
@@ -218,23 +220,27 @@ export type FormulaireTransfert = z.infer<typeof schemaTransfert>;
  * Le référentiel et les seuils.
  * ------------------------------------------------------------------ */
 
+/**
+ * Catégorie, nature et unité sont des listes **ouvertes** : une valeur prévue
+ * ou une valeur ajoutée par l'entreprise. Le code ne se saisit pas — il est
+ * attribué par `prochainCodeMateriau` et passé à `versSaisieMateriau`.
+ */
 export const schemaMateriau = z.object({
-  code: chaineNonVide(texte("stocks.validations.codeRequis")).max(20),
   designation: chaineNonVide(texte("stocks.validations.designationRequise")).max(150),
-  categorie: z.enum(CATEGORIES_ARTICLE as [CategorieArticle, ...CategorieArticle[]]),
-  nature: z.enum(NATURES_ARTICLE as [NatureArticle, ...NatureArticle[]]),
+  categorie: chaineNonVide(texte("stocks.validations.categorieRequise")).max(50),
+  nature: chaineNonVide(texte("stocks.validations.natureRequise")).max(50),
   unite: chaineNonVide(texte("stocks.validations.uniteRequise")).max(20),
   seuilDefaut: quantite(texte("stocks.validations.quantiteNonNegative"), true),
 });
 
 export type FormulaireMateriau = z.infer<typeof schemaMateriau>;
 
-export function versSaisieMateriau(formulaire: FormulaireMateriau): SaisieMateriau {
+export function versSaisieMateriau(formulaire: FormulaireMateriau, code: string): SaisieMateriau {
   return {
-    code: formulaire.code.trim().toUpperCase(),
+    code,
     designation: formulaire.designation.trim(),
-    categorie: formulaire.categorie,
-    nature: formulaire.nature,
+    categorie: formulaire.categorie.trim(),
+    nature: formulaire.nature.trim(),
     unite: formulaire.unite.trim(),
     seuilDefaut: lireQuantite(formulaire.seuilDefaut) ?? 0,
   };
