@@ -674,7 +674,11 @@
       "champRaisonSociale": "Nom de l’entreprise",
       "champRccm": "Numéro RCCM",
       "champRccmAide": "Registre du Commerce et du Crédit Mobilier",
-      "champTelephone": "Téléphone de contact",
+      "champTelephone": "Numéro de téléphone",
+      "champTelephoneFixe": "Numéro fixe",
+      "champTelephoneSecondaire": "Numéro secondaire {rang}",
+      "ajouterTelephoneSecondaire": "Ajouter un numéro secondaire",
+      "retirerTelephoneSecondaire": "Retirer le numéro secondaire {rang}",
       "champVille": "Ville",
       "champVilleExemple": "Abidjan",
       "chargement": "Chargement de la configuration…",
@@ -989,7 +993,14 @@
     }
   },
   "format": {
-    "dateHeure": "{date} à {heure}"
+    "dateHeure": "{date} à {heure}",
+    "duree": {
+      "annees": "{n, plural, one {# an} other {# ans}}",
+      "mois": "{n, plural, other {# mois}}",
+      "jours": "{n, plural, one {# jour} other {# jours}}",
+      "joursOuvres": "{n, plural, one {# jour ouvré} other {# jours ouvrés}}",
+      "complete": "{calendaire} ({ouvres})"
+    }
   },
   "habilitations": {
     "accesRefuseTitre": "Accès non autorisé",
@@ -1373,15 +1384,15 @@
         "VRD": "TP — Route / VRD"
       },
       "titreModification": "Modifier « {nom} »",
-      "sousTitreModification": "L'identification du projet. Le planning et le budget se fixent depuis le projet, les lots dans « Lots & activités ».",
+      "sousTitreModification": "L'identification et le calendrier du projet. Le budget se fixe depuis le projet, les lots dans « Lots & activités ».",
       "enregistrer": "Enregistrer les modifications",
       "enregistrementEnCours": "Enregistrement…",
       "sectionCalendrierBudget": "Calendrier et budget",
+      "sectionCalendrier": "Calendrier",
       "champDateDebut": "Date de démarrage",
       "champDateFin": "Date fin prévisionnelle",
       "champDuree": "Durée",
       "badgeCalculee": "Calculée",
-      "dureeJoursOuvres": "{jours, plural, one {# jour ouvré} other {# jours ouvrés}}",
       "dureePlaceholder": "Renseignez les deux dates",
       "champBudget": "Montant total prévisionnel (FCFA)",
       "champBudgetPlaceholder": "Ex : 485 000 000",
@@ -1458,6 +1469,7 @@
       "aucunResultat": "Aucune activité ne correspond à ces critères.",
       "aucunLotTitre": "Aucun lot sur ce chantier",
       "aucunLot": "Déclarez d'abord les lots du chantier, puis les activités de chacun.",
+      "lotSansPlanning": "Renseignez d'abord les dates de début et de fin du projet pour pouvoir ajouter un lot.",
       "aucunProjetTitre": "Aucun chantier",
       "aucunProjet": "Créez un projet pour structurer ses lots et ses activités.",
       "libelleLot": "{code} · {nom}",
@@ -1508,6 +1520,8 @@
         "champQuantite": "Quantité prévue",
         "champQuantitePlaceholder": "ex. 100",
         "champUnite": "Unité",
+        "champBudget": "Budget (FCFA, facultatif)",
+        "champBudgetPlaceholder": "ex. 2 500 000",
         "champDebut": "Début prévu",
         "champFin": "Fin prévue",
         "champDateChoisir": "jj/mm/aaaa",
@@ -1527,6 +1541,9 @@
         "erreurLibelleTropLong": "Le libellé ne doit pas dépasser 150 caractères.",
         "erreurQuantiteInvalide": "Saisissez une quantité positive, par exemple 14 500 ou 12,5.",
         "erreurUniteRequise": "Choisissez l'unité de la quantité.",
+        "erreurBudgetInvalide": "Saisissez un montant en francs, par exemple 2 500 000.",
+        "erreurBudgetDepasseLot": "Le budget de l'activité ne peut pas dépasser celui du lot ({montant}).",
+        "erreurBudgetDepasseProjet": "Le budget de l'activité ne peut pas dépasser celui du projet ({montant}).",
         "succesCreation": "Activité {code} « {libelle} » ajoutée.",
         "succesModification": "Activité {code} « {libelle} » modifiée."
       },
@@ -1550,6 +1567,8 @@
         "champBudget": "Budget du lot (FCFA)",
         "champBudgetPlaceholder": "ex. 25 000 000",
         "erreurBudgetInvalide": "Saisissez un montant en francs, par exemple 25 000 000.",
+        "erreurBudgetDepasseProjet": "Le budget du lot ne peut pas dépasser celui du projet ({montant}).",
+        "erreurBudgetSousActivites": "Le budget du lot ne peut pas être inférieur à celui de l'une de ses activités ({montant}).",
         "succes": "Lot {code} « {nom} » ajouté.",
         "titreModification": "Modifier le lot",
         "sousTitreModification": "Son code et ses activités ne changent pas.",
@@ -1598,6 +1617,7 @@
         "periode": "{debut} → {fin}",
         "anomalies": {
           "BUDGET_INVALIDE": "Budget illisible : il est laissé vide.",
+          "BUDGET_DEPASSE_PROJET": "Budget supérieur à celui du projet : il est laissé vide.",
           "DATE_INVALIDE": "Date illisible : elle est laissée vide.",
           "DATES_INCOHERENTES": "La fin précède le début : les dates sont laissées vides.",
           "INTITULE_FAMILLE": "Ressemble à un intitulé de corps d'état, pas à un lot.",
@@ -3245,9 +3265,11 @@
   },
   "telephone": {
     "aide": "Numéro mobile, sans l'indicatif — il est choisi à gauche.",
+    "aucunPays": "Aucun pays ne correspond.",
     "choisirPays": "Indicatif du pays",
     "erreurIncomplet": "Ce numéro est incomplet pour le pays choisi.",
-    "erreurRequis": "Le numéro de téléphone est requis."
+    "erreurRequis": "Le numéro de téléphone est requis.",
+    "rechercherPays": "Rechercher un pays ou un indicatif…"
   },
   "zoneDepot": {
     "deposer": "Glissez-déposez vos fichiers ici",

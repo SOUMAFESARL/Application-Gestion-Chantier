@@ -37,7 +37,7 @@ import {
   FORMAT_CONTRAT,
   NOMBRE_MAX_CONTRATS,
   TAILLE_MAX_CONTRAT,
-  joursOuvres,
+  dureeProjet,
   refusContrat,
 } from "@/features/projets/regles";
 import type { Projet } from "@/features/projets/types";
@@ -53,7 +53,7 @@ import {
   type ValeursProjet,
 } from "@/features/projets/validations";
 import type { ErreurApi } from "@/lib/api";
-import { formaterSaisieMontant, formaterTailleFichier } from "@/lib/format";
+import { formaterDuree, formaterSaisieMontant, formaterTailleFichier } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { ComboboxTypeProjet } from "./ComboboxTypeProjet";
@@ -78,7 +78,7 @@ const RANGEE = "grid grid-cols-2 gap-x-4 gap-y-4 max-[640px]:grid-cols-1";
 const RANGEE_TROIS = "grid grid-cols-3 gap-x-4 gap-y-4 max-[640px]:grid-cols-1";
 
 /** Un champ calculé ou proposé : lisible, mais visiblement pas une saisie libre. */
-const CHAMP_CALCULE = "bg-neutral-100";
+const CHAMP_CALCULE = "bg-[var(--input-fond-pre-rempli)]";
 
 interface Props {
   ouverte: boolean;
@@ -116,7 +116,8 @@ function TitreSection({ children }: { children: ReactNode }) {
  * **une seule étape**. À la création, le planning contractuel et le budget
  * prévisionnel peuvent déjà être renseignés, mais **rien n'y est exigé** :
  * laissés vides, le chef de projet les fixe depuis le projet ouvert. La
- * modification ne les montre pas — ils ont leur propre écriture sur la fiche.
+ * modification reprend les dates — un lot ne s'ajoute qu'une fois le projet
+ * daté —, pas le budget, qui garde sa propre écriture sur la fiche.
  * Les lots et l'équipe se fixent toujours ensuite.
  *
  * Un tiroir latéral prend toute la hauteur disponible, garde l'écran qu'on
@@ -146,7 +147,7 @@ export function TiroirCreationProjet({
   const valeurs = useWatch({ control: form.control }) as SaisieProjet;
   const enCours = form.formState.isSubmitting;
   const saisieValide = schemaProjet.safeParse(valeurs).success;
-  const duree = joursOuvres(valeurs.dateDebut ?? "", valeurs.dateFin ?? "");
+  const duree = dureeProjet(valeurs.dateDebut ?? null, valeurs.dateFin ?? null);
 
   useEffect(() => {
     let vivant = true;
@@ -219,7 +220,7 @@ export function TiroirCreationProjet({
         </SheetHeader>
 
         {/* Seul le corps défile : l'en-tête et les boutons restent en vue. */}
-        <Form {...form}>
+        <Form {...form} preRempli={modification}>
           <form
             id={FORM_ID}
             onSubmit={form.handleSubmit(soumettre)}
@@ -360,79 +361,81 @@ export function TiroirCreationProjet({
               />
             </div>
 
+            <TitreSection>
+              {modification ? t("sectionCalendrier") : t("sectionCalendrierBudget")}
+            </TitreSection>
+
+            <div className={RANGEE_TROIS}>
+              <FormField
+                control={form.control}
+                name="dateDebut"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("champDateDebut")}</FormLabel>
+                    <FormControl>
+                      <SelecteurDate
+                        valeur={field.value}
+                        onChange={(valeur) => {
+                          field.onChange(valeur);
+                          // La fin se revérifie dès que le début bouge : sinon
+                          // l'erreur « fin avant début » survit à sa correction.
+                          if (form.getFieldState("dateFin").isTouched)
+                            void form.trigger("dateFin");
+                        }}
+                        onBlur={field.onBlur}
+                        auPlusTard={valeurs.dateFin || undefined}
+                        className={CHAMP}
+                        placeholder={t("champDateChoisir")}
+                        disabled={enCours}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="dateFin"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("champDateFin")}</FormLabel>
+                    <FormControl>
+                      <SelecteurDate
+                        valeur={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        auPlusTot={valeurs.dateDebut || undefined}
+                        className={CHAMP}
+                        placeholder={t("champDateChoisir")}
+                        disabled={enCours}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex flex-col gap-2">
+                <span className="flex items-center gap-2 text-sm leading-none font-medium">
+                  {t("champDuree")}{" "}
+                  <Badge variante="primaire">{t("badgeCalculee")}</Badge>
+                </span>
+                <Input
+                  readOnly
+                  tabIndex={-1}
+                  aria-label={t("champDuree")}
+                  value={
+                    duree === null
+                      ? ""
+                      : formaterDuree(duree)
+                  }
+                  placeholder={t("dureePlaceholder")}
+                  className={cn(CHAMP, CHAMP_CALCULE)}
+                />
+              </div>
+            </div>
+
             {!modification && (
               <>
-                <TitreSection>{t("sectionCalendrierBudget")}</TitreSection>
-
-                <div className={RANGEE_TROIS}>
-                  <FormField
-                    control={form.control}
-                    name="dateDebut"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t("champDateDebut")}</FormLabel>
-                        <FormControl>
-                          <SelecteurDate
-                            valeur={field.value}
-                            onChange={(valeur) => {
-                              field.onChange(valeur);
-                              // La fin se revérifie dès que le début bouge : sinon
-                              // l'erreur « fin avant début » survit à sa correction.
-                              if (form.getFieldState("dateFin").isTouched)
-                                void form.trigger("dateFin");
-                            }}
-                            onBlur={field.onBlur}
-                            auPlusTard={valeurs.dateFin || undefined}
-                            className={CHAMP}
-                            placeholder={t("champDateChoisir")}
-                            disabled={enCours}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="dateFin"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t("champDateFin")}</FormLabel>
-                        <FormControl>
-                          <SelecteurDate
-                            valeur={field.value}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            auPlusTot={valeurs.dateDebut || undefined}
-                            className={CHAMP}
-                            placeholder={t("champDateChoisir")}
-                            disabled={enCours}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="flex flex-col gap-2">
-                    <span className="flex items-center gap-2 text-sm leading-none font-medium">
-                      {t("champDuree")}{" "}
-                      <Badge variante="primaire">{t("badgeCalculee")}</Badge>
-                    </span>
-                    <Input
-                      readOnly
-                      tabIndex={-1}
-                      aria-label={t("champDuree")}
-                      value={
-                        duree === null
-                          ? ""
-                          : t("dureeJoursOuvres", { jours: duree })
-                      }
-                      placeholder={t("dureePlaceholder")}
-                      className={cn(CHAMP, CHAMP_CALCULE)}
-                    />
-                  </div>
-                </div>
-
                 <div className={RANGEE}>
                   <FormField
                     control={form.control}

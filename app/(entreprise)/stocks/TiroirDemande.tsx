@@ -97,7 +97,7 @@ export function TiroirDemande({
           <SheetDescription>{demande ? t("sousTitreModification") : t("sousTitre")}</SheetDescription>
         </SheetHeader>
 
-        <Form {...form}>
+        <Form {...form} preRempli={Boolean(demande || prerempli)}>
           <form id={FORM_ID} onSubmit={form.handleSubmit(soumettre)} noValidate className={CORPS_TIROIR}>
             <div className={RANGEE}>
               <FormField

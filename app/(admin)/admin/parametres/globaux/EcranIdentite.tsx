@@ -11,6 +11,7 @@ import { toast } from "sonner";
 
 import { LogoPlateforme } from "@/components/layout/LogoPlateforme";
 import { Alerte, Bouton, Champ, EtatChargement, EtatErreur } from "@/components/ui";
+import { ZonePreRemplie } from "@/components/ui/form";
 import {
   FORMATS_LOGO_PLATEFORME,
   peutParametrerPlateforme,
@@ -144,14 +145,16 @@ export function EcranIdentite() {
     >
       <div className="grid gap-4 lg:grid-cols-[1fr_320px] lg:items-start">
         <section className={CARTE}>
-          <Champ
-            libelle={t("parametres.identite.nom")}
-            required
-            maxLength={40}
-            disabled={verrouille}
-            erreur={formulaire.formState.errors.nom?.message}
-            {...formulaire.register("nom")}
-          />
+          <ZonePreRemplie control={formulaire.control} nom="nom">
+            <Champ
+              libelle={t("parametres.identite.nom")}
+              required
+              maxLength={40}
+              disabled={verrouille}
+              erreur={formulaire.formState.errors.nom?.message}
+              {...formulaire.register("nom")}
+            />
+          </ZonePreRemplie>
 
           <span className="mb-2 block text-sm font-semibold text-neutral-800">{t("parametres.identite.logo")}</span>
           <div className="flex flex-wrap items-center gap-4">

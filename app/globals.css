@@ -297,6 +297,20 @@
   }
 }
 
+/* Un champ dont la valeur vient de la base se distingue par son fond : en
+   lecture seule, ou pré-rempli dans un formulaire de modification tant que
+   l'utilisateur n'y a pas touché (`<Form preRempli>`, ou `data-pre-rempli`
+   posé à la main hors react-hook-form). Chaque composant de champ du design
+   system porte `data-champ`.
+
+   Hors couche, et volontairement : la règle doit battre le `bg-card` que
+   chaque composant déclare dans ses utilitaires. */
+[data-champ][readonly],
+[data-champ][data-pre-rempli="true"],
+[data-pre-rempli="true"] [data-champ] {
+  background-color: var(--input-fond-pre-rempli);
+}
+
 /* L'impression d'un document (rapport journalier, synthèse) : le navigateur
    produit le PDF, comme pour la fiche projet. Le cadre de l'application — menu,
    en-tête — n'a rien à faire sur le papier ; un écran marque ce qui ne s'imprime

@@ -41,6 +41,8 @@ interface Props {
   activiteChoisieId: string | null;
   onChoisirActivite: (id: string) => void;
   onAjouterLot: () => void;
+  /** Faux tant que le projet n'a pas ses dates de début et de fin prévues (`planningDefini`). */
+  ajoutLotPossible: boolean;
   onModifierLot: (lot: Lot) => void;
   onSupprimerLot: (lot: Lot) => void;
   onAjouterActivite: (lotId?: string) => void;
@@ -76,6 +78,7 @@ export function StructureLots({
   activiteChoisieId,
   onChoisirActivite,
   onAjouterLot,
+  ajoutLotPossible,
   onModifierLot,
   onSupprimerLot,
   onAjouterActivite,
@@ -190,8 +193,10 @@ export function StructureLots({
       variante="secondaire"
       taille="sm"
       aria-label={t("actionLotLibelle")}
+      title={ajoutLotPossible ? undefined : t("lotSansPlanning")}
       iconeGauche={<Plus size={16} aria-hidden="true" />}
       onClick={onAjouterLot}
+      disabled={!ajoutLotPossible}
     >
       {t("actionLot")}
     </Bouton>
@@ -202,7 +207,7 @@ export function StructureLots({
       <div className={BLOC}>
         <EtatVide
           titre={t("aucunLotTitre")}
-          description={t("aucunLot")}
+          description={peutSaisir && !ajoutLotPossible ? t("lotSansPlanning") : t("aucunLot")}
           action={boutonLot || undefined}
         />
       </div>

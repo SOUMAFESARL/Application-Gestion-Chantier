@@ -360,7 +360,7 @@ export function FormulaireRapport({
   }, []);
 
   return (
-    <Form {...formulaire}>
+    <Form {...formulaire} preRempli={!depart.restauree}>
       <form
         noValidate
         onSubmit={(evenement) => {

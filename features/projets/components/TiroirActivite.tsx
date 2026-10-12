@@ -52,12 +52,13 @@ import {
   LONGUEUR_MAX_LIBELLE_ACTIVITE,
   saisieActiviteVide,
   saisieDepuisActivite,
-  schemaActivite,
+  schemaActiviteBornee,
   versSaisieActiviteDomaine,
   type SaisieActivite,
   type ValeursActivite,
 } from "@/features/projets/validations";
 import { ErreurApi } from "@/lib/api";
+import { formaterSaisieMontant } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const FORM_ID = "form-activite";
@@ -79,6 +80,8 @@ interface Props {
   onFermer: () => void;
   projetId: string;
   lots: Lot[];
+  /** En centimes ; `null` tant qu'il n'est pas défini — il ne borne alors rien. */
+  budgetProjet: number | null;
   /** Absente : création. Présente : modification de cette activité. */
   activite?: Activite | null;
   /** Le lot présélectionné à la création. */
@@ -101,8 +104,8 @@ function Requis() {
  *
  * Même tiroir que la création de projet, en plus étroit : une colonne de
  * champs, deux par rangée quand ils vont ensemble (quantité et unité, début
- * et fin). Les dates sont facultatives — une activité se déclare souvent
- * avant d'être planifiée — et le budget n'y figure pas : il se tient au lot.
+ * et fin). Les dates et le budget sont facultatifs — une activité se déclare
+ * souvent avant d'être planifiée ou chiffrée ; le budget se tient d'abord au lot.
  * L'avancement n'y figure pas : il vient du journal de chantier,
  * que le chef de chantier tient, pas de ce formulaire.
  */
@@ -111,6 +114,7 @@ export function TiroirActivite({
   onFermer,
   projetId,
   lots,
+  budgetProjet,
   activite,
   lotIdInitial,
   onEnregistree,
@@ -139,7 +143,8 @@ export function TiroirActivite({
    * garder la saisie précédente ferait créer la même activité deux fois.
    */
   const form = useForm<SaisieActivite, unknown, ValeursActivite>({
-    resolver: zodResolver(schemaActivite),
+    // Le budget ne dépasse ni celui du lot choisi, ni celui du projet.
+    resolver: zodResolver(schemaActiviteBornee(budgetProjet, lots)),
     defaultValues: activite ? saisieDepuisActivite(activite) : saisieActiviteVide(lotIdInitial),
     mode: "onTouched",
   });
@@ -206,7 +211,7 @@ export function TiroirActivite({
           <SheetDescription>{t("sousTitre")}</SheetDescription>
         </SheetHeader>
 
-        <Form {...form}>
+        <Form {...form} preRempli={modification}>
           <form
             id={FORM_ID}
             onSubmit={form.handleSubmit(soumettre)}
@@ -221,7 +226,15 @@ export function TiroirActivite({
                   <FormLabel>
                     {t("champLot")} <Requis />
                   </FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange} disabled={enCours}>
+                  <Select
+                    value={field.value}
+                    onValueChange={(valeur) => {
+                      field.onChange(valeur);
+                      // Le plafond du budget suit le lot choisi.
+                      if (form.getFieldState("budget").isTouched) void form.trigger("budget");
+                    }}
+                    disabled={enCours}
+                  >
                     <FormControl>
                       <SelectTrigger className={cn(CHAMP, "w-full bg-card")} onBlur={field.onBlur}>
                         <SelectValue placeholder={t("selectionner")} />
@@ -334,6 +347,27 @@ export function TiroirActivite({
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="budget"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("champBudget")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      onChange={(evenement) => field.onChange(formaterSaisieMontant(evenement.target.value))}
+                      className={cn(CHAMP, "tabular-nums")}
+                      inputMode="numeric"
+                      placeholder={t("champBudgetPlaceholder")}
+                      disabled={enCours}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className={RANGEE}>
               <FormField

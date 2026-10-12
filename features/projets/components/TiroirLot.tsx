@@ -45,7 +45,7 @@ import type { Lot } from "@/features/projets/types";
 import {
   lotEnSaisie,
   lotVide,
-  schemaLot,
+  schemaLotBorne,
   versCreationLotProjet,
   type SaisieLotProjet,
 } from "@/features/projets/validations";
@@ -75,6 +75,8 @@ interface Props {
   onFermer: () => void;
   projetId: string;
   lots: Lot[];
+  /** En centimes ; `null` tant qu'il n'est pas défini — il ne borne alors rien. */
+  budgetProjet: number | null;
   /** Le lot à modifier ; absent, le tiroir en ajoute. */
   lot?: Lot | null;
   onCree: (lot: Lot) => void;
@@ -103,6 +105,7 @@ export function TiroirLot({
   onFermer,
   projetId,
   lots,
+  budgetProjet,
   lot = null,
   onCree,
   onModifie,
@@ -125,6 +128,7 @@ export function TiroirLot({
           </SheetHeader>
           <SaisieLot
             projetId={projetId}
+            budgetProjet={budgetProjet}
             lot={lot}
             onFermer={onFermer}
             onEnregistre={onModifie}
@@ -185,11 +189,15 @@ export function TiroirLot({
         </div>
 
         {modeAjout === "saisie" ? (
-          <SaisieLot projetId={projetId} onFermer={onFermer} onEnregistre={onCree} onOccupe={setOccupe} />
+          <SaisieLot
+            projetId={projetId}
+            budgetProjet={budgetProjet}
+            onFermer={onFermer} onEnregistre={onCree} onOccupe={setOccupe} />
         ) : (
           <ImportLots
             projetId={projetId}
             lots={lots}
+            budgetProjet={budgetProjet}
             onFermer={onFermer}
             onImportes={onImportes}
             onOccupe={setOccupe}
@@ -202,18 +210,20 @@ export function TiroirLot({
 
 /**
  * Un lot saisi à la main — neuf, ou existant quand `lot` est fourni. Mêmes
- * champs, même schéma (`schemaLot`) que partout ailleurs. Le budget se fixe
+ * champs, même schéma (`schemaLot`, borné par `schemaLotBorne`) que partout ailleurs. Le budget se fixe
  * ici, au lot ; budget et dates restent facultatifs. Le code est attribué par
  * le serveur — l'en-tête affiche celui qu'il prendra, ou qu'il porte.
  */
 function SaisieLot({
   projetId,
+  budgetProjet,
   lot = null,
   onFermer,
   onEnregistre,
   onOccupe,
 }: {
   projetId: string;
+  budgetProjet: number | null;
   lot?: Lot | null;
   onFermer: () => void;
   onEnregistre: (lot: Lot) => void;
@@ -223,8 +233,10 @@ function SaisieLot({
   const tCreation = useTranslations("projets.tiroirCreation");
   const tLots = useTranslations("projets.lotsActivites");
 
+  // Le budget ne dépasse pas celui du projet, ni ne descend sous celui des activités.
+  const schema = schemaLotBorne(budgetProjet, lot);
   const form = useForm<SaisieLotProjet>({
-    resolver: zodResolver(schemaLot),
+    resolver: zodResolver(schema),
     defaultValues: lot ? lotEnSaisie(lot) : lotVide(),
     mode: "onTouched",
   });
@@ -235,7 +247,7 @@ function SaisieLot({
   async function soumettre(saisie: SaisieLotProjet) {
     onOccupe(true);
     try {
-      const valeurs = versCreationLotProjet(schemaLot.parse(saisie));
+      const valeurs = versCreationLotProjet(schema.parse(saisie));
       // Le serveur renvoie le lot seul : ses activités restent celles qu'on a.
       const enregistre = lot
         ? { ...(await modifierLot(lot.id, valeurs)), activites: lot.activites }
@@ -255,7 +267,7 @@ function SaisieLot({
 
   return (
     <>
-      <Form {...form}>
+      <Form {...form} preRempli={Boolean(lot)}>
         <form
           id={FORM_ID}
           onSubmit={form.handleSubmit(soumettre)}

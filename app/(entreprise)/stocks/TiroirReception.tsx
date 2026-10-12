@@ -109,7 +109,7 @@ export function TiroirReception({ commande, onFermer }: { commande: BonCommande;
           </SheetDescription>
         </SheetHeader>
 
-        <Form {...form}>
+        <Form {...form} preRempli>
           <form id={FORM_ID} onSubmit={form.handleSubmit(soumettre)} noValidate className={CORPS_TIROIR}>
             <p className="m-0 rounded-md bg-information-fond px-3 py-2 text-xs text-neutral-700">
               {equipement ? t("regleEquipement") : t("regleMateriau")}

@@ -440,6 +440,7 @@ function lotsFictifs(projet: Projet): Lot[] {
         libelle: activite.libelle,
         quantitePrevue: activite.quantitePrevue,
         unite: activite.unite,
+        budget: null,
         dateDebutPrevue: null,
         dateFinPrevue: null,
         avancement: 0,

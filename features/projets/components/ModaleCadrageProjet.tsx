@@ -94,7 +94,7 @@ function FormulairePlanning({ projet, onFermer, onModifie }: PropsFormulaire) {
   });
   const enCours = form.formState.isSubmitting;
   const [dateDebut, dateFin] = useWatch({ control: form.control, name: ["dateDebut", "dateFin"] });
-  const { dureeJours } = echeancierProjet({
+  const { duree } = echeancierProjet({
     ...projet,
     dateDebutPrevue: dateDebut || null,
     dateFinPrevue: dateFin || null,
@@ -119,7 +119,7 @@ function FormulairePlanning({ projet, onFermer, onModifie }: PropsFormulaire) {
       enCours={enCours}
       onFermer={onFermer}
     >
-      <Form {...form}>
+      <Form {...form} preRempli>
         <form
           id={FORM_ID}
           onSubmit={form.handleSubmit(soumettre)}
@@ -169,9 +169,9 @@ function FormulairePlanning({ projet, onFermer, onModifie }: PropsFormulaire) {
               )}
             />
           </div>
-          {dureeJours !== null && (
+          {duree !== null && (
             <p className="m-0 text-sm text-neutral-600">
-              {t("planning.duree", { duree: formaterDuree(dureeJours) })}
+              {t("planning.duree", { duree: formaterDuree(duree) })}
             </p>
           )}
         </form>
@@ -215,7 +215,7 @@ function FormulaireBudget({ projet, onFermer, onModifie }: PropsFormulaire) {
       enCours={enCours}
       onFermer={onFermer}
     >
-      <Form {...form}>
+      <Form {...form} preRempli>
         <form
           id={FORM_ID}
           onSubmit={form.handleSubmit(soumettre)}

@@ -345,7 +345,7 @@ function TiroirMateriau({ materiau, onFermer }: { materiau: Materiau | null; onF
           <SheetTitle className="text-lg text-neutral-900">{materiau ? t("titreModification") : t("titre")}</SheetTitle>
           <SheetDescription>{t("sousTitre")}</SheetDescription>
         </SheetHeader>
-        <Form {...form}>
+        <Form {...form} preRempli={Boolean(materiau)}>
           <form id={FORM_MATERIAU} onSubmit={form.handleSubmit(soumettre)} noValidate className={CORPS_TIROIR}>
             <FormField
               control={form.control}

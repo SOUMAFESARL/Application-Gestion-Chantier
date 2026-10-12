@@ -102,6 +102,7 @@ function Combobox({
     <Popover open={ouvert} onOpenChange={setOuvert} modal>
       <PopoverTrigger asChild>
         <Button
+          data-champ=""
           type="button"
           variant="outline"
           role="combobox"

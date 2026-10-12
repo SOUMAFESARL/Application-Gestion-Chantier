@@ -406,6 +406,8 @@ function versChargeModification(modification: ModificationProjet) {
     ville: modification.ville,
     maitre_ouvrage: modification.maitreOuvrage,
     maitre_oeuvre: modification.maitreOeuvre,
+    date_debut_prevue: modification.dateDebutPrevue,
+    date_fin_prevue: modification.dateFinPrevue,
   };
 }
 
@@ -699,6 +701,7 @@ function versActivite(charge: ChargeActivite, code = ""): Activite {
     libelle: charge.libelle,
     quantitePrevue: versNombre(charge.quantite_prevue),
     unite: charge.unite ?? null,
+    budget: versMontant(charge.budget_initial_montant),
     dateDebutPrevue: charge.date_debut_prevue ?? null,
     dateFinPrevue: charge.date_fin_prevue ?? null,
     avancement: versNombre(charge.avancement) ?? 0,
@@ -831,10 +834,11 @@ export async function supprimerLot(lotId: string): Promise<void> {
 export async function lireFichierLots(
   fichier: File,
   lotsExistants: Lot[],
+  budgetProjet: number | null,
 ): Promise<LigneImportLot[]> {
   const { readSheet } = await import("read-excel-file/browser");
   const feuille = await readSheet(fichier);
-  return lireLotsImportes(feuille as unknown[][], lotsExistants);
+  return lireLotsImportes(feuille as unknown[][], lotsExistants, budgetProjet);
 }
 
 /**
@@ -860,6 +864,7 @@ function versChargeActivite(saisie: SaisieActiviteDomaine) {
     libelle: saisie.libelle,
     quantite_prevue: saisie.quantitePrevue,
     unite: saisie.unite,
+    budget_initial_montant: saisie.budget,
     date_debut_prevue: saisie.dateDebutPrevue,
     date_fin_prevue: saisie.dateFinPrevue,
     // La dépendance ne se saisit plus : un PATCH sans elle la laisse intacte.
@@ -928,6 +933,7 @@ const CHAMPS_ACTIVITE: Record<string, string> = {
   libelle: "libelle",
   quantite_prevue: "quantite",
   unite: "unite",
+  budget_initial_montant: "budget",
   date_debut_prevue: "dateDebut",
   date_fin_prevue: "dateFin",
   responsable: "responsableId",

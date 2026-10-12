@@ -220,10 +220,21 @@ function joursEntre(debut: string | null, fin: string | null): number | null {
   return Math.round((arrivee - depart) / JOUR_MS);
 }
 
+/**
+ * Le planning contractuel est fixé : début **et** fin prévus. Un lot ne
+ * s'ajoute qu'à cette condition — sa période se lit dans celle du projet, et
+ * un lot sans projet daté n'a pas de cadre où se placer.
+ */
+export function planningDefini(projet: Pick<Projet, "dateDebutPrevue" | "dateFinPrevue">): boolean {
+  return Boolean(projet.dateDebutPrevue && projet.dateFinPrevue);
+}
+
 /** Ce que les dates d'un projet disent de son délai. */
 export interface EcheancierProjet {
   /** La durée prévue, en jours calendaires, bornes comprises. */
   dureeJours: number | null;
+  /** La même durée prévue, en calendaire et en jours ouvrés. */
+  duree: DureeProjet | null;
   /**
    * La part du délai prévu déjà écoulée, de 0 à 100. C'est le **temps**, pas
    * l'avancement théorique que le serveur calcule sur le planning : les deux
@@ -252,6 +263,7 @@ export function echeancierProjet(projet: Projet, maintenant: Date = new Date()):
   );
   return {
     dureeJours: duree === null || duree < 0 ? null : duree + 1,
+    duree: dureeProjet(projet.dateDebutPrevue, projet.dateFinPrevue),
     tempsEcoule:
       duree === null || duree <= 0 || ecoules === null
         ? null
@@ -309,6 +321,33 @@ export const BUDGET_MINIMAL_CENTIMES = 1;
 /** Un montant de budget saisi est-il recevable. */
 export function budgetRecevable(centimes: number | null): centimes is number {
   return centimes !== null && centimes >= BUDGET_MINIMAL_CENTIMES;
+}
+
+/** Ce qui borne un budget : le lot qui contient l'activité, le projet. */
+export type PlafondBudget = "LOT" | "PROJET";
+
+/**
+ * Le plafond qu'un budget dépasse : un lot ne dépasse pas le budget du
+ * projet, une activité ni celui de son lot ni celui du projet. Un budget
+ * encore non défini (`null`) ne borne rien. Le plus proche — le lot — d'abord.
+ */
+export function plafondBudgetDepasse(
+  centimes: number | null,
+  plafonds: { lot?: number | null; projet: number | null },
+): PlafondBudget | null {
+  if (centimes === null) return null;
+  if (plafonds.lot != null && centimes > plafonds.lot) return "LOT";
+  if (plafonds.projet !== null && centimes > plafonds.projet) return "PROJET";
+  return null;
+}
+
+/**
+ * Le plus gros budget porté par les activités d'un lot : le budget du lot ne
+ * peut descendre en dessous. `null` : aucune activité n'a de budget.
+ */
+export function budgetMaxActivites(lot: Lot): number | null {
+  const budgets = lot.activites.flatMap((activite) => (activite.budget === null ? [] : [activite.budget]));
+  return budgets.length === 0 ? null : Math.max(...budgets);
 }
 
 /**
@@ -464,6 +503,48 @@ export function joursOuvres(debut: string, fin: string): number | null {
     if (jourSemaine !== 0 && jourSemaine !== 6) ouvres += 1;
   }
   return ouvres;
+}
+
+/**
+ * La durée d'un projet, lue de deux façons qui ne se remplacent pas : en
+ * **calendaire** (années, mois, et les jours qui restent après le dernier mois
+ * plein), comme on l'écrit dans un marché ; et en **jours ouvrés**, ce que le
+ * chantier aura réellement pour travailler.
+ */
+export interface DureeProjet {
+  annees: number;
+  mois: number;
+  jours: number;
+  joursOuvres: number;
+}
+
+/** Une date UTC décalée de `n` mois, le quantième ramené au dernier jour du mois au besoin (31 janv. + 1 mois → 28 févr.). */
+function decalerMois(date: Date, n: number): Date {
+  const cible = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + n, 1));
+  const dernierJour = new Date(Date.UTC(cible.getUTCFullYear(), cible.getUTCMonth() + 1, 0)).getUTCDate();
+  cible.setUTCDate(Math.min(date.getUTCDate(), dernierJour));
+  return cible;
+}
+
+/**
+ * La durée entre deux dates ISO courtes, **bornes comprises** : du 1er janvier
+ * au 31 décembre, c'est un an, pas un an moins un jour. `null` tant qu'une des
+ * deux dates manque ou qu'elles ne se suivent pas.
+ */
+export function dureeProjet(debut: string | null, fin: string | null): DureeProjet | null {
+  if (!debut || !fin) return null;
+  const ouvres = joursOuvres(debut, fin);
+  if (ouvres === null) return null;
+  const depart = new Date(debut);
+  // Le lendemain de la fin : la borne exclue qui rend la fin comprise.
+  const arrivee = new Date(Date.parse(fin) + JOUR_MS);
+
+  let moisPleins =
+    (arrivee.getUTCFullYear() - depart.getUTCFullYear()) * 12 + arrivee.getUTCMonth() - depart.getUTCMonth();
+  if (decalerMois(depart, moisPleins) > arrivee) moisPleins -= 1;
+  const jours = Math.round((arrivee.getTime() - decalerMois(depart, moisPleins).getTime()) / JOUR_MS);
+
+  return { annees: Math.floor(moisPleins / 12), mois: moisPleins % 12, jours, joursOuvres: ouvres };
 }
 
 
@@ -1790,7 +1871,11 @@ function dateCellule(valeur: unknown): string | null | undefined {
  * feuille est lue et la colonne des noms est la plus variée. Les lignes
  * vides sont sautées, et la lecture s'arrête à `NOMBRE_MAX_LOTS_IMPORT`.
  */
-export function lireLotsImportes(feuille: unknown[][], lotsExistants: Lot[]): LigneImportLot[] {
+export function lireLotsImportes(
+  feuille: unknown[][],
+  lotsExistants: Lot[],
+  budgetProjet: number | null,
+): LigneImportLot[] {
   const rangEntete = feuille
     .slice(0, 10)
     .findIndex((ligne) => ligne.some((cellule) => roleEntete(texteCellule(cellule)) === "nom"));
@@ -1830,8 +1915,12 @@ export function lireLotsImportes(feuille: unknown[][], lotsExistants: Lot[]): Li
       return colonne === undefined ? undefined : ligne[colonne];
     };
 
-    const budget = budgetCellule(cellule("budget"));
+    let budget = budgetCellule(cellule("budget"));
     if (budget === null) anomalies.push("BUDGET_INVALIDE");
+    else if (plafondBudgetDepasse(budget ?? null, { projet: budgetProjet })) {
+      anomalies.push("BUDGET_DEPASSE_PROJET");
+      budget = null;
+    }
     let dateDebut = dateCellule(cellule("dateDebut"));
     let dateFin = dateCellule(cellule("dateFin"));
     if (dateDebut === null || dateFin === null) anomalies.push("DATE_INVALIDE");

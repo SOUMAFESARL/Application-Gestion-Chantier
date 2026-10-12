@@ -101,6 +101,7 @@ export function SelecteurAcces({
           aria-label={libelleAria}
           disabled={disabled}
           title={titre}
+          data-champ={variante === "champ" ? "" : undefined}
           className={variante === "champ" ? CHAMP : cn(pastille, "cursor-pointer")}
         >
           <span className="truncate">{variante === "champ" ? complet : abrege}</span>

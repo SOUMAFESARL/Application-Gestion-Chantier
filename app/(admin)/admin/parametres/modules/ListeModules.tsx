@@ -18,6 +18,7 @@ import {
   TableauListe,
 } from "@/components/ui/tableau-liste";
 import { Textarea } from "@/components/ui/textarea";
+import { ZonePreRemplie } from "@/components/ui/form";
 import {
   CRITERES_MODULES_VIDES,
   criteresModulesActifs,
@@ -409,15 +410,17 @@ export function ListeModules() {
                 })
               : t("parametres.modules.formulaire.descriptionCreation")}
           </p>
-          <Champ
-            libelle={t("parametres.modules.formulaire.libelle")}
-            taille="md"
-            required
-            placeholder={t("parametres.modules.formulaire.libellePlaceholder")}
-            erreur={errors.libelle?.message}
-            disabled={enregistrement.isPending}
-            {...formulaire.register("libelle")}
-          />
+          <ZonePreRemplie control={formulaire.control} nom="libelle" actif={enModification !== null}>
+            <Champ
+              libelle={t("parametres.modules.formulaire.libelle")}
+              taille="md"
+              required
+              placeholder={t("parametres.modules.formulaire.libellePlaceholder")}
+              erreur={errors.libelle?.message}
+              disabled={enregistrement.isPending}
+              {...formulaire.register("libelle")}
+            />
+          </ZonePreRemplie>
           {/* `Champ` ne rend qu'un `input` : même libellé, même erreur sous le
               champ, reliée par `aria-describedby`. */}
           <div className="mb-4 flex flex-col gap-1">
@@ -427,17 +430,19 @@ export function ListeModules() {
                 *
               </span>
             </label>
-            <Textarea
-              id={idDescription}
-              rows={3}
-              required
-              aria-required
-              aria-invalid={errors.description ? true : undefined}
-              aria-describedby={errors.description ? idErreurDescription : undefined}
-              placeholder={t("parametres.modules.formulaire.descriptionPlaceholder")}
-              disabled={enregistrement.isPending}
-              {...formulaire.register("description")}
-            />
+            <ZonePreRemplie control={formulaire.control} nom="description" actif={enModification !== null}>
+              <Textarea
+                id={idDescription}
+                rows={3}
+                required
+                aria-required
+                aria-invalid={errors.description ? true : undefined}
+                aria-describedby={errors.description ? idErreurDescription : undefined}
+                placeholder={t("parametres.modules.formulaire.descriptionPlaceholder")}
+                disabled={enregistrement.isPending}
+                {...formulaire.register("description")}
+              />
+            </ZonePreRemplie>
             {errors.description && (
               <p id={idErreurDescription} className="text-xs font-medium text-erreur">
                 {errors.description.message}
@@ -448,20 +453,22 @@ export function ListeModules() {
             <span id={idAccesParDefaut} className="text-sm font-semibold text-neutral-800">
               {t("parametres.modules.formulaire.accesParDefaut")}
             </span>
-            <Controller
-              control={formulaire.control}
-              name="accesParDefaut"
-              render={({ field }) => (
-                <SelecteurAcces
-                  valeur={field.value}
-                  onChange={field.onChange}
-                  variante="champ"
-                  libelleAria={t("parametres.modules.formulaire.accesParDefaut")}
-                  disabled={enregistrement.isPending}
-                  classeListe={LISTE_AU_DESSUS_DE_LA_MODALE}
-                />
-              )}
-            />
+            <ZonePreRemplie control={formulaire.control} nom="accesParDefaut" actif={enModification !== null}>
+              <Controller
+                control={formulaire.control}
+                name="accesParDefaut"
+                render={({ field }) => (
+                  <SelecteurAcces
+                    valeur={field.value}
+                    onChange={field.onChange}
+                    variante="champ"
+                    libelleAria={t("parametres.modules.formulaire.accesParDefaut")}
+                    disabled={enregistrement.isPending}
+                    classeListe={LISTE_AU_DESSUS_DE_LA_MODALE}
+                  />
+                )}
+              />
+            </ZonePreRemplie>
           </div>
           {erreurAction && <Alerte type="erreur">{erreurAction}</Alerte>}
         </form>

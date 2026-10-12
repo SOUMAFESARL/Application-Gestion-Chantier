@@ -142,6 +142,9 @@
      alignée sur le bouton `md`. */
   --input-height-md: 40px;
   --input-padding-x: 16px;
+  /* Le fond d'un champ dont la valeur vient de la base (pre-rempli, calcule,
+     en lecture seule) : voir la regle `[data-champ]` de `app/globals.css`. */
+  --input-fond-pre-rempli: var(--color-neutral-100);
   --input-radius: var(--radius-md);
   --input-border-default: 1px solid var(--color-neutral-300);
   --input-border-focus: 2px solid var(--color-primary-500);

@@ -155,7 +155,7 @@ export function TiroirMouvement({
           <SheetTitle className="text-lg text-neutral-900">{t("titre")}</SheetTitle>
           <SheetDescription>{t("sousTitre")}</SheetDescription>
         </SheetHeader>
-        <Form {...form}>
+        <Form {...form} preRempli={Boolean(ligne)}>
           <form id={FORM_MOUVEMENT} onSubmit={form.handleSubmit(soumettre)} noValidate className={CORPS_TIROIR}>
             <ChoixLot
               projets={projetsPermis}

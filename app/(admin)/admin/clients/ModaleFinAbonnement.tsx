@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { Bouton, Modale } from "@/components/ui";
 import { SelecteurDate } from "@/components/ui/SelecteurDate";
+import { ZonePreRemplie } from "@/components/ui/form";
 import type { ClientPlateforme } from "@/features/administration";
 import { modifierFinAbonnement } from "@/features/administration/adaptateur";
 import { schemaFinAbonnement } from "@/features/administration/validations";
@@ -128,23 +129,25 @@ export function ModaleFinAbonnement({ client, onFermer }: Props) {
             <label className="text-sm font-semibold text-neutral-800" htmlFor={idDate}>
               {t("finAbonnement.date")}
             </label>
-            <Controller
-              control={formulaire.control}
-              name="dateFin"
-              render={({ field }) => (
-                <SelecteurDate
-                  id={idDate}
-                  valeur={field.value}
-                  onChange={field.onChange}
-                  placeholder={t("finAbonnement.datePlaceholder")}
-                  auPlusTot={dateDebut}
-                  classeCalendrier={CALENDRIER_AU_DESSUS_DE_LA_MODALE}
-                  disabled={enregistrement.isPending}
-                  aria-invalid={erreur ? true : undefined}
-                  aria-describedby={erreur ? idErreur : undefined}
-                />
-              )}
-            />
+            <ZonePreRemplie control={formulaire.control} nom="dateFin">
+              <Controller
+                control={formulaire.control}
+                name="dateFin"
+                render={({ field }) => (
+                  <SelecteurDate
+                    id={idDate}
+                    valeur={field.value}
+                    onChange={field.onChange}
+                    placeholder={t("finAbonnement.datePlaceholder")}
+                    auPlusTot={dateDebut}
+                    classeCalendrier={CALENDRIER_AU_DESSUS_DE_LA_MODALE}
+                    disabled={enregistrement.isPending}
+                    aria-invalid={erreur ? true : undefined}
+                    aria-describedby={erreur ? idErreur : undefined}
+                  />
+                )}
+              />
+            </ZonePreRemplie>
             {erreur && (
               <p id={idErreur} className="text-xs font-medium text-erreur">
                 {erreur}

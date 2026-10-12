@@ -150,7 +150,7 @@ export function TiroirAffectation({
           <SheetDescription>{t("sousTitre")}</SheetDescription>
         </SheetHeader>
 
-        <Form {...form}>
+        <Form {...form} preRempli>
           <form
             id={FORM_ID}
             onSubmit={form.handleSubmit((saisie) => enregistrer(saisie.activiteId, saisie.equipeId))}

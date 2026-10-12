@@ -16,6 +16,7 @@ import { TiroirLot } from "@/features/projets/components/TiroirLot";
 import {
   activiteAMontrer,
   activitesDuProjet,
+  planningDefini,
   projetOuvert,
   syntheseLots,
 } from "@/features/projets/regles";
@@ -73,6 +74,7 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
   const requeteProjets = useProjetsVisibles();
   const projets = useMemo(() => requeteProjets.data ?? [], [requeteProjets.data]);
   const projetId = projetChoisi ?? projetOuvert(projets, projetInitial)?.id ?? null;
+  const projet = projets.find((candidat) => candidat.id === projetId) ?? null;
 
   const requeteLots = useQuery({
     queryKey: cleLots(projetId ?? ""),
@@ -257,6 +259,7 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
                 activiteChoisieId={activite?.id ?? null}
                 onChoisirActivite={setActiviteChoisie}
                 onAjouterLot={() => ouvrirTiroirLot()}
+                ajoutLotPossible={projet !== null && planningDefini(projet)}
                 onModifierLot={ouvrirTiroirLot}
                 onSupprimerLot={setLotASupprimer}
                 onAjouterActivite={(lotId) => ouvrirTiroirActivite(null, lotId)}
@@ -283,6 +286,7 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
             onFermer={() => setTiroirActivite((etat) => ({ ...etat, ouvert: false }))}
             projetId={projetId}
             lots={lots}
+            budgetProjet={projet?.budgetInitial ?? null}
             activite={tiroirActivite.activite}
             lotIdInitial={tiroirActivite.lotId}
             onEnregistree={surActiviteEnregistree}
@@ -293,6 +297,7 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
             onFermer={() => setTiroirLot((etat) => ({ ...etat, ouvert: false }))}
             projetId={projetId}
             lots={lots}
+            budgetProjet={projet?.budgetInitial ?? null}
             lot={tiroirLot.lot}
             onCree={surLotCree}
             onModifie={surLotModifie}

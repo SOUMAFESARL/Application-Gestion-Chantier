@@ -258,6 +258,9 @@ export interface ModificationProjet {
   ville: string;
   maitreOuvrage: string;
   maitreOeuvre?: string;
+  /** Absentes : le planning déjà enregistré ne change pas. */
+  dateDebutPrevue?: string;
+  dateFinPrevue?: string;
 }
 
 /** La portée d'un relevé météo : l'entreprise, ou un chantier précis. */
@@ -421,6 +424,8 @@ export interface Activite {
   /** `null` : activité suivie au pourcentage, sans quantité. */
   quantitePrevue: number | null;
   unite: UniteActivite | null;
+  /** En centimes. `null` : pas de budget propre — facultatif, le lot porte le sien. */
+  budget: number | null;
   /** `null` : activité pas encore planifiée — les dates se fixent plus tard. */
   dateDebutPrevue: string | null;
   dateFinPrevue: string | null;
@@ -447,8 +452,8 @@ export interface Lot {
   modeExecution: ModeExecutionLot;
   typeBordereau: TypeBordereau;
   /**
-   * En centimes. `null` tant qu'il n'est pas défini. Le budget se tient au
-   * lot — c'est l'unité du marché —, pas à l'activité.
+   * En centimes. `null` tant qu'il n'est pas défini. Le budget se tient
+   * d'abord au lot — c'est l'unité du marché ; celui d'une activité est facultatif.
    */
   budget: number | null;
   /** Les dates saisies sur le lot ; celles de ses activités priment à l'affichage. */
@@ -477,6 +482,8 @@ export interface SaisieActiviteDomaine {
   libelle: string;
   quantitePrevue: number | null;
   unite: UniteActivite | null;
+  /** En centimes. */
+  budget: number | null;
   dateDebutPrevue: string | null;
   dateFinPrevue: string | null;
   responsableId: string | null;
@@ -492,6 +499,8 @@ export interface SaisieActiviteDomaine {
  */
 export type AnomalieImportLot =
   | "BUDGET_INVALIDE"
+  /** Le budget du lot dépasse celui du projet. */
+  | "BUDGET_DEPASSE_PROJET"
   | "DATE_INVALIDE"
   | "DATES_INCOHERENTES"
   /** Un intitulé de corps d'état (« LOTS TECHNIQUES »), pas un lot. */

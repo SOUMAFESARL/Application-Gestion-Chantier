@@ -16,7 +16,7 @@
 import { z } from "zod";
 
 import { texte } from "@/i18n/horsReact";
-import { formaterSaisieMontant, saisieEnCentimes } from "@/lib/format";
+import { formaterMontant, formaterSaisieMontant, saisieEnCentimes } from "@/lib/format";
 import { chaineNonVide } from "@/lib/validations/champs";
 
 import {
@@ -31,8 +31,10 @@ import {
   STATUT_DECLARE_PAR_DEFAUT,
   STATUTS_DECLARES,
   UNITES_ACTIVITE,
+  budgetMaxActivites,
   budgetRecevable,
   datesChantierCoherentes,
+  plafondBudgetDepasse,
   refusContrat,
 } from "./regles";
 import type {
@@ -162,10 +164,10 @@ export function saisieDepuisProjet(projet: Projet): SaisieProjet {
     ville: projet.ville,
     maitreOuvrage: projet.client.raisonSociale,
     maitreOeuvre: projet.maitreOeuvre ?? "",
-    // Le planning et le budget ne se modifient pas ici : `versModificationProjet`
-    // les ignore, le chef de projet les fixe depuis le projet.
-    dateDebut: "",
-    dateFin: "",
+    dateDebut: projet.dateDebutPrevue ?? "",
+    dateFin: projet.dateFinPrevue ?? "",
+    // Le budget ne se modifie pas ici : `versModificationProjet` l'ignore, le
+    // chef de projet le fixe depuis le projet.
     budget: "",
     description: "",
     contrats: [],
@@ -180,6 +182,9 @@ export function versModificationProjet(valeurs: ValeursProjet): ModificationProj
     ville: valeurs.ville,
     maitreOuvrage: valeurs.maitreOuvrage,
     maitreOeuvre: valeurs.maitreOeuvre || undefined,
+    // Vides, elles ne sont pas envoyées : le planning enregistré reste.
+    dateDebutPrevue: valeurs.dateDebut || undefined,
+    dateFinPrevue: valeurs.dateFin || undefined,
   };
 }
 
@@ -214,6 +219,42 @@ export const schemaLot = z
       ctx.addIssue({ code: "custom", path: ["dateFin"], message: texte("projets.tiroirCreation.erreurDatesIncoherentes") });
     }
   });
+
+/** Le budget saisi, en centimes ; `null` s'il est vide ou illisible. */
+function budgetSaisi(saisie: string): number | null {
+  const centimes = saisie.trim() === "" ? null : saisieEnCentimes(saisie);
+  return budgetRecevable(centimes) ? centimes : null;
+}
+
+/**
+ * `schemaLot`, borné par ce que l'écran seul connaît : le budget du projet,
+ * que le lot ne dépasse pas, et — pour un lot existant — celui de ses
+ * activités, qu'il doit toujours contenir.
+ */
+export function schemaLotBorne(budgetProjet: number | null, lot: Lot | null = null) {
+  const plancher = lot ? budgetMaxActivites(lot) : null;
+  return schemaLot.superRefine((saisie, ctx) => {
+    const budget = budgetSaisi(saisie.budget);
+    if (budget === null) return;
+    if (plafondBudgetDepasse(budget, { projet: budgetProjet })) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["budget"],
+        message: texte("projets.lotsActivites.formLot.erreurBudgetDepasseProjet", {
+          montant: formaterMontant(budgetProjet),
+        }),
+      });
+    } else if (plancher !== null && budget < plancher) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["budget"],
+        message: texte("projets.lotsActivites.formLot.erreurBudgetSousActivites", {
+          montant: formaterMontant(plancher),
+        }),
+      });
+    }
+  });
+}
 
 /* ------------------------------------------------------------------ *
  * L'ajout d'un lot sur un chantier ouvert.
@@ -291,6 +332,13 @@ export const schemaActivite = z
         message: texte("projets.lotsActivites.formActivite.erreurQuantiteInvalide"),
       }),
     unite: z.string(),
+    // Facultatif : le budget se tient d'abord au lot.
+    budget: z
+      .string()
+      .trim()
+      .refine((valeur) => valeur === "" || (MOTIF_MONTANT.test(valeur) && budgetRecevable(saisieEnCentimes(valeur))), {
+        message: texte("projets.lotsActivites.formActivite.erreurBudgetInvalide"),
+      }),
     // Facultatives : une activité se déclare souvent avant d'être planifiée.
     dateDebut: z.string(),
     dateFin: z.string(),
@@ -308,6 +356,31 @@ export const schemaActivite = z
     }
   });
 
+/**
+ * `schemaActivite`, borné par le budget du lot choisi et par celui du projet :
+ * une activité ne dépasse ni l'un ni l'autre.
+ */
+export function schemaActiviteBornee(budgetProjet: number | null, lots: Lot[]) {
+  return schemaActivite.superRefine((saisie, ctx) => {
+    const budget = budgetSaisi(saisie.budget);
+    const lot = lots.find((candidat) => candidat.id === saisie.lotId);
+    const plafond = plafondBudgetDepasse(budget, { lot: lot?.budget ?? null, projet: budgetProjet });
+    if (plafond === null) return;
+    ctx.addIssue({
+      code: "custom",
+      path: ["budget"],
+      message:
+        plafond === "LOT"
+          ? texte("projets.lotsActivites.formActivite.erreurBudgetDepasseLot", {
+              montant: formaterMontant(lot?.budget ?? null),
+            })
+          : texte("projets.lotsActivites.formActivite.erreurBudgetDepasseProjet", {
+              montant: formaterMontant(budgetProjet),
+            }),
+    });
+  });
+}
+
 export type SaisieActivite = z.input<typeof schemaActivite>;
 export type ValeursActivite = z.output<typeof schemaActivite>;
 
@@ -322,6 +395,7 @@ export function saisieActiviteVide(lotId = ""): SaisieActivite {
     libelle: "",
     quantite: "",
     unite: "M2",
+    budget: "",
     dateDebut: "",
     dateFin: "",
     responsableId: "",
@@ -337,6 +411,7 @@ export function saisieDepuisActivite(activite: Activite): SaisieActivite {
     libelle: activite.libelle,
     quantite: activite.quantitePrevue === null ? "" : String(activite.quantitePrevue),
     unite: activite.unite ?? "M2",
+    budget: activite.budget === null ? "" : formaterSaisieMontant(String(Math.round(activite.budget / 100))),
     dateDebut: activite.dateDebutPrevue ?? "",
     dateFin: activite.dateFinPrevue ?? "",
     responsableId: activite.responsableId ?? "",
@@ -354,6 +429,7 @@ export function versSaisieActiviteDomaine(valeurs: ValeursActivite): SaisieActiv
     quantitePrevue,
     // Sans quantité, l'unité ne dit rien : elle n'est pas transmise.
     unite: quantitePrevue === null ? null : (valeurs.unite as UniteActivite),
+    budget: valeurs.budget ? saisieEnCentimes(valeurs.budget) : null,
     dateDebutPrevue: valeurs.dateDebut || null,
     dateFinPrevue: valeurs.dateFin || null,
     responsableId: valeurs.responsableId || null,

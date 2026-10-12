@@ -11,6 +11,7 @@ import { toast } from "sonner";
 
 import { Alerte, Badge, Bouton, Champ, EtatChargement, EtatErreur } from "@/components/ui";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ZonePreRemplie } from "@/components/ui/form";
 import {
   BasculePeriodicite,
   CadreForfait,
@@ -288,34 +289,38 @@ function CarteTarif({
       {/* Là où la page de vente pose son bouton « Passer au forfait » : les
           deux chiffres qui fixent le prix. */}
       <div className="grid grid-cols-[1fr_7rem] gap-x-3 rounded-lg bg-neutral-0/70 p-3 ring-1 ring-primary-100">
-        <Champ
-          taille="md"
-          className="mb-0"
-          libelle={t("prixMensuel")}
-          type="number"
-          inputMode="numeric"
-          min={1}
-          step={1}
-          required
-          disabled={verrouille}
-          erreur={erreurs?.prixMensuel?.message}
-          {...formulaire.register(`tarifs.${rang}.prixMensuel`, { valueAsNumber: true })}
-        />
-        <Champ
-          taille="md"
-          className="mb-0"
-          libelle={t("remiseAnnuelle")}
-          type="number"
-          inputMode="numeric"
-          min={0}
-          max={REMISE_MAX_POURCENT}
-          step={1}
-          required
-          disabled={verrouille}
-          erreur={erreurs?.remiseAnnuelle?.message}
-          iconeDroite={<span className="text-sm text-neutral-500">{SYMBOLE_POURCENT}</span>}
-          {...formulaire.register(`tarifs.${rang}.remiseAnnuelle`, { valueAsNumber: true })}
-        />
+        <ZonePreRemplie control={formulaire.control} nom={`tarifs.${rang}.prixMensuel`}>
+          <Champ
+            taille="md"
+            className="mb-0"
+            libelle={t("prixMensuel")}
+            type="number"
+            inputMode="numeric"
+            min={1}
+            step={1}
+            required
+            disabled={verrouille}
+            erreur={erreurs?.prixMensuel?.message}
+            {...formulaire.register(`tarifs.${rang}.prixMensuel`, { valueAsNumber: true })}
+          />
+        </ZonePreRemplie>
+        <ZonePreRemplie control={formulaire.control} nom={`tarifs.${rang}.remiseAnnuelle`}>
+          <Champ
+            taille="md"
+            className="mb-0"
+            libelle={t("remiseAnnuelle")}
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={REMISE_MAX_POURCENT}
+            step={1}
+            required
+            disabled={verrouille}
+            erreur={erreurs?.remiseAnnuelle?.message}
+            iconeDroite={<span className="text-sm text-neutral-500">{SYMBOLE_POURCENT}</span>}
+            {...formulaire.register(`tarifs.${rang}.remiseAnnuelle`, { valueAsNumber: true })}
+          />
+        </ZonePreRemplie>
         {annuel !== null && (
           <p className="col-span-2 mt-2 text-xs text-neutral-600">
             {t("soitAnnuel", { montant: formaterMontant(annuel) })}
@@ -396,16 +401,18 @@ function LigneQuota({
         <span className="flex-1 font-medium">{libelleIllimite}</span>
       ) : (
         <label className="flex flex-1 items-center gap-2">
-          <input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            step={1}
-            disabled={verrouille}
-            aria-invalid={enErreur}
-            className={CHAMP_QUOTA}
-            {...formulaire.register(`tarifs.${rang}.${champ}`, { valueAsNumber: true })}
-          />
+          <ZonePreRemplie control={formulaire.control} nom={`tarifs.${rang}.${champ}`}>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step={1}
+              disabled={verrouille}
+              aria-invalid={enErreur}
+              className={CHAMP_QUOTA}
+              {...formulaire.register(`tarifs.${rang}.${champ}`, { valueAsNumber: true })}
+            />
+          </ZonePreRemplie>
           <span>{unite}</span>
         </label>
       )}

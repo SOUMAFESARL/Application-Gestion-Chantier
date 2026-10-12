@@ -102,7 +102,7 @@ export function TiroirCommande({
           <SheetDescription>{demande ? t("sousTitre") : t("sousTitreDirect")}</SheetDescription>
         </SheetHeader>
 
-        <Form {...form}>
+        <Form {...form} preRempli={Boolean(demande)}>
           <form id={FORM_ID} onSubmit={form.handleSubmit(soumettre)} noValidate className={CORPS_TIROIR}>
             {demande ? (
               <dl className={FICHE}>

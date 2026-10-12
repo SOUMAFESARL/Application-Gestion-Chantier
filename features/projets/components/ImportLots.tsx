@@ -47,6 +47,8 @@ const CHAMP = "h-[var(--input-height-md)]";
 interface Props {
   projetId: string;
   lots: Lot[];
+  /** En centimes : un lot importé ne le dépasse pas. */
+  budgetProjet: number | null;
   onFermer: () => void;
   onImportes: (lots: Lot[]) => void;
   onOccupe: (occupe: boolean) => void;
@@ -61,7 +63,7 @@ interface Props {
  * bordereau), puis on importe. La lecture et l'interprétation sont dans
  * `regles.ts` (`lireLotsImportes`) : l'écran ne fait que montrer.
  */
-export function ImportLots({ projetId, lots, onFermer, onImportes, onOccupe }: Props) {
+export function ImportLots({ projetId, lots, budgetProjet, onFermer, onImportes, onOccupe }: Props) {
   const t = useTranslations("projets.lotsActivites.importLots");
   const tCreation = useTranslations("projets.tiroirCreation");
 
@@ -102,7 +104,7 @@ export function ImportLots({ projetId, lots, onFermer, onImportes, onOccupe }: P
 
     setLecture(true);
     try {
-      const lues = await lireFichierLots(fichier, lots);
+      const lues = await lireFichierLots(fichier, lots, budgetProjet);
       if (lues.length === 0) {
         toast.error(t("aucunLotTrouve"));
         setFichiers([]);
