@@ -37,24 +37,30 @@ nothing on screen — which is literally the acceptance criterion of lot 1. See
 
 Demo login against a connected backend: `admin@demo.ci` / `Demo1234!`.
 
-## Multi-tenancy: the subdomain *is* the tenant
+## Multi-tenancy: one API host, the tenant travels in the token
 
-The API base URL is **never hardcoded** — it's derived from the browser's
-subdomain (`lib/api/client.ts`, `baseApi()`). `sotra.ccd-digital.ci` calls
-`sotra.ccd-digital.ci`; the same build serves every client company. Locally,
-subdomains work through `*.localhost` (e.g. `demo.localhost:8000`), and
-`NEXT_PUBLIC_API_PORT` bridges the port mismatch (`3000` frontend / `8000`
-API) that doesn't exist in production.
+**Production serves a single API host**, `api-chantier.soumafe.com`:
+`deploy-cpanel.yml` sets `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_API_PLATEFORME`
+to it, and no client company has a subdomain. The backend
+(`apps/core/middleware_tenant.py`) picks the tenant, in this order:
 
-`NEXT_PUBLIC_API_URL` (an override) and `apiPlateforme`/`basePlateforme()` are
-the two escape hatches, each dangerous in its own way:
-- `NEXT_PUBLIC_API_URL` pins the frontend to one tenant — fine for isolated
-  local debugging, wrong for anything else (a freshly-registered client would
-  get their login checked against the wrong company's database).
-- `apiPlateforme` targets the *platform* schema (signup — endpoints that
-  don't live under any client subdomain). Use `api` (tenant-scoped) for
-  everything else. Picking the wrong one fails silently as a 404, not an
-  auth error.
+1. the `schema` claim of the JWT, written at login — the server finds the
+   user's company from the email, in the public schema;
+2. an explicit `X-Tenant` header;
+3. the hostname — `demo.localhost:8000` — a **development fallback only**;
+4. otherwise the public schema.
+
+What follows from it:
+
+- **A tenant route called without a token answers 404, not 401**: the request
+  falls on the public URL conf, which does not know `/projets/`.
+- **Develop the way production runs**: `NEXT_PUBLIC_API_URL=http://localhost:8000`
+  in `.env.local`, and browse `http://localhost:3000`. Leaving
+  `NEXT_PUBLIC_API_URL` empty makes `baseApi()` (`lib/api/client.ts`) derive the
+  API from the browser's subdomain, which only exercises fallback 3.
+- `apiPlateforme` targets the *platform* schema anonymously (signup). Use `api`
+  for everything a signed-in user does. Picking the wrong one fails silently
+  as a 404, not an auth error.
 
 ## There are two spaces, not one
 

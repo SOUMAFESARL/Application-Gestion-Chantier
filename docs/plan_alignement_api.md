@@ -59,13 +59,16 @@ décide : écran à créer, écran existant à compléter, ou route sans usage.
 
 | Tâche | État |
 |---|---|
-| **0.1** Environnement local | `.env.local` vise le backend local (l'ancien, branché sur la production, est dans `.env.local.sauvegarde-production`). Migrations locales appliquées. Connexion du compte de démonstration vérifiée contre `demo.localhost:8000`. **Bloqué** : `next dev` s'arrête sur « Fatal process out of memory » dès le deuxième écran — le poste n'a plus de mémoire validable |
+| **0.1** Environnement local | `.env.local` vise le backend local, en hôte unique comme la production (l'ancien, branché sur la production, est dans `.env.local.sauvegarde-production`). Migrations locales appliquées. Connexion du compte de démonstration vérifiée. **Bloqué** : `next dev` s'arrête sur « Fatal process out of memory » dès le deuxième écran — le poste n'a plus de mémoire validable |
 | **0.2** Script de comparaison | Fait : `scripts/comparer_routes_frontend.py` dans le dépôt backend, dans les deux sens, filtrable par `--domaine` |
 | **0.3** `CLAUDE.md` | Fait : `app/(entreprise)/`, chemin du backend, existence de l'API du back-office |
 
 Pour lancer les deux serveurs : backend `python manage.py runserver 8000`,
-frontend `npm run dev`, puis ouvrir `http://demo.localhost:3000` — avec le
-sous-domaine, sans quoi l'appel part vers le schéma public.
+frontend `npm run dev`, puis ouvrir `http://localhost:3000`. **Comme en
+production, il n'y a pas de sous-domaine** : `.env.local` désigne un hôte
+unique, `http://localhost:8000`, et l'entreprise voyage dans le jeton de
+connexion. Vérifié le 13/10/2026 : connexion sur `localhost:8000`, jeton
+portant `schema: demo`, `/projets/` et `/tableau-de-bord/` en 200.
 
 Les 18 routes absentes du schéma OpenAPI, dont 15 du module projets, sont
 reportées au lot 4.

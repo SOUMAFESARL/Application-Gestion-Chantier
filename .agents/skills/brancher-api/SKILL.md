@@ -18,8 +18,9 @@ coûtent plus cher que le moins bon des deux.
 
 Dans l'ordre de confiance :
 
-1. **La réponse du serveur local** — `http://<entreprise>.localhost:8000/api/v1/…`. C'est la
-   seule source qui ne peut pas être en retard.
+1. **La réponse du serveur local** — `http://localhost:8000/api/v1/…`, avec le jeton obtenu à la
+   connexion : c'est lui qui porte l'entreprise, pas l'adresse. C'est la seule source qui ne peut
+   pas être en retard.
 2. **La vue et le serializer**, dans `../API-Gestion-Chantier/apps/<module>/`.
 3. **Le schéma OpenAPI**, `/api/v1/schema/`. Il est incomplet : des vues sans serializer déclaré
    n'y figurent pas. Une route absente du schéma n'est pas une route absente du serveur.
@@ -89,6 +90,8 @@ Puis à l'écran, contre le backend local :
 
 - **Le mauvais client échoue sans bruit.** `apiPlateforme` à la place d'`api` donne un 404, pas
   une erreur d'authentification.
+- **Une route d'entreprise appelée sans jeton répond 404, pas 401.** L'entreprise voyage dans le
+  jeton ; sans lui la requête tombe sur le schéma public, qui ne connaît pas la route.
 - **`.env` versionné met la simulation à `1`, `.env.local` peut la remettre à `0`.** Vérifier la
   valeur effective avant de conclure qu'un écran est branché.
 - **ESLint interdit d'importer `api` dans `app/` et `components/`**, et d'y importer un
