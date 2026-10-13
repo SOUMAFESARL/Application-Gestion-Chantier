@@ -7,7 +7,7 @@ ce frontend, et modifier les interfaces là où c'est nécessaire.
 
 | Lot ouvert | État |
 |---|---|
-| Lot 0 — Socle | Plan validé le 13/10/2026. L'agent implémente tout le chantier |
+| Lot 0 — Socle | Tâches 0.2 et 0.3 terminées le 13/10/2026. Tâche 0.1 : environnement configuré et connexion vérifiée, mais le serveur de développement du frontend ne tient pas sur ce poste faute de mémoire — voir lot 0 |
 
 ---
 
@@ -57,12 +57,18 @@ décide : écran à créer, écran existant à compléter, ou route sans usage.
 
 ### Lot 0 — Socle
 
-- Les deux serveurs tournent ensemble en local (backend 8000, frontend 3000,
-  entreprise de démonstration).
-- Le script de comparaison des routes devient un outil versionné.
-- `CLAUDE.md` corrigé : `app/(entreprise)/`, chemin du backend, et la phrase qui
-  affirme qu'aucun endpoint du back-office n'existe.
-- Backend : 18 routes absentes du schéma OpenAPI, dont 15 du module projets.
+| Tâche | État |
+|---|---|
+| **0.1** Environnement local | `.env.local` vise le backend local (l'ancien, branché sur la production, est dans `.env.local.sauvegarde-production`). Migrations locales appliquées. Connexion du compte de démonstration vérifiée contre `demo.localhost:8000`. **Bloqué** : `next dev` s'arrête sur « Fatal process out of memory » dès le deuxième écran — le poste n'a plus de mémoire validable |
+| **0.2** Script de comparaison | Fait : `scripts/comparer_routes_frontend.py` dans le dépôt backend, dans les deux sens, filtrable par `--domaine` |
+| **0.3** `CLAUDE.md` | Fait : `app/(entreprise)/`, chemin du backend, existence de l'API du back-office |
+
+Pour lancer les deux serveurs : backend `python manage.py runserver 8000`,
+frontend `npm run dev`, puis ouvrir `http://demo.localhost:3000` — avec le
+sous-domaine, sans quoi l'appel part vers le schéma public.
+
+Les 18 routes absentes du schéma OpenAPI, dont 15 du module projets, sont
+reportées au lot 4.
 
 ### Lot 1 — Journal et rapports de chantier
 
@@ -121,6 +127,7 @@ décide : écran à créer, écran existant à compléter, ou route sans usage.
 - **US 3.2** — protection du nom du projet : **à discuter**, non planifiable
   tant que la règle n'est pas arbitrée.
 - Équipes et encadrement : alignement sur le modèle d'affectations du backend.
+- Backend : déclarer au schéma OpenAPI les 18 routes qui en sont absentes.
 - **Servi, jamais appelé** : santé du projet (`sante/`, `detail/`,
   `historique/`) ; reprogrammation et historique des dates, pour le projet, le
   lot et l'activité ; journal et motifs de report ; activation d'un lot ou
