@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Frontend (Next.js 16 / React 19 / TypeScript) for a multi-tenant BTP (construction)
 site-management SaaS, "CCD Digital". It talks to a separate Django backend
-(`backend/apps/<module>/`, not in this repo) over a JSON REST API. **The entire
+(`../API-Gestion-Chantier/apps/<module>/`, a sibling repo) over a JSON REST API. **The entire
 codebase — identifiers, comments, commit-worthy docs — is written in French**;
 match that convention in any code you write here.
 
@@ -62,7 +62,7 @@ The product has **two distinct spaces**, and the frontend used to know only
 the first:
 
 - the **tenant space**, one subdomain per client company — everything under
-  `app/(app)/`, `(auth)/`, `(public)/`;
+  `app/(entreprise)/`, `(auth)/`, `(public)/`;
 - the **platform admin space** (`ccd-digital.ci/admin`), the SaaS editor's
   back-office: clients, subscriptions, billing, support. It lives under
   `app/(admin)/` and `app/(admin-auth)/`, and its domain is
@@ -82,21 +82,21 @@ They never overlap, and the separation is structural rather than conditional:
   `EVENEMENT_SESSION_*_EXPIREE`. `demarrerRenouvellementAuto(espace)` and
   `effacerJetons(espace)` default to `"entreprise"`.
 - **Two shells.** `app/(admin)/admin/layout.tsx` shares nothing with
-  `app/(app)/layout.tsx`, which loads subscription, company, weather and the
+  `app/(entreprise)/layout.tsx`, which loads subscription, company, weather and the
   client's white-label colour — none of which a platform agent has.
 - **Two permission models.** `features/roles` (12 BTP modules × 4 levels) is
   intra-tenant; `RoleAdministrateur` (`SUPERVISEUR` / `SUPPORT`) is the
   platform's. Do not merge them.
 
-**The whole `/administration/*` API is simulated**
-(`lib/api/simulationAdministration.ts`): no endpoint exists server-side yet.
-The real calls sit in `adaptateur.ts` at their final place, so flipping
-`NEXT_PUBLIC_API_SIMULE` changes no screen. Admin screens carry
-`<BandeauSimulation contexte="administration" />`.
+**The back-office API exists server-side, under `/admins/*`** (45 routes as
+of 2026-10-13). `features/administration/adaptateur.ts` calls it for real when
+`NEXT_PUBLIC_API_SIMULE=0` and replays `lib/api/simulationAdministration.ts`
+when it is `1`. That simulation is scheduled for removal — lot 2 of
+`docs/plan_alignement_api.md`.
 
 **The route guard is not a security boundary.** There is no `middleware.ts`;
 until the `httpOnly` cookie of decision A4 lands, the real barrier is Django
-refusing `/administration/*` to any token that is not an administrator's.
+refusing `/admins/*` to any token that is not an administrator's.
 
 ## HTTP client (`lib/api/client.ts`)
 
@@ -188,13 +188,13 @@ exemptions.
 
 ## Directory layout
 
-- `app/(app)/`, `(auth)/`, `(public)/` — route groups: authenticated app,
+- `app/(entreprise)/`, `(auth)/`, `(public)/` — route groups: authenticated app,
   auth flows (login/activation/invitation/password), and public pages
   (signup, share links) respectively.
 - `features/<domain>/` — hooks, API calls, types per business domain,
-  each one mirroring a Django app (`features/projets` ↔ `backend/apps/projets/`,
-  `features/chantier` ↔ `backend/apps/chantier/`, `features/finance` ↔
-  `backend/apps/finance/`, etc.). Put domain logic here, not in `app/`.
+  each one mirroring a Django app (`features/projets` ↔ `apps/projets/`,
+  `features/chantier` ↔ `apps/chantier/`, both under
+  `../API-Gestion-Chantier/`). Put domain logic here, not in `app/`.
 - `components/ui/` — the design system (Bouton, Champ, Badge, Tableau,
   Modale…), generic and reusable.
 - `components/metier/` — components that bake in BTP/regional business
@@ -240,7 +240,7 @@ keeps the rest from drifting.
 - **A1 — `features/<domaine>/` stays**, against the reference doc's
   `lib/<domaine>/`. This is a **deliberate divergence**: what the doc mandates
   is the *stratification*, not the folder name, and `features/projets` ↔
-  `backend/apps/projets/` is an invariant worth more than a rename of 116
+  `apps/projets/` is an invariant worth more than a rename of 116
   files. The five layers go *inside* each domain folder:
   `types.ts` (domain types, no HTTP shape) · `regles.ts` (pure business rules,
   zero React) · `validations.ts` (zod schemas for writes) · `adaptateur.ts`
@@ -281,7 +281,7 @@ keeps the rest from drifting.
 **Tailwind is the only styling system.** The last `*.module.css` is gone —
 all 37 of them, ~3 200 lines, folded into the components they dressed. What
 was shared through a stylesheet is now shared through a module of class
-constants (`app/(app)/tableau-de-bord/classes.ts` is the one real case: nine
+constants (`app/(entreprise)/tableau-de-bord/classes.ts` is the one real case: nine
 components depended on a single CSS file for their consistency, and that role
 had to go somewhere explicit).
 
