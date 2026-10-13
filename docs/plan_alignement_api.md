@@ -83,7 +83,7 @@ sur « simulé ».
 | Tâche | Contenu | État |
 |---|---|---|
 | **1.1** Données locales | Module chantier activé pour `demo` ; projet CHANT-2026-001 doté d'un chef de chantier, d'un conducteur de travaux, d'un chef de projet, et de quatre activités sur ses deux lots | **Fait le 13/10/2026.** `GET /chantier/journal/` répond 200 (144 lignes), la préparation de saisie aussi |
-| **1.2** Saisie | Les 5 appels de saisie au réel ; champs envoyés en trop ; suppression de `simulationSaisie.ts` | À faire |
+| **1.2** Saisie | Les 5 appels de saisie au réel ; suppression de `simulationSaisie.ts` reportée à la 1.7, le journal simulé s'en servant encore | **Branché le 13/10/2026**, sur la branche `feature/lot1-saisie-reelle`. Vérifié contre l'API locale avec le compte chef de chantier : brouillon 201, sauvegarde 200, soumission 200, et les refus attendus (422 incomplet, 422 hors délai, 409 doublon, 422 après soumission). Aucun champ en trop. **Reste la vérification à l'écran** avant fusion |
 | **1.3** Journal et rapport | `lireJournal` et `lireRapport` au réel ; valeurs vides acceptées (stock, GPS, prix masqués) | À faire |
 | **1.4** Validation | `valider`, `approuver`, `rejeter` dans l'adaptateur et sur l'écran du rapport | À faire |
 | **1.5** Relance | Route backend `relancer` avec son test, puis branchement | À faire |
