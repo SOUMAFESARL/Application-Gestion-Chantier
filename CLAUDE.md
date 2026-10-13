@@ -152,11 +152,14 @@ return route and the debounce-save of open form values to `sessionStorage`
 
 ## Dev-only tooling (`dev/`)
 
-Gated by **two independent locks**, both required: `NEXT_PUBLIC_OUTILS_TEST=1`
-in an untracked `.env.local`, *and* a localhost-family hostname. Deliberately
-**not** `NODE_ENV` — this app runs `next start` (i.e. `NODE_ENV=production`)
-on developer machines too, so `NODE_ENV` would hide the tools from the people
-who need them while giving a false sense of protection. Never ship anything
+Visible **everywhere except the production build** — the one built with
+`NEXT_PUBLIC_ENVIRONNEMENT=production`, which only `deploy-cpanel.yml` sets.
+Any machine that pulls the repo gets them, with the versioned `.env` (same
+defaults as the reference dev machine; a local `.env.local` still overrides
+it, CI variables override both). Deliberately **not** `NODE_ENV` — this app
+runs `next start` (i.e. `NODE_ENV=production`) on developer machines too.
+None of them bypasses the server: "Voir en tant que…" changes display only
+and Django still decides rights. Never ship anything
 that reads `dev/*` into a screen a client can reach.
 
 ## i18n and the "no hardcoded string" rule

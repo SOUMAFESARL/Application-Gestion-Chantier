@@ -6,14 +6,14 @@
  *
  * **La route n'est pas encore fournie sous cette forme.** Le contrat
  * ci-dessous est celui de la vue DG (docs/PLAN_INTERFACES_DG.md §1) ; tant
- * que Django ne le sert pas, `NEXT_PUBLIC_API_SIMULE` aiguille vers
+ * que Django ne le sert pas, `TABLEAU_DE_BORD_SIMULE` aiguille vers
  * `simulationTableauDeBord`. Les noms de champs sont **à confirmer** avec le
  * backend : c'est ici, et seulement ici, qu'il faudra les corriger.
  */
 
 import type { StatutProjet } from "@/features/projets/types";
 import { api } from "@/lib/api";
-import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
+import { routesSimulees } from "@/lib/api/simulation";
 
 import { simulationTableauDeBord } from "./simulationTableauDeBord";
 import type {
@@ -198,8 +198,15 @@ function versTableauDeBord(charge: ChargeTableauDeBord): TableauDeBord {
  * Lectures et écritures.
  * ------------------------------------------------------------------ */
 
+/**
+ * `false` tant que Django ne sert pas `/tableau-de-bord/` : simulé même en
+ * production. La validation suit la lecture — elle porte sur les éléments
+ * que la lecture a rendus.
+ */
+const TABLEAU_DE_BORD_SIMULE = routesSimulees(false);
+
 export async function lireTableauDeBord(signal?: AbortSignal): Promise<TableauDeBord> {
-  if (SIMULATION_ACTIVE) return simulationTableauDeBord.lire();
+  if (TABLEAU_DE_BORD_SIMULE) return simulationTableauDeBord.lire();
   return versTableauDeBord(
     await api.lire<ChargeTableauDeBord>("/tableau-de-bord/", undefined, signal),
   );
@@ -218,7 +225,7 @@ const ROUTE_VALIDATION: Record<TypeValidation, (id: string) => string> = {
 };
 
 export async function validerElement(element: ElementAValider): Promise<ResultatValidation> {
-  if (SIMULATION_ACTIVE) return simulationTableauDeBord.valider(element.id);
+  if (TABLEAU_DE_BORD_SIMULE) return simulationTableauDeBord.valider(element.id);
   const charge = await api.creer<ChargeSignature>(ROUTE_VALIDATION[element.type](element.id), {
     commentaire: "",
   });

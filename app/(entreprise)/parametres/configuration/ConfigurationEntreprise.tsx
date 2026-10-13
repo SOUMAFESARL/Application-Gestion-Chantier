@@ -1,17 +1,19 @@
 "use client";
 
-import { Building2, Check, ImageIcon, MapPin, Upload, X } from "lucide-react";
+import { Building2, Check, ImageIcon, MapPin, Plus, Trash2, Upload, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { toast } from "sonner";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { ChampTelephone } from "@/components/metier/ChampTelephone";
 import { Drapeau } from "@/components/metier/Drapeau";
-import { SelecteurVille } from "@/components/metier/SelecteurVille";
+import { ComboboxVille } from "@/components/metier/ComboboxVille";
+import { Bouton as BoutonCharte } from "@/components/ui";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import {
   enregistrerEntreprise,
   lireEntreprise,
@@ -36,8 +38,27 @@ const VIDE: DonneesEntreprise = {
   rccm: "",
   nif: "",
   telephone_contact: "",
+  telephones_secondaires: [],
+  telephone_fixe: "",
   email_contact: "",
 };
+
+/**
+ * Le fond d'un champ qui affiche une donnée enregistrée — celui du champ
+ * « Pays ». `hover:` : le déclencheur du combobox repasse sinon en blanc au
+ * survol.
+ */
+const FOND_ENREGISTRE = "bg-[var(--input-fond-pre-rempli)] hover:bg-[var(--input-fond-pre-rempli)]";
+
+/** Ce qui est comparé pour savoir si le formulaire a changé. */
+function normaliser(donnees: DonneesEntreprise) {
+  return {
+    ...donnees,
+    telephones_secondaires: (donnees.telephones_secondaires ?? []).filter(Boolean),
+    telephone_fixe: donnees.telephone_fixe ?? "",
+    retirer_logo: undefined,
+  };
+}
 
 /**
  * Une section du formulaire : une carte avec son pictogramme, son titre et
@@ -106,6 +127,9 @@ export function ConfigurationEntreprise() {
   const [envoi, setEnvoi] = useState(false);
   const [echec, setEchec] = useState<string | null>(null);
   const [pays, setPays] = useState("");
+  /** L'état enregistré, pour savoir si le formulaire a été modifié. */
+  const idVille = useId();
+  const [reference, setReference] = useState<DonneesEntreprise>(VIDE);
 
   useEffect(() => {
     let vivant = true;
@@ -122,15 +146,19 @@ export function ConfigurationEntreprise() {
     lireEntreprise()
       .then((ent) => {
         if (!vivant) return;
-        setDonnees({
+        const lues: DonneesEntreprise = {
           raison_sociale: ent.raison_sociale || "",
           adresse: ent.adresse || "",
           ville: ent.ville || "",
           rccm: ent.rccm || "",
           nif: ent.nif || "",
           telephone_contact: ent.telephone_contact || "",
+          telephones_secondaires: ent.telephones_secondaires ?? [],
+          telephone_fixe: ent.telephone_fixe || "",
           email_contact: ent.email_contact || "",
-        });
+        };
+        setDonnees(lues);
+        setReference(lues);
         if (ent.logo) {
           setApercuLogo(ent.logo);
           setLogo({ nom: t("logoActuel"), taille: 0 });
@@ -148,13 +176,71 @@ export function ConfigurationEntreprise() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function modifier(champ: keyof DonneesEntreprise, valeur: string | boolean) {
+  function modifier(champ: keyof DonneesEntreprise, valeur: string | string[] | boolean) {
     setDonnees((precedent) => ({ ...precedent, [champ]: valeur }));
-    if (champ in erreurs) {
+    effacerErreur(champ);
+  }
+
+  function effacerErreur(cle: string) {
+    if (cle in erreurs) {
       const reste = { ...erreurs };
-      delete reste[champ];
+      delete reste[cle];
       setErreurs(reste);
     }
+  }
+
+  const secondaires = donnees.telephones_secondaires ?? [];
+
+  // « Enregistrer » n'est cliquable que si quelque chose a changé : un champ,
+  // un logo choisi ou retiré. Une ligne secondaire ajoutée mais vide ne compte
+  // pas — elle ne serait pas envoyée.
+  /**
+   * Fond gris (celui du champ « Pays ») sur un champ qui affiche **ce qui est enregistré** :
+   * on voit d'un coup d'œil ce qui vient de la base et ce qui reste à saisir.
+   * Dès que la valeur s'écarte de l'enregistrée, le fond retombe — le champ
+   * porte alors une saisie, plus une donnée de la base.
+   *
+   * `Champ` le reçoit en `data-pre-rempli` (règle commune de `globals.css`) :
+   * son `className` habille le bloc entier, libellé compris, pas la saisie.
+   */
+  function estEnregistre(valeur: string | undefined, enregistree: string | undefined) {
+    return Boolean(valeur) && valeur === enregistree;
+  }
+
+  function classeEnregistre(valeur: string | undefined, enregistree: string | undefined) {
+    return estEnregistre(valeur, enregistree) ? FOND_ENREGISTRE : undefined;
+  }
+
+  const modifie =
+    fichierLogo !== null ||
+    donnees.retirer_logo === true ||
+    JSON.stringify(normaliser(donnees)) !== JSON.stringify(normaliser(reference));
+
+  function modifierSecondaire(index: number, numero: string) {
+    modifier(
+      "telephones_secondaires",
+      secondaires.map((ancien, i) => (i === index ? numero : ancien)),
+    );
+    effacerErreur(`telephones_secondaires.${index}`);
+  }
+
+  function ajouterSecondaire() {
+    modifier("telephones_secondaires", [...secondaires, ""]);
+  }
+
+  function retirerSecondaire(index: number) {
+    modifier(
+      "telephones_secondaires",
+      secondaires.filter((_, i) => i !== index),
+    );
+    // Les erreurs sont indexées par position : après un retrait, elles ne
+    // désignent plus le bon champ. On les efface, la prochaine soumission
+    // les recalculera.
+    setErreurs((precedentes) =>
+      Object.fromEntries(
+        Object.entries(precedentes).filter(([cle]) => !cle.startsWith("telephones_secondaires.")),
+      ),
+    );
   }
 
   function choisirLogo(evenement: ChangeEvent<HTMLInputElement>) {
@@ -196,14 +282,19 @@ export function ConfigurationEntreprise() {
     evenement.preventDefault();
 
     const trouvees: Record<string, string> = {};
-    if (donnees.raison_sociale.trim().length < 2)
-      trouvees.raison_sociale = t("erreurNom");
+    if (donnees.raison_sociale.trim().length < 2) trouvees.raison_sociale = t("erreurNom");
     if (!donnees.adresse.trim()) trouvees.adresse = t("erreurAdresse");
     if (!donnees.ville.trim()) trouvees.ville = t("erreurVille");
-    if (!donnees.telephone_contact.trim())
-      trouvees.telephone_contact = t("erreurTelephone");
+    if (!donnees.telephone_contact.trim()) trouvees.telephone_contact = t("erreurTelephone");
     else if (!telephoneValide(donnees.telephone_contact, pays))
       trouvees.telephone_contact = t("erreurTelephoneIncomplet");
+    // Secondaires et fixe sont facultatifs : seul un numéro saisi est contrôlé.
+    secondaires.forEach((numero, index) => {
+      if (numero && !telephoneValide(numero, pays))
+        trouvees[`telephones_secondaires.${index}`] = t("erreurTelephoneIncomplet");
+    });
+    if (donnees.telephone_fixe && !telephoneValide(donnees.telephone_fixe, pays))
+      trouvees.telephone_fixe = t("erreurTelephoneIncomplet");
     // Facultatif : on ne contrôle le format que d'un email réellement saisi.
     const email = donnees.email_contact.trim();
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
@@ -215,12 +306,23 @@ export function ConfigurationEntreprise() {
     setEnvoi(true);
     setEchec(null);
     try {
-      const reponse = await enregistrerEntreprise(donnees, fichierLogo);
+      // Une ligne secondaire ajoutée puis laissée vide n'est pas un numéro.
+      const reponse = await enregistrerEntreprise(
+        { ...donnees, telephones_secondaires: secondaires.filter(Boolean) },
+        fichierLogo,
+      );
       setFondNonDetoure(reponse.fond_retire === false);
       // `couleur_primaire` n'est pas reprise : l'écran ne doit pas la renvoyer.
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { couleur_primaire, ...sansCouleur } = reponse;
-      setDonnees((precedent) => ({ ...precedent, ...sansCouleur, retirer_logo: undefined }));
+      const enregistrees: DonneesEntreprise = {
+        ...donnees,
+        ...sansCouleur,
+        telephones_secondaires: sansCouleur.telephones_secondaires ?? secondaires.filter(Boolean),
+        retirer_logo: undefined,
+      };
+      setDonnees(enregistrees);
+      setReference(enregistrees);
       if (reponse.logo) {
         setApercuLogo(reponse.logo);
         setLogo({ nom: t("logoActuel"), taille: 0 });
@@ -272,7 +374,11 @@ export function ConfigurationEntreprise() {
         )}
 
         {/* --- Identité : logo à gauche, champs sur deux colonnes à droite --- */}
-        <SectionCarte icone={Building2} titre={t("sectionIdentite")} aide={t("sectionIdentiteAide")}>
+        <SectionCarte
+          icone={Building2}
+          titre={t("sectionIdentite")}
+          aide={t("sectionIdentiteAide")}
+        >
           <div className="grid gap-6 md:grid-cols-[200px_1fr]">
             {/* Logo — facultatif, il ne bloque jamais l'enregistrement. */}
             <div className="flex flex-col gap-2">
@@ -282,7 +388,11 @@ export function ConfigurationEntreprise() {
                   <div className="flex h-20 w-full items-center justify-center rounded-lg bg-neutral-0 p-2">
                     {apercuLogo ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={apercuLogo} alt="" className="max-h-full max-w-full object-contain" />
+                      <img
+                        src={apercuLogo}
+                        alt=""
+                        className="max-h-full max-w-full object-contain"
+                      />
                     ) : (
                       <ImageIcon className="size-7 text-muted-foreground" aria-hidden="true" />
                     )}
@@ -293,7 +403,9 @@ export function ConfigurationEntreprise() {
                     </span>
                     {logo.taille > 0 && (
                       <span className="text-xs text-muted-foreground">
-                        {t("logoTaille", { ko: Math.round(logo.taille / 1024) })}
+                        {t("logoTaille", {
+                          ko: Math.round(logo.taille / 1024),
+                        })}
                       </span>
                     )}
                   </div>
@@ -334,6 +446,7 @@ export function ConfigurationEntreprise() {
                   libelle={t("champRaisonSociale")}
                   required
                   value={donnees.raison_sociale}
+                  data-pre-rempli={estEnregistre(donnees.raison_sociale, reference.raison_sociale)}
                   erreur={erreurs.raison_sociale}
                   disabled={envoi}
                   onChange={(e) => modifier("raison_sociale", e.target.value)}
@@ -343,12 +456,14 @@ export function ConfigurationEntreprise() {
                 libelle={t("champRccm")}
                 aide={t("champRccmAide")}
                 value={donnees.rccm}
+                data-pre-rempli={estEnregistre(donnees.rccm, reference.rccm)}
                 disabled={envoi}
                 onChange={(e) => modifier("rccm", e.target.value)}
               />
               <Champ
                 libelle={t("champNif")}
                 value={donnees.nif}
+                data-pre-rempli={estEnregistre(donnees.nif, reference.nif)}
                 disabled={envoi}
                 onChange={(e) => modifier("nif", e.target.value)}
               />
@@ -365,32 +480,59 @@ export function ConfigurationEntreprise() {
           <div className="grid gap-4 sm:grid-cols-2">
             {pays && (
               <div className="flex flex-col gap-1.5">
-                <span className="text-sm font-medium text-foreground">{t("champPays")}</span>
-                <div className="flex h-9 items-center gap-2 rounded-md border border-border bg-muted px-3 text-sm font-medium text-foreground">
+                <Label>{t("champPays")}</Label>
+                <div className="flex h-[var(--input-height)] items-center gap-2 rounded-md border border-input bg-[var(--input-fond-pre-rempli)] px-[var(--input-padding-x)] text-base text-foreground">
                   <Drapeau code={pays} largeur={20} />
                   {nomDePays(pays)}
                 </div>
                 <p className="text-xs text-muted-foreground">{t("champPaysAide")}</p>
               </div>
             )}
-            <SelecteurVille
-              pays={pays}
-              libelle={t("champVille")}
-              required
-              valeur={donnees.ville}
-              erreur={erreurs.ville}
-              disabled={envoi}
-              onChange={(ville) => modifier("ville", ville)}
-            />
+            {/* Même combobox que « Type de projet » et la ville d'un projet. */}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={idVille}>
+                {t("champVille")}
+                <span className="text-erreur" aria-hidden="true">
+                  *
+                </span>
+              </Label>
+              <ComboboxVille
+                id={idVille}
+                pays={pays}
+                valeur={donnees.ville}
+                className={classeEnregistre(donnees.ville, reference.ville)}
+                disabled={envoi}
+                aria-invalid={Boolean(erreurs.ville) || undefined}
+                aria-describedby={erreurs.ville ? `${idVille}-erreur` : undefined}
+                onChange={(ville) => modifier("ville", ville)}
+              />
+              {erreurs.ville && (
+                <p id={`${idVille}-erreur`} className="text-xs font-medium text-erreur">
+                  {erreurs.ville}
+                </p>
+              )}
+            </div>
             <div className="sm:col-span-2">
               <Champ
                 libelle={t("champAdresse")}
                 required
                 placeholder={t("champAdresseExemple")}
                 value={donnees.adresse}
+                data-pre-rempli={estEnregistre(donnees.adresse, reference.adresse)}
                 erreur={erreurs.adresse}
                 disabled={envoi}
                 onChange={(e) => modifier("adresse", e.target.value)}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Champ
+                libelle={t("champEmail")}
+                type="email"
+                value={donnees.email_contact}
+                data-pre-rempli={estEnregistre(donnees.email_contact, reference.email_contact)}
+                erreur={erreurs.email_contact}
+                disabled={envoi}
+                onChange={(e) => modifier("email_contact", e.target.value)}
               />
             </div>
             <ChampTelephone
@@ -398,24 +540,71 @@ export function ConfigurationEntreprise() {
               paysDefaut={pays}
               required
               valeur={donnees.telephone_contact}
+              className={classeEnregistre(donnees.telephone_contact, reference.telephone_contact)}
               erreur={erreurs.telephone_contact}
               disabled={envoi}
               onChange={(numero) => modifier("telephone_contact", numero)}
             />
-            <Champ
-              libelle={t("champEmail")}
-              type="email"
-              value={donnees.email_contact}
-              erreur={erreurs.email_contact}
+            <ChampTelephone
+              libelle={t("champTelephoneFixe")}
+              paysDefaut={pays}
+              valeur={donnees.telephone_fixe ?? ""}
+              className={classeEnregistre(donnees.telephone_fixe, reference.telephone_fixe)}
+              erreur={erreurs.telephone_fixe}
               disabled={envoi}
-              onChange={(e) => modifier("email_contact", e.target.value)}
+              onChange={(numero) => modifier("telephone_fixe", numero)}
             />
+
+            {/* Numéros secondaires — autant que nécessaire, tous facultatifs. */}
+            {secondaires.map((numero, index) => (
+              <div key={index} className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <ChampTelephone
+                    libelle={t("champTelephoneSecondaire", { rang: index + 1 })}
+                    paysDefaut={pays}
+                    valeur={numero}
+                    className={classeEnregistre(numero, reference.telephones_secondaires?.[index])}
+                    erreur={erreurs[`telephones_secondaires.${index}`]}
+                    disabled={envoi}
+                    onChange={(valeur) => modifierSecondaire(index, valeur)}
+                  />
+                </div>
+                <Bouton
+                  variante="ghost"
+                  className="mt-6 text-erreur hover:bg-erreur-fond hover:text-erreur"
+                  aria-label={t("retirerTelephoneSecondaire", {
+                    rang: index + 1,
+                  })}
+                  disabled={envoi}
+                  onClick={() => retirerSecondaire(index)}
+                >
+                  <Trash2 aria-hidden="true" />
+                </Bouton>
+              </div>
+            ))}
+            <div className="sm:col-span-2">
+              <BoutonCharte
+                variante="secondaire"
+                taille="sm"
+                disabled={envoi}
+                onClick={ajouterSecondaire}
+                iconeGauche={<Plus className="size-4" aria-hidden="true" />}
+              >
+                {t("ajouterTelephoneSecondaire")}
+              </BoutonCharte>
+            </div>
           </div>
         </SectionCarte>
 
         <footer className="flex flex-col-reverse items-stretch gap-3 rounded-xl border border-primary-100 bg-primary-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-muted-foreground">{t("champsObligatoires")}</p>
-          <Bouton type="submit" taille="lg" enCours={envoi} iconeGauche={<Check aria-hidden="true" />}>
+          <Bouton
+            type="submit"
+            taille="lg"
+            enCours={envoi}
+            disabled={!modifie}
+            iconeGauche={<Check aria-hidden="true" />}
+          >
             {t("enregistrer")}
           </Bouton>
         </footer>

@@ -1,13 +1,13 @@
 "use client";
 
-import { Eye, Info, ShieldCheck } from "lucide-react";
+import { Eye, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
 import { Badge, EtatVide } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import {
-  DELAI_VALIDATION_CT_HEURES,
+  codesLots,
   rapportsRejetes,
   tauxPresence,
   validationsEnAttente,
@@ -72,11 +72,6 @@ export function FileValidation({ journal, maintenant }: { journal: Journal; main
           </ul>
         </section>
       )}
-
-      <p className="m-0 flex items-start gap-2 rounded-lg border border-information/20 bg-information-fond px-4 py-3 text-sm text-neutral-700">
-        <Info className="mt-0.5 size-4 shrink-0 text-information" aria-hidden="true" />
-        <span>{t("explication", { heures: DELAI_VALIDATION_CT_HEURES })}</span>
-      </p>
     </div>
   );
 }
@@ -97,7 +92,7 @@ function LigneValidation({ ligne, aujourdhui }: { ligne: ValidationEnAttente; au
       <div className="flex min-w-0 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="m-0 text-sm font-semibold text-neutral-900">
-            {t("titre", { code: entree.lot.code, lot: entree.lot.nom, chantier: entree.lot.projetNom })}
+            {t("titre", { chantier: entree.chantier.projetNom, lots: codesLots(entree.lots) || "aucun" })}
           </h3>
           <BadgeSituation situation={entree.situation} />
           {horsDelai && <Badge variante="erreur">{t("horsDelai")}</Badge>}
@@ -105,11 +100,11 @@ function LigneValidation({ ligne, aujourdhui }: { ligne: ValidationEnAttente; au
         <p className="m-0 text-xs text-neutral-600">
           {t("details", {
             date: formaterDate(entree.date),
-            chef: entree.lot.chefChantier,
+            chef: entree.chantier.chefChantier,
             presents: entree.effectifPresent ?? 0,
             prevus: entree.effectifPrevu ?? 0,
             taux: presence ?? 0,
-            avancement: entree.avancementLot ?? 0,
+            avancement: entree.avancement ?? 0,
             incidents: entree.incidents ?? 0,
             blocages: entree.blocages ?? 0,
           })}
@@ -141,7 +136,7 @@ function LigneRejet({ entree }: { entree: EntreeJournal }) {
     <li className="flex flex-col gap-1 border-b border-neutral-100 py-3 last:border-b-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <div className="min-w-0">
         <p className="m-0 text-sm font-medium text-neutral-900">
-          {t("titre", { code: entree.lot.code, lot: entree.lot.nom, chantier: entree.lot.projetNom })}
+          {t("titre", { chantier: entree.chantier.projetNom, lots: codesLots(entree.lots) || "aucun" })}
           <span className="ml-2 text-xs font-normal text-neutral-500">{formaterDate(entree.date)}</span>
         </p>
         {rejet?.commentaire && (

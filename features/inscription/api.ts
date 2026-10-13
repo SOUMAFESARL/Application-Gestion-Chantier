@@ -61,14 +61,24 @@ export type EtatProvisionnement =
   | { statut: "ECHEC" };
 
 /**
- * Les neuf pays proposés par M8, **par leur code ISO**.
+ * Les pays proposés à l'inscription — les 54 États africains membres de
+ * l'ONU, **par leur code ISO**, quel que soit le pays choisi.
  *
  * Le libellé vient de `nomDePays()` : `Intl` le rend au caractère près, et
  * dans la langue de l'utilisateur le jour où il y en aura une seconde. La
  * liste, elle, reste ici : c'est une décision produit, pas une donnée de
  * plateforme — et elle doit rester alignée sur `PAYS_AUTORISES` du serveur.
+ *
+ * Seuls les neuf pays de M8 ont un drapeau dessiné et un référentiel de
+ * villes ; pour les autres, la ville passe en saisie libre (`listerVilles`).
  */
-export const PAYS = ["CI", "SN", "CM", "BF", "ML", "TG", "BJ", "GN", "GA"] as const;
+export const PAYS = [
+  "DZ", "AO", "BJ", "BW", "BF", "BI", "CV", "CM", "CF", "TD", "KM", "CG",
+  "CD", "CI", "DJ", "EG", "GQ", "ER", "SZ", "ET", "GA", "GM", "GH", "GN",
+  "GW", "KE", "LS", "LR", "LY", "MG", "MW", "ML", "MR", "MU", "MA", "MZ",
+  "NA", "NE", "NG", "RW", "ST", "SN", "SC", "SL", "SO", "ZA", "SS", "SD",
+  "TZ", "TG", "TN", "UG", "ZM", "ZW",
+] as const;
 
 // ---------------------------------------------------------------------------
 // Appels

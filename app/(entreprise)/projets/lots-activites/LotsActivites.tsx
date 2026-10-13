@@ -7,13 +7,16 @@ import { useMemo, useState } from "react";
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import { useProjetsVisibles } from "@/features/habilitations";
-import { listerLots } from "@/features/projets/adaptateur";
-import { cleLots } from "@/features/projets/cles";
+import { lireStatistiques, listerLots } from "@/features/projets/adaptateur";
+import { CLE_LISTE_PROJETS, cleLots, cleProjet, cleStatistiques } from "@/features/projets/cles";
 import { TiroirActivite } from "@/features/projets/components/TiroirActivite";
+import { ModaleSuppressionActivite } from "@/features/projets/components/ModaleSuppressionActivite";
+import { ModaleSuppressionLot } from "@/features/projets/components/ModaleSuppressionLot";
 import { TiroirLot } from "@/features/projets/components/TiroirLot";
 import {
   activiteAMontrer,
   activitesDuProjet,
+  planningDefini,
   projetOuvert,
   syntheseLots,
 } from "@/features/projets/regles";
@@ -54,7 +57,12 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
     activite: Activite | null;
     lotId: string;
   }>({ ouvert: false, activite: null, lotId: "" });
-  const [tiroirLotOuvert, setTiroirLotOuvert] = useState(false);
+  const [tiroirLot, setTiroirLot] = useState<{ ouvert: boolean; lot: Lot | null }>({
+    ouvert: false,
+    lot: null,
+  });
+  const [lotASupprimer, setLotASupprimer] = useState<Lot | null>(null);
+  const [activiteASupprimer, setActiviteASupprimer] = useState<Activite | null>(null);
   /**
    * Le rang de la dernière ouverture d'un tiroir, qui lui sert de `key` : il
    * est remonté à chaque fois et repart de sa saisie initiale, sans effet de
@@ -66,6 +74,7 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
   const requeteProjets = useProjetsVisibles();
   const projets = useMemo(() => requeteProjets.data ?? [], [requeteProjets.data]);
   const projetId = projetChoisi ?? projetOuvert(projets, projetInitial)?.id ?? null;
+  const projet = projets.find((candidat) => candidat.id === projetId) ?? null;
 
   const requeteLots = useQuery({
     queryKey: cleLots(projetId ?? ""),
@@ -74,7 +83,16 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
   });
   const lots = useMemo(() => requeteLots.data ?? [], [requeteLots.data]);
 
-  const synthese = useMemo(() => syntheseLots(lots), [lots]);
+  const requeteStatistiques = useQuery({
+    queryKey: cleStatistiques(projetId ?? ""),
+    queryFn: ({ signal }) => lireStatistiques(projetId as string, signal),
+    enabled: projetId !== null,
+  });
+  // Les chiffres du serveur quand il les tient ; sinon, ceux des lots affichés.
+  const synthese = useMemo(
+    () => requeteStatistiques.data ?? syntheseLots(lots),
+    [requeteStatistiques.data, lots],
+  );
 
   /**
    * L'activité du panneau : celle qu'on a choisie si elle existe encore dans
@@ -108,14 +126,26 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
     });
   }
 
-  function ouvrirTiroirLot() {
+  /**
+   * Après une écriture sur les lots : les lots eux-mêmes, et le chantier, dont
+   * le serveur recompte les chiffres de structure.
+   */
+  function rafraichirStructure(id: string) {
+    void clientRequetes.invalidateQueries({ queryKey: cleLots(id) });
+    void clientRequetes.invalidateQueries({ queryKey: cleStatistiques(id) });
+    void clientRequetes.invalidateQueries({ queryKey: cleProjet(id) });
+    void clientRequetes.invalidateQueries({ queryKey: CLE_LISTE_PROJETS });
+  }
+
+  /** Sans lot, le tiroir en ajoute ; avec, il le modifie. */
+  function ouvrirTiroirLot(lot: Lot | null = null) {
     setOuverture((rang) => rang + 1);
-    setTiroirLotOuvert(true);
+    setTiroirLot({ ouvert: true, lot });
   }
 
   function surActiviteEnregistree(enregistree: Activite) {
     setActiviteChoisie(enregistree.id);
-    if (projetId) void clientRequetes.invalidateQueries({ queryKey: cleLots(projetId) });
+    if (projetId) rafraichirStructure(projetId);
   }
 
   function surLotCree(lot: Lot) {
@@ -123,7 +153,43 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
     // Le lot est posé dans le cache avant le rechargement : il apparaît au
     // moment où le tiroir se referme.
     clientRequetes.setQueryData<Lot[]>(cleLots(projetId), (anciens) => [...(anciens ?? []), lot]);
-    void clientRequetes.invalidateQueries({ queryKey: cleLots(projetId) });
+    rafraichirStructure(projetId);
+  }
+
+  function surLotModifie(modifie: Lot) {
+    if (!projetId) return;
+    clientRequetes.setQueryData<Lot[]>(cleLots(projetId), (anciens) =>
+      (anciens ?? []).map((lot) => (lot.id === modifie.id ? modifie : lot)),
+    );
+    rafraichirStructure(projetId);
+  }
+
+  function surLotSupprime(supprime: Lot) {
+    if (!projetId) return;
+    clientRequetes.setQueryData<Lot[]>(cleLots(projetId), (anciens) =>
+      (anciens ?? []).filter((lot) => lot.id !== supprime.id),
+    );
+    rafraichirStructure(projetId);
+  }
+
+  function surActiviteSupprimee(supprimee: Activite) {
+    if (!projetId) return;
+    clientRequetes.setQueryData<Lot[]>(cleLots(projetId), (anciens) =>
+      (anciens ?? []).map((lot) =>
+        lot.id === supprimee.lotId
+          ? { ...lot, activites: lot.activites.filter((activite) => activite.id !== supprimee.id) }
+          : lot,
+      ),
+    );
+    // Le panneau passe à l'activité que les règles désignent.
+    setActiviteChoisie(null);
+    rafraichirStructure(projetId);
+  }
+
+  function surLotsImportes(importes: Lot[]) {
+    if (!projetId) return;
+    clientRequetes.setQueryData<Lot[]>(cleLots(projetId), (anciens) => [...(anciens ?? []), ...importes]);
+    rafraichirStructure(projetId);
   }
 
   return (
@@ -192,7 +258,10 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
                 onStatut={setStatut}
                 activiteChoisieId={activite?.id ?? null}
                 onChoisirActivite={setActiviteChoisie}
-                onAjouterLot={ouvrirTiroirLot}
+                onAjouterLot={() => ouvrirTiroirLot()}
+                ajoutLotPossible={projet !== null && planningDefini(projet)}
+                onModifierLot={ouvrirTiroirLot}
+                onSupprimerLot={setLotASupprimer}
                 onAjouterActivite={(lotId) => ouvrirTiroirActivite(null, lotId)}
               />
               <PanneauActivite
@@ -200,6 +269,7 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
                 lot={lotDeActivite}
                 lots={lots}
                 onModifier={(cible) => ouvrirTiroirActivite(cible, cible.lotId)}
+                onSupprimer={setActiviteASupprimer}
               />
             </div>
           )}
@@ -216,17 +286,32 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
             onFermer={() => setTiroirActivite((etat) => ({ ...etat, ouvert: false }))}
             projetId={projetId}
             lots={lots}
+            budgetProjet={projet?.budgetInitial ?? null}
             activite={tiroirActivite.activite}
             lotIdInitial={tiroirActivite.lotId}
             onEnregistree={surActiviteEnregistree}
           />
           <TiroirLot
             key={`lot-${ouverture}`}
-            ouverte={tiroirLotOuvert}
-            onFermer={() => setTiroirLotOuvert(false)}
+            ouverte={tiroirLot.ouvert}
+            onFermer={() => setTiroirLot((etat) => ({ ...etat, ouvert: false }))}
             projetId={projetId}
             lots={lots}
+            budgetProjet={projet?.budgetInitial ?? null}
+            lot={tiroirLot.lot}
             onCree={surLotCree}
+            onModifie={surLotModifie}
+            onImportes={surLotsImportes}
+          />
+          <ModaleSuppressionLot
+            lot={lotASupprimer}
+            onFermer={() => setLotASupprimer(null)}
+            onSupprime={surLotSupprime}
+          />
+          <ModaleSuppressionActivite
+            activite={activiteASupprimer}
+            onFermer={() => setActiviteASupprimer(null)}
+            onSupprimee={surActiviteSupprimee}
           />
         </>
       )}

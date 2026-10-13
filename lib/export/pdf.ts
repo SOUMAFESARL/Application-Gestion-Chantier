@@ -16,19 +16,22 @@ interface OptionsPdf {
   sousTitre?: string;
   entetes: string[];
   lignes: (string | number)[][];
-  nomFichier: string;
 }
 
 /** Les marges de la page, en millimètres. */
 const MARGE = 12;
 
-export async function telechargerPdf({
+/**
+ * Le PDF est rendu en `Blob`, pas enregistré d'office : l'écran le montre
+ * d'abord en aperçu, et c'est de là qu'on choisit de le télécharger ou de
+ * l'imprimer.
+ */
+export async function genererPdfTableau({
   titre,
   sousTitre,
   entetes,
   lignes,
-  nomFichier,
-}: OptionsPdf): Promise<void> {
+}: OptionsPdf): Promise<Blob> {
   const [{ jsPDF }, { autoTable }] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
@@ -54,5 +57,5 @@ export async function telechargerPdf({
     headStyles: { fontStyle: "bold" },
   });
 
-  document.save(nomFichier);
+  return document.output("blob");
 }

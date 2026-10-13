@@ -5,9 +5,10 @@ import { Fragment, useMemo } from "react";
 
 import { EtatVide } from "@/components/ui";
 import {
-  avancementPondere,
+  avancementActivites,
   etenduePlanning,
   moisPlanning,
+  periodeActivite,
   periodeLot,
   positionAujourdhui,
   positionPlanning,
@@ -103,45 +104,54 @@ export function PlanningLots({ lots }: { lots: Lot[] }) {
                           libelle: lot.nom,
                           debut: formaterDate(periode.debut),
                           fin: formaterDate(periode.fin),
-                          avancement: avancementPondere(lot.activites),
+                          avancement: avancementActivites(lot.activites),
                         })}
                       />
                     )}
                   </span>
                 </div>
 
-                {lot.activites.map((activite) => (
-                  <div
-                    key={activite.id}
-                    className={cn(GRILLE, "border-0 border-b border-solid border-neutral-100")}
-                  >
-                    <span className="truncate py-2 pr-4 pl-8 text-sm text-neutral-800">
-                      <span className="mr-1.5 font-mono text-xs text-neutral-500">{activite.code}</span>
-                      {activite.libelle}
-                    </span>
-                    <span className="relative">
-                      <Barre
-                        debut={activite.dateDebutPrevue}
-                        fin={activite.dateFinPrevue}
-                        etendue={etendue}
-                        className={cn("h-4", BARRE_STATUT[statutActivite(activite)])}
-                        libelle={t("planning.barre", {
-                          libelle: activite.libelle,
-                          debut: formaterDate(activite.dateDebutPrevue),
-                          fin: formaterDate(activite.dateFinPrevue),
-                          avancement: activite.avancement,
-                        })}
-                      />
-                    </span>
-                  </div>
-                ))}
+                {lot.activites.map((activite) => {
+                  const periodeAct = periodeActivite(activite);
+                  return (
+                    <div
+                      key={activite.id}
+                      className={cn(GRILLE, "border-0 border-b border-solid border-neutral-100")}
+                    >
+                      <span className="truncate py-2 pr-4 pl-8 text-sm text-neutral-800">
+                        <span className="mr-1.5 font-mono text-xs text-neutral-500">{activite.code}</span>
+                        {activite.libelle}
+                      </span>
+                      <span className="relative">
+                        {periodeAct ? (
+                          <Barre
+                            debut={periodeAct.debut}
+                            fin={periodeAct.fin}
+                            etendue={etendue}
+                            className={cn("h-4", BARRE_STATUT[statutActivite(activite)])}
+                            libelle={t("planning.barre", {
+                              libelle: activite.libelle,
+                              debut: formaterDate(periodeAct.debut),
+                              fin: formaterDate(periodeAct.fin),
+                              avancement: activite.avancement,
+                            })}
+                          />
+                        ) : (
+                          <span className="absolute top-1/2 left-2 -translate-y-1/2 text-xs text-neutral-500 italic">
+                            {t("planning.nonPlanifiee")}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
               </Fragment>
             );
           })}
         </div>
 
         <ul className="m-0 flex list-none flex-wrap items-center gap-4 p-4 text-xs text-neutral-600">
-          {(["TERMINE", "EN_COURS", "EN_RETARD", "A_VENIR"] as const).map((statut) => (
+          {(["TERMINE", "EN_COURS", "EN_RETARD", "BLOQUE", "A_VENIR"] as const).map((statut) => (
             <li key={statut} className="flex items-center gap-1.5">
               <span className={cn("size-2.5 rounded-sm", BARRE_STATUT[statut])} aria-hidden="true" />
               {t(`statutActivite.${statut}`)}

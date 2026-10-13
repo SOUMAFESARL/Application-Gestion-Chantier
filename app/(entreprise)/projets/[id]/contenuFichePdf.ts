@@ -2,7 +2,6 @@ import type { IndicateursJournalProjet } from "@/features/chantier";
 import type { DonneesEntreprise } from "@/features/configuration/api";
 import {
   avancementLot,
-  budgetLot,
   budgetRestant,
   ecartAvancement,
   echeancierProjet,
@@ -203,7 +202,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
         elements: [
           { libelle: t("calendrier.debutPrevu"), valeur: formaterDate(projet.dateDebutPrevue) },
           { libelle: t("calendrier.finPrevue"), valeur: formaterDate(projet.dateFinPrevue) },
-          { libelle: t("calendrier.duree"), valeur: formaterDuree(echeancier.dureeJours) },
+          { libelle: t("calendrier.duree"), valeur: formaterDuree(echeancier.duree) },
           {
             libelle: t("calendrier.debutReel"),
             valeur: projet.dateDebutReelle
@@ -272,7 +271,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
       avancement === null
         ? { texte: ABSENT, ton: "neutre" }
         : { texte: formaterPourcentage(avancement), gras: true, ton },
-      { texte: francs(budgetLot(lot)) },
+      { texte: francs(lot.budget) },
       {
         texte:
           statut === "SANS_ACTIVITE" ? t("lots.sansActivite") : libelles.statutActivite(statut),

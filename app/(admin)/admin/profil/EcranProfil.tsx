@@ -13,6 +13,7 @@ import { EnTetePage } from "@/components/layout/EnTetePage";
 import { ChampsMotDePasse } from "@/components/metier/ChampsMotDePasse";
 import { Alerte, Bouton, Champ, EtatChargement } from "@/components/ui";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ZonePreRemplie } from "@/components/ui/form";
 import {
   FORMATS_PHOTO_PROFIL,
   initialesAdministrateur,
@@ -296,41 +297,49 @@ function BlocInformations({ profil }: { profil: ProfilAdministrateur }) {
         })}
       >
         <div className="grid gap-x-4 sm:grid-cols-2">
-          <Champ
-            libelle={t("profil.prenom")}
-            required
-            autoComplete="given-name"
-            erreur={errors.prenom?.message}
-            disabled={enregistrement.isPending}
-            {...formulaire.register("prenom")}
-          />
-          <Champ
-            libelle={t("profil.nom")}
-            required
-            autoComplete="family-name"
-            erreur={errors.nom?.message}
-            disabled={enregistrement.isPending}
-            {...formulaire.register("nom")}
-          />
-          <Champ
-            libelle={t("profil.email")}
-            type="email"
-            required
-            autoComplete="email"
-            aide={t("profil.emailAide")}
-            erreur={errors.email?.message}
-            disabled={enregistrement.isPending}
-            {...formulaire.register("email")}
-          />
-          <Champ
-            libelle={t("profil.telephone")}
-            type="tel"
-            autoComplete="tel"
-            placeholder={t("profil.telephonePlaceholder")}
-            erreur={errors.telephone?.message}
-            disabled={enregistrement.isPending}
-            {...formulaire.register("telephone")}
-          />
+          <ZonePreRemplie control={formulaire.control} nom="prenom">
+            <Champ
+              libelle={t("profil.prenom")}
+              required
+              autoComplete="given-name"
+              erreur={errors.prenom?.message}
+              disabled={enregistrement.isPending}
+              {...formulaire.register("prenom")}
+            />
+          </ZonePreRemplie>
+          <ZonePreRemplie control={formulaire.control} nom="nom">
+            <Champ
+              libelle={t("profil.nom")}
+              required
+              autoComplete="family-name"
+              erreur={errors.nom?.message}
+              disabled={enregistrement.isPending}
+              {...formulaire.register("nom")}
+            />
+          </ZonePreRemplie>
+          <ZonePreRemplie control={formulaire.control} nom="email">
+            <Champ
+              libelle={t("profil.email")}
+              type="email"
+              required
+              autoComplete="email"
+              aide={t("profil.emailAide")}
+              erreur={errors.email?.message}
+              disabled={enregistrement.isPending}
+              {...formulaire.register("email")}
+            />
+          </ZonePreRemplie>
+          <ZonePreRemplie control={formulaire.control} nom="telephone">
+            <Champ
+              libelle={t("profil.telephone")}
+              type="tel"
+              autoComplete="tel"
+              placeholder={t("profil.telephonePlaceholder")}
+              erreur={errors.telephone?.message}
+              disabled={enregistrement.isPending}
+              {...formulaire.register("telephone")}
+            />
+          </ZonePreRemplie>
         </div>
 
         {erreur && <Alerte type="erreur">{erreur}</Alerte>}

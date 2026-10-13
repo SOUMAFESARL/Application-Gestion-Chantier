@@ -48,6 +48,7 @@ export const Champ = forwardRef<HTMLInputElement, Props>(function Champ(
         <input
           ref={ref}
           id={identifiant}
+          data-champ=""
           className={cn(
             taille === "md" ? "h-[var(--input-height-md)]" : "h-[var(--input-height)]",
             "w-full rounded-md border border-neutral-300 bg-neutral-0 px-[var(--input-padding-x)]",

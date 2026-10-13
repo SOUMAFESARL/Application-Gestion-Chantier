@@ -132,7 +132,8 @@ export function SelecteurVille({
       {listeDisponible && (
         <select
           id={identifiant}
-          className={cn(CHAMP, erreur && CHAMP_ERREUR)}
+          data-champ=""
+            className={cn(CHAMP, erreur && CHAMP_ERREUR)}
           value={valeurSelect}
           onChange={auChangementDeSelection}
           disabled={disabled}
@@ -176,6 +177,7 @@ export function SelecteurVille({
           <input
             id={listeDisponible ? undefined : identifiant}
             type="text"
+            data-champ=""
             className={cn(CHAMP, erreur && CHAMP_ERREUR)}
             placeholder={t("placeholderPersonnalise")}
             value={valeur}

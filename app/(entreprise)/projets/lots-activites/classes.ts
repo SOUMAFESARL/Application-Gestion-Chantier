@@ -16,6 +16,7 @@ export const BADGE_STATUT: Record<StatutActivite, VarianteBadge> = {
   A_VENIR: "neutre",
   EN_COURS: "information",
   EN_RETARD: "erreur",
+  BLOQUE: "avertissement",
   TERMINE: "succes",
 };
 
@@ -24,6 +25,7 @@ export const BARRE_STATUT: Record<StatutActivite, string> = {
   A_VENIR: "bg-neutral-300",
   EN_COURS: "bg-information",
   EN_RETARD: "bg-erreur",
+  BLOQUE: "bg-avertissement",
   TERMINE: "bg-succes",
 };
 

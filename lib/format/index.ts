@@ -189,6 +189,18 @@ export function formaterQuantite(valeur: number | null | undefined): string {
     .replace(/\s/g, INSECABLE);
 }
 
+/**
+ * Une taille de fichier en octets → « 840 ko », « 2,4 Mo ». Les unités
+ * viennent d'`Intl`, comme les noms de pays : rien à traduire à la main.
+ */
+export function formaterTailleFichier(octets: number): string {
+  const [valeur, unite] =
+    octets >= 1024 * 1024 ? [octets / (1024 * 1024), "megabyte"] : [Math.max(octets / 1024, 1), "kilobyte"];
+  return new Intl.NumberFormat("fr-FR", { style: "unit", unit: unite, maximumFractionDigits: 1 })
+    .format(valeur)
+    .replace(/\s/g, INSECABLE);
+}
+
 /** `2026-08-25T07:12:04Z` → « 07:12 » (heure locale de l'utilisateur) */
 export function formaterHeure(valeur: string | Date | null | undefined): string {
   const date = versDate(valeur);
@@ -205,14 +217,27 @@ export function formaterDateHeure(valeur: string | Date | null | undefined): str
   return texte("format.dateHeure", { date: formaterDate(date), heure: formaterHeure(date) });
 }
 
-/** Durée en jours → « 18 mois » au-delà de 60 jours, « 47 jours » sinon. */
-export function formaterDuree(jours: number | null | undefined): string {
-  if (jours === null || jours === undefined) return ABSENT;
-  if (Math.abs(jours) >= 60) {
-    const mois = Math.round(jours / 30);
-    return `${mois} mois`;
-  }
-  return `${jours} jour${Math.abs(jours) > 1 ? "s" : ""}`;
+const enumeration = new Intl.ListFormat(LANGUE_PAR_DEFAUT, { style: "long", type: "conjunction" });
+
+/**
+ * Une durée calendaire suivie de ses jours ouvrés → « 1 an et 3 mois
+ * (284 jours ouvrés) », « 2 mois et 12 jours (52 jours ouvrés) ». Les jours
+ * n'apparaissent que s'il en reste après le dernier mois plein : arrondir au
+ * mois ferait mentir une durée de marché.
+ */
+export function formaterDuree(
+  duree: { annees: number; mois: number; jours: number; joursOuvres: number } | null | undefined,
+): string {
+  if (!duree) return ABSENT;
+  const parties = [
+    duree.annees > 0 && texte("format.duree.annees", { n: duree.annees }),
+    duree.mois > 0 && texte("format.duree.mois", { n: duree.mois }),
+    duree.jours > 0 && texte("format.duree.jours", { n: duree.jours }),
+  ].filter((partie): partie is string => Boolean(partie));
+  return texte("format.duree.complete", {
+    calendaire: enumeration.format(parties),
+    ouvres: texte("format.duree.joursOuvres", { n: duree.joursOuvres }),
+  });
 }
 
 // ---------------------------------------------------------------------------

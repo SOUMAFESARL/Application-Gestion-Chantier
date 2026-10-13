@@ -138,9 +138,10 @@ export function FormulaireConnexion() {
       setTentatives(total);
       setEtat(suivant);
 
-      // L'adresse est conservée : la retaper à chaque essai est une punition
-      // sans objet, et sur un téléphone de chantier, trente secondes.
-      form.setValue("motDePasse", "");
+      // L'adresse ET le mot de passe sont conservés : les retaper à chaque
+      // essai est une punition sans objet, et sur un téléphone de chantier,
+      // trente secondes. Une faute de frappe se corrige d'un caractère, pas
+      // en ressaisissant tout — l'œil du champ permet de la repérer.
 
       if (suivant.nom === "identifiants_invalides") {
         // Le serveur ne dit pas lequel des deux est faux — il ne le dira

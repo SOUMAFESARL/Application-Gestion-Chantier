@@ -19,3 +19,16 @@ export function cleRapport(id: string) {
 export function cleSynthese(demande: DemandeSynthese) {
   return ["chantier", "syntheses", demande.projetId, demande.type, demande.debut, demande.fin] as const;
 }
+
+/** Tout ce que lit la saisie du chef de chantier — à invalider après un enregistrement. */
+export const CLE_SAISIE = ["chantier", "saisie"] as const;
+
+/** Les rapports du chef de chantier sur un chantier. */
+export function cleRapportsProjet(projetId: string) {
+  return ["chantier", "saisie", "rapports", projetId] as const;
+}
+
+/** Le formulaire préparé d'un chantier pour un jour. */
+export function clePreparation(projetId: string, date: string) {
+  return ["chantier", "saisie", "preparation", projetId, date] as const;
+}

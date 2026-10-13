@@ -43,7 +43,8 @@ export interface Intervenant {
 
 /** Le maître d'ouvrage, tel qu'il apparaît sur la fiche chantier. */
 export interface ClientProjet {
-  id: string;
+  /** `null` : le serveur ne donne le maître d'ouvrage qu'en clair, sans fiche tiers. */
+  id: string | null;
   raisonSociale: string;
   telephone: string | null;
   email: string | null;
@@ -83,6 +84,8 @@ export interface Projet {
   dateFinPrevue: string | null;
   dateDebutReelle: string | null;
   dateFinReelle: string | null;
+  /** La durée contractuelle en jours ouvrés. `null` : pas encore fixée. */
+  dureeJoursOuvres: number | null;
   /** Le maître d'œuvre, en clair. `null` : pas de maîtrise d'œuvre désignée. */
   maitreOeuvre: string | null;
   /**
@@ -94,6 +97,42 @@ export interface Projet {
   conducteursTravaux: Intervenant[];
   chefsChantier: ChefChantierProjet[];
   autresMembres: AutreMembreProjet[];
+  /** Le contrat du marché et ses avenants, joints à la création. */
+  contrats: ContratProjet[];
+  /**
+   * La structure du chantier, comptée par le serveur. `null` tant que les
+   * lots restent simulés : ses chiffres décriraient des lots que l'écran ne
+   * montre pas, et l'écran les compte alors lui-même (`syntheseLots`).
+   */
+  statistiques: StatistiquesProjet | null;
+}
+
+/**
+ * Comment le serveur a pondéré l'avancement : à parts égales, ou au poids
+ * du budget. Seul `UNIFORME` a été observé — `BUDGET` reste à confirmer.
+ */
+export type PonderationAvancement = "UNIFORME" | "BUDGET";
+
+/** Les chiffres de structure d'un chantier, tels que le serveur les tient. */
+export interface StatistiquesProjet {
+  lots: number;
+  activites: number;
+  /** Un pourcentage, de 0 à 100. */
+  avancement: number;
+  ponderation: PonderationAvancement;
+  enRetard: number;
+  /** La somme des budgets portés par les activités. */
+  budgetActivites: number;
+}
+
+/** Un document de contrat joint au projet, servi par le serveur. */
+export interface ContratProjet {
+  id: string;
+  nom: string;
+  /** En octets. */
+  taille: number;
+  typeContenu: string;
+  url: string;
 }
 
 /**
@@ -152,8 +191,19 @@ export interface AffectationProjet {
   fonctions: FonctionProjet[];
 }
 
-/** La nature d'un projet, choisie à sa création. */
-export type TypeProjet =
+/**
+ * La nature d'un projet, choisie à sa création : un type prédéfini, ou un
+ * libellé saisi librement quand aucun ne convient — enregistré tel quel,
+ * comme une localité absente du référentiel. `string & {}` garde
+ * l'autocomplétion des codes connus.
+ */
+export type TypeProjet = TypeProjetPredefini | (string & {});
+
+/**
+ * Les types que l'application sait nommer. `AUTRE` ne se propose plus — la
+ * saisie libre l'a remplacé — mais reste lisible sur les projets existants.
+ */
+export type TypeProjetPredefini =
   | "BATIMENT_RESIDENTIEL"
   | "BATIMENT_TERTIAIRE"
   | "INDUSTRIEL"
@@ -191,6 +241,8 @@ export interface CreationProjet {
   /** En centimes. */
   budgetInitial?: number;
   description?: string;
+  /** Le contrat du marché et ses avenants, en PDF. */
+  contrats?: File[];
 }
 
 /**
@@ -206,6 +258,9 @@ export interface ModificationProjet {
   ville: string;
   maitreOuvrage: string;
   maitreOeuvre?: string;
+  /** Absentes : le planning déjà enregistré ne change pas. */
+  dateDebutPrevue?: string;
+  dateFinPrevue?: string;
 }
 
 /** La portée d'un relevé météo : l'entreprise, ou un chantier précis. */
@@ -279,11 +334,18 @@ export interface MeteoProjet {
 export type UniteActivite = "M" | "ML" | "M2" | "M3" | "KG" | "T" | "U" | "ENS" | "FFT";
 
 /**
- * L'état d'une activité. Il est **calculé** (voir `statutActivite` dans
- * `regles.ts`) à partir des dates et de l'avancement, jamais saisi : une
- * activité ne se déclare pas « en retard », elle l'est.
+ * Le statut qu'on **déclare** sur un lot ou une activité, à sa création ou
+ * sa modification. Le retard n'en fait pas partie : il ne se déclare pas, il
+ * se constate.
  */
-export type StatutActivite = "A_VENIR" | "EN_COURS" | "EN_RETARD" | "TERMINE";
+export type StatutDeclare = "NON_DEMARRE" | "EN_COURS" | "TERMINE" | "BLOQUE";
+
+/**
+ * L'état affiché d'une activité (voir `statutActivite` dans `regles.ts`) :
+ * le statut déclaré, sauf quand les dates le contredisent — une activité ne
+ * se déclare pas « en retard », elle l'est.
+ */
+export type StatutActivite = "A_VENIR" | "EN_COURS" | "EN_RETARD" | "TERMINE" | "BLOQUE";
 
 /** Une équipe de chantier, telle qu'on l'affecte à une activité. */
 export interface EquipeChantier {
@@ -362,18 +424,22 @@ export interface Activite {
   /** `null` : activité suivie au pourcentage, sans quantité. */
   quantitePrevue: number | null;
   unite: UniteActivite | null;
-  dateDebutPrevue: string;
-  dateFinPrevue: string;
-  /** En centimes. `null` tant que le budget n'est pas défini. */
+  /** En centimes. `null` : pas de budget propre — facultatif, le lot porte le sien. */
   budget: number | null;
+  /** `null` : activité pas encore planifiée — les dates se fixent plus tard. */
+  dateDebutPrevue: string | null;
+  dateFinPrevue: string | null;
   /** Un pourcentage, de 0 à 100, alimenté par le journal de chantier. */
   avancement: number;
   /** Calculé par le serveur à partir des dépendances. */
   surCheminCritique: boolean;
   /** L'activité qui doit être terminée avant que celle-ci commence. */
   dependanceId: string | null;
+  /** Le collaborateur qui répond de l'activité ; `null` : aucun désigné. */
+  responsableId: string | null;
   /** `null` : équipe encore à affecter. */
   equipe: EquipeChantier | null;
+  statut: StatutDeclare;
 }
 
 /** Un lot d'un chantier, avec ses activités. */
@@ -385,9 +451,15 @@ export interface Lot {
   nom: string;
   modeExecution: ModeExecutionLot;
   typeBordereau: TypeBordereau;
+  /**
+   * En centimes. `null` tant qu'il n'est pas défini. Le budget se tient
+   * d'abord au lot — c'est l'unité du marché ; celui d'une activité est facultatif.
+   */
+  budget: number | null;
   /** Les dates saisies sur le lot ; celles de ses activités priment à l'affichage. */
   dateDebut: string | null;
   dateFin: string | null;
+  statut: StatutDeclare;
   activites: Activite[];
 }
 
@@ -396,8 +468,12 @@ export interface CreationLotProjet {
   nom: string;
   modeExecution: ModeExecutionLot;
   typeBordereau: TypeBordereau;
+  /** En centimes. */
+  budget?: number;
   dateDebut?: string;
   dateFin?: string;
+  /** Absent (un import) : `NON_DEMARRE`. */
+  statut?: StatutDeclare;
 }
 
 /** Ce qu'il faut fournir pour ajouter (ou modifier) une activité. */
@@ -406,10 +482,45 @@ export interface SaisieActiviteDomaine {
   libelle: string;
   quantitePrevue: number | null;
   unite: UniteActivite | null;
-  dateDebutPrevue: string;
-  dateFinPrevue: string;
   /** En centimes. */
   budget: number | null;
-  dependanceId: string | null;
+  dateDebutPrevue: string | null;
+  dateFinPrevue: string | null;
+  responsableId: string | null;
   equipeId: string | null;
+  statut: StatutDeclare;
+}
+
+/**
+ * Ce qu'une ligne d'un fichier de lots importé ne permet pas de reprendre
+ * tel quel. Des codes, pas des phrases : le libellé appartient à l'écran.
+ * Aucun n'interdit l'import — la valeur fautive est laissée vide, ou la
+ * ligne décochée d'office.
+ */
+export type AnomalieImportLot =
+  | "BUDGET_INVALIDE"
+  /** Le budget du lot dépasse celui du projet. */
+  | "BUDGET_DEPASSE_PROJET"
+  | "DATE_INVALIDE"
+  | "DATES_INCOHERENTES"
+  /** Un intitulé de corps d'état (« LOTS TECHNIQUES »), pas un lot. */
+  | "INTITULE_FAMILLE"
+  /** Un lot du même nom existe déjà sur le chantier. */
+  | "DEJA_PRESENT"
+  /** Le même nom figure plus haut dans le fichier. */
+  | "EN_DOUBLE";
+
+/** Une ligne d'un fichier de lots, lue et interprétée. */
+export interface LigneImportLot {
+  /** Le numéro de la ligne dans le tableur, pour que l'utilisateur la retrouve. */
+  ligne: number;
+  nom: string;
+  /** `null` : absent ou non reconnu — le choix par défaut de l'import s'applique. */
+  modeExecution: ModeExecutionLot | null;
+  typeBordereau: TypeBordereau | null;
+  /** En centimes. */
+  budget: number | null;
+  dateDebut: string | null;
+  dateFin: string | null;
+  anomalies: AnomalieImportLot[];
 }

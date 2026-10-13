@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { Badge, EtatChargement, EtatErreur } from "@/components/ui";
 import {
   CIBLE_PRESENCE,
+  codesLots,
   ecartObjectif,
   enAlerteStock,
   estManquant,
@@ -127,7 +128,7 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
   const separateur = t("separateur");
   const lotsCouverts = synthese.lots.map((lot) => t("lotCouvert", { code: lot.code, nom: lot.nom })).join(separateur);
   const listeManquants = manquants
-    .map((entree) => t("manquant", { code: entree.lot.code, date: formaterJourMoisNumerique(entree.date) }))
+    .map((entree) => t("manquant", { date: formaterJourMoisNumerique(entree.date) }))
     .join(separateur);
   const roles = { CT: tCircuit("role.CT"), CP: tCircuit("role.CP") };
   const teintes = teintesChiffresSynthese({
@@ -138,7 +139,11 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
     blocages: chiffres.blocages,
     manquants: manquants.length,
   });
-  const statutStock = { alerte: tRapport("materiaux.alerte"), ok: tRapport("materiaux.ok") };
+  const statutStock = {
+    alerte: tRapport("materiaux.alerte"),
+    ok: tRapport("materiaux.ok"),
+    horsStock: tRapport("materiaux.horsStock"),
+  };
   const tJournal = useTranslations("journal");
   const { pdf, indicateur } = useGenerationDocumentPdf(t(`type.${synthese.type}`), (source) =>
     contenuSynthesePdf((cle, valeurs) => tJournal(cle, valeurs), {
@@ -291,7 +296,7 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
             <TableauDocument
               colonnes={[
                 { entete: t("recapitulatif.date") },
-                { entete: t("recapitulatif.lot") },
+                { entete: t("recapitulatif.lots") },
                 { entete: t("recapitulatif.chef") },
                 { entete: t("recapitulatif.statut") },
                 { entete: t("recapitulatif.effectifs"), nombre: true },
@@ -316,16 +321,16 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
                         {formaterJourMoisNumerique(entree.date)}
                       </Link>
                     ),
-                    entree.lot.code,
-                    entree.lot.chefChantier,
+                    codesLots(entree.lots) || ABSENT,
+                    entree.chantier.chefChantier,
                     <BadgeSituation key="s" situation={entree.situation} />,
                     absent || entree.effectifPresent === null
                       ? ABSENT
                       : tRapport("fraction", { a: entree.effectifPresent, b: entree.effectifPrevu ?? 0 }),
-                    absent || entree.avancementLot === null ? (
+                    absent || entree.avancement === null ? (
                       <span key="a" className="text-neutral-500 italic">{t("recapitulatif.nonDisponible")}</span>
                     ) : (
-                      <span key="a" className="font-semibold">{tRapport("pourcent", { valeur: entree.avancementLot })}</span>
+                      <span key="a" className="font-semibold">{tRapport("pourcent", { valeur: entree.avancement })}</span>
                     ),
                     absent ? ABSENT : (entree.incidents ?? 0),
                     absent ? ABSENT : (entree.blocages ?? 0),
@@ -476,19 +481,24 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
               vide={t("materiaux.vide")}
               lignes={synthese.materiaux.map((ligne) => {
                 const alerte = enAlerteStock(ligne.stockFin, ligne.seuilAlerte);
+                const quantite = (valeur: number | null) => (valeur === null ? tRapport("neant") : formaterQuantite(valeur));
                 return {
                   cle: ligne.designation,
                   cellules: [
                     <span key="d" className="font-medium">{ligne.designation}</span>,
                     ligne.unite,
-                    formaterQuantite(ligne.stockDebut),
+                    quantite(ligne.stockDebut),
                     formaterQuantite(ligne.consomme),
                     formaterQuantite(ligne.livre),
-                    <span key="f" className={alerte ? "font-semibold text-erreur" : "font-semibold"}>{formaterQuantite(ligne.stockFin)}</span>,
-                    formaterQuantite(ligne.seuilAlerte),
-                    <Badge key="s" variante={alerte ? "erreur" : "succes"}>
-                      {alerte ? statutStock.alerte : statutStock.ok}
-                    </Badge>,
+                    <span key="f" className={alerte ? "font-semibold text-erreur" : "font-semibold"}>{quantite(ligne.stockFin)}</span>,
+                    quantite(ligne.seuilAlerte),
+                    ligne.stockFin === null ? (
+                      <Badge key="s" variante="neutre">{statutStock.horsStock}</Badge>
+                    ) : (
+                      <Badge key="s" variante={alerte ? "erreur" : "succes"}>
+                        {alerte ? statutStock.alerte : statutStock.ok}
+                      </Badge>
+                    ),
                   ],
                 };
               })}
@@ -499,7 +509,6 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
             <TableauDocument
               colonnes={[
                 { entete: t("incidents.date") },
-                { entete: t("incidents.lot") },
                 { entete: t("incidents.type") },
                 { entete: t("incidents.description") },
                 { entete: t("incidents.gravite") },
@@ -507,10 +516,9 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
               ]}
               vide={t("incidents.vide")}
               lignes={synthese.incidents.map((incident, rang) => ({
-                cle: `${incident.date}-${incident.lotCode}-${incident.numero}-${rang}`,
+                cle: `${incident.date}-${incident.numero}-${rang}`,
                 cellules: [
                   <span key="d" className="tabular-nums">{formaterJourMoisNumerique(incident.date)}</span>,
-                  <span key="l" className="whitespace-nowrap">{incident.lotCode}</span>,
                   tEnum(`typeIncident.${incident.type}`),
                   incident.description,
                   <Badge key="g" variante={TON_GRAVITE[incident.gravite]}>{tEnum(`gravite.${incident.gravite}`)}</Badge>,
@@ -523,7 +531,6 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
                 synthese.incidents.length
                   ? [
                       t("incidents.total", { n: synthese.incidents.length }),
-                      "",
                       "",
                       "",
                       t("incidents.totalGravite", { majeurs: chiffres.incidentsMajeurs }),

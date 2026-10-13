@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { FileText, FolderPlus, RefreshCw } from "lucide-react";
+import { FolderPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
@@ -11,7 +11,7 @@ import { Bouton, EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import { situationDuJour, tauxSoumission, validationsEnAttente } from "@/features/chantier";
 import { lireJournal } from "@/features/chantier/adaptateur";
 import { CLE_JOURNAL } from "@/features/chantier/cles";
-import { useProjetsVisibles } from "@/features/habilitations";
+import { estRedacteurJournal, useDroits, useProjetsVisibles } from "@/features/habilitations";
 
 import { Indicateur, Onglets } from "../projets/EnteteChantier";
 import { fondSiAlerte } from "./classes";
@@ -49,6 +49,8 @@ export function JournalChantier() {
   const format = useFormatter();
   const router = useRouter();
   const [onglet, setOnglet] = useState<Onglet>("jour");
+  // Le chef de chantier rédige ; le DG, lui, n'a que la lecture et la relance.
+  const peutRediger = estRedacteurJournal(useDroits().droits);
 
   // Pas de projet, pas de journal : sans chantier ouvert, aucun rapport ne
   // peut exister. La liste (même cache que l'écran Projets) est lue d'abord,
@@ -72,7 +74,7 @@ export function JournalChantier() {
     const visibles = new Set(requeteProjets.data.map((projet) => projet.id));
     return {
       ...requete.data,
-      entrees: requete.data.entrees.filter((entree) => visibles.has(entree.lot.projetId)),
+      entrees: requete.data.entrees.filter((entree) => visibles.has(entree.chantier.projetId)),
     };
   }, [requete.data, requeteProjets.data]);
   const maintenant = useMemo(() => (journal ? new Date(journal.luLe) : null), [journal]);
@@ -127,37 +129,11 @@ export function JournalChantier() {
   return (
     <div className="flex flex-col gap-6">
       <EnTetePage
-        className="max-md:flex-col max-md:[&>div:last-child]:justify-start"
         titre={t("titre")}
         description={t("resume", {
           date: dateDuJour,
           heure: format.dateTime(maintenant, { hour: "2-digit", minute: "2-digit" }),
-          deposes: jour.deposes,
-          attendus: jour.attendus,
-          manquants: jour.manquants,
-          validations: chiffres.validations,
         })}
-        actions={
-          <>
-            <Bouton
-              variante="ghost"
-              taille="sm"
-              iconeGauche={<RefreshCw className="size-4" aria-hidden="true" />}
-              onClick={() => void requete.refetch()}
-              disabled={requete.isFetching}
-            >
-              {t("actions.actualiser")}
-            </Bouton>
-            <Bouton
-              variante="primaire"
-              taille="sm"
-              iconeGauche={<FileText className="size-4" aria-hidden="true" />}
-              onClick={() => setOnglet("syntheses")}
-            >
-              {t("actions.synthese")}
-            </Bouton>
-          </>
-        }
       />
 
       <section
@@ -217,7 +193,7 @@ export function JournalChantier() {
         </div>
 
         <div role="tabpanel" id={`panneau-${onglet}`} aria-labelledby={`onglet-${onglet}`}>
-          {onglet === "jour" && <SituationDuJour journal={journal} />}
+          {onglet === "jour" && <SituationDuJour journal={journal} peutRediger={peutRediger} />}
           {onglet === "validations" && <FileValidation journal={journal} maintenant={maintenant} />}
           {onglet === "historique" && <HistoriqueRapports journal={journal} />}
           {onglet === "syntheses" && <SynthesesPeriodiques journal={journal} />}

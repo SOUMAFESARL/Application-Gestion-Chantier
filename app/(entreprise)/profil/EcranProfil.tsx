@@ -19,6 +19,7 @@ import {
   EtatErreur,
 } from "@/components/ui";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ZonePreRemplie } from "@/components/ui/form";
 import {
   FORMATS_AVATAR,
   initialesProfil,
@@ -298,22 +299,26 @@ function BlocInformations({ profil }: { profil: ProfilUtilisateur }) {
         })}
       >
         <div className="grid gap-x-4 sm:grid-cols-2">
-          <Champ
-            libelle={t("prenom")}
-            required
-            autoComplete="given-name"
-            erreur={errors.prenom?.message}
-            disabled={enregistrement.isPending}
-            {...formulaire.register("prenom")}
-          />
-          <Champ
-            libelle={t("nom")}
-            required
-            autoComplete="family-name"
-            erreur={errors.nom?.message}
-            disabled={enregistrement.isPending}
-            {...formulaire.register("nom")}
-          />
+          <ZonePreRemplie control={formulaire.control} nom="prenom">
+            <Champ
+              libelle={t("prenom")}
+              required
+              autoComplete="given-name"
+              erreur={errors.prenom?.message}
+              disabled={enregistrement.isPending}
+              {...formulaire.register("prenom")}
+            />
+          </ZonePreRemplie>
+          <ZonePreRemplie control={formulaire.control} nom="nom">
+            <Champ
+              libelle={t("nom")}
+              required
+              autoComplete="family-name"
+              erreur={errors.nom?.message}
+              disabled={enregistrement.isPending}
+              {...formulaire.register("nom")}
+            />
+          </ZonePreRemplie>
           <Champ
             libelle={t("email")}
             type="email"
@@ -322,20 +327,22 @@ function BlocInformations({ profil }: { profil: ProfilUtilisateur }) {
             disabled
             aide={t("emailAide")}
           />
-          <Controller
-            control={formulaire.control}
-            name="telephone"
-            render={({ field, fieldState }) => (
-              <ChampTelephone
-                libelle={t("telephone")}
-                paysDefaut={PAYS_TELEPHONE_DEFAUT}
-                valeur={field.value}
-                onChange={field.onChange}
-                erreur={fieldState.error?.message}
-                disabled={enregistrement.isPending}
-              />
-            )}
-          />
+          <ZonePreRemplie control={formulaire.control} nom="telephone">
+            <Controller
+              control={formulaire.control}
+              name="telephone"
+              render={({ field, fieldState }) => (
+                <ChampTelephone
+                  libelle={t("telephone")}
+                  paysDefaut={PAYS_TELEPHONE_DEFAUT}
+                  valeur={field.value}
+                  onChange={field.onChange}
+                  erreur={fieldState.error?.message}
+                  disabled={enregistrement.isPending}
+                />
+              )}
+            />
+          </ZonePreRemplie>
         </div>
 
         {erreur && <Alerte type="erreur">{erreur}</Alerte>}

@@ -4,8 +4,8 @@ import { CircleCheck, CircleX, Info, TriangleAlert } from "lucide-react";
 import { Toaster as Sonner } from "sonner";
 import type { ToasterProps } from "sonner";
 
-/** En haut à droite : loin de la barre latérale et des boutons d'action. */
-const POSITION: ToasterProps["position"] = "top-right";
+/** En haut au centre : dans l'axe du regard, quel que soit l'écran. */
+const POSITION: ToasterProps["position"] = "top-center";
 
 /**
  * Les teintes des toasts. `!` parce que `sonner` pose ses propres couleurs

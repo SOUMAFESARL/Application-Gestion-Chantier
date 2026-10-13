@@ -36,6 +36,10 @@ yarn-error.log*
 # .env.example est l'exception : il documente les variables, sans valeur.
 .env*
 !.env.example
+# .env porte les valeurs par defaut de developpement, partagees par toute
+# machine qui clone le depot. Aucun secret : uniquement des NEXT_PUBLIC_*,
+# deja publics une fois le bundle servi. Le build de production les ecrase.
+!.env
 
 # vercel
 .vercel

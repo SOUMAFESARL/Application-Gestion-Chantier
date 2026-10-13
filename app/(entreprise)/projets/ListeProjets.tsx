@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Eye, Pause, Pencil, Play, Plus } from "lucide-react";
+import { Eye, Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
@@ -30,6 +30,7 @@ import {
   echeanceDepassee,
   filtrerProjets,
   largeurJauge,
+  libelleTypeProjet,
   niveauAvancement,
   nomAbrege,
   ORDRE_STATUTS,
@@ -92,7 +93,7 @@ export function ListeProjets() {
   const clientRequetes = useQueryClient();
   const [tiroirOuvert, setTiroirOuvert] = useState(false);
   const [criteres, setCriteres] = useState<CriteresProjets>(CRITERES_VIDES);
-  const { modifier, basculerSuspension, modaux } = useGestionProjet();
+  const { modifier, basculerSuspension, supprimer, modaux } = useGestionProjet();
 
   // Hors direction, seulement ses chantiers ; les gestes selon les accès du module.
   const requete = useProjetsVisibles();
@@ -167,7 +168,7 @@ export function ListeProjets() {
     const libelles = {
       statut: (statut: StatutProjet) => t(`statut.${statut}`),
       typeProjet: (type: NonNullable<Projet["typeProjet"]>) =>
-        t(`tiroirCreation.typeProjet.${type}`),
+        libelleTypeProjet(type, (code) => t(`tiroirCreation.typeProjet.${code}`)),
       formaterDate,
     };
     return {
@@ -208,7 +209,9 @@ export function ListeProjets() {
           cell: ({ getValue }) => {
             const type = getValue();
             return type ? (
-              <Badge variante="neutre">{t(`tiroirCreation.typeProjet.${type}`)}</Badge>
+              <Badge variante="neutre">
+                {libelleTypeProjet(type, (code) => t(`tiroirCreation.typeProjet.${code}`))}
+              </Badge>
             ) : (
               <span className="text-neutral-500">{ABSENT}</span>
             );
@@ -324,11 +327,23 @@ export function ListeProjets() {
                   <Play />
                 </Button>
               )}
+              {peutValider && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => supprimer(row.original)}
+                  aria-label={t("actionSupprimer", { nom: row.original.nom })}
+                  title={t("actionSupprimer", { nom: row.original.nom })}
+                  className="text-erreur hover:text-erreur"
+                >
+                  <Trash2 />
+                </Button>
+              )}
             </span>
           ),
         }),
       ]),
-    [t, modifier, basculerSuspension, peutSaisir, peutValider],
+    [t, modifier, basculerSuspension, supprimer, peutSaisir, peutValider],
   );
 
   return (

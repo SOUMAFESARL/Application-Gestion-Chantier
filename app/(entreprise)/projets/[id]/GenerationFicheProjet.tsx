@@ -22,6 +22,7 @@ import { lireEntreprise } from "@/features/configuration/api";
 import { useIdentitePlateforme } from "@/features/plateforme/hooks";
 import { listerEquipes, listerLots } from "@/features/projets/adaptateur";
 import { cleEquipes, cleLots } from "@/features/projets/cles";
+import { libelleTypeProjet } from "@/features/projets/regles";
 import type { Projet } from "@/features/projets/types";
 import { chargerImagePdf, genererDocumentPdf } from "@/lib/export/documentPdf";
 
@@ -106,7 +107,8 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
         note: "",
         marque: identite?.nom || tMarque("nom"),
         libelles: {
-          typeProjet: (type) => tProjets(`tiroirCreation.typeProjet.${type}`),
+          typeProjet: (type) =>
+            libelleTypeProjet(type, (code) => tProjets(`tiroirCreation.typeProjet.${code}`)),
           statutProjet: (statut) => tProjets(`statut.${statut}`),
           modeExecution: (mode) => tProjets(`tiroirCreation.modeExecution.${mode}`),
           typeBordereau: (type) => tProjets(`tiroirCreation.typeBordereau.${type}`),

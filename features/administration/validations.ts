@@ -80,6 +80,25 @@ export type SaisieChangementPlan = z.input<typeof schemaChangementPlan>;
 export type ValeursChangementPlan = z.output<typeof schemaChangementPlan>;
 
 /**
+ * La nouvelle échéance d'un abonnement, au format ISO court (`2026-11-05`).
+ *
+ * Elle ne précède pas le début de l'abonnement : une période qui finit avant
+ * d'avoir commencé n'a pas de sens, et le serveur la refuserait. Une date
+ * passée reste permise — c'est ainsi qu'on clôt un abonnement à la main.
+ */
+export function schemaFinAbonnement(dateDebut: string) {
+  return z.object({
+    dateFin: chaineNonVide(texte("administration.finAbonnement.erreurDateRequise")).refine(
+      (valeur) => valeur >= dateDebut,
+      texte("administration.finAbonnement.erreurAvantDebut"),
+    ),
+  });
+}
+
+export type SaisieFinAbonnement = z.input<ReturnType<typeof schemaFinAbonnement>>;
+export type ValeursFinAbonnement = z.output<ReturnType<typeof schemaFinAbonnement>>;
+
+/**
  * Un numéro de téléphone facultatif : vide, ou des chiffres avec un `+` de
  * tête et des espaces de lecture.
  *

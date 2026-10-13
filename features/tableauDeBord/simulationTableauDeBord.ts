@@ -1,17 +1,15 @@
 /**
  * Le jeu de démonstration du tableau de bord DG — en attendant l'API.
  *
- * Même contrat que `features/projets/simulationProjets.ts` : les vrais appels
- * restent à leur place dans `adaptateur.ts`, et le jour où la route existe,
+ * Les vrais appels restent à leur place dans `adaptateur.ts`, et le jour où la route existe,
  * `NEXT_PUBLIC_API_SIMULE` passe à `0` sans qu'aucun écran ne change. Le
  * propriétaire du produit a demandé des données de démonstration **sans
  * bandeau** (24/09/2026) : les API seront fournies plus tard.
  *
- * **Les chantiers ne sont pas recopiés, ils sont lus** dans la simulation du
- * domaine Projets, puis enrichis de ce que seul le tableau de bord porte
+ * **Les chantiers ne sont pas recopiés, ils sont lus** sur `GET /projets/`
+ * (route livrée), puis enrichis de ce que seul le tableau de bord porte
  * (marché, marge, santé). Un chantier créé depuis le tiroir apparaît donc ici
- * comme dans la liste — deux jeux de démonstration séparés se seraient
- * contredits au premier clic.
+ * comme dans la liste.
  *
  * **Les dates sont relatives à aujourd'hui** : une échéance écrite en dur
  * serait passée dans un mois, et le bloc « Échéances » se viderait tout seul.
@@ -19,7 +17,7 @@
 
 import type { Projet } from "@/features/projets/types";
 import { INDICE_SANTE_INITIAL, ecartAvancement } from "@/features/projets/regles";
-import { simulationProjets } from "@/features/projets/simulationProjets";
+import { listerProjets } from "@/features/projets/adaptateur";
 import { attendre } from "@/lib/api/simulation";
 
 import type {
@@ -46,7 +44,7 @@ interface Complement {
 }
 
 /**
- * Indexé par l'identifiant des chantiers de `simulationProjets`. Chaque
+ * Indexé par l'identifiant des anciens chantiers de démonstration. Chaque
  * niveau de santé se voit : Les Merveilles au vert, le siège Banque
  * Atlantique et la clinique à l'orange, l'entrepôt Sifca au rouge avec une
  * marge négative, l'école sans budget.
@@ -332,7 +330,7 @@ function ecrireValides(ids: string[]): void {
 
 export const simulationTableauDeBord = {
   async lire(): Promise<TableauDeBord> {
-    const projets = await simulationProjets.lister();
+    const projets = await listerProjets();
     const valides = new Set(lireValides());
     return {
       chantiers: projets.map(versLigne),

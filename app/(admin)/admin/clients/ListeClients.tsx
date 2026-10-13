@@ -1,12 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { Pencil } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
-import { EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
+import { Bouton, EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import { aideColonnes } from "@/components/ui/data-table";
 import type { ExportTableau } from "@/components/ui/export-tableau";
 import {
@@ -20,6 +21,7 @@ import {
   CRITERES_CLIENTS_VIDES,
   criteresClientsActifs,
   filtrerClients,
+  peutAgirSurClients,
   plansPresents,
   statutsClientPresents,
   trierParUrgence,
@@ -29,8 +31,10 @@ import { listerClients } from "@/features/administration/adaptateur";
 import { formaterDate, nomDePays } from "@/lib/format";
 import { useLibellePlan } from "@/features/plateforme/hooks";
 
+import { useAdministrateur } from "../ContexteAdministrateur";
 import { CLES_ADMINISTRATION } from "../cles";
 import { BADGE, TON_ALERTE, TON_STATUT_ABONNEMENT, TON_STATUT_CLIENT } from "../tons";
+import { ModaleFinAbonnement } from "./ModaleFinAbonnement";
 
 const colonne = aideColonnes<ClientPlateforme>();
 
@@ -49,7 +53,11 @@ const colonne = aideColonnes<ClientPlateforme>();
 export function ListeClients() {
   const t = useTranslations("administration");
   const libellePlan = useLibellePlan();
+  const profil = useAdministrateur();
+  const peutAgir = peutAgirSurClients(profil);
   const [criteres, setCriteres] = useState<CriteresClients>(CRITERES_CLIENTS_VIDES);
+  /** Le client dont on modifie la fin d'abonnement ; `null` : modale fermée. */
+  const [enModification, setEnModification] = useState<ClientPlateforme | null>(null);
 
   const requete = useQuery({
     queryKey: CLES_ADMINISTRATION.clients(),
@@ -114,6 +122,12 @@ export function ListeClients() {
             </span>
           ),
         }),
+        colonne.accessor((client) => client.abonnement.dateFin, {
+          id: "finAbonnement",
+          header: t("clients.colonneFinAbonnement"),
+          meta: { classe: "text-neutral-700 tabular-nums" },
+          cell: ({ getValue }) => formaterDate(getValue()),
+        }),
         colonne.accessor("nbUtilisateurs", {
           header: t("clients.colonneUtilisateurs"),
           meta: { classe: "text-right tabular-nums text-neutral-700" },
@@ -125,7 +139,6 @@ export function ListeClients() {
         colonne.display({
           id: "alerte",
           header: t("clients.colonneAlerte"),
-          meta: { classe: BORD_DROIT_TABLEAU },
           cell: ({ row }) => {
             const alerte = alerteClient(row.original);
             if (!alerte) {
@@ -136,8 +149,24 @@ export function ListeClients() {
             );
           },
         }),
+        colonne.display({
+          id: "actions",
+          header: () => <span className="sr-only">{t("clients.colonneActions")}</span>,
+          meta: { classe: `${BORD_DROIT_TABLEAU} text-right` },
+          cell: ({ row }) => (
+            <Bouton
+              variante="ghost"
+              taille="sm"
+              disabled={!peutAgir}
+              iconeGauche={<Pencil size={16} aria-hidden="true" />}
+              onClick={() => setEnModification(row.original)}
+            >
+              {t("clients.modifier")}
+            </Bouton>
+          ),
+        }),
       ]),
-    [t, libellePlan],
+    [t, libellePlan, peutAgir],
   );
 
   /** Les coordonnées de contact en plus de l'écran : c'est ce qu'on cherche dans le fichier. */
@@ -158,6 +187,10 @@ export function ListeClients() {
         {
           entete: t("fiche.abonnement"),
           valeur: (c) => t(`statutAbonnement.${c.abonnement.statut}`),
+        },
+        {
+          entete: t("clients.colonneFinAbonnement"),
+          valeur: (c) => formaterDate(c.abonnement.dateFin),
         },
         { entete: t("clients.colonneUtilisateurs"), valeur: (c) => c.nbUtilisateurs },
         { entete: t("clients.colonneProjets"), valeur: (c) => c.nbProjets },
@@ -232,6 +265,8 @@ export function ListeClients() {
             }
           />
         ))}
+
+      <ModaleFinAbonnement client={enModification} onFermer={() => setEnModification(null)} />
     </div>
   );
 }

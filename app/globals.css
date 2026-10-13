@@ -152,6 +152,8 @@
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
+  --shadow-collant: var(--shadow-collant);
+  --shadow-collant-haut: var(--shadow-collant-haut);
 
   /* --- Points de rupture — ceux de la charte (tokens.css §2) --------
      Tailwind livre `sm: 640px` et `2xl: 1536px` ; la charte dit 480 et
@@ -293,6 +295,20 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Un champ dont la valeur vient de la base se distingue par son fond : en
+   lecture seule, ou pré-rempli dans un formulaire de modification tant que
+   l'utilisateur n'y a pas touché (`<Form preRempli>`, ou `data-pre-rempli`
+   posé à la main hors react-hook-form). Chaque composant de champ du design
+   system porte `data-champ`.
+
+   Hors couche, et volontairement : la règle doit battre le `bg-card` que
+   chaque composant déclare dans ses utilitaires. */
+[data-champ][readonly],
+[data-champ][data-pre-rempli="true"],
+[data-pre-rempli="true"] [data-champ] {
+  background-color: var(--input-fond-pre-rempli);
 }
 
 /* L'impression d'un document (rapport journalier, synthèse) : le navigateur

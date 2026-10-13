@@ -16,7 +16,7 @@
 import { z } from "zod";
 
 import { texte } from "@/i18n/horsReact";
-import { saisieEnCentimes } from "@/lib/format";
+import { formaterMontant, formaterSaisieMontant, saisieEnCentimes } from "@/lib/format";
 import { chaineNonVide } from "@/lib/validations/champs";
 
 import {
@@ -27,10 +27,15 @@ import {
   ROLE_MEMBRE_PAR_DEFAUT,
   ROLES_MEMBRE_EQUIPE,
   TYPES_BORDEREAU,
-  TYPES_PROJET,
+  NOMBRE_MAX_CONTRATS,
+  STATUT_DECLARE_PAR_DEFAUT,
+  STATUTS_DECLARES,
   UNITES_ACTIVITE,
+  budgetMaxActivites,
   budgetRecevable,
   datesChantierCoherentes,
+  plafondBudgetDepasse,
+  refusContrat,
 } from "./regles";
 import type {
   Activite,
@@ -40,6 +45,7 @@ import type {
   CreationProjet,
   FonctionAutreMembre,
   Intervenant,
+  Lot,
   ModeExecutionLot,
   ModificationProjet,
   NatureEquipe,
@@ -48,8 +54,8 @@ import type {
   RoleMembreEquipe,
   SaisieActiviteDomaine,
   SaisieMembreEquipe,
+  StatutDeclare,
   TypeBordereau,
-  TypeProjet,
   UniteActivite,
 } from "./types";
 
@@ -77,7 +83,8 @@ export const schemaProjet = z
       message: texte("projets.tiroirCreation.erreurNomTropLong"),
     }),
     reference: z.string().trim(),
-    typeProjet: choixParmi(TYPES_PROJET, texte("projets.tiroirCreation.erreurTypeRequis")),
+    // Un type prédéfini (son code) ou un libellé saisi librement.
+    typeProjet: chaineNonVide(texte("projets.tiroirCreation.erreurTypeRequis")),
     ville: chaineNonVide(texte("projets.tiroirCreation.erreurVilleRequise")),
     maitreOuvrage: chaineNonVide(texte("projets.tiroirCreation.erreurMaitreOuvrageRequis")),
     maitreOeuvre: z.string().trim(),
@@ -93,6 +100,16 @@ export const schemaProjet = z
     description: z.string().trim().max(LONGUEUR_MAX_DESCRIPTION, {
       message: texte("projets.tiroirCreation.erreurDescriptionTropLongue"),
     }),
+    // Facultatifs : la zone de dépôt refuse déjà un fichier non conforme, le
+    // schéma le revérifie pour ne pas dépendre d'elle.
+    contrats: z
+      .array(z.custom<File>())
+      .max(NOMBRE_MAX_CONTRATS, {
+        message: texte("projets.tiroirCreation.erreurContratsTropNombreux", { max: NOMBRE_MAX_CONTRATS }),
+      })
+      .refine((fichiers) => fichiers.every((fichier) => refusContrat(fichier) === null), {
+        message: texte("projets.tiroirCreation.erreurContratFormat"),
+      }),
   })
   .superRefine((saisie, ctx) => {
     if (!datesChantierCoherentes(saisie.dateDebut, saisie.dateFin)) {
@@ -116,6 +133,7 @@ export function saisieProjetVide(reference = ""): SaisieProjet {
     dateFin: "",
     budget: "",
     description: "",
+    contrats: [],
   };
 }
 
@@ -124,8 +142,7 @@ export function versCreationProjet(valeurs: ValeursProjet): CreationProjet {
   return {
     nom: valeurs.nom,
     reference: valeurs.reference || undefined,
-    // `choixParmi` a déjà vérifié l'appartenance à la liste.
-    typeProjet: valeurs.typeProjet as TypeProjet,
+    typeProjet: valeurs.typeProjet,
     ville: valeurs.ville,
     maitreOuvrage: valeurs.maitreOuvrage,
     maitreOeuvre: valeurs.maitreOeuvre || undefined,
@@ -134,6 +151,7 @@ export function versCreationProjet(valeurs: ValeursProjet): CreationProjet {
     // Même conversion que partout ailleurs dans le produit (`lib/format`).
     budgetInitial: valeurs.budget ? (saisieEnCentimes(valeurs.budget) ?? undefined) : undefined,
     description: valeurs.description || undefined,
+    contrats: valeurs.contrats.length > 0 ? valeurs.contrats : undefined,
   };
 }
 
@@ -146,12 +164,13 @@ export function saisieDepuisProjet(projet: Projet): SaisieProjet {
     ville: projet.ville,
     maitreOuvrage: projet.client.raisonSociale,
     maitreOeuvre: projet.maitreOeuvre ?? "",
-    // Le planning et le budget ne se modifient pas ici : `versModificationProjet`
-    // les ignore, le chef de projet les fixe depuis le projet.
-    dateDebut: "",
-    dateFin: "",
+    dateDebut: projet.dateDebutPrevue ?? "",
+    dateFin: projet.dateFinPrevue ?? "",
+    // Le budget ne se modifie pas ici : `versModificationProjet` l'ignore, le
+    // chef de projet le fixe depuis le projet.
     budget: "",
     description: "",
+    contrats: [],
   };
 }
 
@@ -159,10 +178,13 @@ export function saisieDepuisProjet(projet: Projet): SaisieProjet {
 export function versModificationProjet(valeurs: ValeursProjet): ModificationProjet {
   return {
     nom: valeurs.nom,
-    typeProjet: valeurs.typeProjet as TypeProjet,
+    typeProjet: valeurs.typeProjet,
     ville: valeurs.ville,
     maitreOuvrage: valeurs.maitreOuvrage,
     maitreOeuvre: valeurs.maitreOeuvre || undefined,
+    // Vides, elles ne sont pas envoyées : le planning enregistré reste.
+    dateDebutPrevue: valeurs.dateDebut || undefined,
+    dateFinPrevue: valeurs.dateFin || undefined,
   };
 }
 
@@ -170,12 +192,25 @@ export function versModificationProjet(valeurs: ValeursProjet): ModificationProj
  * Un lot.
  * ------------------------------------------------------------------ */
 
-/** Un lot, ajouté sur un chantier ouvert depuis « Lots & activités ». */
+/**
+ * Un lot, ajouté sur un chantier ouvert depuis « Lots & activités ».
+ *
+ * Le budget se fixe ici, au lot — c'est l'unité du marché —, et non sur
+ * chaque activité. Budget et dates restent facultatifs : un lot se déclare
+ * souvent avant d'être chiffré ou planifié.
+ */
 export const schemaLot = z
   .object({
     nom: chaineNonVide(texte("projets.tiroirCreation.erreurLotNomRequis")),
     modeExecution: choixParmi(MODES_EXECUTION_LOT, texte("projets.tiroirCreation.erreurLotModeRequis")),
     typeBordereau: choixParmi(TYPES_BORDEREAU, texte("projets.tiroirCreation.erreurLotBordereauRequis")),
+    statut: choixParmi(STATUTS_DECLARES, texte("projets.lotsActivites.erreurStatutRequis")),
+    budget: z
+      .string()
+      .trim()
+      .refine((valeur) => valeur === "" || (MOTIF_MONTANT.test(valeur) && budgetRecevable(saisieEnCentimes(valeur))), {
+        message: texte("projets.lotsActivites.formLot.erreurBudgetInvalide"),
+      }),
     dateDebut: z.string(),
     dateFin: z.string(),
   })
@@ -185,6 +220,42 @@ export const schemaLot = z
     }
   });
 
+/** Le budget saisi, en centimes ; `null` s'il est vide ou illisible. */
+function budgetSaisi(saisie: string): number | null {
+  const centimes = saisie.trim() === "" ? null : saisieEnCentimes(saisie);
+  return budgetRecevable(centimes) ? centimes : null;
+}
+
+/**
+ * `schemaLot`, borné par ce que l'écran seul connaît : le budget du projet,
+ * que le lot ne dépasse pas, et — pour un lot existant — celui de ses
+ * activités, qu'il doit toujours contenir.
+ */
+export function schemaLotBorne(budgetProjet: number | null, lot: Lot | null = null) {
+  const plancher = lot ? budgetMaxActivites(lot) : null;
+  return schemaLot.superRefine((saisie, ctx) => {
+    const budget = budgetSaisi(saisie.budget);
+    if (budget === null) return;
+    if (plafondBudgetDepasse(budget, { projet: budgetProjet })) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["budget"],
+        message: texte("projets.lotsActivites.formLot.erreurBudgetDepasseProjet", {
+          montant: formaterMontant(budgetProjet),
+        }),
+      });
+    } else if (plancher !== null && budget < plancher) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["budget"],
+        message: texte("projets.lotsActivites.formLot.erreurBudgetSousActivites", {
+          montant: formaterMontant(plancher),
+        }),
+      });
+    }
+  });
+}
+
 /* ------------------------------------------------------------------ *
  * L'ajout d'un lot sur un chantier ouvert.
  * ------------------------------------------------------------------ */
@@ -193,7 +264,28 @@ export type SaisieLotProjet = z.input<typeof schemaLot>;
 
 /** Un lot vierge. */
 export function lotVide(): SaisieLotProjet {
-  return { nom: "", modeExecution: "", typeBordereau: "", dateDebut: "", dateFin: "" };
+  return {
+    nom: "",
+    modeExecution: "",
+    typeBordereau: "",
+    statut: STATUT_DECLARE_PAR_DEFAUT,
+    budget: "",
+    dateDebut: "",
+    dateFin: "",
+  };
+}
+
+/** Un lot existant, remis en saisie pour sa modification. Le budget repasse en francs groupés. */
+export function lotEnSaisie(lot: Lot): SaisieLotProjet {
+  return {
+    nom: lot.nom,
+    modeExecution: lot.modeExecution,
+    typeBordereau: lot.typeBordereau,
+    statut: lot.statut,
+    budget: lot.budget === null ? "" : formaterSaisieMontant(String(Math.round(lot.budget / 100))),
+    dateDebut: lot.dateDebut ?? "",
+    dateFin: lot.dateFin ?? "",
+  };
 }
 
 export function versCreationLotProjet(saisie: z.output<typeof schemaLot>): CreationLotProjet {
@@ -201,6 +293,8 @@ export function versCreationLotProjet(saisie: z.output<typeof schemaLot>): Creat
     nom: saisie.nom,
     modeExecution: saisie.modeExecution as ModeExecutionLot,
     typeBordereau: saisie.typeBordereau as TypeBordereau,
+    statut: saisie.statut as StatutDeclare,
+    budget: saisie.budget ? (saisieEnCentimes(saisie.budget) ?? undefined) : undefined,
     dateDebut: saisie.dateDebut || undefined,
     dateFin: saisie.dateFin || undefined,
   };
@@ -238,16 +332,19 @@ export const schemaActivite = z
         message: texte("projets.lotsActivites.formActivite.erreurQuantiteInvalide"),
       }),
     unite: z.string(),
-    dateDebut: chaineNonVide(texte("projets.lotsActivites.formActivite.erreurDateDebutRequise")),
-    dateFin: chaineNonVide(texte("projets.lotsActivites.formActivite.erreurDateFinRequise")),
+    // Facultatif : le budget se tient d'abord au lot.
     budget: z
       .string()
       .trim()
       .refine((valeur) => valeur === "" || (MOTIF_MONTANT.test(valeur) && budgetRecevable(saisieEnCentimes(valeur))), {
         message: texte("projets.lotsActivites.formActivite.erreurBudgetInvalide"),
       }),
-    dependanceId: z.string(),
+    // Facultatives : une activité se déclare souvent avant d'être planifiée.
+    dateDebut: z.string(),
+    dateFin: z.string(),
+    responsableId: z.string(),
     equipeId: z.string(),
+    statut: choixParmi(STATUTS_DECLARES, texte("projets.lotsActivites.erreurStatutRequis")),
   })
   .superRefine((saisie, ctx) => {
     if (!datesChantierCoherentes(saisie.dateDebut, saisie.dateFin)) {
@@ -258,6 +355,31 @@ export const schemaActivite = z
       ctx.addIssue({ code: "custom", path: ["unite"], message: texte("projets.lotsActivites.formActivite.erreurUniteRequise") });
     }
   });
+
+/**
+ * `schemaActivite`, borné par le budget du lot choisi et par celui du projet :
+ * une activité ne dépasse ni l'un ni l'autre.
+ */
+export function schemaActiviteBornee(budgetProjet: number | null, lots: Lot[]) {
+  return schemaActivite.superRefine((saisie, ctx) => {
+    const budget = budgetSaisi(saisie.budget);
+    const lot = lots.find((candidat) => candidat.id === saisie.lotId);
+    const plafond = plafondBudgetDepasse(budget, { lot: lot?.budget ?? null, projet: budgetProjet });
+    if (plafond === null) return;
+    ctx.addIssue({
+      code: "custom",
+      path: ["budget"],
+      message:
+        plafond === "LOT"
+          ? texte("projets.lotsActivites.formActivite.erreurBudgetDepasseLot", {
+              montant: formaterMontant(lot?.budget ?? null),
+            })
+          : texte("projets.lotsActivites.formActivite.erreurBudgetDepasseProjet", {
+              montant: formaterMontant(budgetProjet),
+            }),
+    });
+  });
+}
 
 export type SaisieActivite = z.input<typeof schemaActivite>;
 export type ValeursActivite = z.output<typeof schemaActivite>;
@@ -273,11 +395,12 @@ export function saisieActiviteVide(lotId = ""): SaisieActivite {
     libelle: "",
     quantite: "",
     unite: "M2",
+    budget: "",
     dateDebut: "",
     dateFin: "",
-    budget: "",
-    dependanceId: "",
+    responsableId: "",
     equipeId: "",
+    statut: STATUT_DECLARE_PAR_DEFAUT,
   };
 }
 
@@ -288,11 +411,12 @@ export function saisieDepuisActivite(activite: Activite): SaisieActivite {
     libelle: activite.libelle,
     quantite: activite.quantitePrevue === null ? "" : String(activite.quantitePrevue),
     unite: activite.unite ?? "M2",
-    dateDebut: activite.dateDebutPrevue,
-    dateFin: activite.dateFinPrevue,
-    budget: activite.budget === null ? "" : String(Math.round(activite.budget / 100)),
-    dependanceId: activite.dependanceId ?? "",
+    budget: activite.budget === null ? "" : formaterSaisieMontant(String(Math.round(activite.budget / 100))),
+    dateDebut: activite.dateDebutPrevue ?? "",
+    dateFin: activite.dateFinPrevue ?? "",
+    responsableId: activite.responsableId ?? "",
     equipeId: activite.equipe?.id ?? "",
+    statut: activite.statut,
   };
 }
 
@@ -305,11 +429,12 @@ export function versSaisieActiviteDomaine(valeurs: ValeursActivite): SaisieActiv
     quantitePrevue,
     // Sans quantité, l'unité ne dit rien : elle n'est pas transmise.
     unite: quantitePrevue === null ? null : (valeurs.unite as UniteActivite),
-    dateDebutPrevue: valeurs.dateDebut,
-    dateFinPrevue: valeurs.dateFin,
-    budget: valeurs.budget === "" ? null : saisieEnCentimes(valeurs.budget),
-    dependanceId: valeurs.dependanceId || null,
+    budget: valeurs.budget ? saisieEnCentimes(valeurs.budget) : null,
+    dateDebutPrevue: valeurs.dateDebut || null,
+    dateFinPrevue: valeurs.dateFin || null,
+    responsableId: valeurs.responsableId || null,
     equipeId: valeurs.equipeId || null,
+    statut: valeurs.statut as StatutDeclare,
   };
 }
 

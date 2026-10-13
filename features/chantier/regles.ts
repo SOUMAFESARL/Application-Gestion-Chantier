@@ -11,7 +11,11 @@
  * d'un jour à l'ouest de Greenwich.
  */
 
+import type { ConditionMeteo } from "@/features/projets/types";
+
 import type {
+  ActivitePreparee,
+  AlerteImmediate,
   EffectifSynthese,
   EntreeJournal,
   EtapeCircuit,
@@ -22,10 +26,23 @@ import type {
   LigneProduction,
   LotJournal,
   LotSynthese,
+  MateriauDisponible,
   MateriauSynthese,
+  Meteo,
+  NatureEvenement,
+  NiveauBlocageSaisi,
+  PointLot,
+  PreparationSaisie,
+  RapportDuJour,
+  RapportEnAttente,
   RapportJournalier,
+  RoleSignataire,
+  SaisieRapport,
+  SectionSaisie,
   SituationRapport,
+  StatutRapport,
   SynthesePeriodique,
+  TypeIncident,
   TypePeriode,
 } from "./types";
 
@@ -33,7 +50,7 @@ import type {
  * Les constantes du circuit.
  * ------------------------------------------------------------------ */
 
-/** L'heure à laquelle un lot sans rapport déclenche la relance automatique du CC. */
+/** L'heure à laquelle un chantier sans rapport déclenche la relance automatique du CC. */
 export const HEURE_ALERTE_NON_SOUMIS = "17:30";
 /** L'heure à laquelle le CT et le CP sont alertés à leur tour. */
 export const HEURE_ESCALADE = "18:00";
@@ -195,7 +212,7 @@ const ORDRE_SITUATION: Record<SituationRapport, number> = {
 export function comparerSituations(a: EntreeJournal, b: EntreeJournal): number {
   return (
     ORDRE_SITUATION[a.situation] - ORDRE_SITUATION[b.situation] ||
-    a.lot.code.localeCompare(b.lot.code)
+    a.chantier.projetNom.localeCompare(b.chantier.projetNom)
   );
 }
 
@@ -278,7 +295,7 @@ export function situationDuJour(entrees: EntreeJournal[], jour: string): Situati
     enAttenteCp: compter("VALIDE_CT"),
     approuves: compter("APPROUVE_CP"),
     rejetes: compter("REJETE"),
-    chantiers: new Set(duJour.map((entree) => entree.lot.projetId)).size,
+    chantiers: new Set(duJour.map((entree) => entree.chantier.projetId)).size,
     taux: pourcentage(deposes, duJour.length),
   };
 }
@@ -301,34 +318,7 @@ export function tauxSoumission(
   return { deposes, attendus: periode.length, taux: pourcentage(deposes, periode.length) };
 }
 
-export interface GroupeChantier {
-  projetId: string;
-  projetNom: string;
-  projetReference: string;
-  entrees: EntreeJournal[];
-}
-
-/** Les lignes regroupées par chantier ; le chantier le plus en défaut d'abord. */
-export function grouperParChantier(entrees: EntreeJournal[]): GroupeChantier[] {
-  const groupes = new Map<string, GroupeChantier>();
-  for (const entree of entrees) {
-    const groupe = groupes.get(entree.lot.projetId) ?? {
-      projetId: entree.lot.projetId,
-      projetNom: entree.lot.projetNom,
-      projetReference: entree.lot.projetReference,
-      entrees: [],
-    };
-    groupe.entrees.push(entree);
-    groupes.set(entree.lot.projetId, groupe);
-  }
-  const manquants = (groupe: GroupeChantier) =>
-    groupe.entrees.filter((entree) => estManquant(entree.situation)).length;
-  return [...groupes.values()]
-    .map((groupe) => ({ ...groupe, entrees: [...groupe.entrees].sort(comparerSituations) }))
-    .sort((a, b) => manquants(b) - manquants(a) || a.projetNom.localeCompare(b.projetNom));
-}
-
-/** Le nombre de jours ouvrés écoulés depuis le dernier rapport d'un lot. */
+/** Le nombre de jours ouvrés écoulés depuis le dernier rapport d'un chantier. */
 export function joursSansRapport(entree: EntreeJournal): number | null {
   if (!entree.dernierRapportLe) return null;
   return Math.max(0, joursOuvres(ajouterJours(entree.dernierRapportLe, 1), entree.date).length);
@@ -378,7 +368,7 @@ export function filtrerEntrees(
   const recherche = normaliser(criteres.recherche);
   const debut = debutFenetre(criteres.fenetre, aujourdhui);
   return entrees
-    .filter((entree) => !criteres.projetId || entree.lot.projetId === criteres.projetId)
+    .filter((entree) => !criteres.projetId || entree.chantier.projetId === criteres.projetId)
     .filter((entree) => !criteres.situation || entree.situation === criteres.situation)
     .filter((entree) => !debut || entree.date >= debut)
     .filter(
@@ -387,14 +377,14 @@ export function filtrerEntrees(
         normaliser(
           [
             entree.reference ?? "",
-            entree.lot.code,
-            entree.lot.nom,
-            entree.lot.projetNom,
-            entree.lot.chefChantier,
+            entree.chantier.projetNom,
+            entree.chantier.projetReference,
+            entree.chantier.chefChantier,
+            ...entree.lots.flatMap((lot) => [lot.code, lot.nom]),
           ].join(" "),
         ).includes(recherche),
     )
-    .sort((a, b) => b.date.localeCompare(a.date) || a.lot.projetNom.localeCompare(b.lot.projetNom) || a.lot.code.localeCompare(b.lot.code));
+    .sort((a, b) => b.date.localeCompare(a.date) || a.chantier.projetNom.localeCompare(b.chantier.projetNom));
 }
 
 export function criteresActifs(criteres: CriteresJournal): boolean {
@@ -419,10 +409,15 @@ export function tauxPresence(presents: number | null, prevus: number | null): nu
   return pourcentage(presents, prevus);
 }
 
-/** Le retard d'un lot sur son planning, en points (positif : en retard). */
-export function retardPoints(entree: Pick<EntreeJournal, "avancementLot" | "avancementTheorique">): number | null {
-  if (entree.avancementLot === null || entree.avancementTheorique === null) return null;
-  return Math.round(entree.avancementTheorique - entree.avancementLot);
+/** Le retard d'un chantier ou d'un lot sur son planning, en points (positif : en retard). */
+export function retardPoints(entree: { avancement: number | null; avancementTheorique: number | null }): number | null {
+  if (entree.avancement === null || entree.avancementTheorique === null) return null;
+  return Math.round(entree.avancementTheorique - entree.avancement);
+}
+
+/** Les codes des lots couverts par un rapport, dans l'ordre : `L-03 · L-04`. */
+export function codesLots(lots: Pick<LotJournal, "code">[]): string {
+  return lots.map((lot) => lot.code).join(" · ");
 }
 
 export interface TotauxEffectifs {
@@ -472,18 +467,24 @@ export function avancementActivite(ligne: LigneActivite): number {
     : 0;
 }
 
-export function stockFin(ligne: Pick<LigneMateriau, "stockDebut" | "livre" | "utilise">): number {
-  return ligne.stockDebut + ligne.livre - ligne.utilise;
+/** `null` : un matériau saisi librement, dont le stock n'est pas suivi. */
+export function stockFin(ligne: Pick<LigneMateriau, "stockDebut" | "livre" | "utilise">): number | null {
+  return ligne.stockDebut === null ? null : ligne.stockDebut + ligne.livre - ligne.utilise;
 }
 
-/** Un stock passe en alerte à son seuil, pas en dessous. */
-export function enAlerteStock(stock: number, seuil: number): boolean {
-  return stock <= seuil;
+/** Un stock passe en alerte à son seuil, pas en dessous. Sans stock suivi, pas d'alerte. */
+export function enAlerteStock(stock: number | null, seuil: number | null): boolean {
+  return stock !== null && seuil !== null && stock <= seuil;
 }
 
 /** Les activités qui avancent ce jour. */
 export function activitesActives(lignes: LigneActivite[]): number {
   return lignes.filter((ligne) => ligne.quantiteJour > 0).length;
+}
+
+/** Toutes les activités d'un rapport, lots confondus. */
+export function activitesDuRapport(rapport: Pick<RapportJournalier, "travaux">): LigneActivite[] {
+  return rapport.travaux.flatMap((travaux) => travaux.activites);
 }
 
 /* ------------------------------------------------------------------ *
@@ -512,8 +513,8 @@ function arrondi(valeur: number, decimales = 0): number {
   return Math.round(valeur * facteur) / facteur;
 }
 
-/** Le dernier avancement connu d'un lot à une date, rapports antérieurs compris. */
-function avancementAu(entrees: EntreeJournal[], jour: string, cle: "avancementLot" | "avancementTheorique"): number | null {
+/** Le dernier avancement connu du chantier à une date, rapports antérieurs compris. */
+function avancementAu(entrees: EntreeJournal[], jour: string, cle: "avancement" | "avancementTheorique"): number | null {
   const connues = entrees
     .filter((entree) => entree.date <= jour && entree[cle] !== null)
     .sort((a, b) => b.date.localeCompare(a.date));
@@ -539,27 +540,27 @@ export function agregerSynthese(
   const dansPeriode = (jour: string) => jour >= periode.debut && jour <= periode.fin;
   const recapitulatif = entrees
     .filter((entree) => dansPeriode(entree.date))
-    .sort((a, b) => a.date.localeCompare(b.date) || a.lot.code.localeCompare(b.lot.code));
+    .sort((a, b) => a.date.localeCompare(b.date));
   const detailles = rapports
     .filter((rapport) => dansPeriode(rapport.date) && estDepose(rapport.situation))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const veille = ajouterJours(periode.debut, -1);
   const finConnue = recapitulatif.at(-1)?.date ?? periode.fin;
-  const parLot = lots.map((lot) => entrees.filter((entree) => entree.lot.id === lot.id));
-  const releves = (jour: string, cle: "avancementLot" | "avancementTheorique") =>
-    parLot.map((liste) => avancementAu(liste, jour, cle)).filter((valeur): valeur is number => valeur !== null);
+  const releve = (jour: string, cle: "avancement" | "avancementTheorique") => avancementAu(entrees, jour, cle) ?? 0;
 
-  const debut = arrondi(moyenne(releves(veille, "avancementLot")));
-  const fin = arrondi(moyenne(releves(finConnue, "avancementLot")));
-  const theoriqueDebut = arrondi(moyenne(releves(veille, "avancementTheorique")));
-  const theorique = arrondi(moyenne(releves(finConnue, "avancementTheorique")));
+  const debut = arrondi(releve(veille, "avancement"));
+  const fin = arrondi(releve(finConnue, "avancement"));
+  const theoriqueDebut = arrondi(releve(veille, "avancementTheorique"));
+  const theorique = arrondi(releve(finConnue, "avancementTheorique"));
 
   const deposes = recapitulatif.filter((entree) => estDepose(entree.situation));
   const avecEffectifs = deposes.filter((entree) => entree.effectifPresent !== null && entree.effectifPrevu !== null);
 
   const avancement: LotSynthese[] = lots.map((lot) => {
-    const duLot = detailles.filter((rapport) => rapport.lot.id === lot.id);
+    // Un rapport couvre tout le chantier : on y relève les travaux de ce lot,
+    // les jours où il a été travaillé.
+    const duLot = detailles.flatMap((rapport) => rapport.travaux.filter((travaux) => travaux.lot.id === lot.id));
     const premier = duLot[0];
     const dernier = duLot.at(-1);
     if (!premier || !dernier) return { lot, activites: [] };
@@ -619,7 +620,7 @@ export function agregerSynthese(
   });
 
   const incidents: IncidentSynthese[] = detailles.flatMap((rapport) =>
-    rapport.listeIncidents.map((incident) => ({ ...incident, date: rapport.date, lotCode: rapport.lot.code })),
+    rapport.listeIncidents.map((incident) => ({ ...incident, date: rapport.date })),
   );
   const livraisons = detailles.flatMap((rapport) => rapport.livraisons);
 
@@ -695,10 +696,397 @@ export function indicateursJournalProjet(
   projetId: string,
   aujourdhui: string,
 ): IndicateursJournalProjet {
-  const duProjet = entrees.filter((entree) => entree.lot.projetId === projetId);
+  const duProjet = entrees.filter((entree) => entree.chantier.projetId === projetId);
   return {
     soumission: tauxSoumission(duProjet, aujourdhui, FENETRE_SOUMISSION_JOURS),
     incidents: duProjet.reduce((somme, entree) => somme + (entree.incidents ?? 0), 0),
     blocages: duProjet.reduce((somme, entree) => somme + (entree.blocages ?? 0), 0),
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * La saisie du rapport journalier (SFD F2 §5-6, RG-F2-01 à 11).
+ * ------------------------------------------------------------------ */
+
+/** Un rapport se rédige pour le jour même, ou rattrape au plus les deux jours précédents. */
+export const JOURS_RETROACTIFS_SAISIE = 2;
+export const PHOTOS_MAX = 5;
+/** Documents joints : peu, et légers — la connexion d'un chantier en région ne passe pas plus. */
+export const PIECES_JOINTES_MAX = 3;
+export const TAILLE_MAX_PIECE_JOINTE = 2 * 1024 * 1024;
+/**
+ * Les pièces jointes sont des documents (PV, plans, métrés) — pas de vidéo :
+ * les images passent par les photos, horodatées et géolocalisées.
+ */
+export const EXTENSIONS_DOCUMENT: readonly string[] = [".pdf", ".doc", ".docx", ".xls", ".xlsx"];
+
+/** Le sélecteur de fichiers ne fait que suggérer : l'écran vérifie le nom du fichier retenu. */
+export function estDocumentAccepte(nomFichier: string): boolean {
+  const nom = nomFichier.toLowerCase();
+  return EXTENSIONS_DOCUMENT.some((extension) => nom.endsWith(extension));
+}
+
+/** Le format d'un document joint, d'après son extension — ce que le rapport en affiche. */
+export type FormatDocument = "PDF" | "WORD" | "EXCEL" | "AUTRE";
+
+export function formatDocument(nomFichier: string): FormatDocument {
+  const nom = nomFichier.toLowerCase();
+  if (nom.endsWith(".pdf")) return "PDF";
+  if (nom.endsWith(".doc") || nom.endsWith(".docx")) return "WORD";
+  if (nom.endsWith(".xls") || nom.endsWith(".xlsx")) return "EXCEL";
+  return "AUTRE";
+}
+
+/** Une taille en octets, arrondie au kilo-octet supérieur : un document de 200 o pèse 1 Ko, pas 0. */
+export function tailleKo(octets: number): number {
+  return Math.ceil(octets / 1024);
+}
+export const LONGUEUR_MIN_NOTE = 10;
+export const LONGUEUR_MIN_DESCRIPTION_INCIDENT = 20;
+/** Sous ce taux de présence, le rapport le signale avant même la soumission. */
+export const SEUIL_ALERTE_PRESENCE = 60;
+/** Le brouillon part au serveur toutes les 30 secondes s'il a changé. */
+export const INTERVALLE_SAUVEGARDE_MS = 30_000;
+/** Au-delà, une journée de chantier n'a plus de sens. */
+export const HEURES_MAX_JOUR = 24;
+
+/**
+ * Le ciel du rapport d'après le relevé météo du chantier — pour préremplir,
+ * jamais pour imposer : le chef de chantier voit le ciel, le service non.
+ */
+export function cielDepuisReleve(condition: ConditionMeteo | string | null): Meteo | null {
+  switch (condition) {
+    case "DEGAGE":
+    case "ECLAIRCIES":
+      return "ENSOLEILLE";
+    case "NUAGEUX":
+    case "COUVERT":
+    case "VARIABLE":
+      return "NUAGEUX";
+    case "BROUILLARD":
+      return "BRUMEUX";
+    case "BRUINE":
+    case "PLUIE":
+    case "AVERSES":
+      return "PLUVIEUX";
+    case "ORAGE":
+      return "ORAGEUX";
+    default:
+      return null;
+  }
+}
+
+/** Les jours qu'on peut encore rapporter, le plus récent d'abord. */
+export function joursSaisissables(aujourdhui: string): string[] {
+  return Array.from({ length: JOURS_RETROACTIFS_SAISIE + 1 }, (_, rang) => ajouterJours(aujourdhui, -rang));
+}
+
+export function jourSaisissable(jour: string, aujourdhui: string): boolean {
+  return joursSaisissables(aujourdhui).includes(jour);
+}
+
+/**
+ * Les rapports qu'un chantier attend encore de son chef de chantier, du plus
+ * récent au plus ancien : chaque jour ouvré depuis le début du chantier qui
+ * n'a pas de rapport, plus les brouillons et les rejets — ceux-là même un
+ * jour chômé, puisqu'ils ont été commencés. Un rapport soumis n'attend plus
+ * rien du chef de chantier.
+ *
+ * Sans date de début connue, seuls les jours encore saisissables comptent :
+ * on ne réclame pas des rapports d'avant le chantier.
+ */
+export function rapportsEnAttente(
+  debut: string | null,
+  aujourdhui: string,
+  rapports: RapportDuJour[],
+): RapportEnAttente[] {
+  const parJour = new Map(rapports.map((rapport) => [rapport.date, rapport]));
+  const premier = debut && debut <= aujourdhui ? debut : (joursSaisissables(aujourdhui).at(-1) ?? aujourdhui);
+  const jours = new Set([
+    ...joursOuvres(premier, aujourdhui),
+    ...rapports.map((rapport) => rapport.date).filter((jour) => jour <= aujourdhui),
+  ]);
+  return [...jours]
+    .sort((a, b) => b.localeCompare(a))
+    .flatMap((date): RapportEnAttente[] => {
+      const rapport = parJour.get(date);
+      const etat = !rapport ? "A_REDIGER" : rapport.statut === "BROUILLON" || rapport.statut === "REJETE" ? rapport.statut : null;
+      if (!etat) return [];
+      return [
+        {
+          date,
+          etat,
+          rapportId: rapport?.id ?? null,
+          enregistreLe: rapport?.enregistreLe ?? null,
+          redigeable: jourSaisissable(date, aujourdhui),
+        },
+      ];
+    });
+}
+
+/**
+ * Les brouillons d'un chef de chantier, tous chantiers confondus, du plus
+ * récent au plus ancien. Un brouillon au-delà de J-2 reste listé — il ne se
+ * reprend plus (`redigeable`), mais le chef de chantier doit savoir qu'il
+ * n'a jamais été soumis.
+ */
+export function brouillonsEnCours<P>(
+  parProjet: { projet: P; aujourdhui: string; rapports: RapportDuJour[] }[],
+): { projet: P; rapport: RapportDuJour; redigeable: boolean }[] {
+  return parProjet
+    .flatMap(({ projet, aujourdhui, rapports }) =>
+      rapports
+        .filter((rapport) => rapport.statut === "BROUILLON")
+        .map((rapport) => ({ projet, rapport, redigeable: jourSaisissable(rapport.date, aujourdhui) })),
+    )
+    .sort(
+      (a, b) =>
+        b.rapport.date.localeCompare(a.rapport.date) || b.rapport.enregistreLe.localeCompare(a.rapport.enregistreLe),
+    );
+}
+
+/**
+ * Le chef de chantier ne touche plus un rapport soumis (RG-F2-03) : seul un
+ * rejet du CT le lui rend. Un rapport qui n'existe pas encore se rédige.
+ */
+export function rapportModifiable(statut: StatutRapport | null): boolean {
+  return statut === null || statut === "BROUILLON" || statut === "REJETE";
+}
+
+/**
+ * Les sections à remplir, d'après celles que le serveur donne pour le chantier.
+ * Une journée d'arrêt n'a ni avancement ni consommation (SFD §4.4) : elle ne
+ * crée aucun mouvement de stock, aucune production à payer. Elle ne déclare
+ * pas davantage d'effectif, d'engin ou de livraison : le rapport se réduit à
+ * la journée — horaires, motif de l'arrêt, météo.
+ */
+export function sectionsActives(sections: SectionSaisie[], arret: boolean): SectionSaisie[] {
+  return arret ? [] : sections;
+}
+
+/**
+ * À qui remonte un blocage : le chef de chantier tranche un blocage mineur,
+ * le CT négocie un blocage significatif, le CP reçoit un blocage bloquant.
+ */
+export function escaladeBlocage(niveau: NiveauBlocageSaisi): RoleSignataire | null {
+  switch (niveau) {
+    case "SIGNIFICATIF":
+      return "CT";
+    case "BLOQUANT":
+      return "CP";
+    default:
+      return null;
+  }
+}
+
+export function cleAlerte(alerte: AlerteImmediate): string {
+  return alerte.type === "BLOCAGE_BLOQUANT" ? "BLOCAGE" : alerte.cle;
+}
+
+/**
+ * Les alertes que la saisie appelle **dès maintenant** (RG-F2-11) : un
+ * blocage bloquant, un incident grave. Elles partent avant la soumission —
+ * un chantier arrêté n'attend pas 17 h pour être su.
+ */
+export function alertesImmediates(saisie: Pick<SaisieRapport, "blocage" | "incidents">): AlerteImmediate[] {
+  const alertes: AlerteImmediate[] = [];
+  if (saisie.blocage.niveau === "BLOQUANT") {
+    alertes.push({ type: "BLOCAGE_BLOQUANT", description: saisie.blocage.description });
+  }
+  for (const incident of saisie.incidents) {
+    if (incident.gravite === "GRAVE") {
+      alertes.push({ type: "INCIDENT_GRAVE", cle: incident.cle, description: incident.description });
+    }
+  }
+  return alertes;
+}
+
+/**
+ * La catégorie HSE / qualité d'un événement : choisie pour un incident,
+ * déduite de sa nature pour les autres — la synthèse compte en catégories.
+ */
+export function categorieEvenement(nature: NatureEvenement, choisie: TypeIncident): TypeIncident {
+  switch (nature) {
+    case "INCIDENT":
+      return choisie;
+    case "DIFFICULTE_TECHNIQUE":
+    case "NON_CONFORMITE":
+      return "QUALITE";
+    case "ARRET_TRAVAUX":
+      return "MATERIEL";
+    default:
+      return "ADMINISTRATIF";
+  }
+}
+
+/** Le cumul d'une activité au soir, avec la quantité du jour. */
+export function cumulSaisi(activite: ActivitePreparee, quantiteJour: number | null): number {
+  return activite.cumulVeille + (quantiteJour ?? 0);
+}
+
+export function avancementSaisi(activite: ActivitePreparee, quantiteJour: number | null): number {
+  if (activite.quantitePrevue <= 0) return 0;
+  return Math.min(100, Math.round((cumulSaisi(activite, quantiteJour) / activite.quantitePrevue) * 100));
+}
+
+/** La quantité du jour fait dépasser le prévu : possible (avenant, métré), mais à vérifier. */
+export function depassePrevu(activite: ActivitePreparee, quantiteJour: number | null): boolean {
+  return activite.quantitePrevue > 0 && cumulSaisi(activite, quantiteJour) > activite.quantitePrevue;
+}
+
+/** Les activités du chantier qui se déclarent de cette façon, dans l'ordre du serveur. */
+export function activitesSuivies(
+  preparation: Pick<PreparationSaisie, "activites">,
+  suivi: ActivitePreparee["suivi"],
+): ActivitePreparee[] {
+  return preparation.activites.filter((activite) => activite.suivi === suivi);
+}
+
+/**
+ * Les lots qu'on peut déclarer travaillés à l'avancement : ceux qui ont au
+ * moins une activité suivie de cette façon, dans l'ordre du serveur. Un lot en
+ * sous-traitance informelle se déclare par la production de ses tâcherons.
+ */
+export function lotsSuivisAvancement(preparation: Pick<PreparationSaisie, "lots" | "activites">): LotJournal[] {
+  const avecActivite = new Set(activitesSuivies(preparation, "AVANCEMENT").map((activite) => activite.lotId));
+  return preparation.lots.filter((lot) => avecActivite.has(lot.id));
+}
+
+/**
+ * Les lots travaillés d'un rapport. Un rapport enregistré avant le choix des
+ * lots (05/10/2026) ne les porte pas : ils se déduisent alors des activités
+ * qu'il a renseignées.
+ */
+export function lotsTravaillesDe(
+  saisie: Pick<SaisieRapport, "activites"> & { lotsTravailles?: PointLot[] },
+  activites: ActivitePreparee[],
+): PointLot[] {
+  if (saisie.lotsTravailles) return saisie.lotsTravailles;
+  const lotDe = new Map(activites.map((activite) => [activite.activiteId, activite.lotId]));
+  const lots = new Set(saisie.activites.flatMap((ligne) => lotDe.get(ligne.activiteId) ?? []));
+  return [...lots].map((lotId) => ({ lotId, observation: "" }));
+}
+
+/**
+ * Les quantités réalisées ce jour, activité par activité. En sous-traitance
+ * informelle, l'avancement **se déduit de la production** des tâcherons
+ * (SFD §5.4) : il ne se saisit pas une seconde fois.
+ */
+export function quantitesDuJour(
+  saisie: Pick<SaisieRapport, "activites" | "production" | "arret">,
+  sections: SectionSaisie[],
+): Map<string, number> {
+  const actives = sectionsActives(sections, saisie.arret !== null);
+  const quantites = new Map<string, number>();
+  // Un chantier mêle des lots des deux suivis : leurs activités sont
+  // distinctes, les deux sources s'additionnent sans se recouvrir.
+  if (actives.includes("AVANCEMENT")) {
+    for (const ligne of saisie.activites) quantites.set(ligne.activiteId, ligne.quantiteJour ?? 0);
+  }
+  if (actives.includes("PRODUCTION")) {
+    for (const ligne of saisie.production) {
+      if (!ligne.activiteId) continue;
+      quantites.set(ligne.activiteId, (quantites.get(ligne.activiteId) ?? 0) + (ligne.quantiteJour ?? 0));
+    }
+  }
+  return quantites;
+}
+
+/**
+ * L'avancement du lot au soir : la moyenne simple de ses activités, comme
+ * le calcule la structure du chantier (le budget pondère les lots, pas les
+ * activités).
+ */
+export function avancementLotSaisi(activites: ActivitePreparee[], quantites: Map<string, number>): number | null {
+  if (activites.length === 0) return null;
+  const total = activites.reduce(
+    (somme, activite) => somme + avancementSaisi(activite, quantites.get(activite.activiteId) ?? null),
+    0,
+  );
+  return Math.round(total / activites.length);
+}
+
+export function avancementTheoriqueLot(activites: ActivitePreparee[]): number | null {
+  if (activites.length === 0) return null;
+  return Math.round(activites.reduce((somme, activite) => somme + activite.avancementTheorique, 0) / activites.length);
+}
+
+/**
+ * Les unités proposées pour un matériau consommé — une proposition, pas une
+ * liste fermée : le chef de chantier peut en taper une autre.
+ */
+export const UNITES_MATERIAU: readonly string[] = [
+  "sac",
+  "kg",
+  "t",
+  "m³",
+  "m²",
+  "ml",
+  "m",
+  "L",
+  "u",
+  "barre",
+  "rouleau",
+  "paquet",
+  "pot",
+  "palette",
+  "voyage",
+];
+
+/**
+ * Les unités à proposer : celles du stock du chantier d'abord, puis la liste
+ * générale, sans doublon.
+ */
+export function unitesProposees(materiaux: Pick<MateriauDisponible, "unite">[]): string[] {
+  return [...new Set([...materiaux.map((materiau) => materiau.unite), ...UNITES_MATERIAU])];
+}
+
+/** Les chiffres de la modale de soumission : ce que le CC certifie d'un coup d'œil. */
+export interface ResumeSaisie {
+  effectifPresent: number;
+  effectifPrevu: number;
+  heures: number;
+  taux: number | null;
+  activitesAvancees: number;
+  activites: number;
+  avancementLot: number | null;
+  materiaux: number;
+  livraisons: number;
+  incidents: number;
+  incidentsGraves: number;
+  blocage: NiveauBlocageSaisi;
+  photos: number;
+}
+
+/** Les heures de main-d'œuvre d'une ligne d'effectifs : présents × heures. */
+export function heuresEffectif(ligne: { presents: number | null; heures: number | null }): number {
+  return (ligne.presents ?? 0) * (ligne.heures ?? 0);
+}
+
+export function resumeSaisie(
+  saisie: SaisieRapport,
+  preparation: Pick<PreparationSaisie, "activites" | "sections">,
+): ResumeSaisie {
+  const sections = sectionsActives(preparation.sections, saisie.arret !== null);
+  const effectifs = sections.includes("EFFECTIFS") ? saisie.effectifs : [];
+  const effectifPresent = effectifs.reduce((total, ligne) => total + (ligne.presents ?? 0), 0);
+  const effectifPrevu = effectifs.reduce((total, ligne) => total + (ligne.prevus ?? 0), 0);
+  const quantites = quantitesDuJour(saisie, preparation.sections);
+  return {
+    effectifPresent,
+    effectifPrevu,
+    heures: effectifs.reduce((total, ligne) => total + heuresEffectif(ligne), 0),
+    taux: tauxPresence(effectifPresent, effectifPrevu),
+    activitesAvancees: [...quantites.values()].filter((quantite) => quantite > 0).length,
+    activites: preparation.activites.length,
+    avancementLot: avancementLotSaisi(preparation.activites, quantites),
+    materiaux: sections.includes("MATERIAUX")
+      ? saisie.materiaux.filter((ligne) => (ligne.quantite ?? 0) > 0).length
+      : 0,
+    livraisons: sections.includes("LIVRAISONS") ? saisie.livraisons.length : 0,
+    incidents: saisie.incidents.length,
+    incidentsGraves: saisie.incidents.filter((incident) => incident.gravite === "GRAVE").length,
+    blocage: saisie.blocage.niveau,
+    photos: saisie.photos.length,
   };
 }

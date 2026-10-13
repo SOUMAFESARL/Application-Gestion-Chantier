@@ -14,11 +14,13 @@ import {
   Play,
   Phone,
   Printer,
+  Trash2,
   TrendingUp,
   Users,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -41,8 +43,8 @@ import {
   projetVisible,
   useDroits,
 } from "@/features/habilitations";
-import { lireProjet, listerEquipes, listerLots } from "@/features/projets/adaptateur";
-import { cleEquipes, cleLots, cleProjet } from "@/features/projets/cles";
+import { lireProjet, lireStatistiques, listerEquipes, listerLots } from "@/features/projets/adaptateur";
+import { cleEquipes, cleLots, cleProjet, cleStatistiques } from "@/features/projets/cles";
 import { useGestionProjet } from "@/features/projets/components/GestionProjet";
 import {
   budgetRestant,
@@ -51,6 +53,7 @@ import {
   effectifProjet,
   estEnRetard,
   largeurJauge,
+  libelleTypeProjet,
   niveauBudget,
   peutReprendre,
   peutSuspendre,
@@ -155,6 +158,10 @@ export function FicheProjet({ projetId }: { projetId: string }) {
     queryKey: cleEquipes(projetId),
     queryFn: ({ signal }) => listerEquipes(projetId, signal),
   });
+  const requeteStatistiques = useQuery({
+    queryKey: cleStatistiques(projetId),
+    queryFn: ({ signal }) => lireStatistiques(projetId, signal),
+  });
 
   /**
    * L'en-tête reste collé sous celui de l'application, comme le sélecteur
@@ -162,17 +169,23 @@ export function FicheProjet({ projetId }: { projetId: string }) {
    */
   const [entete, setEntete] = useState<HTMLDivElement | null>(null);
   const colle = useEstColle(entete);
-  const { modifier, basculerSuspension, encadrer, retirerEncadrement, cadrer, modaux } =
-    useGestionProjet();
+  const router = useRouter();
+  // Un projet supprimé n'a plus de fiche : on revient au portefeuille.
+  const { modifier, basculerSuspension, supprimer, encadrer, retirerEncadrement, cadrer, modaux } =
+    useGestionProjet(() => router.replace("/projets"));
   const fichePdf = useGenerationFicheProjet(requete.data);
   const { droits, peut } = useDroits();
   const peutSaisir = peut("projets", "saisie");
   const peutValider = peut("projets", "validation");
   const voitFinance = peut("finance");
 
+  // Les chiffres du serveur quand il les tient ; sinon, ceux des lots affichés.
   const synthese = useMemo(
-    () => syntheseLots(requeteLots.data ?? []),
-    [requeteLots.data],
+    () =>
+      requeteStatistiques.data ??
+      requete.data?.statistiques ??
+      syntheseLots(requeteLots.data ?? []),
+    [requeteStatistiques.data, requete.data?.statistiques, requeteLots.data],
   );
 
   const retour = (
@@ -230,10 +243,10 @@ export function FicheProjet({ projetId }: { projetId: string }) {
       >
         {/*
          * Sur téléphone, le nom d'un chantier est long : collé à droite, les
-         * badges et boutons l'écrasaient sur trois lignes à 28 px, et la
+         * badges et boutons l'écrasaient sur trois lignes, et la
          * barre collante mangeait la moitié de l'écran. En dessous de `sm`,
          * les actions passent sous le titre, calées à gauche, et le titre
-         * descend à `text-xl` (`!` : `.text-h2` est une classe globale hors
+         * descend à `text-xl` (`!` : `.text-h3` est une classe globale hors
          * couche, qu'un utilitaire ne surclasse pas autrement).
          */}
         <EnTetePage
@@ -249,7 +262,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
             <span className="mt-1 flex flex-wrap items-center gap-2">
               {projet.typeProjet && (
                 <Badge variante="neutre">
-                  {tProjets(`tiroirCreation.typeProjet.${projet.typeProjet}`)}
+                  {libelleTypeProjet(projet.typeProjet, (code) => tProjets(`tiroirCreation.typeProjet.${code}`))}
                 </Badge>
               )}
               <Badge variante={TON_STATUT[projet.statut]}>
@@ -303,6 +316,18 @@ export function FicheProjet({ projetId }: { projetId: string }) {
                     {t("reprendre")}
                   </DropdownMenuItem>
                 )}
+                {peutValider && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => supprimer(projet)}
+                      className="text-erreur focus:text-erreur"
+                    >
+                      <Trash2 className="text-erreur" aria-hidden="true" />
+                      {t("supprimer")}
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           }
@@ -338,7 +363,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
               </Information>
               <Information libelle={t("informations.type")}>
                 {projet.typeProjet
-                  ? tProjets(`tiroirCreation.typeProjet.${projet.typeProjet}`)
+                  ? libelleTypeProjet(projet.typeProjet, (code) => tProjets(`tiroirCreation.typeProjet.${code}`))
                   : t("informations.nonRenseigne")}
               </Information>
               <Information libelle={t("informations.maitreOuvrage")}>
@@ -689,7 +714,7 @@ function CarteCalendrier({ projet, onDefinir }: { projet: Projet; onDefinir?: ()
 
       <div className={cn(FILET, "flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-600")}>
         <span>
-          {t("duree", { duree: formaterDuree(echeancier.dureeJours) })}
+          {t("duree", { duree: formaterDuree(echeancier.duree) })}
         </span>
         <span>
           {projet.dateDebutReelle

@@ -12,23 +12,29 @@
  */
 
 import type { Collaborateur } from "@/features/invitations/types";
+import { LOTS_INDICATIFS } from "@/features/referentiels/lots";
 
 import type {
   Activite,
   AffectationProjet,
+  AnomalieImportLot,
+  CreationLotProjet,
   Equipe,
   FonctionAutreMembre,
   FonctionProjet,
   Intervenant,
+  LigneImportLot,
   Lot,
   MembreEquipe,
   ModeExecutionLot,
   NatureEquipe,
   Projet,
   StatutActivite,
+  StatutDeclare,
   StatutProjet,
   TypeBordereau,
   TypeProjet,
+  TypeProjetPredefini,
   RoleMembreEquipe,
   UniteActivite,
 } from "./types";
@@ -174,6 +180,23 @@ export function peutReprendre(projet: Pick<Projet, "statut">): boolean {
   return projet.statut === "SUSPENDU";
 }
 
+/**
+ * Le statut qu'un projet suspendu retrouve à sa reprise. Le serveur n'expose
+ * pas d'action de reprise : l'écran écrit le statut, et le choisit au plus
+ * neutre — `EN_COURS` si le chantier a démarré (ou aurait dû), `EN_ATTENTE`
+ * sinon. Le retard, lui, reste au serveur de le constater.
+ */
+export function statutDeReprise(
+  projet: Pick<Projet, "dateDebutReelle" | "dateDebutPrevue">,
+  maintenant: Date = new Date(),
+): StatutProjet {
+  if (projet.dateDebutReelle) return "EN_COURS";
+  const aujourdhui = maintenant.toISOString().split("T")[0];
+  return projet.dateDebutPrevue && projet.dateDebutPrevue <= aujourdhui
+    ? "EN_COURS"
+    : "EN_ATTENTE";
+}
+
 /** Un projet clos (terminé ou archivé) ne se modifie plus : il fait foi tel qu'il a fini. */
 export function projetModifiable(projet: Pick<Projet, "statut">): boolean {
   return projet.statut !== "TERMINE" && projet.statut !== "ARCHIVE";
@@ -197,10 +220,21 @@ function joursEntre(debut: string | null, fin: string | null): number | null {
   return Math.round((arrivee - depart) / JOUR_MS);
 }
 
+/**
+ * Le planning contractuel est fixé : début **et** fin prévus. Un lot ne
+ * s'ajoute qu'à cette condition — sa période se lit dans celle du projet, et
+ * un lot sans projet daté n'a pas de cadre où se placer.
+ */
+export function planningDefini(projet: Pick<Projet, "dateDebutPrevue" | "dateFinPrevue">): boolean {
+  return Boolean(projet.dateDebutPrevue && projet.dateFinPrevue);
+}
+
 /** Ce que les dates d'un projet disent de son délai. */
 export interface EcheancierProjet {
   /** La durée prévue, en jours calendaires, bornes comprises. */
   dureeJours: number | null;
+  /** La même durée prévue, en calendaire et en jours ouvrés. */
+  duree: DureeProjet | null;
   /**
    * La part du délai prévu déjà écoulée, de 0 à 100. C'est le **temps**, pas
    * l'avancement théorique que le serveur calcule sur le planning : les deux
@@ -229,6 +263,7 @@ export function echeancierProjet(projet: Projet, maintenant: Date = new Date()):
   );
   return {
     dureeJours: duree === null || duree < 0 ? null : duree + 1,
+    duree: dureeProjet(projet.dateDebutPrevue, projet.dateFinPrevue),
     tempsEcoule:
       duree === null || duree <= 0 || ecoules === null
         ? null
@@ -288,6 +323,33 @@ export function budgetRecevable(centimes: number | null): centimes is number {
   return centimes !== null && centimes >= BUDGET_MINIMAL_CENTIMES;
 }
 
+/** Ce qui borne un budget : le lot qui contient l'activité, le projet. */
+export type PlafondBudget = "LOT" | "PROJET";
+
+/**
+ * Le plafond qu'un budget dépasse : un lot ne dépasse pas le budget du
+ * projet, une activité ni celui de son lot ni celui du projet. Un budget
+ * encore non défini (`null`) ne borne rien. Le plus proche — le lot — d'abord.
+ */
+export function plafondBudgetDepasse(
+  centimes: number | null,
+  plafonds: { lot?: number | null; projet: number | null },
+): PlafondBudget | null {
+  if (centimes === null) return null;
+  if (plafonds.lot != null && centimes > plafonds.lot) return "LOT";
+  if (plafonds.projet !== null && centimes > plafonds.projet) return "PROJET";
+  return null;
+}
+
+/**
+ * Le plus gros budget porté par les activités d'un lot : le budget du lot ne
+ * peut descendre en dessous. `null` : aucune activité n'a de budget.
+ */
+export function budgetMaxActivites(lot: Lot): number | null {
+  const budgets = lot.activites.flatMap((activite) => (activite.budget === null ? [] : [activite.budget]));
+  return budgets.length === 0 ? null : Math.max(...budgets);
+}
+
 /**
  * La durée par défaut d'un chantier, en jours, quand aucune date de fin n'est
  * fournie. Six mois : l'ordre de grandeur d'un chantier de gros oeuvre.
@@ -332,16 +394,69 @@ export const INDICE_SANTE_INITIAL = 100;
  * La création d'un projet.
  * ------------------------------------------------------------------ */
 
-/** Les natures de projet, dans l'ordre du sélecteur. */
-export const TYPES_PROJET: TypeProjet[] = [
+/**
+ * Les natures de projet proposées, dans l'ordre du combobox. Pas d'« Autre » :
+ * un type absent de la liste se tape dans la recherche.
+ */
+export const TYPES_PROJET: TypeProjetPredefini[] = [
   "BATIMENT_RESIDENTIEL",
   "BATIMENT_TERTIAIRE",
   "INDUSTRIEL",
   "GENIE_CIVIL",
   "VRD",
   "REHABILITATION",
-  "AUTRE",
 ];
+
+/** Tous les codes que l'application sait nommer, `AUTRE` hérité compris. */
+const TYPES_PROJET_CONNUS: readonly string[] = [...TYPES_PROJET, "AUTRE"];
+
+/** Vrai si le type est un code connu, faux s'il a été saisi librement. */
+export function estTypeProjetPredefini(type: TypeProjet): type is TypeProjetPredefini {
+  return TYPES_PROJET_CONNUS.includes(type);
+}
+
+/**
+ * Le libellé d'un type de projet : traduit s'il est prédéfini, tel que saisi
+ * sinon. Le seul endroit où cette distinction se fait — un écran qui
+ * traduirait directement le code planterait sur un type libre.
+ */
+export function libelleTypeProjet(
+  type: TypeProjet,
+  libellePredefini: (type: TypeProjetPredefini) => string,
+): string {
+  return estTypeProjetPredefini(type) ? libellePredefini(type) : type;
+}
+
+/* ------------------------------------------------------------------ *
+ * Les contrats joints à la création.
+ * ------------------------------------------------------------------ */
+
+/** Le seul format accepté : un contrat signé circule en PDF, pas en Word. */
+export const FORMAT_CONTRAT = "application/pdf";
+
+/**
+ * Le plafond d'un contrat, en octets. Un marché scanné avec ses annexes
+ * dépasse rarement 10 Mo ; 20 Mo laissent de la marge sans laisser passer
+ * un dossier entier qu'on aurait dû découper.
+ */
+export const TAILLE_MAX_CONTRAT = 20 * 1024 * 1024;
+
+/** Contrat, avenants, annexes : au-delà, ce sont les documents du projet. */
+export const NOMBRE_MAX_CONTRATS = 10;
+
+export type RefusContrat = "FORMAT" | "TAILLE";
+
+/**
+ * Pourquoi un fichier ne peut pas être joint comme contrat — `null` s'il
+ * convient. Certains navigateurs laissent `type` vide : l'extension tranche
+ * alors.
+ */
+export function refusContrat(fichier: { name: string; type: string; size: number }): RefusContrat | null {
+  const estPdf = fichier.type ? fichier.type === FORMAT_CONTRAT : fichier.name.toLowerCase().endsWith(".pdf");
+  if (!estPdf) return "FORMAT";
+  if (fichier.size > TAILLE_MAX_CONTRAT) return "TAILLE";
+  return null;
+}
 
 /** De la régie à la sous-traitance la moins encadrée. */
 export const MODES_EXECUTION_LOT: ModeExecutionLot[] = [
@@ -388,6 +503,48 @@ export function joursOuvres(debut: string, fin: string): number | null {
     if (jourSemaine !== 0 && jourSemaine !== 6) ouvres += 1;
   }
   return ouvres;
+}
+
+/**
+ * La durée d'un projet, lue de deux façons qui ne se remplacent pas : en
+ * **calendaire** (années, mois, et les jours qui restent après le dernier mois
+ * plein), comme on l'écrit dans un marché ; et en **jours ouvrés**, ce que le
+ * chantier aura réellement pour travailler.
+ */
+export interface DureeProjet {
+  annees: number;
+  mois: number;
+  jours: number;
+  joursOuvres: number;
+}
+
+/** Une date UTC décalée de `n` mois, le quantième ramené au dernier jour du mois au besoin (31 janv. + 1 mois → 28 févr.). */
+function decalerMois(date: Date, n: number): Date {
+  const cible = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + n, 1));
+  const dernierJour = new Date(Date.UTC(cible.getUTCFullYear(), cible.getUTCMonth() + 1, 0)).getUTCDate();
+  cible.setUTCDate(Math.min(date.getUTCDate(), dernierJour));
+  return cible;
+}
+
+/**
+ * La durée entre deux dates ISO courtes, **bornes comprises** : du 1er janvier
+ * au 31 décembre, c'est un an, pas un an moins un jour. `null` tant qu'une des
+ * deux dates manque ou qu'elles ne se suivent pas.
+ */
+export function dureeProjet(debut: string | null, fin: string | null): DureeProjet | null {
+  if (!debut || !fin) return null;
+  const ouvres = joursOuvres(debut, fin);
+  if (ouvres === null) return null;
+  const depart = new Date(debut);
+  // Le lendemain de la fin : la borne exclue qui rend la fin comprise.
+  const arrivee = new Date(Date.parse(fin) + JOUR_MS);
+
+  let moisPleins =
+    (arrivee.getUTCFullYear() - depart.getUTCFullYear()) * 12 + arrivee.getUTCMonth() - depart.getUTCMonth();
+  if (decalerMois(depart, moisPleins) > arrivee) moisPleins -= 1;
+  const jours = Math.round((arrivee.getTime() - decalerMois(depart, moisPleins).getTime()) / JOUR_MS);
+
+  return { annees: Math.floor(moisPleins / 12), mois: moisPleins % 12, jours, joursOuvres: ouvres };
 }
 
 
@@ -583,14 +740,14 @@ function isoCourt(date: Date): string {
   return date.toISOString().split("T")[0];
 }
 
-/** Le code d'un lot à partir de son rang (0 pour le premier) : `01`. */
+/** Le code d'un lot à partir de son rang (0 pour le premier) : `L-01`, comme le serveur. */
 export function codeLot(rang: number): string {
-  return String(rang + 1).padStart(2, "0");
+  return `L-${String(rang + 1).padStart(2, "0")}`;
 }
 
-/** Le code d'une activité : celui de son lot, puis son rang dans le lot — `03.02`. */
-export function codeActivite(codeDuLot: string, rang: number): string {
-  return `${codeDuLot}.${String(rang + 1).padStart(2, "0")}`;
+/** Le rang que porte un code de lot — `L-03` ou `03` : 3. */
+function rangDuCode(code: string): number {
+  return Number.parseInt(code.replace(/\D/g, ""), 10);
 }
 
 /** Le plus grand rang d'une série de codes, 0 si elle est vide. */
@@ -605,49 +762,87 @@ function rangMaximal(rangs: number[]): number {
  * lots sous le même code, et les activités de l'un se liraient dans l'autre.
  */
 export function codeLotSuivant(lots: Lot[]): string {
-  return codeLot(rangMaximal(lots.map((lot) => Number.parseInt(lot.code, 10))));
+  return codeLot(rangMaximal(lots.map((lot) => rangDuCode(lot.code))));
 }
 
-/** Le code que prendra la prochaine activité du lot, selon la même règle. */
-export function codeActiviteSuivant(lot: Lot): string {
-  const rangs = lot.activites.map((activite) =>
-    Number.parseInt(activite.code.split(".")[1] ?? "", 10),
-  );
-  return codeActivite(lot.code, rangMaximal(rangs));
+/**
+ * Un lot ne se supprime que tant qu'aucune de ses activités n'a avancé :
+ * l'avancement vient du journal de chantier, et le supprimer effacerait ce
+ * qui a été constaté sur le terrain. Ses activités encore à zéro partent
+ * avec lui.
+ */
+export function lotSupprimable(lot: Pick<Lot, "activites">): boolean {
+  return lot.activites.every((activite) => activite.avancement === 0);
+}
+
+/**
+ * Une activité ne se supprime que tant qu'elle n'a pas avancé — même raison
+ * que pour son lot (`lotSupprimable`) : son avancement vient du terrain.
+ */
+export function activiteSupprimable(activite: Pick<Activite, "avancement">): boolean {
+  return activite.avancement === 0;
+}
+
+/** Les deux dates d'une activité, quand elle est planifiée. `null` sinon. */
+export function periodeActivite(
+  activite: Pick<Activite, "dateDebutPrevue" | "dateFinPrevue">,
+): { debut: string; fin: string } | null {
+  if (!activite.dateDebutPrevue || !activite.dateFinPrevue) return null;
+  return { debut: activite.dateDebutPrevue, fin: activite.dateFinPrevue };
 }
 
 /**
  * L'avancement qu'une activité *devrait* avoir atteint aujourd'hui, en
  * supposant un rythme régulier entre ses deux dates. 0 avant le début, 100
  * après la fin.
+ *
+ * `null` pour une activité qui n'est pas encore planifiée : sans dates, rien
+ * n'est attendu d'elle — ni retard, ni avance.
  */
 export function avancementTheoriqueActivite(
   activite: Pick<Activite, "dateDebutPrevue" | "dateFinPrevue">,
   maintenant: Date = new Date(),
-): number {
+): number | null {
+  const periode = periodeActivite(activite);
+  if (!periode) return null;
   const jour = isoCourt(maintenant);
-  if (jour < activite.dateDebutPrevue) return 0;
-  if (jour >= activite.dateFinPrevue) return 100;
-  const debut = Date.parse(activite.dateDebutPrevue);
-  const duree = Math.max(Date.parse(activite.dateFinPrevue) - debut + JOUR_MS, JOUR_MS);
+  if (jour < periode.debut) return 0;
+  if (jour >= periode.fin) return 100;
+  const debut = Date.parse(periode.debut);
+  const duree = Math.max(Date.parse(periode.fin) - debut + JOUR_MS, JOUR_MS);
   return Math.round(((Date.parse(jour) - debut) / duree) * 100);
 }
 
+/** Les statuts qu'on déclare sur un lot ou une activité, dans l'ordre du formulaire. */
+export const STATUTS_DECLARES: StatutDeclare[] = ["NON_DEMARRE", "EN_COURS", "TERMINE", "BLOQUE"];
+
+/** Le statut d'un lot ou d'une activité qu'on vient de déclarer. */
+export const STATUT_DECLARE_PAR_DEFAUT: StatutDeclare = "NON_DEMARRE";
+
 /**
- * L'état d'une activité, déduit de ses dates et de son avancement.
+ * L'état affiché d'une activité : son statut déclaré, sauf quand ses dates le
+ * contredisent.
  *
- * « En retard » a **la même définition que pour un chantier** : un écart au
- * théorique au-delà de `SEUIL_RETARD_POINTS`. Une activité qui glisse d'un
- * jour n'allume pas d'alerte ; une activité dont la fin est passée sans
- * qu'elle soit terminée, si.
+ * « Terminée » et « Bloquée » priment toujours — ce sont des faits que le
+ * terrain déclare. « Non démarrée » et « En cours » cèdent au retard, qui a
+ * **la même définition que pour un chantier** : un écart au théorique
+ * au-delà de `SEUIL_RETARD_POINTS`. Une activité qui glisse d'un jour
+ * n'allume pas d'alerte ; une activité dont la fin est passée sans qu'elle
+ * soit terminée, si.
  */
 export function statutActivite(activite: Activite, maintenant: Date = new Date()): StatutActivite {
-  if (activite.avancement >= 100) return "TERMINE";
+  if (activite.statut === "BLOQUE") return "BLOQUE";
+  if (activite.statut === "TERMINE" || activite.avancement >= 100) return "TERMINE";
   const theorique = avancementTheoriqueActivite(activite, maintenant);
-  if (theorique >= 100) return "EN_RETARD";
-  if (estEnRetard(ecartAvancement(activite.avancement, theorique))) return "EN_RETARD";
-  if (activite.avancement === 0 && theorique === 0) return "A_VENIR";
-  return "EN_COURS";
+  // Planifiée et à la traîne : en retard, quoi qu'on ait déclaré.
+  if (
+    theorique !== null &&
+    (theorique >= 100 || estEnRetard(ecartAvancement(activite.avancement, theorique)))
+  ) {
+    return "EN_RETARD";
+  }
+  // Un avancement saisi au journal vaut démarrage, même non déclaré.
+  return activite.statut === "EN_COURS" || activite.avancement > 0 ? "EN_COURS" : "A_VENIR";
 }
 
 /** La quantité déjà réalisée, déduite de l'avancement. `null` sans quantité prévue. */
@@ -657,44 +852,52 @@ export function quantiteRealisee(activite: Activite): number | null {
 }
 
 /**
- * L'avancement d'un ensemble d'activités, **pondéré par leur budget**.
+ * L'avancement d'un ensemble d'activités : leur moyenne simple. Le budget se
+ * tient au lot, pas à l'activité — il n'y a rien d'autre pour les départager.
+ * Aucune activité : 0.
+ */
+export function avancementActivites(activites: Activite[]): number {
+  if (activites.length === 0) return 0;
+  const somme = activites.reduce((total, activite) => total + activite.avancement, 0);
+  return Math.round(somme / activites.length);
+}
+
+/**
+ * L'avancement d'un chantier, **pondéré par le budget de ses lots**.
  *
  * Une clôture de chantier et un gros œuvre ne pèsent pas pareil : les mettre
- * à égalité ferait d'un lot à 100 % sur ses petites activités un lot presque
- * fini. Quand aucun budget n'est défini, la moyenne simple est le seul repli
- * honnête. Aucune activité : 0.
+ * à égalité ferait d'un chantier dont les petits lots sont finis un chantier
+ * presque fini. La pondération n'a de sens que si **chaque** lot qui a des
+ * activités a son budget — un lot sans budget pèserait zéro et disparaîtrait
+ * du calcul. Sinon, la moyenne simple des activités est le seul repli honnête.
  */
-export function avancementPondere(activites: Activite[]): number {
-  if (activites.length === 0) return 0;
-  const poids = activites.reduce((somme, activite) => somme + (activite.budget ?? 0), 0);
-  if (poids <= 0) {
-    const somme = activites.reduce((total, activite) => total + activite.avancement, 0);
-    return Math.round(somme / activites.length);
-  }
-  const avance = activites.reduce(
-    (somme, activite) => somme + (activite.budget ?? 0) * activite.avancement,
+export function avancementPondere(lots: Lot[]): number {
+  const mesures = lots.filter((lot) => lot.activites.length > 0);
+  const toutBudgete = mesures.length > 0 && mesures.every((lot) => (lot.budget ?? 0) > 0);
+  if (!toutBudgete) return avancementActivites(activitesDuProjet(lots));
+  const poids = mesures.reduce((somme, lot) => somme + (lot.budget ?? 0), 0);
+  const avance = mesures.reduce(
+    (somme, lot) => somme + (lot.budget ?? 0) * avancementActivites(lot.activites),
     0,
   );
   return Math.round(avance / poids);
 }
 
-/** Le budget d'un lot : la somme de ses activités. `null` si aucune n'en a. */
-export function budgetLot(lot: Lot): number | null {
-  const budgets = lot.activites
-    .map((activite) => activite.budget)
-    .filter((budget): budget is number => budget !== null);
-  return budgets.length === 0 ? null : budgets.reduce((somme, budget) => somme + budget, 0);
-}
-
 /**
- * La période d'un lot : du premier début à la dernière fin de ses activités.
- * Sans activité, les dates saisies sur le lot, quand il y en a.
+ * La période d'un lot : du premier début à la dernière fin de ses activités
+ * planifiées. Sans activité datée, les dates saisies sur le lot, quand il y
+ * en a.
  */
 export function periodeLot(lot: Lot): { debut: string | null; fin: string | null } {
-  if (lot.activites.length === 0) return { debut: lot.dateDebut, fin: lot.dateFin };
-  const debuts = lot.activites.map((activite) => activite.dateDebutPrevue).sort();
-  const fins = lot.activites.map((activite) => activite.dateFinPrevue).sort();
-  return { debut: debuts[0], fin: fins[fins.length - 1] };
+  const debuts = lot.activites
+    .map((activite) => activite.dateDebutPrevue)
+    .filter((date): date is string => !!date)
+    .sort();
+  const fins = lot.activites
+    .map((activite) => activite.dateFinPrevue)
+    .filter((date): date is string => !!date)
+    .sort();
+  return { debut: debuts[0] ?? lot.dateDebut, fin: fins[fins.length - 1] ?? lot.dateFin };
 }
 
 /** Toutes les activités d'un chantier, dans l'ordre des lots. */
@@ -706,7 +909,7 @@ export function activitesDuProjet(lots: Lot[]): Activite[] {
 export interface SyntheseLots {
   lots: number;
   activites: number;
-  /** Pondéré par le budget, sur toutes les activités du chantier. */
+  /** Pondéré par le budget des lots (`avancementPondere`). */
   avancement: number;
   enRetard: number;
 }
@@ -716,7 +919,7 @@ export function syntheseLots(lots: Lot[], maintenant: Date = new Date()): Synthe
   return {
     lots: lots.length,
     activites: activites.length,
-    avancement: avancementPondere(activites),
+    avancement: avancementPondere(lots),
     enRetard: activites.filter((activite) => statutActivite(activite, maintenant) === "EN_RETARD")
       .length,
   };
@@ -769,7 +972,13 @@ export function filtrerLots(
   });
 }
 
-const ORDRE_STATUTS_ACTIVITE: StatutActivite[] = ["A_VENIR", "EN_COURS", "EN_RETARD", "TERMINE"];
+const ORDRE_STATUTS_ACTIVITE: StatutActivite[] = [
+  "A_VENIR",
+  "EN_COURS",
+  "EN_RETARD",
+  "BLOQUE",
+  "TERMINE",
+];
 
 /** Les statuts que portent réellement les activités — les options du filtre. */
 export function statutsActivitesPresents(
@@ -831,14 +1040,6 @@ export function paginerLots(
   }
   if (page.length > 0) pages.push(page);
   return pages;
-}
-
-/**
- * Les activités dont une autre peut dépendre : toutes celles du chantier,
- * sauf elle-même — une activité qui s'attend elle-même ne commence jamais.
- */
-export function dependancesPossibles(lots: Lot[], activiteId?: string): Activite[] {
-  return activitesDuProjet(lots).filter((activite) => activite.id !== activiteId);
 }
 
 /**
@@ -1224,14 +1425,20 @@ export function chevauchementsEquipe(
   activite: Pick<Activite, "id" | "dateDebutPrevue" | "dateFinPrevue">,
   maintenant: Date = new Date(),
 ): Activite[] {
-  return activitesDuProjet(lots).filter(
-    (autre) =>
+  // Une activité sans dates ne chevauche rien : on ne sait pas encore quand.
+  const periode = periodeActivite(activite);
+  if (!periode) return [];
+  return activitesDuProjet(lots).filter((autre) => {
+    const autrePeriode = periodeActivite(autre);
+    return (
       autre.id !== activite.id &&
       autre.equipe?.id === equipeId &&
-      autre.dateDebutPrevue <= activite.dateFinPrevue &&
-      autre.dateFinPrevue >= activite.dateDebutPrevue &&
-      statutActivite(autre, maintenant) !== "TERMINE",
-  );
+      autrePeriode !== null &&
+      autrePeriode.debut <= periode.fin &&
+      autrePeriode.fin >= periode.debut &&
+      statutActivite(autre, maintenant) !== "TERMINE"
+    );
+  });
 }
 
 /* ------------------------------------------------------------------ *
@@ -1245,12 +1452,14 @@ export const HORIZON_PROCHAINES_ETAPES_JOURS = 14;
 export const LONGUEUR_MAX_NOTE_FICHE = 2000;
 
 /**
- * L'état d'un lot : celui de ses activités. `SANS_ACTIVITE` n'est pas un
- * zéro — F1 §10 : un lot sans activité est exclu du calcul et s'affiche « — ».
+ * L'état d'un lot : « Bloqué » ou « Terminé » s'il a été déclaré tel, sinon
+ * celui de ses activités. `SANS_ACTIVITE` n'est pas un zéro — F1 §10 : un
+ * lot sans activité est exclu du calcul et s'affiche « — ».
  */
 export type StatutLot = StatutActivite | "SANS_ACTIVITE";
 
 export function statutLot(lot: Lot, maintenant: Date = new Date()): StatutLot {
+  if (lot.statut === "BLOQUE" || lot.statut === "TERMINE") return lot.statut;
   if (lot.activites.length === 0) return "SANS_ACTIVITE";
   const statuts = lot.activites.map((activite) => statutActivite(activite, maintenant));
   if (statuts.every((statut) => statut === "TERMINE")) return "TERMINE";
@@ -1259,9 +1468,9 @@ export function statutLot(lot: Lot, maintenant: Date = new Date()): StatutLot {
   return "EN_COURS";
 }
 
-/** L'avancement d'un lot, pondéré par budget. `null` sans activité (F1 §10). */
+/** L'avancement d'un lot, moyenne de ses activités. `null` sans activité (F1 §10). */
 export function avancementLot(lot: Lot): number | null {
-  return lot.activites.length === 0 ? null : avancementPondere(lot.activites);
+  return lot.activites.length === 0 ? null : avancementActivites(lot.activites);
 }
 
 /** Une activité, lue avec le lot qui la porte. */
@@ -1282,10 +1491,11 @@ export function prochainesEtapes(lots: Lot[], maintenant: Date = new Date()): Ac
     .filter(
       ({ activite }) =>
         activite.avancement === 0 &&
+        !!activite.dateDebutPrevue &&
         activite.dateDebutPrevue >= debut &&
         activite.dateDebutPrevue <= fin,
     )
-    .sort((a, b) => a.activite.dateDebutPrevue.localeCompare(b.activite.dateDebutPrevue));
+    .sort((a, b) => (a.activite.dateDebutPrevue ?? "").localeCompare(b.activite.dateDebutPrevue ?? ""));
 }
 
 /**
@@ -1295,7 +1505,7 @@ export function prochainesEtapes(lots: Lot[], maintenant: Date = new Date()): Ac
  */
 export function tauxRespectDelais(lots: Lot[], maintenant: Date = new Date()): number | null {
   const attendues = activitesDuProjet(lots).filter(
-    (activite) => avancementTheoriqueActivite(activite, maintenant) > 0,
+    (activite) => (avancementTheoriqueActivite(activite, maintenant) ?? 0) > 0,
   );
   if (attendues.length === 0) return null;
   const aLHeure = attendues.filter(
@@ -1351,7 +1561,8 @@ export function pointsDeVigilance(
           code: "ACTIVITE_EN_RETARD",
           activite,
           lot,
-          theorique: avancementTheoriqueActivite(activite, maintenant),
+          // En retard, elle est forcément planifiée : le théorique existe.
+          theorique: avancementTheoriqueActivite(activite, maintenant) ?? 0,
         });
       }
     }
@@ -1489,4 +1700,301 @@ export function affectationsParStatut(
     statut,
     affectations: affectations.filter((affectation) => affectation.projet.statut === statut),
   })).filter((groupe) => groupe.affectations.length > 0);
+}
+
+/* ------------------------------------------------------------------ *
+ * L'import de lots depuis un tableur.
+ *
+ * Le fichier n'a pas de gabarit imposé : un client remet sa liste de lots
+ * telle qu'elle sort de son DCE. On cherche donc une ligne d'en-tête, on
+ * reconnaît les colonnes à leur titre, et l'on n'exige que le nom. Ce qui
+ * manque — mode d'exécution, bordereau — prend le choix par défaut de
+ * l'écran ; ce qui est illisible est laissé vide et signalé.
+ * ------------------------------------------------------------------ */
+
+/** Au-delà, ce n'est plus une liste de lots, et l'aperçu deviendrait illisible. */
+export const NOMBRE_MAX_LOTS_IMPORT = 200;
+
+/** Une liste de lots tient en quelques dizaines de ko. */
+export const TAILLE_MAX_IMPORT_LOTS = 5 * 1024 * 1024;
+
+/** Le seul format lu. `.xls` (Excel 97, binaire) ne l'est pas : il faut l'enregistrer en `.xlsx`. */
+export const EXTENSION_IMPORT_LOTS = ".xlsx";
+
+/** Pourquoi un fichier de lots est écarté avant même d'être lu. */
+export type RefusFichierLots = "FORMAT" | "TAILLE";
+
+export function refusFichierLots(fichier: Pick<File, "name" | "size">): RefusFichierLots | null {
+  if (!fichier.name.toLowerCase().endsWith(EXTENSION_IMPORT_LOTS)) return "FORMAT";
+  if (fichier.size > TAILLE_MAX_IMPORT_LOTS) return "TAILLE";
+  return null;
+}
+
+/**
+ * Minuscules, sans accents, ligatures dépliées (« Gros œuvre » = « Gros
+ * oeuvre »), apostrophes et espaces (insécables comprises) unifiées.
+ */
+function normaliserImport(texte: string): string {
+  return texte
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/œ/g, "oe")
+    .replace(/Œ/g, "OE")
+    .replace(/æ/g, "ae")
+    .replace(/’/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/** Le texte d'une cellule, espaces nettoyées. Vide pour une cellule vide ou non textuelle. */
+function texteCellule(valeur: unknown): string {
+  if (typeof valeur === "string") return valeur.replace(/\s+/g, " ").trim();
+  if (typeof valeur === "number") return String(valeur);
+  return "";
+}
+
+type ColonneImport = "nom" | "modeExecution" | "typeBordereau" | "budget" | "dateDebut" | "dateFin";
+
+/** Ce qu'annonce un titre de colonne. L'ordre compte : « Budget du lot » est un budget. */
+function roleEntete(entete: string): ColonneImport | null {
+  const titre = normaliserImport(entete);
+  if (!titre) return null;
+  if (titre.includes("mode") || titre.includes("execution")) return "modeExecution";
+  if (titre.includes("bordereau")) return "typeBordereau";
+  if (titre.includes("budget") || titre.includes("montant")) return "budget";
+  if (titre.includes("debut")) return "dateDebut";
+  if (/\bfin\b/.test(titre)) return "dateFin";
+  if (/^(nom|lots?|libelle|designation|intitule)\b/.test(titre)) return "nom";
+  return null;
+}
+
+/** Le nombre de textes distincts d'une colonne : une colonne qui répète « Lot » n'est pas celle des noms. */
+function diversite(lignes: unknown[][], colonne: number): number {
+  return new Set(lignes.map((ligne) => texteCellule(ligne[colonne])).filter(Boolean)).size;
+}
+
+/** Parmi des colonnes candidates, celle qui porte le plus de noms différents. */
+function colonnePlusDiverse(lignes: unknown[][], candidates: number[]): number | undefined {
+  return candidates.reduce<number | undefined>(
+    (meilleure, colonne) =>
+      meilleure === undefined || diversite(lignes, colonne) > diversite(lignes, meilleure)
+        ? colonne
+        : meilleure,
+    undefined,
+  );
+}
+
+function sansPrefixeFamille(titre: string): string {
+  return titre.replace(/^[a-z]\s*:\s*/, "").replace(/^lots?\s+/, "");
+}
+
+/** Un intitulé de corps d'état, tel qu'une liste de lots les intercale : « LOTS TECHNIQUES », « E: EQUIPEMENTS ». */
+const INTITULES_FAMILLES = new Set(
+  LOTS_INDICATIFS.map((famille) => sansPrefixeFamille(normaliserImport(famille.famille))),
+);
+
+/** Un mode d'exécution écrit en clair (« Régie directe », « sous-traitance informelle ») ou par son code. */
+export function modeExecutionDepuisTexte(valeur: string): ModeExecutionLot | null {
+  const texte = normaliserImport(valeur).replace(/[^a-z]/g, "");
+  if (texte.includes("regie")) return "REGIE_DIRECTE";
+  if (texte.includes("informel")) return "SOUS_TRAITANCE_INFORMELLE";
+  if (texte.includes("structur")) return "SOUS_TRAITANCE_STRUCTUREE";
+  return null;
+}
+
+/** Un type de bordereau écrit en clair (« Forfait », « PU ») ou par son code. */
+export function typeBordereauDepuisTexte(valeur: string): TypeBordereau | null {
+  const texte = normaliserImport(valeur).replace(/[^a-z]/g, "");
+  if (texte.includes("forfait")) return "FORFAIT_GLOBAL";
+  if (texte.includes("unitaire") || texte === "pu") return "PRIX_UNITAIRE";
+  return null;
+}
+
+/**
+ * Un budget lu dans une cellule, en centimes. Un nombre est pris en francs ;
+ * un texte peut grouper ses milliers (« 2 500 000 », « 2.500.000 ») et
+ * porter la devise. `undefined` : la cellule est vide ; `null` : illisible.
+ */
+function budgetCellule(valeur: unknown): number | null | undefined {
+  if (valeur === null || valeur === undefined || valeur === "") return undefined;
+  let francs: number | null = null;
+  if (typeof valeur === "number") francs = valeur;
+  else if (typeof valeur === "string") {
+    const chiffres = normaliserImport(valeur).replace(/(f ?cfa|xof|f)$/, "").replace(/[\s.]/g, "");
+    if (chiffres === "") return undefined;
+    francs = /^\d+$/.test(chiffres) ? Number(chiffres) : null;
+  }
+  if (francs === null || !Number.isFinite(francs)) return null;
+  const centimes = Math.round(francs * 100);
+  return budgetRecevable(centimes) ? centimes : null;
+}
+
+/** Une date ISO courte réelle — « 2026-02-30 » n'en est pas une. */
+function dateIsoValide(annee: number, mois: number, jour: number): string | null {
+  const date = new Date(Date.UTC(annee, mois - 1, jour));
+  if (date.getUTCFullYear() !== annee || date.getUTCMonth() !== mois - 1 || date.getUTCDate() !== jour) {
+    return null;
+  }
+  return isoCourt(date);
+}
+
+/** Le décalage entre l'origine des dates d'Excel (30/12/1899) et celle de JavaScript, en jours. */
+const ORIGINE_EXCEL_JOURS = 25569;
+
+/**
+ * Une date lue dans une cellule : une vraie date du tableur, un numéro de
+ * série Excel, ou un texte « jj/mm/aaaa » / « aaaa-mm-jj ».
+ * `undefined` : la cellule est vide ; `null` : illisible.
+ */
+function dateCellule(valeur: unknown): string | null | undefined {
+  if (valeur === null || valeur === undefined || valeur === "") return undefined;
+  if (valeur instanceof Date) return Number.isNaN(valeur.getTime()) ? null : isoCourt(valeur);
+  if (typeof valeur === "number") {
+    const date = new Date(Math.round((valeur - ORIGINE_EXCEL_JOURS) * JOUR_MS));
+    return Number.isNaN(date.getTime()) ? null : isoCourt(date);
+  }
+  const texte = texteCellule(valeur);
+  if (texte === "") return undefined;
+  const francaise = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(texte);
+  if (francaise) return dateIsoValide(Number(francaise[3]), Number(francaise[2]), Number(francaise[1]));
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(texte);
+  if (iso) return dateIsoValide(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+  return null;
+}
+
+/**
+ * Les lots d'une feuille de tableur, ligne par ligne.
+ *
+ * L'en-tête est la première des dix premières lignes qui annonce une colonne
+ * de noms (« Nom », « Lots », « Désignation »…) ; sans elle, toute la
+ * feuille est lue et la colonne des noms est la plus variée. Les lignes
+ * vides sont sautées, et la lecture s'arrête à `NOMBRE_MAX_LOTS_IMPORT`.
+ */
+export function lireLotsImportes(
+  feuille: unknown[][],
+  lotsExistants: Lot[],
+  budgetProjet: number | null,
+): LigneImportLot[] {
+  const rangEntete = feuille
+    .slice(0, 10)
+    .findIndex((ligne) => ligne.some((cellule) => roleEntete(texteCellule(cellule)) === "nom"));
+  const donnees = rangEntete === -1 ? feuille : feuille.slice(rangEntete + 1);
+  // Le numéro, dans le tableur, de la première ligne de données.
+  const premiereLigne = rangEntete + 2;
+
+  const colonnes: Partial<Record<ColonneImport, number>> = {};
+  if (rangEntete === -1) {
+    const largeur = Math.max(0, ...donnees.map((ligne) => ligne.length));
+    colonnes.nom = colonnePlusDiverse(donnees, Array.from({ length: largeur }, (_, rang) => rang));
+  } else {
+    const candidatesNom: number[] = [];
+    feuille[rangEntete].forEach((cellule, rang) => {
+      const role = roleEntete(texteCellule(cellule));
+      if (role === "nom") candidatesNom.push(rang);
+      else if (role && colonnes[role] === undefined) colonnes[role] = rang;
+    });
+    colonnes.nom = colonnePlusDiverse(donnees, candidatesNom);
+  }
+  const colonneNom = colonnes.nom;
+  if (colonneNom === undefined) return [];
+
+  const existants = new Set(lotsExistants.map((lot) => normaliserImport(lot.nom)));
+  const vus = new Set<string>();
+  const lignes: LigneImportLot[] = [];
+
+  donnees.forEach((ligne, rang) => {
+    if (lignes.length >= NOMBRE_MAX_LOTS_IMPORT) return;
+    const nom = texteCellule(ligne[colonneNom]);
+    if (nom === "") return;
+    const cle = normaliserImport(nom);
+    const anomalies: AnomalieImportLot[] = [];
+
+    const cellule = (role: ColonneImport) => {
+      const colonne = colonnes[role];
+      return colonne === undefined ? undefined : ligne[colonne];
+    };
+
+    let budget = budgetCellule(cellule("budget"));
+    if (budget === null) anomalies.push("BUDGET_INVALIDE");
+    else if (plafondBudgetDepasse(budget ?? null, { projet: budgetProjet })) {
+      anomalies.push("BUDGET_DEPASSE_PROJET");
+      budget = null;
+    }
+    let dateDebut = dateCellule(cellule("dateDebut"));
+    let dateFin = dateCellule(cellule("dateFin"));
+    if (dateDebut === null || dateFin === null) anomalies.push("DATE_INVALIDE");
+    if (dateDebut && dateFin && !datesChantierCoherentes(dateDebut, dateFin)) {
+      anomalies.push("DATES_INCOHERENTES");
+      dateDebut = null;
+      dateFin = null;
+    }
+
+    if (INTITULES_FAMILLES.has(sansPrefixeFamille(cle))) anomalies.push("INTITULE_FAMILLE");
+    if (existants.has(cle)) anomalies.push("DEJA_PRESENT");
+    else if (vus.has(cle)) anomalies.push("EN_DOUBLE");
+    vus.add(cle);
+
+    lignes.push({
+      ligne: premiereLigne + rang,
+      nom,
+      modeExecution: modeExecutionDepuisTexte(texteCellule(cellule("modeExecution"))),
+      typeBordereau: typeBordereauDepuisTexte(texteCellule(cellule("typeBordereau"))),
+      budget: budget ?? null,
+      dateDebut: dateDebut ?? null,
+      dateFin: dateFin ?? null,
+      anomalies,
+    });
+  });
+  return lignes;
+}
+
+/**
+ * Les anomalies qui décochent une ligne d'office : un intitulé de corps
+ * d'état, un lot déjà là, un nom répété. L'utilisateur peut la recocher —
+ * c'est un avis, pas un refus.
+ */
+const ANOMALIES_ECARTEES: readonly AnomalieImportLot[] = ["INTITULE_FAMILLE", "DEJA_PRESENT", "EN_DOUBLE"];
+
+export function ligneRetenueParDefaut(ligne: LigneImportLot): boolean {
+  return !ligne.anomalies.some((anomalie) => ANOMALIES_ECARTEES.includes(anomalie));
+}
+
+/** Les choix de l'écran qui complètent ce que le fichier ne dit pas. */
+export interface DefautsImportLots {
+  modeExecution: ModeExecutionLot | null;
+  typeBordereau: TypeBordereau | null;
+}
+
+/** Ce qui manque encore aux lignes retenues pour être importées. */
+export function defautsManquants(
+  lignes: LigneImportLot[],
+  defauts: DefautsImportLots,
+): { modeExecution: boolean; typeBordereau: boolean } {
+  return {
+    modeExecution: !defauts.modeExecution && lignes.some((ligne) => !ligne.modeExecution),
+    typeBordereau: !defauts.typeBordereau && lignes.some((ligne) => !ligne.typeBordereau),
+  };
+}
+
+/**
+ * Une ligne importée, complétée des choix par défaut de l'écran. `null`
+ * tant qu'il lui manque un mode d'exécution ou un type de bordereau : ils
+ * sont exigés d'un lot, importé ou non.
+ */
+export function creationDepuisLigneImport(
+  ligne: LigneImportLot,
+  defauts: DefautsImportLots,
+): CreationLotProjet | null {
+  const modeExecution = ligne.modeExecution ?? defauts.modeExecution;
+  const typeBordereau = ligne.typeBordereau ?? defauts.typeBordereau;
+  if (!modeExecution || !typeBordereau) return null;
+  return {
+    nom: ligne.nom,
+    modeExecution,
+    typeBordereau,
+    budget: ligne.budget ?? undefined,
+    dateDebut: ligne.dateDebut ?? undefined,
+    dateFin: ligne.dateFin ?? undefined,
+  };
 }

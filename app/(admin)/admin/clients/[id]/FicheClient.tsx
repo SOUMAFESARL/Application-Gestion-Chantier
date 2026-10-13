@@ -163,7 +163,7 @@ export function FicheClient({ id }: { id: string }) {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-2">
-          <h1 className="text-h2 font-bold text-neutral-900">{client.nomCommercial}</h1>
+          <h1 className="text-h3 font-bold text-neutral-900">{client.nomCommercial}</h1>
           <p className="text-sm text-neutral-600">{client.raisonSociale}</p>
           <div className="flex flex-wrap items-center gap-2">
             <span className={`${BADGE} ${TON_STATUT_CLIENT[client.statut]}`}>

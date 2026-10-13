@@ -161,8 +161,14 @@ export function AffectationsProjet({ lots, equipes, onNouvelle, onModifier }: Pr
           entete: t("colonnes.equipe"),
           valeur: (activite) => activite.equipe?.nom ?? t("aAffecter"),
         },
-        { entete: t("export.debut"), valeur: (activite) => formaterDate(activite.dateDebutPrevue) },
-        { entete: t("export.fin"), valeur: (activite) => formaterDate(activite.dateFinPrevue) },
+        {
+          entete: t("export.debut"),
+          valeur: (activite) => (activite.dateDebutPrevue ? formaterDate(activite.dateDebutPrevue) : null),
+        },
+        {
+          entete: t("export.fin"),
+          valeur: (activite) => (activite.dateFinPrevue ? formaterDate(activite.dateFinPrevue) : null),
+        },
         { entete: t("colonnes.effectif"), valeur: (activite) => activite.equipe?.effectif },
         {
           entete: t("colonnes.statut"),

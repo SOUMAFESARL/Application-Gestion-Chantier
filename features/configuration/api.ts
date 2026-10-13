@@ -50,7 +50,17 @@ export interface DonneesEntreprise {
   ville: string;
   rccm: string;
   nif: string;
+  /** Le numéro principal, obligatoire — celui que reprennent les documents. */
   telephone_contact: string;
+  /**
+   * Les numéros secondaires, facultatifs, en nombre libre — même format
+   * international que le principal. **Pas encore servis par Django** : tant
+   * que le serializer ne les déclare pas, ils sont ignorés à l'écriture et
+   * absents à la lecture, d'où le `?`.
+   */
+  telephones_secondaires?: string[];
+  /** Le numéro fixe (ligne du siège), facultatif. Même réserve côté serveur. */
+  telephone_fixe?: string;
   email_contact: string;
   /**
    * Les trois variantes du logo, en **URL absolues**, en lecture seule.
@@ -125,7 +135,11 @@ export function enregistrerEntreprise(
     const formData = new FormData();
     formData.append("fichier_logo", fichierLogo);
     for (const [cle, valeur] of Object.entries(donnees)) {
-      if (valeur !== undefined && valeur !== null && valeur !== "") {
+      // Une liste se poste en clés répétées : `String([...])` la réduirait à
+      // une seule valeur séparée par des virgules.
+      if (Array.isArray(valeur)) {
+        for (const element of valeur) formData.append(cle, String(element));
+      } else if (valeur !== undefined && valeur !== null && valeur !== "") {
         formData.append(cle, String(valeur));
       }
     }
