@@ -336,6 +336,25 @@ Two things that migration surfaced, worth knowing before reading old code:
     tree often carries someone else's uncommitted work. **A push to `main`
     deploys to production** (`.github/workflows/deploy-cpanel.yml`); a push to
     `develop` deploys nothing.
+12. **A new API wiring copies the method and style of the existing ones** —
+    `features/projets/adaptateur.ts` is the reference: private `Charge*`
+    transport types, `vers*` / `versCharge*` mappers, French infinitive
+    function names, query keys in `cles.ts`. Do not introduce another way of
+    doing it. The wiring work is sequenced in lots, one open at a time:
+    read `docs/plan_alignement_api.md` before starting any of it.
+
+### Skills
+
+| Skill | Use it for |
+|---|---|
+| `sprint-task-lifecycle` | Running a sprint task, from framing to the merge into `develop` |
+| `brancher-api` | Wiring a screen to a real backend endpoint, or taking a domain out of simulation |
+| `revue-frontend` | Reviewing a change before it is merged |
+
+The source is `.agents/skills/`; `.claude/skills/` is the copy Claude Code
+reads and is never edited by hand. After changing a skill, run
+`.\.agents\sync_skills.ps1`. They mirror the backend's skills
+(`../API-Gestion-Chantier/.agents/skills/`).
 
 ### What lot 0 established
 
