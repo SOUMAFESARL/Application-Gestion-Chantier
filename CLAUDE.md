@@ -316,8 +316,23 @@ Two things that migration surfaced, worth knowing before reading old code:
    itself lives in the domain's `regles.ts` (`filtrerProjets`,
    `filtrerClients`). Only dashboard blocks keep `Tableau` or a bare
    `DataTable`.
-10. **Zéro `git push` par les agents.** Tout envoi vers le dépôt distant (`git push`) est formellement interdit aux assistants et agents d'IA sur ce projet frontend (`Application-Gestion-Chantier`). Les commits et merges locaux sont autorisés ; le push est exclusivement réservé au développeur humain.
-11. **Code frontend protégé contre l'édition par les outils de l'agent.** L'agent d'IA ne doit utiliser aucun outil d'écriture (`write_to_file`, `replace_file_content`, scripts) pour modifier, ajouter ou supprimer des fichiers frontend (voir skill `prevent-frontend-modification`). En revanche, **`git pull` et `git fetch` sont pleinement autorisés** pour synchroniser les mises à jour distantes. `git push` reste strictement interdit.
+10. **Every data table can be exported (CSV + PDF)** — a product requirement.
+    `TableauListe` makes `exporter` a *required* prop, so a new list cannot
+    compile without one; a table that doesn't go through it (the lots tree,
+    the payment history) puts `MenuExport` (`components/ui/export-tableau.tsx`)
+    in its own toolbar. The export takes the *filtered* rows, all pages, and
+    raw values (francs as integers, full dates, empty cell rather than `—`).
+    **The export button sits immediately left of the table's add button**:
+    in `TableauListe`, pass that button as `actions`, never in the page
+    header. Dashboard summary blocks and form grids are not data tables.
+11. **Agents may edit this repo and use Git on it** — files, `git fetch`,
+    `git pull`, `git commit`, `git push`. The earlier ban on agent edits and
+    pushes was lifted on 2026-10-13. Three limits remain: push when the
+    developer asks; never `--force` on `develop` or `main`; and commit only the
+    files you changed yourself (`git add <files>`, never `git add .`) — this
+    tree often carries someone else's uncommitted work. **A push to `main`
+    deploys to production** (`.github/workflows/deploy-cpanel.yml`); a push to
+    `develop` deploys nothing.
 
 ### What lot 0 established
 
