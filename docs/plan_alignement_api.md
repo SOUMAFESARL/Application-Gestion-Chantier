@@ -7,7 +7,7 @@ ce frontend, et modifier les interfaces là où c'est nécessaire.
 
 | Lot ouvert | État |
 |---|---|
-| Lot 0 — Socle | Tâches 0.2 et 0.3 terminées le 13/10/2026. Tâche 0.1 : environnement configuré et connexion vérifiée, mais le serveur de développement du frontend ne tient pas sur ce poste faute de mémoire — voir lot 0 |
+| Lot 1 — Journal de chantier | Tâche 1.1 terminée le 13/10/2026 ; tâche 1.2 à ouvrir. Le lot 0 reste à fermer : sa tâche 0.1 attend de la mémoire sur le poste |
 
 ---
 
@@ -75,20 +75,37 @@ reportées au lot 4.
 
 ### Lot 1 — Journal et rapports de chantier
 
-**À démontrer au début du Sprint 4.**
+**À démontrer au début du Sprint 4.** Cadrage du 13/10/2026 : le backend du
+journal est complet (33 tests passent) et a été écrit pour correspondre à
+l'adaptateur ; le frontend ne l'appelle pas, ses deux interrupteurs étant figés
+sur « simulé ».
 
-- Les neuf appels de `features/chantier/adaptateur.ts` passent au réel :
-  `JOURNAL_SIMULE` et `SAISIE_SIMULEE` sont aujourd'hui figés à « simulé », en
-  production comprise.
-- Les rapports quittent le `localStorage` du poste pour la base de données.
-- À trancher à l'ouverture : `syntheses` et `journal/{id}/relancer` n'existent
-  pas côté backend ; les photos de rapport demandent le stockage objet (US-006).
-- Si la saisie a besoin des équipes, le minimum nécessaire est traité ici, le
-  reste au lot 4.
-- **Servi, jamais appelé** : validation d'un rapport (`approuver`, `rejeter`,
-  `valider`) — l'écran de file de validation existe, aucune fonction de
-  l'adaptateur ne les appelle ; `chantier/alertes/` ; blocages (`prendre-en-charge`,
-  `resoudre`) et arrêts de chantier.
+| Tâche | Contenu | État |
+|---|---|---|
+| **1.1** Données locales | Module chantier activé pour `demo` ; projet CHANT-2026-001 doté d'un chef de chantier, d'un conducteur de travaux, d'un chef de projet, et de quatre activités sur ses deux lots | **Fait le 13/10/2026.** `GET /chantier/journal/` répond 200 (144 lignes), la préparation de saisie aussi |
+| **1.2** Saisie | Les 5 appels de saisie au réel ; champs envoyés en trop ; suppression de `simulationSaisie.ts` | À faire |
+| **1.3** Journal et rapport | `lireJournal` et `lireRapport` au réel ; valeurs vides acceptées (stock, GPS, prix masqués) | À faire |
+| **1.4** Validation | `valider`, `approuver`, `rejeter` dans l'adaptateur et sur l'écran du rapport | À faire |
+| **1.5** Relance | Route backend `relancer` avec son test, puis branchement | À faire |
+| **1.6** Synthèse | Entrée masquée pour la démonstration ; route backend écrite ensuite | À faire |
+| **1.7** Clôture | Suppression de `simulationJournal.ts`, README du domaine | À faire |
+
+Décisions du 13/10/2026 :
+
+- la **synthèse périodique** est masquée pour la démonstration, sa route backend
+  vient après ;
+- la **validation** conducteur de travaux / chef de projet fait partie du lot ;
+- les **photos restent encodées dans le rapport, en base**, pour ce lot : c'est
+  une dette, à traiter avec le stockage objet (US-006) ;
+- le **module chantier doit être activé en production** pour chaque entreprise,
+  sans quoi tout appel au journal répond 403 — à vérifier avant la démonstration.
+
+Constats à reprendre ailleurs :
+
+- l'activation d'un module par entreprise porte sa logique dans la vue
+  (`ActiverModuleClientPlateformeView`), pas dans un service ;
+- en local, cette activation tente d'envoyer un vrai courriel au directeur de
+  l'entreprise : le poste est configuré avec un serveur SMTP réel.
 
 ### Lot 2 — Back-office de la plateforme
 
