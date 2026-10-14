@@ -167,10 +167,9 @@ export function estRedacteurJournal(droits: Droits | null): boolean {
  *   qui tient l'accès « validation » du journal ;
  * - un rapport **validé par le CT** attend le **chef de projet** du chantier.
  *
- * Le directeur général n'a pas de dérogation : il signe s'il tient la
- * fonction — chef de projet désigné d'un chantier, dans une petite
- * structure — et consulte sinon. D'où `collaborateurId` : la portée de la
- * direction ne nomme personne, la fonction se lit sur le chantier.
+ * Le directeur général ne signe pas : il ne tient aucune fonction de
+ * chantier, il consulte et relance. `collaborateurId` vient de
+ * `personneQuiSigne`, qui le lui refuse.
  */
 export function etapeASigner(
   situation: string,
@@ -180,6 +179,25 @@ export function etapeASigner(
 ): "CT" | "CP" | null {
   const etape = situation === "SOUMIS" ? "CT" : situation === "VALIDE_CT" ? "CP" : null;
   return etape && tientEtape(etape, projet, droits, collaborateurId) ? etape : null;
+}
+
+/**
+ * La personne dont on lit la fonction sur le chantier, ou `null` si elle n'en
+ * tient aucune : celle que portent les droits (un rôle incarné en
+ * développement compris), sinon le compte connecté — la portée de la direction
+ * ne nomme personne.
+ *
+ * **Le Directeur Général ne tient aucune fonction de chantier** (décision du
+ * 14/10/2026) : une donnée antérieure qui le désignerait encore ne lui donne
+ * pas de signature, côté serveur comme ici.
+ */
+export function personneQuiSigne(
+  droits: Droits | null,
+  profil: { id: string; is_dg: boolean; is_owner: boolean } | null,
+): string | null {
+  if (droits?.portee.type === "PERSONNE") return droits.portee.collaborateurId;
+  if (!profil || profil.is_dg || profil.is_owner) return null;
+  return profil.id;
 }
 
 /**

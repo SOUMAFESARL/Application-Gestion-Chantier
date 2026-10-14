@@ -57,9 +57,12 @@ du 14/10/2026, appliquée de la même façon par le serveur) : le conducteur de
 travaux, puis le chef de projet du chantier, depuis le rapport lui-même
 (`rapports/[id]/SignatureRapport.tsx`, règle `etapeASigner`) — et de même
 sur la synthèse (`tientEtape`). Le Directeur
-Général **consulte** — sauf sur un chantier dont il est le chef de projet
-désigné, où il approuve comme tel. Le super-administrateur de la plateforme ne
-signe jamais. Il peut relancer un chef de chantier ou un signataire.
+Général **consulte et relance, et ne signe jamais** : il garde ses attributions
+et ne tient aucune fonction de chantier (décision du 14/10/2026) — il n'est
+proposé ni comme chef de projet, ni comme conducteur de travaux, ni comme chef
+de chantier (`peutTenirFonctionChantier`), et `personneQuiSigne` lui refuse la
+signature même si une donnée ancienne le désigne encore. Le
+super-administrateur de la plateforme ne signe jamais non plus.
 La rédaction est ouverte à l'accès « saisie » du module chantier, direction
 comprise (`peutRedigerJournal`) ; mais seul le rédacteur hors direction voit
 l'onglet « Aujourd'hui » tourné vers sa saisie (`estRedacteurJournal`).

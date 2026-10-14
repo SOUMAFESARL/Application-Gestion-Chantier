@@ -36,7 +36,7 @@ import {
   soumettreSynthese,
 } from "@/features/chantier/adaptateur";
 import { CLE_SUIVI_SYNTHESES, cleSynthese } from "@/features/chantier/cles";
-import { tientEtape, useDroits, useProjetsVisibles } from "@/features/habilitations";
+import { personneQuiSigne, tientEtape, useDroits, useProjetsVisibles } from "@/features/habilitations";
 import { ErreurApi } from "@/lib/api";
 
 /** Un objectif sans lot : `SelectItem` n'accepte pas la chaîne vide. */
@@ -57,8 +57,7 @@ export function CircuitSynthese({ synthese, demande }: { synthese: SynthesePerio
   const { droits } = useDroits();
   const projets = useProjetsVisibles();
   const projet = projets.data?.find((candidat) => candidat.id === synthese.projetId);
-  // Comme pour le rapport : la personne que portent les droits, sinon le compte connecté.
-  const moi = droits?.portee.type === "PERSONNE" ? droits.portee.collaborateurId : (lireProfilLocal()?.id ?? null);
+  const moi = personneQuiSigne(droits, lireProfilLocal());
   const etape = etapeSynthese(synthese.statut);
 
   if (!etape || !tientEtape(etape, projet, droits, moi)) return null;
