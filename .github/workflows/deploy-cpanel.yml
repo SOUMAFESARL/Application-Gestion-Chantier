@@ -3,7 +3,7 @@ name: Deploy to cPanel
 on:
   push:
     branches:
-      - main
+      - develop
   workflow_dispatch:
 
 permissions:
@@ -43,7 +43,7 @@ jobs:
         run: npm ci
 
       # Le double garde-fou i18n (eslint.config.mjs) et le typage ne valent que
-      # s'ils tournent ici : avant le build, et sur chaque envoi vers `main`.
+      # s'ils tournent ici : avant le build, et sur chaque envoi vers `develop`.
       # Un echec arrete le deploiement plutot que de le livrer.
       - name: Lint
         run: npm run lint
