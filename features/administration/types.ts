@@ -320,3 +320,77 @@ export interface PointEvolutionAbonnements {
   renouveles: number;
   nonRenouveles: number;
 }
+
+/** Comment le serveur SMTP chiffre la connexion. */
+export type ChiffrementMessagerie = "STARTTLS" | "SSL" | "AUCUN";
+
+/** D'où vient le réglage qui sert réellement à envoyer : l'application, ou le `.env` du serveur. */
+export type SourceMessagerie = "application" | "serveur";
+
+/** Ce qu'on sait du serveur SMTP — **jamais le mot de passe**, que le serveur ne renvoie pas. */
+export interface ReglageEffectifMessagerie {
+  source: SourceMessagerie;
+  hote: string;
+  port: number;
+  chiffrement: ChiffrementMessagerie;
+  identifiant: string;
+  expediteur: string;
+}
+
+export interface ReglageMessagerie {
+  /** Ce que le superviseur a saisi dans l'application (vide tant qu'il n'a rien saisi). */
+  saisi: {
+    hote: string;
+    port: number;
+    chiffrement: ChiffrementMessagerie;
+    identifiant: string;
+    expediteur: string;
+    motDePasseDefini: boolean;
+    modifieLe: Date | null;
+  };
+  /** Ce qui sert réellement à envoyer. */
+  effectif: ReglageEffectifMessagerie;
+  /** L'adresse du frontend placée dans les liens des e-mails. */
+  frontendUrl: string;
+  /** Vrai quand cette adresse est locale : les liens des e-mails seraient inutilisables. */
+  frontendUrlLocale: boolean;
+}
+
+export interface DemandeMessagerie {
+  hote: string;
+  port: number;
+  chiffrement: ChiffrementMessagerie;
+  identifiant: string;
+  /** Vide : le mot de passe déjà enregistré est conservé. */
+  motDePasse: string;
+  expediteur: string;
+}
+
+/** L'étape d'une connexion SMTP qui a cassé : du port qui ne répond pas à l'identifiant refusé. */
+export type EtapeSondeMessagerie = "tcp" | "banniere" | "chiffrement" | "authentification";
+
+export interface SondeMessagerie {
+  ok: boolean;
+  etape: EtapeSondeMessagerie | null;
+  detail: string | null;
+}
+
+/** Un autre mode de connexion que le serveur a essayé (587 STARTTLS, 465 SSL/TLS). */
+export interface AlternativeMessagerie extends SondeMessagerie {
+  port: number;
+  chiffrement: ChiffrementMessagerie;
+}
+
+export interface ResultatDiagnosticMessagerie {
+  succes: boolean;
+  /** Où ça a cassé : à l'ouverture de la connexion, ou à l'envoi du message. */
+  etape: "connexion" | "envoi" | null;
+  erreur: string | null;
+  conseil: string | null;
+  /** Présente seulement quand la connexion a échoué : l'étape exacte qui casse. */
+  sonde: SondeMessagerie | null;
+  alternatives: AlternativeMessagerie[];
+  /** Le nom que le serveur donne au serveur de messagerie pour se présenter (EHLO). */
+  nomEhlo: string | null;
+  reglage: ReglageEffectifMessagerie;
+}

@@ -75,6 +75,7 @@ const SOUS_MENU_PARAMETRAGE = [
   { href: "/admin/parametres/modules", cle: "parametrageModules" },
   { href: "/admin/parametres/tarifs", cle: "parametrageTarifs" },
   { href: "/admin/parametres/globaux", cle: "parametrageIdentite" },
+  { href: "/admin/parametres/messagerie", cle: "parametrageMessagerie" },
 ] as const;
 
 /**

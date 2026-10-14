@@ -342,7 +342,8 @@
       "titreComptes": "Comptes administrateurs — Administration",
       "titreModules": "Modules — Administration",
       "titreTarifs": "Tarifs — Administration",
-      "titreIdentite": "Nom et logo — Administration"
+      "titreIdentite": "Nom et logo — Administration",
+      "titreMessagerie": "Messagerie — Administration"
     },
     "motDePasseOublie": {
       "accroche": "Indiquez votre adresse professionnelle : un lien de réinitialisation vous y sera envoyé.",
@@ -373,7 +374,8 @@
       "parametrageComptes": "Comptes administrateurs",
       "parametrageModules": "Modules & accès",
       "parametrageTarifs": "Tarifs abonnements",
-      "parametrageIdentite": "Paramètres globaux"
+      "parametrageIdentite": "Paramètres globaux",
+      "parametrageMessagerie": "Messagerie"
     },
     "plan": {
       "BATISSEUR": "Bâtisseur",
@@ -664,6 +666,80 @@
         "succes": "L’identité de la plateforme a été mise à jour.",
         "erreurNomRequis": "Le nom de la plateforme est requis.",
         "erreurNomLong": "Le nom ne doit pas dépasser 40 caractères."
+      },
+      "messagerie": {
+        "titre": "Messagerie de la plateforme",
+        "description": "Le serveur qui envoie les courriels de la plateforme : invitations, réinitialisations de mot de passe, avis aux dirigeants."
+      }
+    },
+    "messagerie": {
+      "titre": "Messagerie de la plateforme",
+      "description": "Le serveur par lequel partent tous les e-mails : invitations, activations, réinitialisations, notifications.",
+      "actuel": "Réglage utilisé en ce moment",
+      "origine": "Origine du réglage",
+      "source": {
+        "application": "Réglage saisi dans l’application",
+        "serveur": "Réglage du serveur (.env)"
+      },
+      "sourceServeurAide": "Aucun réglage n’a été saisi ici : la plateforme utilise celui du fichier de configuration du serveur.",
+      "serveurPort": "Serveur",
+      "chiffrement": {
+        "libelle": "Chiffrement",
+        "STARTTLS": "STARTTLS (port 587)",
+        "SSL": "SSL/TLS (port 465)",
+        "AUCUN": "Aucun"
+      },
+      "identifiant": "Identifiant",
+      "expediteur": "Expéditeur affiché",
+      "expediteurAide": "Laissez vide pour utiliser « CCD Digital » avec l’identifiant. Avec Gmail, l’expéditeur doit être l’adresse du compte.",
+      "frontend": "Adresse des liens dans les e-mails",
+      "frontendLocale": "Cette adresse est locale : les boutons des e-mails ne fonctionneront pas pour les destinataires. Renseignez FRONTEND_URL sur le serveur.",
+      "modifieLe": "Dernière modification",
+      "formulaire": "Modifier le serveur d’envoi",
+      "hote": "Serveur SMTP",
+      "hoteAide": "Par exemple smtp.gmail.com",
+      "port": "Port",
+      "motDePasse": "Mot de passe d’application",
+      "motDePasseDefini": "Un mot de passe est enregistré. Laissez vide pour le conserver.",
+      "motDePasseRequis": "Le mot de passe d’application est requis la première fois.",
+      "motDePasseAide": "Il est chiffré avant d’être enregistré et ne s’affiche plus jamais.",
+      "gmail": "Utiliser les réglages Gmail",
+      "enregistrer": "Enregistrer",
+      "enCours": "Enregistrement…",
+      "succes": "Le serveur d’envoi a été enregistré. Testez-le ci-dessous.",
+      "reinitialiser": "Revenir au réglage du serveur",
+      "reinitialisee": "Le réglage saisi a été retiré : le serveur utilise de nouveau son .env.",
+      "reinitialiserConfirmerTitre": "Revenir au réglage du serveur",
+      "reinitialiserConfirmerTexte": "Le serveur SMTP saisi ici sera oublié, mot de passe compris. La plateforme utilisera le réglage du fichier de configuration du serveur.",
+      "reinitialiserConfirmerBouton": "Revenir au réglage du serveur",
+      "annuler": "Annuler",
+      "erreurHoteRequis": "Le serveur SMTP est requis.",
+      "erreurHoteForme": "Saisissez seulement le nom du serveur, par exemple smtp.gmail.com.",
+      "erreurPort": "Le port est un nombre entre 1 et 65535.",
+      "erreurIdentifiantRequis": "L’identifiant est requis.",
+      "test": {
+        "titre": "Tester l’envoi",
+        "description": "Envoie un message de test avec le réglage utilisé en ce moment. Si l’envoi échoue, l’erreur du serveur de messagerie s’affiche ici.",
+        "destinataire": "Adresse de test",
+        "envoyer": "Envoyer un message de test",
+        "enCours": "Envoi en cours…",
+        "reussi": "Message envoyé. Vérifiez la boîte de réception (et les indésirables).",
+        "echecConnexion": "Échec à la connexion au serveur d’envoi.",
+        "echecEnvoi": "La connexion a réussi mais l’envoi du message a échoué.",
+        "erreurServeur": "Erreur du serveur",
+        "nomEhlo": "Nom envoyé au serveur de messagerie",
+        "etapeEnEchec": "Étape en échec",
+        "etape": {
+          "tcp": "le port ne répond pas",
+          "banniere": "le serveur raccroche avant de répondre",
+          "chiffrement": "la négociation du chiffrement échoue",
+          "authentification": "identifiant ou mot de passe refusé"
+        },
+        "alternative": "Essai sur le port {port} ({mode}) : {etat}",
+        "alternativeOk": "le serveur répond",
+        "alternativeEchec": "échec — {etape}",
+        "conseil": "Que faire",
+        "erreurAdresse": "Saisissez une adresse e-mail valide."
       }
     },
     "finAbonnement": {

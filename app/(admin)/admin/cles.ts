@@ -16,4 +16,5 @@ export const CLES_ADMINISTRATION = {
   tendances: () => ["administration", "indicateurs", "tendances"] as const,
   comptes: () => ["administration", "comptes"] as const,
   modules: () => ["administration", "modules"] as const,
+  messagerie: () => ["administration", "messagerie"] as const,
 };
