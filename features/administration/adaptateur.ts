@@ -68,6 +68,8 @@ import type {
   StatutModule,
   TarifPlan,
   TendanceIndicateur,
+  DemandePermission,
+  PermissionPlateforme,
 } from "./types";
 
 /* ------------------------------------------------------------------ *
@@ -1162,3 +1164,116 @@ export async function listerActionsJournal(signal?: AbortSignal): Promise<string
   );
   return charge.actions;
 }
+
+/* ------------------------------------------------------------------ *
+ * Catalogue des permissions
+ * ------------------------------------------------------------------ */
+
+interface ChargeModulePermission {
+  id: string;
+  code: string;
+  libelle: string;
+  icone?: string;
+}
+
+interface ChargePermission {
+  id: string;
+  code: string;
+  libelle: string;
+  description?: string;
+  ordre?: number;
+  est_actif: boolean;
+  modules?: ChargeModulePermission[];
+  modules_codes?: string[];
+}
+
+function versPermission(charge: ChargePermission): PermissionPlateforme {
+  return {
+    id: charge.id,
+    code: charge.code,
+    libelle: charge.libelle,
+    description: charge.description ?? "",
+    ordre: charge.ordre ?? 0,
+    actif: charge.est_actif,
+    modules: (charge.modules ?? []).map((m) => ({
+      id: m.id,
+      code: m.code,
+      libelle: m.libelle,
+    })),
+  };
+}
+
+/**
+ * Le catalogue des permissions.
+ *
+ * Le catalogue vient du REGISTRE du serveur : on n'invente pas de permission, on
+ * rétablit une permission du registre, on change ses modules ou on la retire de
+ * toutes les entreprises.
+ */
+export async function listerPermissions(
+  signal?: AbortSignal,
+): Promise<PermissionPlateforme[]> {
+  const charges = await apiAdministration.lire<ChargePermission[]>(
+    "/admins/permissions/",
+    undefined,
+    signal,
+  );
+  return charges.map(versPermission);
+}
+
+export async function creerPermission(
+  demande: DemandePermission,
+): Promise<PermissionPlateforme> {
+  const charge = await apiAdministration.creer<ChargePermission>(
+    "/admins/permissions/",
+    {
+      code: demande.code,
+      libelle: demande.libelle,
+      description: demande.description,
+      modules: demande.modules,
+    },
+  );
+  return versPermission(charge);
+}
+
+export async function modifierPermission(
+  id: string,
+  demande: { libelle: string; description: string },
+): Promise<PermissionPlateforme> {
+  const charge = await apiAdministration.modifier<ChargePermission>(
+    `/admins/permissions/${id}/`,
+    demande,
+  );
+  return versPermission(charge);
+}
+
+export async function basculerPermission(
+  id: string,
+  actif: boolean,
+): Promise<PermissionPlateforme> {
+  const charge = await apiAdministration.modifier<ChargePermission>(
+    `/admins/permissions/${id}/`,
+    { est_actif: actif },
+  );
+  return versPermission(charge);
+}
+
+export async function rattacherPermission(
+  id: string,
+  modules: string[],
+): Promise<PermissionPlateforme> {
+  const charge = await apiAdministration.creer<ChargePermission>(
+    `/admins/permissions/${id}/modules/`,
+    { modules },
+  );
+  return versPermission(charge);
+}
+
+export async function supprimerPermission(
+  id: string,
+  code = "",
+): Promise<string> {
+  await apiAdministration.supprimer(`/admins/permissions/${id}/`);
+  return code;
+}
+

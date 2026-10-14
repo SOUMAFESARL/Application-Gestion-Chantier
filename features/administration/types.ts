@@ -425,3 +425,34 @@ export interface PageJournalPlateforme {
   /** Vrai quand la sélection dépasse le plafond de chargement. */
   tronque: boolean;
 }
+
+export interface ModulePermission {
+  id: string;
+  code: string;
+  libelle: string;
+}
+
+export interface PermissionPlateforme {
+  id: string;
+  code: string;
+  libelle: string;
+  description: string;
+  ordre: number;
+  actif: boolean;
+  modules: ModulePermission[];
+}
+
+export interface DemandePermission {
+  code: string;
+  libelle: string;
+  description: string;
+  /** Codes de modules. */
+  modules: string[];
+}
+
+export interface CriteresPermissions {
+  recherche: string;
+  module: string;
+  etat: "" | "ACTIVE" | "INACTIVE";
+}
+

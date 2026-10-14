@@ -359,3 +359,22 @@ export const schemaTestMessagerie = z.object({
 
 export type SaisieTestMessagerie = z.input<typeof schemaTestMessagerie>;
 export type ValeursTestMessagerie = z.output<typeof schemaTestMessagerie>;
+
+export const schemaPermission = z.object({
+  code: chaineNonVide(texte("administration.permissions.erreurCodeRequis")).regex(
+    /^[a-z0-9_]+(\.[a-z0-9_]+)+$/,
+    texte("administration.permissions.erreurCodeForme"),
+  ),
+  libelle: chaineNonVide(texte("administration.permissions.erreurLibelleRequis")).max(100),
+  description: z.string().trim(),
+  modules: z.array(z.string()),
+});
+
+export const schemaModificationPermission = schemaPermission.omit({ code: true, modules: true });
+
+export type SaisiePermission = z.input<typeof schemaPermission>;
+export type ValeursPermission = z.output<typeof schemaPermission>;
+
+export type SaisieModificationPermission = z.input<typeof schemaModificationPermission>;
+export type ValeursModificationPermission = z.output<typeof schemaModificationPermission>;
+
