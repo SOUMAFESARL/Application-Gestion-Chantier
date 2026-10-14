@@ -7,6 +7,8 @@
  * cles ecrites a la main dans chaque fichier se desynchronisent a la premiere
  * faute de frappe, sans rien casser de visible — le compteur reste juste faux.
  */
+import type { FiltresJournalPlateforme } from "@/features/administration";
+
 export const CLES_ADMINISTRATION = {
   moi: () => ["administration", "moi"] as const,
   clients: () => ["administration", "clients"] as const,
@@ -17,4 +19,7 @@ export const CLES_ADMINISTRATION = {
   comptes: () => ["administration", "comptes"] as const,
   modules: () => ["administration", "modules"] as const,
   messagerie: () => ["administration", "messagerie"] as const,
+  journal: (filtres: FiltresJournalPlateforme) =>
+    ["administration", "journal", filtres] as const,
+  actionsJournal: () => ["administration", "journal", "actions"] as const,
 };

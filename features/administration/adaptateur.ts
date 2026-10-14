@@ -39,7 +39,7 @@ import {
 } from "@/lib/api/simulationAdministration";
 import { texte } from "@/i18n/horsReact";
 
-import { indicateurs } from "./regles";
+import { indicateurs, PLAFOND_JOURNAL } from "./regles";
 import type {
   AbonnementClient,
   CleIndicateur,
@@ -51,9 +51,12 @@ import type {
   DemandeMessagerie,
   DemandeModificationProfil,
   DemandeModule,
+  EntreeJournalPlateforme,
+  FiltresJournalPlateforme,
   IndicateursPlateforme,
   ModuleClient,
   ModulePlateforme,
+  PageJournalPlateforme,
   PointEvolutionAbonnements,
   ProfilAdministrateur,
   ReglageMessagerie,
@@ -1060,4 +1063,102 @@ export async function testerMessagerie(
     nomEhlo: charge.nom_ehlo ?? null,
     reglage: charge.reglage,
   };
+}
+
+interface ChargeEntreeJournal {
+  id: number;
+  utilisateur_id: string | null;
+  utilisateur_nom: string;
+  entreprise_id: string | null;
+  entreprise_nom: string;
+  action: string;
+  detail: Record<string, unknown> | null;
+  adresse_ip: string | null;
+  appareil: string;
+  horodatage: string;
+}
+
+interface ChargePageJournal {
+  total: number;
+  page: number;
+  nombre_pages: number;
+  suivant: string | null;
+  precedent: string | null;
+  resultats: ChargeEntreeJournal[];
+}
+
+const TAILLE_PAGE_JOURNAL = 100;
+
+function versEntreeJournal(charge: ChargeEntreeJournal): EntreeJournalPlateforme {
+  return {
+    id: charge.id,
+    agentId: charge.utilisateur_id,
+    agent: charge.utilisateur_nom,
+    entrepriseId: charge.entreprise_id,
+    entreprise: charge.entreprise_nom,
+    action: charge.action,
+    detail: charge.detail ?? {},
+    adresseIp: charge.adresse_ip,
+    appareil: charge.appareil,
+    horodatage: new Date(charge.horodatage),
+  };
+}
+
+/**
+ * Le journal de la plateforme pour une sélection — `GET /admins/journal-plateforme/`.
+ *
+ * Toutes les pages, par 100, jusqu'au plafond : l'écran pagine et exporte côté client, et un
+ * export qui ne porterait que sur la page affichée mentirait sur ce qu'il contient.
+ */
+export async function listerJournalPlateforme(
+  filtres: FiltresJournalPlateforme,
+  signal?: AbortSignal,
+): Promise<PageJournalPlateforme> {
+  const parametres: Record<string, string | number> = {
+    du: filtres.du,
+    au: filtres.au,
+    ...(filtres.agentId ? { utilisateur_id: filtres.agentId } : {}),
+    ...(filtres.entrepriseId ? { entreprise_id: filtres.entrepriseId } : {}),
+    ...(filtres.action ? { action: filtres.action } : {}),
+    taille_page: TAILLE_PAGE_JOURNAL,
+  };
+
+  const toutesEntrees: EntreeJournalPlateforme[] = [];
+  let pageCourante = 1;
+  let total = 0;
+  let nombrePages = 1;
+
+  while (pageCourante <= nombrePages && toutesEntrees.length < PLAFOND_JOURNAL) {
+    const charge = await apiAdministration.lire<ChargePageJournal>(
+      "/admins/journal-plateforme/",
+      { ...parametres, page: pageCourante },
+      signal,
+    );
+    total = charge.total;
+    nombrePages = charge.nombre_pages;
+
+    for (const item of charge.resultats) {
+      toutesEntrees.push(versEntreeJournal(item));
+      if (toutesEntrees.length >= PLAFOND_JOURNAL) break;
+    }
+
+    if (!charge.suivant || charge.resultats.length === 0) break;
+    pageCourante++;
+  }
+
+  return {
+    entrees: toutesEntrees.slice(0, PLAFOND_JOURNAL),
+    total,
+    tronque: total > PLAFOND_JOURNAL,
+  };
+}
+
+/** Les codes d'action présents au journal — `GET /admins/journal-plateforme/actions/`. */
+export async function listerActionsJournal(signal?: AbortSignal): Promise<string[]> {
+  const charge = await apiAdministration.lire<{ actions: string[] }>(
+    "/admins/journal-plateforme/actions/",
+    undefined,
+    signal,
+  );
+  return charge.actions;
 }
