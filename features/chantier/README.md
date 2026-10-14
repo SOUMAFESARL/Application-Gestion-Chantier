@@ -57,10 +57,13 @@ démonstration couvre aussi les projets **en attente** (quatre semaines), avec
 des lots, un avancement et des intervenants fictifs quand le projet n'en a
 pas encore.
 
-Le profil Directeur Général **consulte** : il ne saisit ni ne valide un rapport
-(circuit CC → CT → CP). Le conducteur de travaux, puis le chef de projet du
-chantier, signent depuis le rapport lui-même (`rapports/[id]/SignatureRapport.tsx`,
-règle `etapeASigner`) — le serveur, lui, accepterait aussi la signature d'un DG. Il peut relancer un chef de chantier ou un signataire.
+**Signe celui qui tient la fonction sur le chantier, et lui seul** (décision
+du 14/10/2026, appliquée de la même façon par le serveur) : le conducteur de
+travaux, puis le chef de projet du chantier, depuis le rapport lui-même
+(`rapports/[id]/SignatureRapport.tsx`, règle `etapeASigner`). Le Directeur
+Général **consulte** — sauf sur un chantier dont il est le chef de projet
+désigné, où il approuve comme tel. Le super-administrateur de la plateforme ne
+signe jamais. Il peut relancer un chef de chantier ou un signataire.
 La rédaction est ouverte à l'accès « saisie » du module chantier, direction
 comprise (`peutRedigerJournal`) ; mais seul le rédacteur hors direction voit
 l'onglet « Aujourd'hui » tourné vers sa saisie (`estRedacteurJournal`).

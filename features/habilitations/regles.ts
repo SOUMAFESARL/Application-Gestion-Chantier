@@ -160,21 +160,26 @@ export function estRedacteurJournal(droits: Droits | null): boolean {
 /**
  * L'étape du circuit que ce compte doit signer sur ce rapport, ou `null`.
  *
- * - un rapport **soumis** attend le **conducteur de travaux** du chantier, qui
- *   tient l'accès « validation » du journal ;
+ * **Signe celui qui tient la fonction sur le chantier, et lui seul** —
+ * décision du 14/10/2026, appliquée de la même façon par le serveur :
+ *
+ * - un rapport **soumis** attend le **conducteur de travaux** du chantier,
+ *   qui tient l'accès « validation » du journal ;
  * - un rapport **validé par le CT** attend le **chef de projet** du chantier.
  *
- * La direction consulte sans signer (SFD F2 §3.1) : sa portée ne la nomme sur
- * aucun chantier, elle n'a donc jamais d'étape. Le serveur, lui, accepte la
- * signature d'un DG — c'est un choix d'écran, pas une barrière.
+ * Le directeur général n'a pas de dérogation : il signe s'il tient la
+ * fonction — chef de projet désigné d'un chantier, dans une petite
+ * structure — et consulte sinon. D'où `collaborateurId` : la portée de la
+ * direction ne nomme personne, la fonction se lit sur le chantier.
  */
 export function etapeASigner(
   situation: string,
   projet: Projet | undefined,
   droits: Droits | null,
+  collaborateurId: string | null,
 ): "CT" | "CP" | null {
-  if (!projet) return null;
-  const fonctions = fonctionsSurProjet(projet, droits);
+  if (!projet || !collaborateurId) return null;
+  const fonctions = fonctionsDansProjet(projet, collaborateurId);
   if (situation === "SOUMIS" && fonctions.includes("CONDUCTEUR_TRAVAUX") && peut(droits, "chantier", "validation")) {
     return "CT";
   }

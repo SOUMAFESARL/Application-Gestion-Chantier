@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { lireProfilLocal } from "@/features/auth/api";
 import { LONGUEUR_MIN_COMMENTAIRE_REJET } from "@/features/chantier";
 import type { RapportJournalier } from "@/features/chantier";
 import { approuverRapport, rejeterRapport, validerRapport } from "@/features/chantier/adaptateur";
@@ -31,8 +32,8 @@ type Geste = "signer" | "rejeter";
  * soumis, le chef de projet sur un rapport validé par le CT (SFD F2, RG-F2-03).
  *
  * Il vit sur le rapport lui-même, et non dans la file : on signe ce qu'on a
- * lu. Personne d'autre ne voit ce bandeau — ni le chef de chantier, ni la
- * direction, qui consulte sans signer (`etapeASigner`).
+ * lu. Personne d'autre ne voit ce bandeau : signe celui qui tient la
+ * fonction sur le chantier, directeur général compris (`etapeASigner`).
  */
 export function SignatureRapport({ rapport }: { rapport: RapportJournalier }) {
   const t = useTranslations("journal.signature");
@@ -44,7 +45,11 @@ export function SignatureRapport({ rapport }: { rapport: RapportJournalier }) {
   const idTexte = useId();
 
   const projet = projets.data?.find((candidat) => candidat.id === rapport.chantier.projetId);
-  const etape = etapeASigner(rapport.situation, projet, droits);
+  // La personne dont on lit la fonction : celle que portent les droits (y
+  // compris un rôle incarné en développement), sinon le compte connecté — la
+  // portée de la direction ne nomme personne.
+  const moi = droits?.portee.type === "PERSONNE" ? droits.portee.collaborateurId : (lireProfilLocal()?.id ?? null);
+  const etape = etapeASigner(rapport.situation, projet, droits, moi);
 
   const mutation = useMutation({
     mutationFn: (choix: Geste) => {
