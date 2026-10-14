@@ -80,17 +80,20 @@ export type SaisieChangementPlan = z.input<typeof schemaChangementPlan>;
 export type ValeursChangementPlan = z.output<typeof schemaChangementPlan>;
 
 /**
- * La nouvelle échéance d'un abonnement, au format ISO court (`2026-11-05`).
+ * La nouvelle échéance d'un abonnement (`2026-11-05`), et pourquoi on la change.
  *
- * Elle ne précède pas le début de l'abonnement : une période qui finit avant
- * d'avoir commencé n'a pas de sens, et le serveur la refuserait. Une date
- * passée reste permise — c'est ainsi qu'on clôt un abonnement à la main.
+ * La date est **au plus tôt aujourd'hui** et **après le début** de l'abonnement : le serveur
+ * refuse les deux autres cas (B2). Clore un abonnement à une date passée n'est plus un geste
+ * du back-office : c'est la suspension. Le motif est journalisé ; il n'est pas envoyé au client.
  */
-export function schemaFinAbonnement(dateDebut: string) {
+export function schemaFinAbonnement(dateDebut: string, aujourdhui: string) {
   return z.object({
-    dateFin: chaineNonVide(texte("administration.finAbonnement.erreurDateRequise")).refine(
-      (valeur) => valeur >= dateDebut,
-      texte("administration.finAbonnement.erreurAvantDebut"),
+    dateFin: chaineNonVide(texte("administration.finAbonnement.erreurDateRequise"))
+      .refine((valeur) => valeur > dateDebut, texte("administration.finAbonnement.erreurAvantDebut"))
+      .refine((valeur) => valeur >= aujourdhui, texte("administration.finAbonnement.erreurPassee")),
+    motif: chaineNonVide(texte("administration.finAbonnement.erreurMotifRequis")).min(
+      MOTIF_MIN,
+      texte("administration.finAbonnement.erreurMotifCourt"),
     ),
   });
 }

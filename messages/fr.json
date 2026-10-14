@@ -278,6 +278,7 @@
       "montantMensuel": "Montant mensuel",
       "non": "Non",
       "oui": "Oui",
+      "modifierEcheance": "Modifier l’échéance",
       "pays": "Pays",
       "plan": "Plan",
       "projets": "Chantiers",
@@ -653,12 +654,19 @@
       "description": "Abonnement {plan} débuté le {debut}. L’accès de l’entreprise court jusqu’à la date choisie.",
       "date": "Date de fin",
       "datePlaceholder": "Choisir une date",
+      "motif": "Motif de la modification",
+      "motifPlaceholder": "Geste commercial après l’incident du 10/10, paiement reçu hors délai…",
+      "aideMotif": "Le motif reste au journal de la plateforme ; il n’est pas communiqué au client. Le dirigeant de l’entreprise est prévenu par courriel de la nouvelle date.",
+      "aideEssai": "Pendant l’essai, la fin de l’essai suit cette date.",
       "annuler": "Annuler",
       "confirmer": "Enregistrer",
       "enCours": "Enregistrement en cours…",
       "succes": "Fin d’abonnement de {client} fixée au {date}.",
       "erreurDateRequise": "Choisissez une date de fin.",
-      "erreurAvantDebut": "La date de fin ne peut pas précéder le début de l’abonnement."
+      "erreurAvantDebut": "La date de fin doit être postérieure au début de l’abonnement.",
+      "erreurPassee": "La date de fin ne peut pas être antérieure à aujourd’hui.",
+      "erreurMotifRequis": "Le motif est requis.",
+      "erreurMotifCourt": "Le motif doit contenir au moins 10 caractères."
     }
   },
   "configuration": {

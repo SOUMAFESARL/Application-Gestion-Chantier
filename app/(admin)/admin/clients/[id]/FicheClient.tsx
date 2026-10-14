@@ -2,11 +2,13 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Ban, CreditCard, Play } from "lucide-react";
+import { ArrowLeft, Ban, CalendarClock, CreditCard, Play } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+
+import { ModaleFinAbonnement } from "../ModaleFinAbonnement";
 
 import { Alerte, Bouton, EtatChargement, EtatErreur, Modale } from "@/components/ui";
 import { Input } from "@/components/ui/input";
@@ -87,6 +89,7 @@ export function FicheClient({ id }: { id: string }) {
   const cache = useQueryClient();
 
   const [action, setAction] = useState<Action>(null);
+  const [echeanceOuverte, setEcheanceOuverte] = useState(false);
   const [erreurAction, setErreurAction] = useState<string | null>(null);
   const [plan, setPlan] = useState<CodePlan>("MAITRE_OEUVRE");
 
@@ -211,6 +214,15 @@ export function FicheClient({ id }: { id: string }) {
             onClick={() => ouvrir("plan")}
           >
             {t("fiche.changerPlan")}
+          </Bouton>
+          <Bouton
+            variante="secondaire"
+            taille="sm"
+            disabled={!peutAgir}
+            iconeGauche={<CalendarClock size={16} />}
+            onClick={() => setEcheanceOuverte(true)}
+          >
+            {t("fiche.modifierEcheance")}
           </Bouton>
         </div>
       </div>
@@ -384,6 +396,11 @@ export function FicheClient({ id }: { id: string }) {
           {erreurAction && <Alerte type="erreur">{erreurAction}</Alerte>}
         </div>
       </Modale>
+
+      <ModaleFinAbonnement
+        client={echeanceOuverte ? client : null}
+        onFermer={() => setEcheanceOuverte(false)}
+      />
     </div>
   );
 }

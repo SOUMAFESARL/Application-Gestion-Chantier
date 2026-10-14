@@ -93,6 +93,25 @@ export function joursAvant(
   return Math.round((cible - depart) / MS_PAR_JOUR);
 }
 
+/** Aujourd'hui, au format des dates du serveur (`2026-10-14`), **dans le fuseau du poste**. */
+export function aujourdhuiIso(maintenant: Date = new Date()): string {
+  const annee = maintenant.getFullYear();
+  const mois = String(maintenant.getMonth() + 1).padStart(2, "0");
+  const jour = String(maintenant.getDate()).padStart(2, "0");
+  return `${annee}-${mois}-${jour}`;
+}
+
+/**
+ * La date la plus proche qu'on puisse choisir comme nouvelle échéance :
+ * au plus tôt aujourd'hui, et strictement après la date de début de l'abonnement.
+ */
+export function premiereEcheancePossible(dateDebut: string, aujourdhui: string): string {
+  const d = new Date(dateDebut);
+  d.setDate(d.getDate() + 1);
+  const lendemainDebut = aujourdhuiIso(d);
+  return lendemainDebut > aujourdhui ? lendemainDebut : aujourdhui;
+}
+
 /**
  * Ce qui, sur ce client, demande une action de la plateforme.
  *
