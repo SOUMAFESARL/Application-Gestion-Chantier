@@ -48,6 +48,7 @@ import type {
   CompteAdministrateur,
   DemandeChangementMotDePasse,
   DemandeCreationAdministrateur,
+  DemandeMessagerie,
   DemandeModificationProfil,
   DemandeModule,
   IndicateursPlateforme,
@@ -55,6 +56,8 @@ import type {
   ModulePlateforme,
   PointEvolutionAbonnements,
   ProfilAdministrateur,
+  ReglageMessagerie,
+  ResultatDiagnosticMessagerie,
   RoleAdministrateur,
   StatutAbonnement,
   StatutClient,
@@ -109,6 +112,41 @@ interface ChargeClient {
   abonnement: ChargeAbonnement;
   modules?: ChargeModuleClient[];
   dirigeant?: ChargeDirigeantClient | null;
+}
+
+interface ChargeReglageEffectif {
+  source: ReglageMessagerie["effectif"]["source"];
+  hote: string;
+  port: number;
+  chiffrement: ReglageMessagerie["effectif"]["chiffrement"];
+  identifiant: string;
+  expediteur: string;
+}
+
+interface ChargeMessagerie {
+  saisi: {
+    hote: string;
+    port: number;
+    chiffrement: ReglageMessagerie["saisi"]["chiffrement"];
+    identifiant: string;
+    expediteur: string;
+    mot_de_passe_defini: boolean;
+    modifie_le: string | null;
+  };
+  effectif: ChargeReglageEffectif;
+  frontend_url: string;
+  frontend_url_locale: boolean;
+}
+
+interface ChargeDiagnosticMessagerie {
+  succes: boolean;
+  etape: "connexion" | "envoi" | null;
+  erreur: string | null;
+  conseil: string | null;
+  sonde: ResultatDiagnosticMessagerie["sonde"];
+  alternatives: ResultatDiagnosticMessagerie["alternatives"];
+  nom_ehlo?: string | null;
+  reglage: ChargeReglageEffectif;
 }
 
 /** L'utilisateur renvoyé par `POST /admins/connexion/`. */
@@ -312,6 +350,23 @@ function versClient(charge: ChargeClient): ClientPlateforme {
     abonnement: versAbonnement(charge.abonnement),
     modules: (charge.modules || []).map(versModuleClient),
     dirigeant: charge.dirigeant ? { nom: charge.dirigeant.nom, email: charge.dirigeant.email } : null,
+  };
+}
+
+function versMessagerie(charge: ChargeMessagerie): ReglageMessagerie {
+  return {
+    saisi: {
+      hote: charge.saisi.hote,
+      port: charge.saisi.port,
+      chiffrement: charge.saisi.chiffrement,
+      identifiant: charge.saisi.identifiant,
+      expediteur: charge.saisi.expediteur,
+      motDePasseDefini: charge.saisi.mot_de_passe_defini,
+      modifieLe: charge.saisi.modifie_le ? new Date(charge.saisi.modifie_le) : null,
+    },
+    effectif: charge.effectif,
+    frontendUrl: charge.frontend_url,
+    frontendUrlLocale: charge.frontend_url_locale,
   };
 }
 
@@ -949,4 +1004,60 @@ export async function lireTendancesIndicateurs(
     points: charge.points,
     variationPourcent: charge.variation_pourcent,
   }));
+}
+
+/* ------------------------------------------------------------------ *
+ * Messagerie : le serveur SMTP par lequel partent tous les e-mails
+ * ------------------------------------------------------------------ */
+
+/** `GET /admins/parametres/messagerie/` — le réglage saisi et celui qui sert réellement. */
+export async function lireMessagerie(): Promise<ReglageMessagerie> {
+  return versMessagerie(
+    await apiAdministration.lire<ChargeMessagerie>("/admins/parametres/messagerie/"),
+  );
+}
+
+/** `PATCH /admins/parametres/messagerie/` — superviseur. Un mot de passe vide conserve l'actuel. */
+export async function enregistrerMessagerie(
+  demande: DemandeMessagerie,
+): Promise<ReglageMessagerie> {
+  return versMessagerie(
+    await apiAdministration.modifier<ChargeMessagerie>("/admins/parametres/messagerie/", {
+      hote: demande.hote,
+      port: demande.port,
+      chiffrement: demande.chiffrement,
+      identifiant: demande.identifiant,
+      mot_de_passe: demande.motDePasse,
+      expediteur: demande.expediteur,
+    }),
+  );
+}
+
+/** `DELETE /admins/parametres/messagerie/` — retombe sur le réglage du serveur (`.env`). */
+export async function reinitialiserMessagerie(): Promise<ReglageMessagerie> {
+  await apiAdministration.supprimer("/admins/parametres/messagerie/");
+  return lireMessagerie();
+}
+
+/**
+ * `POST /admins/parametres/messagerie/tester/` — envoie un message et dit **où** ça casse.
+ * Une panne d'envoi n'est pas une erreur HTTP : elle revient dans le résultat, avec son conseil.
+ */
+export async function testerMessagerie(
+  destinataire: string,
+): Promise<ResultatDiagnosticMessagerie> {
+  const charge = await apiAdministration.creer<ChargeDiagnosticMessagerie>(
+    "/admins/parametres/messagerie/tester/",
+    { destinataire },
+  );
+  return {
+    succes: charge.succes,
+    etape: charge.etape,
+    erreur: charge.erreur,
+    conseil: charge.conseil,
+    sonde: charge.sonde ?? null,
+    alternatives: charge.alternatives ?? [],
+    nomEhlo: charge.nom_ehlo ?? null,
+    reglage: charge.reglage,
+  };
 }

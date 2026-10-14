@@ -324,3 +324,38 @@ export const schemaIdentitePlateforme = z.object({
 
 export type SaisieIdentitePlateforme = z.input<typeof schemaIdentitePlateforme>;
 export type ValeursIdentitePlateforme = z.output<typeof schemaIdentitePlateforme>;
+
+/** Le serveur SMTP saisi par le superviseur. Le mot de passe n'est exigé que la première fois. */
+export function schemaMessagerie(motDePasseRequis: boolean) {
+  return z.object({
+    hote: chaineNonVide(texte("administration.messagerie.erreurHoteRequis")).refine(
+      (valeur) => !/[\s/]|:\/\//.test(valeur),
+      texte("administration.messagerie.erreurHoteForme"),
+    ),
+    port: z.coerce
+      .number()
+      .int()
+      .min(1, texte("administration.messagerie.erreurPort"))
+      .max(65535, texte("administration.messagerie.erreurPort")),
+    chiffrement: z.enum(["STARTTLS", "SSL", "AUCUN"]),
+    identifiant: chaineNonVide(texte("administration.messagerie.erreurIdentifiantRequis")),
+    motDePasse: motDePasseRequis
+      ? chaineNonVide(texte("administration.messagerie.motDePasseRequis"))
+      : z.string(),
+    expediteur: z.string().trim(),
+  });
+}
+
+export type SchemaMessagerie = ReturnType<typeof schemaMessagerie>;
+export type SaisieMessagerie = z.input<SchemaMessagerie>;
+export type ValeursMessagerie = z.output<SchemaMessagerie>;
+
+export const schemaTestMessagerie = z.object({
+  destinataire: email(
+    texte("administration.messagerie.test.erreurAdresse"),
+    texte("administration.messagerie.test.erreurAdresse"),
+  ),
+});
+
+export type SaisieTestMessagerie = z.input<typeof schemaTestMessagerie>;
+export type ValeursTestMessagerie = z.output<typeof schemaTestMessagerie>;
