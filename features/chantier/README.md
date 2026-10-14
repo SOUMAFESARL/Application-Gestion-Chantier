@@ -7,7 +7,7 @@ Module 2 — journal de chantier. Miroir de `backend/apps/chantier/`.
 | Types | `types.ts` | Entrée de journal (chantier × jour), rapport journalier, synthèse périodique, saisie du CC |
 | Règles | `regles.ts` | Situations, circuit CC → CT → CP, délais, agrégation ; saisie : J-2, sections actives, alertes immédiates, avancement |
 | Validations | `validations.ts` | Schéma zod de **soumission** (piloté par les sections du chantier), formulaire ↔ domaine |
-| Adaptateur | `adaptateur.ts` | Routes `/chantier/…`. **La saisie, le journal et le rapport lu sont réels** ; la relance et la synthèse passent encore par la simulation, faute de route côté Django |
+| Adaptateur | `adaptateur.ts` | Routes `/chantier/…`. **La saisie, le journal, le rapport lu et le circuit de validation (valider, approuver, rejeter) sont réels** ; la relance et la synthèse passent encore par la simulation, faute de route côté Django |
 | Simulation | `simulationJournal.ts` | Ne sert plus qu'à la relance et à la synthèse ; disparaît quand leurs routes existent |
 | Simulation | `simulationSaisie.ts` | N'est plus appelé par la saisie. Ne sert plus qu'à `simulationJournal.ts`, et disparaît avec lui |
 | Navigateur | `photos.ts`, `brouillonLocal.ts` | Compression 1 200 px / 70 % + GPS ; copie locale de la saisie (coupure réseau) |
@@ -58,7 +58,9 @@ des lots, un avancement et des intervenants fictifs quand le projet n'en a
 pas encore.
 
 Le profil Directeur Général **consulte** : il ne saisit ni ne valide un rapport
-(circuit CC → CT → CP). Il peut relancer un chef de chantier ou un signataire.
+(circuit CC → CT → CP). Le conducteur de travaux, puis le chef de projet du
+chantier, signent depuis le rapport lui-même (`rapports/[id]/SignatureRapport.tsx`,
+règle `etapeASigner`) — le serveur, lui, accepterait aussi la signature d'un DG. Il peut relancer un chef de chantier ou un signataire.
 La rédaction est ouverte à l'accès « saisie » du module chantier, direction
 comprise (`peutRedigerJournal`) ; mais seul le rédacteur hors direction voit
 l'onglet « Aujourd'hui » tourné vers sa saisie (`estRedacteurJournal`).

@@ -572,6 +572,33 @@ export async function lireRapport(id: string, signal?: AbortSignal): Promise<Rap
   return versRapport(await api.lire<ChargeRapport>(`/chantier/rapports/${id}/`, undefined, signal));
 }
 
+/* ------------------------------------------------------------------ *
+ * Le circuit de validation CC → CT → CP (SFD F2, RG-F2-03).
+ *
+ *   POST /chantier/rapports/{id}/valider/    signature du conducteur de travaux
+ *   POST /chantier/rapports/{id}/approuver/  signature du chef de projet, après le CT
+ *   POST /chantier/rapports/{id}/rejeter/    retour au chef de chantier, motif ≥ 20 caractères
+ *
+ * Chacune renvoie le rapport à jour. Le serveur revérifie tout : le statut
+ * attendu, l'affectation du signataire au chantier, et que l'auteur ne signe
+ * pas son propre rapport.
+ * ------------------------------------------------------------------ */
+
+/** Le conducteur de travaux signe un rapport soumis. */
+export async function validerRapport(id: string, commentaire: string): Promise<RapportJournalier> {
+  return versRapport(await api.creer<ChargeRapport>(`/chantier/rapports/${id}/valider/`, { commentaire }));
+}
+
+/** Le chef de projet signe un rapport déjà validé par le conducteur de travaux. */
+export async function approuverRapport(id: string, commentaire: string): Promise<RapportJournalier> {
+  return versRapport(await api.creer<ChargeRapport>(`/chantier/rapports/${id}/approuver/`, { commentaire }));
+}
+
+/** Renvoie le rapport au chef de chantier, à l'étape où il se trouve. */
+export async function rejeterRapport(id: string, motif: string): Promise<RapportJournalier> {
+  return versRapport(await api.creer<ChargeRapport>(`/chantier/rapports/${id}/rejeter/`, { motif }));
+}
+
 /**
  * Relance la personne qui bloque une ligne : le chef de chantier si le
  * rapport manque, le signataire attendu s'il est déposé.
