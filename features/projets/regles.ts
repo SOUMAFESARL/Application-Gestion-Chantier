@@ -1243,8 +1243,26 @@ export function collaborateurDansEquipe(
 }
 
 /**
+ * Le Directeur Général : le propriétaire du compte, ou le rôle `DG` — la même
+ * définition que `est_dg` côté serveur.
+ */
+export function estDirecteurGeneral(collaborateur: Pick<Collaborateur, "role" | "estProprietaire">): boolean {
+  return collaborateur.estProprietaire || collaborateur.role === "DG";
+}
+
+/**
+ * Peut-on confier une fonction de chantier à ce collaborateur ? Pas au
+ * Directeur Général : il garde ses attributions et ne se substitue à aucune
+ * fonction de chantier (décision du 14/10/2026, appliquée par le serveur).
+ */
+export function peutTenirFonctionChantier(collaborateur: Pick<Collaborateur, "role" | "estProprietaire">): boolean {
+  return !estDirecteurGeneral(collaborateur);
+}
+
+/**
  * Les collaborateurs qu'on peut mettre dans une équipe : ceux dont le compte
- * vit (actif, ou invité qui n'a pas encore répondu) et qui n'y sont pas déjà.
+ * vit (actif, ou invité qui n'a pas encore répondu), qui n'y sont pas déjà, et
+ * qui peuvent tenir une fonction de chantier — le DG, jamais.
  * `garde` reste proposé même pris : c'est le choix de la ligne en cours, qui
  * ne doit pas disparaître de sa propre liste.
  */
@@ -1257,6 +1275,7 @@ export function collaborateursDisponibles(
   return collaborateurs.filter(
     (collaborateur) =>
       collaborateur.statut !== "DESACTIVE" &&
+      peutTenirFonctionChantier(collaborateur) &&
       (collaborateur.id === garde || !pris.has(collaborateur.id)),
   );
 }
@@ -1642,8 +1661,9 @@ export function effectifEncadrement(projet: Projet): number {
 
 /**
  * Les utilisateurs du compte qu'on peut encore placer à cette fonction : un
- * compte désactivé ne se désigne pas, et une personne n'occupe pas deux fois
- * la même place — le chef de projet en place n'est donc pas reproposé.
+ * compte désactivé ne se désigne pas, le Directeur Général ne tient aucune
+ * fonction de chantier, et une personne n'occupe pas deux fois la même place
+ * — le chef de projet en place n'est donc pas reproposé.
  */
 export function candidatsEncadrement(
   utilisateurs: Collaborateur[],
@@ -1651,7 +1671,10 @@ export function candidatsEncadrement(
   fonction: FonctionProjet,
 ): Collaborateur[] {
   const pris = new Set(membresDeFonction(projet, fonction).map((membre) => membre.id));
-  return utilisateurs.filter((utilisateur) => utilisateur.statut !== "DESACTIVE" && !pris.has(utilisateur.id));
+  return utilisateurs.filter(
+    (utilisateur) =>
+      utilisateur.statut !== "DESACTIVE" && peutTenirFonctionChantier(utilisateur) && !pris.has(utilisateur.id),
+  );
 }
 
 /** Un utilisateur du compte, vu comme un intervenant du projet. */

@@ -22,7 +22,7 @@ import { LONGUEUR_MIN_COMMENTAIRE_REJET } from "@/features/chantier";
 import type { RapportJournalier } from "@/features/chantier";
 import { approuverRapport, rejeterRapport, validerRapport } from "@/features/chantier/adaptateur";
 import { CLE_JOURNAL, cleRapport } from "@/features/chantier/cles";
-import { etapeASigner, useDroits, useProjetsVisibles } from "@/features/habilitations";
+import { etapeASigner, personneQuiSigne, useDroits, useProjetsVisibles } from "@/features/habilitations";
 import { ErreurApi } from "@/lib/api";
 
 type Geste = "signer" | "rejeter";
@@ -33,7 +33,7 @@ type Geste = "signer" | "rejeter";
  *
  * Il vit sur le rapport lui-même, et non dans la file : on signe ce qu'on a
  * lu. Personne d'autre ne voit ce bandeau : signe celui qui tient la
- * fonction sur le chantier, directeur général compris (`etapeASigner`).
+ * fonction sur le chantier (`etapeASigner`) — jamais le directeur général.
  */
 export function SignatureRapport({ rapport }: { rapport: RapportJournalier }) {
   const t = useTranslations("journal.signature");
@@ -45,10 +45,7 @@ export function SignatureRapport({ rapport }: { rapport: RapportJournalier }) {
   const idTexte = useId();
 
   const projet = projets.data?.find((candidat) => candidat.id === rapport.chantier.projetId);
-  // La personne dont on lit la fonction : celle que portent les droits (y
-  // compris un rôle incarné en développement), sinon le compte connecté — la
-  // portée de la direction ne nomme personne.
-  const moi = droits?.portee.type === "PERSONNE" ? droits.portee.collaborateurId : (lireProfilLocal()?.id ?? null);
+  const moi = personneQuiSigne(droits, lireProfilLocal());
   const etape = etapeASigner(rapport.situation, projet, droits, moi);
 
   const mutation = useMutation({
