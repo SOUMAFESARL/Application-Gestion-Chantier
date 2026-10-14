@@ -84,7 +84,7 @@ sur « simulé ».
 |---|---|---|
 | **1.1** Données locales | Module chantier activé pour `demo` ; projet CHANT-2026-001 doté d'un chef de chantier, d'un conducteur de travaux, d'un chef de projet, et de quatre activités sur ses deux lots | **Fait le 13/10/2026.** `GET /chantier/journal/` répond 200 (144 lignes), la préparation de saisie aussi |
 | **1.2** Saisie | Les 5 appels de saisie au réel ; suppression de `simulationSaisie.ts` reportée à la 1.7, le journal simulé s'en servant encore | **Fait le 14/10/2026.** API : brouillon, sauvegarde, soumission et refus attendus vérifiés avec le compte chef de chantier. Écran : formulaire ouvert sur la préparation réelle, brouillon enregistré (201), note relue du serveur après rechargement sans copie locale — avec le compte DG, le chef de chantier ne voyant pas encore son chantier (voir 1.2 bis). Défaut corrigé au passage : les habilitations du profil arrivent en capitales |
-| **1.2 bis** Affectations visibles | Le chef de chantier, le conducteur de travaux et le chef de projet ne voient pas leur chantier : le projet renvoyé par le backend ne porte que `chef_projet_id` et `conducteur_travaux_id`, et aucun chef de chantier, alors que le frontend attend `chef_projet`, `conducteurs_travaux` et `chefs_chantier` | À trancher |
+| **1.2 bis** Affectations visibles | Le projet renvoyé par le backend porte désormais `chef_projet`, `conducteurs_travaux` et `chefs_chantier`, construits depuis les affectations en vigueur, sans requête par projet (option 1, décision du 14/10/2026) | **Fait côté backend le 14/10/2026** (`9c81f33`, 5 tests). Vérifié par l'API : chacun des trois comptes de rôle figure dans l'encadrement de CHANT-2026-001. **Vérification à l'écran impossible** : le serveur de développement du frontend ne démarre plus faute de mémoire sur le poste |
 | **1.3** Journal et rapport | `lireJournal` et `lireRapport` au réel ; valeurs vides acceptées (stock, GPS, prix masqués) | À faire |
 | **1.4** Validation | `valider`, `approuver`, `rejeter` dans l'adaptateur et sur l'écran du rapport | À faire |
 | **1.5** Relance | Route backend `relancer` avec son test, puis branchement | À faire |
@@ -102,6 +102,8 @@ Décisions du 13/10/2026 :
   sans quoi tout appel au journal répond 403 — à vérifier avant la démonstration.
 
 Constats à reprendre ailleurs :
+
+- **35 tests des modules projets et chantier échouent déjà sur `develop`** (relevé du 14/10/2026), sans lien avec ce chantier. La CI ne lance que `tests/acceptation`, si bien qu'ils ne bloquent aucun déploiement ;
 
 - l'activation d'un module par entreprise porte sa logique dans la vue
   (`ActiverModuleClientPlateformeView`), pas dans un service ;
