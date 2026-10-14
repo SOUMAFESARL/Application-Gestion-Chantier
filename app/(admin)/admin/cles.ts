@@ -13,6 +13,8 @@ export const CLES_ADMINISTRATION = {
   moi: () => ["administration", "moi"] as const,
   clients: () => ["administration", "clients"] as const,
   client: (id: string) => ["administration", "clients", id] as const,
+  apercuSuppression: (id: string) =>
+    ["administration", "clients", id, "suppression"] as const,
   indicateurs: () => ["administration", "indicateurs"] as const,
   evolution: () => ["administration", "indicateurs", "evolution"] as const,
   tendances: () => ["administration", "indicateurs", "tendances"] as const,

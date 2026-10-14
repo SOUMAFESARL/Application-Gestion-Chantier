@@ -70,6 +70,8 @@ import type {
   TendanceIndicateur,
   DemandePermission,
   PermissionPlateforme,
+  ApercuSuppression,
+  ResultatSuppression,
 } from "./types";
 
 /* ------------------------------------------------------------------ *
@@ -244,6 +246,28 @@ const CLES_INDICATEURS: Record<CleIndicateurCharge, CleIndicateur> = {
   nb_clients_impayes: "impayes",
   revenu_mensuel_centimes: "revenuMensuel",
 };
+
+interface ChargeDirigeantApercu {
+  nom: string;
+  email: string;
+  prenom?: string;
+}
+
+interface ChargeApercuSuppression {
+  slug: string;
+  raison_sociale: string;
+  protegee: boolean;
+  suppression_activee: boolean;
+  suspendue: boolean;
+  motif_longueur_min: number;
+  sauvegarde_conservee_jours: number;
+  nb_utilisateurs: number;
+  nb_projets: number;
+  nb_paiements: number;
+  adresses: string[];
+  dirigeants: ChargeDirigeantApercu[];
+}
+
 
 /* ------------------------------------------------------------------ *
  * Traduction
@@ -1276,4 +1300,54 @@ export async function supprimerPermission(
   await apiAdministration.supprimer(`/admins/permissions/${id}/`);
   return code;
 }
+
+/**
+ * Ce que la suppression définitive d'une entreprise emporterait —
+ * `GET /admins/clients/<id>/suppression/apercu/`. Réservé au superviseur.
+ */
+export async function lireApercuSuppression(id: string): Promise<ApercuSuppression> {
+  const charge = await apiAdministration.lire<ChargeApercuSuppression>(
+    `/admins/clients/${id}/suppression/apercu/`,
+  );
+  return {
+    slug: charge.slug,
+    raisonSociale: charge.raison_sociale,
+    protegee: charge.protegee,
+    suppressionActivee: charge.suppression_activee,
+    suspendue: charge.suspendue,
+    motifLongueurMin: charge.motif_longueur_min,
+    sauvegardeConserveeJours: charge.sauvegarde_conservee_jours,
+    nbUtilisateurs: charge.nb_utilisateurs,
+    nbProjets: charge.nb_projets,
+    nbPaiements: charge.nb_paiements,
+    adresses: charge.adresses,
+    dirigeants: (charge.dirigeants || []).map((d) => ({
+      nom: d.nom || d.email,
+      email: d.email,
+    })),
+  };
+}
+
+/**
+ * Supprime l'entreprise, son schéma, ses comptes, et libère ses adresses —
+ * `POST /admins/clients/<id>/supprimer-definitivement/`. **Irréversible.**
+ *
+ * `POST`, et non `DELETE` : un `DELETE` ne porte pas de corps, et le serveur
+ * exige le nom retapé et le motif. **Irréversible** côté écran ; une sauvegarde du schéma est
+ * conservée 30 jours côté serveur.
+ */
+export async function supprimerClientDefinitivement(
+  id: string,
+  confirmation: string,
+  motif: string,
+): Promise<ResultatSuppression> {
+  return await apiAdministration.creer<ResultatSuppression>(
+    `/admins/clients/${id}/supprimer-definitivement/`,
+    {
+      confirmation,
+      motif,
+    },
+  );
+}
+
 

@@ -911,6 +911,40 @@
         "titre": "Catalogue des permissions",
         "nomFichier": "permissions"
       }
+    },
+    "suppressionDefinitive": {
+      "titre": "Zone dangereuse",
+      "description": "Supprime l’entreprise, tous ses comptes et toutes ses données, puis libère ses adresses e-mail.",
+      "ouvrir": "Supprimer définitivement",
+      "titreModale": "Supprimer définitivement {client}",
+      "avertissement": "Cette action est irréversible : l’entreprise, ses comptes, ses chantiers et ses fichiers seront effacés.",
+      "chargementApercu": "Calcul de ce qui sera supprimé.",
+      "erreurApercu": "Impossible de lire le détail de la suppression.",
+      "desactivee": "La suppression définitive est désactivée sur ce serveur.",
+      "compteUtilisateurs": "{nombre, plural, =0 {Aucun compte utilisateur} one {# compte utilisateur} other {# comptes utilisateurs}}",
+      "compteProjets": "{nombre, plural, =0 {Aucun chantier} one {# chantier} other {# chantiers}}",
+      "comptePaiements": "{nombre, plural, one {# paiement enregistré} other {# paiements enregistrés}}",
+      "adressesLiberees": "{nombre, plural, =0 {Aucune adresse libérée} one {# adresse e-mail sera libérée} other {# adresses e-mail seront libérées}}",
+      "saisie": "Pour confirmer, saisissez « {slug} »",
+      "annuler": "Annuler",
+      "confirmer": "Supprimer définitivement",
+      "enCours": "Suppression en cours…",
+      "succes": "{client} a été supprimée. Sauvegarde : {fichier}.",
+      "erreur": "La suppression a échoué. Réessayez.",
+      "refus": {
+        "protegee": "Cette entreprise est protégée : elle ne peut pas être supprimée.",
+        "desactivee": "La suppression définitive est coupée sur ce serveur.",
+        "nonSuspendue": "Suspendez d’abord l’entreprise : seule une entreprise suspendue peut être supprimée."
+      },
+      "motif": "Motif de la suppression",
+      "motifPlaceholder": "Demande écrite du client du …, contrat résilié, données exportées…",
+      "motifAide": "Le motif est conservé au journal de la plateforme.",
+      "motifCompteur": "{n} / {min} caractères",
+      "erreurMotifRequis": "Le motif est obligatoire.",
+      "erreurMotifCourt": "Le motif doit contenir au moins 20 caractères.",
+      "erreurConfirmation": "Le nom saisi ne correspond pas à celui de l’entreprise.",
+      "sauvegarde": "Une sauvegarde de l’entreprise est faite avant la suppression et conservée {jours} jours sur le serveur. Si elle échoue, rien n’est supprimé.",
+      "courrielDirigeant": "Le dirigeant de l’entreprise reçoit un courriel avant la suppression. Le motif n’y figure pas."
     }
   },
   "configuration": {
