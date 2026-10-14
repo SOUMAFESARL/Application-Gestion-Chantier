@@ -772,26 +772,21 @@ export async function lireClient(id: string): Promise<ClientPlateforme> {
 }
 
 /**
- * Repousse ou avance l'échéance de l'abonnement d'un client —
- * `PATCH /admins/clients/<id>/`.
+ * Repousse ou avance l'échéance de l'abonnement d'un client — `PATCH /admins/clients/<id>/`.
  *
- * **Réel, quel que soit `NEXT_PUBLIC_API_SIMULE`**, comme la fiche qu'il
- * modifie : un identifiant de la liste n'existe pas dans la simulation.
- *
- * Pendant un essai, `fin_essai` suit `date_fin` : le serveur renvoie les deux
- * égales, et ne repousser que l'une laisserait l'essai expiré.
- *
- * La réponse n'est pas relue : l'écran recharge la liste, seule source sûre
- * tant que le contrat de retour du `PATCH` n'est pas figé.
+ * Seule `date_fin` part : pendant un essai, c'est le serveur qui aligne `fin_essai`. Le motif
+ * est obligatoire et journalisé côté plateforme. La réponse est la fiche à jour.
  */
 export async function modifierFinAbonnement(
   id: string,
   dateFin: string,
-  enEssai: boolean,
-): Promise<void> {
-  await apiAdministration.modifier<unknown>(`/admins/clients/${id}/`, {
-    abonnement: enEssai ? { date_fin: dateFin, fin_essai: dateFin } : { date_fin: dateFin },
+  motif: string,
+): Promise<ClientPlateforme> {
+  const charge = await apiAdministration.modifier<ChargeClient>(`/admins/clients/${id}/`, {
+    abonnement: { date_fin: dateFin },
+    motif,
   });
+  return versClient(charge);
 }
 
 export async function suspendreClient(
