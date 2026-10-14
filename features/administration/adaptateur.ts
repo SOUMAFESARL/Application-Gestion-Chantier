@@ -108,6 +108,8 @@ interface ChargeUtilisateurSuperAdmin {
   is_staff: boolean;
   langue: string;
   schema: string;
+  /** Le rôle de back-office réel : `is_superuser` côté Django. */
+  role?: RoleAdministrateur;
   /** Absent de la réponse de connexion ; présent dans celle de `PATCH /admins/moi/`. */
   telephone?: string;
   photo_url?: string | null;
@@ -191,13 +193,14 @@ const CLES_INDICATEURS: Record<CleIndicateurCharge, CleIndicateur> = {
 /**
  * Le rôle de back-office porté par un compte.
  *
- * Seul `AD` (administrateur, super-utilisateur) ouvre la supervision. Tout
- * autre rôle global retombe sur `SUPPORT`, le moins privilégié des deux :
- * un code que ce frontend ne connaît pas encore n'accorde pas plus de droits
- * qu'il n'en faut — et le serveur reste seul juge de toute façon.
+ * Lu dans `role`, que le serveur dérive de `is_superuser`. **Pas dans `role_global`** :
+ * tous les agents de la plateforme y portent `AD`, superviseurs comme support. Sans `role`
+ * (réponse ancienne), `is_superuser` tranche ; sans l'un ni l'autre, `SUPPORT` — le moins
+ * privilégié. Le serveur reste seul juge de toute façon.
  */
 function versRole(charge: ChargeUtilisateurSuperAdmin): RoleAdministrateur {
-  return charge.role_global === "AD" ? "SUPERVISEUR" : "SUPPORT";
+  if (charge.role === "SUPERVISEUR" || charge.role === "SUPPORT") return charge.role;
+  return charge.is_superuser ? "SUPERVISEUR" : "SUPPORT";
 }
 
 function versProfil(charge: ChargeUtilisateurSuperAdmin): ProfilAdministrateur {
@@ -394,23 +397,32 @@ export async function seDeconnecter(): Promise<void> {
 }
 
 /**
- * Qui est connecté.
+ * Le profil de l'agent connecté — `GET /admins/moi/`.
  *
- * **Aucune route « moi » n'existe encore côté Django** pour un administrateur
- * de la plateforme (`/utilisateurs/moi/` n'est pas livrée) : le profil est
- * celui que `/admins/connexion/` a renvoyé, gardé en local. Le jour où la
- * route arrive, c'est ici qu'on l'appelle — les écrans ne changent pas.
+ * Le serveur d'abord : c'est lui qui sait si un agent est passé de SUPPORT à SUPERVISEUR
+ * (ou l'inverse) depuis sa connexion. Le profil gardé en local est réécrit avec la réponse.
  *
- * **Cette fonction échoue quand il n'y a pas de profil**, et c'est délibéré.
- * Son équivalent côté entreprise fabriquait un profil de directeur général en
- * dur lorsque l'appel ratait : une panne réseau accordait une identité. Ici,
- * le repli **se souvient**, il n'invente pas — sans profil reçu du serveur,
- * l'écran renvoie à la connexion.
+ * **Sur une panne réseau seulement**, on retombe sur le profil gardé — il se souvient, il
+ * n'invente pas. Un refus du serveur (401, 403) remonte tel quel : c'est
+ * `SurveillantSessionAdmin` qui renvoie vers la connexion.
  */
 export async function obtenirProfil(): Promise<ProfilAdministrateur> {
-  const local = lireProfilLocal();
-  if (local) return local;
-  throw new ErreurApi("non_authentifie", texte("administration.erreurs.action"), 401);
+  if (SIMULATION_ACTIVE) {
+    const local = lireProfilLocal();
+    if (local) return local;
+    throw new ErreurApi("non_authentifie", texte("administration.erreurs.action"), 401);
+  }
+  try {
+    const profil = versProfil(
+      await apiAdministration.lire<ChargeUtilisateurSuperAdmin>("/admins/moi/"),
+    );
+    ecrireProfilLocal(profil);
+    return profil;
+  } catch (cause) {
+    const local = lireProfilLocal();
+    if (cause instanceof ErreurApi && cause.code === "reseau_indisponible" && local) return local;
+    throw cause;
+  }
 }
 
 /**
