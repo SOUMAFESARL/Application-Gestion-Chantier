@@ -15,9 +15,9 @@
  * - `GET  /chantier/syntheses/?projet=&type=&date_debut=&date_fin=` — la
  *   synthèse agrégée à la demande par l'ORM.
  *
- * **Le journal et le rapport sont réels** depuis le 14/10/2026 (plan
- * d'alignement, tâche 1.3). La relance et la synthèse n'ont pas encore de
- * route : elles passent encore par `simulationJournal`.
+ * **Le journal, le rapport et la relance sont réels** depuis le 14/10/2026
+ * (plan d'alignement, tâches 1.3 et 1.5). La synthèse n'a pas encore de
+ * route : elle passe encore par `simulationJournal`.
  */
 
 import type { ModeExecutionLot } from "@/features/projets/types";
@@ -551,11 +551,10 @@ function versSynthese(charge: ChargeSynthese): SynthesePeriodique {
  * ------------------------------------------------------------------ */
 
 /**
- * La relance et la synthèse n'ont pas encore de route côté Django (tâches 1.5
- * et 1.6 du plan d'alignement) : elles restent simulées, même en production.
- * Le journal et le rapport, eux, sont réels depuis le 14/10/2026.
+ * La synthèse n'a pas encore de route côté Django (tâche 1.6 du plan
+ * d'alignement) : elle reste simulée, même en production. Le journal, le
+ * rapport et la relance sont réels depuis le 14/10/2026.
  */
-const RELANCE_SIMULEE = routesSimulees(false);
 const SYNTHESE_SIMULEE = routesSimulees(false);
 
 /** Le journal des neuf dernières semaines, tous chantiers confondus. */
@@ -600,11 +599,13 @@ export async function rejeterRapport(id: string, motif: string): Promise<Rapport
 }
 
 /**
- * Relance la personne qui bloque une ligne : le chef de chantier si le
- * rapport manque, le signataire attendu s'il est déposé.
+ * Relance par e-mail la personne qui bloque une ligne : le chef de chantier si
+ * le rapport manque, est en brouillon ou rejeté ; le signataire attendu s'il
+ * est soumis. `id` est celui de la ligne (`{projet}_{jour}` pour un rapport
+ * manquant). Une relance par ligne et par jour : une seconde demande le même
+ * jour rend la première, sans renvoyer d'e-mail.
  */
 export async function relancer(id: string): Promise<{ relanceLe: string }> {
-  if (RELANCE_SIMULEE) return simulationJournal.relancer(id);
   const charge = await api.creer<{ relance_le: string }>(`/chantier/journal/${id}/relancer/`, {});
   return { relanceLe: charge.relance_le };
 }
