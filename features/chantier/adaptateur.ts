@@ -551,11 +551,20 @@ function versSynthese(charge: ChargeSynthese): SynthesePeriodique {
  * ------------------------------------------------------------------ */
 
 /**
- * La synthèse n'a pas encore de route côté Django (tâche 1.6 du plan
- * d'alignement) : elle reste simulée, même en production. Le journal, le
- * rapport et la relance sont réels depuis le 14/10/2026.
+ * La synthèse n'a pas encore de route côté Django. Le journal, le rapport et
+ * la relance sont réels depuis le 14/10/2026.
  */
-const SYNTHESE_SIMULEE = routesSimulees(false);
+const SYNTHESE_LIVREE = false;
+const SYNTHESE_SIMULEE = routesSimulees(SYNTHESE_LIVREE);
+
+/**
+ * L'écran peut-il proposer la synthèse ? Pas tant que Django ne la sert pas :
+ * une synthèse simulée, agrégée de rapports inventés, passerait pour réelle
+ * devant un client (décision du 13/10/2026, plan d'alignement tâche 1.6).
+ * L'onglet et la page se rouvrent ensemble, quand `SYNTHESE_LIVREE` passe à
+ * `true`.
+ */
+export const SYNTHESE_DISPONIBLE = SYNTHESE_LIVREE;
 
 /** Le journal des neuf dernières semaines, tous chantiers confondus. */
 export async function lireJournal(signal?: AbortSignal): Promise<Journal> {
