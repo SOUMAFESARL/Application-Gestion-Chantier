@@ -86,8 +86,9 @@ Si la tâche touche aussi le backend, il a sa propre branche et son propre commi
    git merge --no-ff feature/<nom-court-de-la-tache> -m "merge: feature/<nom-court-de-la-tache> into develop"
    git branch -d feature/<nom-court-de-la-tache>
    ```
-3. **Push : quand le développeur le demande.** Pousser `develop` ne déploie rien ; pousser `main`
-   **déploie en production**.
+3. **Push : quand le développeur le demande.** Pousser `develop` **déploie en production**
+   (depuis le 14/10/2026 : lint, typage et build, puis cPanel) ; pousser `main` ne déploie rien.
+   Le dire avant de pousser, et n'envoyer qu'un écran déjà vérifié.
 4. **Clôture.** Résumer ce qui a été livré, ce qui a été vérifié à l'écran et ce qui ne l'a pas
    été. Puis poser au développeur une question qui l'oblige à expliquer le mécanisme central de la
    tâche comme s'il l'enseignait à un pair (le défi « Homo Docens ») — une seule, précise, sans

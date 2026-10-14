@@ -339,9 +339,11 @@ Two things that migration surfaced, worth knowing before reading old code:
     pushes was lifted on 2026-10-13. Three limits remain: push when the
     developer asks; never `--force` on `develop` or `main`; and commit only the
     files you changed yourself (`git add <files>`, never `git add .`) — this
-    tree often carries someone else's uncommitted work. **A push to `main`
-    deploys to production** (`.github/workflows/deploy-cpanel.yml`); a push to
-    `develop` deploys nothing.
+    tree often carries someone else's uncommitted work. **A push to `develop`
+    deploys to production** (`.github/workflows/deploy-cpanel.yml`, since
+    2026-10-14): lint, typecheck and build run first, and a failure stops the
+    deployment. A push to `main` deploys nothing. Say so before pushing, and
+    verify the screen first.
 12. **A new API wiring copies the method and style of the existing ones** —
     `features/projets/adaptateur.ts` is the reference: private `Charge*`
     transport types, `vers*` / `versCharge*` mappers, French infinitive
