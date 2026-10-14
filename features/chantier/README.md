@@ -5,11 +5,9 @@ Module 2 — journal de chantier. Miroir de `backend/apps/chantier/`.
 | Couche | Fichier | Rôle |
 |---|---|---|
 | Types | `types.ts` | Entrée de journal (chantier × jour), rapport journalier, synthèse périodique, saisie du CC |
-| Règles | `regles.ts` | Situations, circuit CC → CT → CP, délais, agrégation ; saisie : J-2, sections actives, alertes immédiates, avancement |
+| Règles | `regles.ts` | Situations, circuit CC → CT → CP, délais ; saisie : J-2, sections actives, alertes immédiates, avancement ; synthèse : étape attendue, rédaction signable |
 | Validations | `validations.ts` | Schéma zod de **soumission** (piloté par les sections du chantier), formulaire ↔ domaine |
-| Adaptateur | `adaptateur.ts` | Routes `/chantier/…`. **La saisie, le journal, le rapport lu et le circuit de validation (valider, approuver, rejeter) et la relance par e-mail sont réels** ; la synthèse n'a pas de route côté Django : son onglet et sa page sont masqués (`SYNTHESE_DISPONIBLE`) |
-| Simulation | `simulationJournal.ts` | Ne sert plus qu'à la synthèse ; disparaît quand sa route existe |
-| Simulation | `simulationSaisie.ts` | N'est plus appelé par la saisie. Ne sert plus qu'à `simulationJournal.ts`, et disparaît avec lui |
+| Adaptateur | `adaptateur.ts` | Routes `/chantier/…`, **toutes réelles** depuis le 14/10/2026 : saisie, journal, rapport, circuit de validation, relance par e-mail, synthèse périodique et son circuit. `SYNTHESE_DISPONIBLE` masque d'un coup l'onglet et la page de la synthèse s'il le faut |
 | Navigateur | `photos.ts`, `brouillonLocal.ts` | Compression 1 200 px / 70 % + GPS ; copie locale de la saisie (coupure réseau) |
 | Clés | `cles.ts` | Clés React Query partagées par les écrans |
 
@@ -42,25 +40,23 @@ activités des lots choisis partent.
 05/10/2026) : un rapport porte le nom du **projet**, jamais celui d'un lot.
 `EntreeJournal` a un `chantier` et la liste des `lots` travaillés ce jour ;
 `RapportJournalier.travaux` rend compte lot par lot (avancement, point du
-CC, activités). Écran, PDF du rapport, synthèse et données simulées suivent
-ce découpage.
+CC, activités). Écran, PDF du rapport et synthèse suivent ce découpage.
 
-**Le journal montre des données simulées jusqu'au branchement de l'API**
-(demande produit, 05/10/2026). Les chantiers sont les vrais : un chantier
-`EN_COURS` / `EN_RETARD` / `CRITIQUE` attend un rapport chaque jour ouvré
-depuis son démarrage (neuf semaines au plus). Chaque jour attendu porte, par
-priorité, le rapport soumis depuis `/rapports/saisie` (stocké dans le
-`localStorage` du poste, il reste « Soumis » faute d'écran CT / CP), sinon un
-rapport de démonstration bâti sur les vrais lots et activités du chantier
-(tiré d'une graine chantier × jour, donc stable), sinon une absence. La
-démonstration couvre aussi les projets **en attente** (quatre semaines), avec
-des lots, un avancement et des intervenants fictifs quand le projet n'en a
-pas encore.
+**La synthèse périodique est agrégée par Django** à la demande, des rapports
+de la période, absences comprises (`apps/chantier/selectors/synthese.py`).
+Seules les **semaines (lundi → vendredi) et les mois clos** passent par le
+circuit (décision du 14/10/2026) : le conducteur de travaux rédige son
+appréciation et les objectifs suivants, puis signe — la synthèse est alors
+figée —, le chef de projet approuve ou la lui renvoie avec un motif
+(`rapports/synthese/CircuitSynthese.tsx`). Une période personnalisée se
+consulte et s'exporte, sans circuit (`statut` `LIBRE`). Le brouillon du CT
+n'est montré qu'à lui.
 
 **Signe celui qui tient la fonction sur le chantier, et lui seul** (décision
 du 14/10/2026, appliquée de la même façon par le serveur) : le conducteur de
 travaux, puis le chef de projet du chantier, depuis le rapport lui-même
-(`rapports/[id]/SignatureRapport.tsx`, règle `etapeASigner`). Le Directeur
+(`rapports/[id]/SignatureRapport.tsx`, règle `etapeASigner`) — et de même
+sur la synthèse (`tientEtape`). Le Directeur
 Général **consulte** — sauf sur un chantier dont il est le chef de projet
 désigné, où il approuve comme tel. Le super-administrateur de la plateforme ne
 signe jamais. Il peut relancer un chef de chantier ou un signataire.

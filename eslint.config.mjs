@@ -327,12 +327,6 @@ const eslintConfig = defineConfig([
       // Les équipes de chantier simulées, en attendant leurs routes : le
       // module rejoue les messages du serveur.
       "features/projets/simulationEquipes.ts",
-      // Le journal de chantier de démonstration, en attendant ses routes :
-      // des libellés d'ouvrages, des noms de fournisseurs et des notes de CC.
-      "features/chantier/simulationJournal.ts",
-      // La saisie du rapport journalier rejouée : les messages de refus du
-      // serveur.
-      "features/chantier/simulationSaisie.ts",
       // Le stock de chantier rejoué (F9) : le référentiel de démonstration,
       // des noms de fournisseurs et les messages de refus du serveur.
       "features/stocks/simulationStock.ts",

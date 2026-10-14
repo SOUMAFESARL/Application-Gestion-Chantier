@@ -496,7 +496,10 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
   numerotees.push({
     titre: s("sections.circuit"),
     blocs: [
-      { type: "signatures", cases: signatures },
+      // Une période personnalisée ne se signe pas : pas de cases vides à signer.
+      signatures.length
+        ? { type: "signatures", cases: signatures }
+        : { type: "paragraphe", texte: s("horsCircuit") },
       { type: "paragraphe", texte: s("mention", { n: chiffres.rapportsRecus }) },
     ],
   });

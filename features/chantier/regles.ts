@@ -16,7 +16,6 @@ import type { ConditionMeteo } from "@/features/projets/types";
 import type {
   ActivitePreparee,
   AlerteImmediate,
-  EffectifSynthese,
   EntreeJournal,
   EtapeCircuit,
   IncidentSynthese,
@@ -25,22 +24,23 @@ import type {
   LigneMateriau,
   LigneProduction,
   LotJournal,
-  LotSynthese,
   MateriauDisponible,
-  MateriauSynthese,
   Meteo,
   NatureEvenement,
   NiveauBlocageSaisi,
+  ObjectifSuivant,
   PointLot,
   PreparationSaisie,
   RapportDuJour,
   RapportEnAttente,
   RapportJournalier,
+  RedactionSynthese,
   RoleSignataire,
   SaisieRapport,
   SectionSaisie,
   SituationRapport,
   StatutRapport,
+  StatutSynthese,
   SynthesePeriodique,
   TypeIncident,
   TypePeriode,
@@ -495,179 +495,51 @@ export function activitesDuRapport(rapport: Pick<RapportJournalier, "travaux">):
 }
 
 /* ------------------------------------------------------------------ *
- * La synthèse périodique — l'agrégation.
+ * La synthèse périodique.
+ *
+ * Django l'agrège des rapports (`apps/chantier/selectors/synthese.py`) ;
+ * ne reste ici que ce que l'écran en déduit, et son circuit.
  * ------------------------------------------------------------------ */
-
-/** Ce que la synthèse calcule ; l'appréciation, les objectifs et le circuit viennent d'ailleurs. */
-export type SyntheseAgregee = Omit<
-  SynthesePeriodique,
-  | "reference"
-  | "genereLe"
-  | "appreciation"
-  | "objectifs"
-  | "circuit"
-  | "localisation"
-  | "chefProjet"
-  | "conducteurTravaux"
->;
-
-function moyenne(valeurs: number[]): number {
-  return valeurs.length ? valeurs.reduce((total, valeur) => total + valeur, 0) / valeurs.length : 0;
-}
 
 function arrondi(valeur: number, decimales = 0): number {
   const facteur = 10 ** decimales;
   return Math.round(valeur * facteur) / facteur;
 }
 
-/** Le dernier avancement connu du chantier à une date, rapports antérieurs compris. */
-function avancementAu(entrees: EntreeJournal[], jour: string, cle: "avancement" | "avancementTheorique"): number | null {
-  const connues = entrees
-    .filter((entree) => entree.date <= jour && entree[cle] !== null)
-    .sort((a, b) => b.date.localeCompare(a.date));
-  return connues[0]?.[cle] ?? null;
-}
+/** Une appréciation signée doit dire quelque chose : 20 caractères au moins, comme un motif de rejet. */
+export const LONGUEUR_MIN_APPRECIATION = 20;
 
 /**
- * La synthèse d'un chantier sur une période, agrégée des rapports journaliers.
- *
- * C'est le calcul que Django fait à la demande ; il vit ici pour que la
- * simulation le rejoue à l'identique, et qu'un écran puisse l'expliquer.
- *
- * - `entrees` : toutes les lignes connues du chantier, **y compris avant la
- *   période** — l'avancement de départ est le dernier connu la veille ;
- * - `rapports` : les rapports détaillés de la période.
+ * Qui la synthèse attend : le conducteur de travaux tant qu'il n'a pas signé
+ * — ou après un rejet du chef de projet —, le chef de projet ensuite. Une
+ * période libre, en cours ou une synthèse approuvée n'attendent personne.
  */
-export function agregerSynthese(
-  periode: Periode,
-  lots: LotJournal[],
-  entrees: EntreeJournal[],
-  rapports: RapportJournalier[],
-): SyntheseAgregee {
-  const dansPeriode = (jour: string) => jour >= periode.debut && jour <= periode.fin;
-  const recapitulatif = entrees
-    .filter((entree) => dansPeriode(entree.date))
-    .sort((a, b) => a.date.localeCompare(b.date));
-  const detailles = rapports
-    .filter((rapport) => dansPeriode(rapport.date) && estDepose(rapport.situation))
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  const veille = ajouterJours(periode.debut, -1);
-  const finConnue = recapitulatif.at(-1)?.date ?? periode.fin;
-  const releve = (jour: string, cle: "avancement" | "avancementTheorique") => avancementAu(entrees, jour, cle) ?? 0;
-
-  const debut = arrondi(releve(veille, "avancement"));
-  const fin = arrondi(releve(finConnue, "avancement"));
-  const theoriqueDebut = arrondi(releve(veille, "avancementTheorique"));
-  const theorique = arrondi(releve(finConnue, "avancementTheorique"));
-
-  const deposes = recapitulatif.filter((entree) => estDepose(entree.situation));
-  const avecEffectifs = deposes.filter((entree) => entree.effectifPresent !== null && entree.effectifPrevu !== null);
-
-  const avancement: LotSynthese[] = lots.map((lot) => {
-    // Un rapport couvre tout le chantier : on y relève les travaux de ce lot,
-    // les jours où il a été travaillé.
-    const duLot = detailles.flatMap((rapport) => rapport.travaux.filter((travaux) => travaux.lot.id === lot.id));
-    const premier = duLot[0];
-    const dernier = duLot.at(-1);
-    if (!premier || !dernier) return { lot, activites: [] };
-    return {
-      lot,
-      activites: dernier.activites.map((ligne) => {
-        const depart = premier.activites.find((candidate) => candidate.libelle === ligne.libelle) ?? ligne;
-        const prevue = ligne.quantitePrevue || 1;
-        // Le théorique relevé au premier rapport est celui du soir de ce jour :
-        // l'objectif de la période y ajoute le pas d'une journée.
-        const ecartTheorique = ligne.avancementTheorique - depart.avancementTheorique;
-        const pas = duLot.length > 1 ? ecartTheorique / (duLot.length - 1) : 0;
-        return {
-          libelle: ligne.libelle,
-          unite: ligne.unite,
-          quantitePrevue: ligne.quantitePrevue,
-          avancementDebut: arrondi((depart.cumulVeille / prevue) * 100),
-          avancementFin: avancementActivite(ligne),
-          objectifGain: arrondi(ecartTheorique + pas),
-        };
-      }),
-    };
-  });
-
-  const categories = new Map<string, LigneEffectif[]>();
-  for (const rapport of detailles) {
-    for (const ligne of rapport.effectifs ?? []) {
-      categories.set(ligne.categorie, [...(categories.get(ligne.categorie) ?? []), ligne]);
-    }
-  }
-  const effectifs: EffectifSynthese[] = [...categories.entries()].map(([categorie, lignes]) => ({
-    categorie,
-    prevuParJour: Math.max(...lignes.map((ligne) => ligne.prevus)),
-    presenceMoyenne: arrondi(moyenne(lignes.map((ligne) => ligne.presents)), 1),
-    heures: arrondi(lignes.reduce((total, ligne) => total + ligne.heures, 0)),
-    absences: lignes.reduce((total, ligne) => total + (ligne.prevus - ligne.presents), 0),
-    observation: lignes.find((ligne) => ligne.observation)?.observation ?? null,
-  }));
-
-  const stocks = new Map<string, LigneMateriau[]>();
-  for (const rapport of detailles) {
-    for (const ligne of rapport.materiaux) {
-      stocks.set(ligne.designation, [...(stocks.get(ligne.designation) ?? []), ligne]);
-    }
-  }
-  const materiaux: MateriauSynthese[] = [...stocks.values()].map((lignes) => {
-    const dernier = lignes[lignes.length - 1];
-    return {
-      designation: dernier.designation,
-      unite: dernier.unite,
-      stockDebut: lignes[0].stockDebut,
-      consomme: lignes.reduce((total, ligne) => total + ligne.utilise, 0),
-      livre: lignes.reduce((total, ligne) => total + ligne.livre, 0),
-      stockFin: stockFin(dernier),
-      seuilAlerte: dernier.seuilAlerte,
-    };
-  });
-
-  const incidents: IncidentSynthese[] = detailles.flatMap((rapport) =>
-    rapport.listeIncidents.map((incident) => ({ ...incident, date: rapport.date })),
-  );
-  const livraisons = detailles.flatMap((rapport) => rapport.livraisons);
-
-  const premier = lots[0];
-  return {
-    type: periode.type,
-    debut: periode.debut,
-    fin: periode.fin,
-    projetId: premier?.projetId ?? "",
-    projetNom: premier?.projetNom ?? "",
-    projetReference: premier?.projetReference ?? "",
-    lots,
-    chiffres: {
-      joursOuvres: new Set(recapitulatif.map((entree) => entree.date)).size,
-      rapportsAttendus: recapitulatif.length,
-      rapportsRecus: deposes.length,
-      rapportsValides: recapitulatif.filter((entree) => estValide(entree.situation)).length,
-      effectifsPresents: avecEffectifs.reduce((total, entree) => total + (entree.effectifPresent ?? 0), 0),
-      effectifsPrevus: avecEffectifs.reduce((total, entree) => total + (entree.effectifPrevu ?? 0), 0),
-      heures: arrondi(effectifs.reduce((total, ligne) => total + ligne.heures, 0)),
-      livraisons: livraisons.length,
-      livraisonsPartielles: livraisons.filter((livraison) => livraison.conformite !== "CONFORME").length,
-      incidents: incidents.length,
-      incidentsMajeurs: incidents.filter((incident) => incident.gravite !== "MINEUR").length,
-      blocages: detailles.reduce((total, rapport) => total + rapport.listeBlocages.length, 0),
-    },
-    progression: {
-      debut,
-      fin,
-      gain: fin - debut,
-      objectif: theorique - theoriqueDebut,
-      theorique,
-    },
-    recapitulatif,
-    avancement,
-    effectifs,
-    materiaux,
-    incidents,
-  };
+export function etapeSynthese(statut: StatutSynthese): "CT" | "CP" | null {
+  if (statut === "A_REDIGER" || statut === "BROUILLON" || statut === "REJETEE") return "CT";
+  if (statut === "SOUMISE") return "CP";
+  return null;
 }
+
+/** Un objectif de la période suivante dit quoi, combien, et jusqu'où (0 à 100 %). */
+export function objectifComplet(objectif: ObjectifSuivant): boolean {
+  return (
+    objectif.activite.trim() !== "" &&
+    objectif.objectif.trim() !== "" &&
+    Number.isFinite(objectif.cible) &&
+    objectif.cible >= 0 &&
+    objectif.cible <= 100
+  );
+}
+
+/** Une rédaction s'enregistre dès que ses objectifs sont complets ; elle se signe si l'appréciation dit quelque chose. */
+export function redactionEnregistrable(redaction: RedactionSynthese): boolean {
+  return redaction.objectifs.every(objectifComplet);
+}
+
+export function redactionSignable(redaction: RedactionSynthese): boolean {
+  return redactionEnregistrable(redaction) && redaction.appreciation.trim().length >= LONGUEUR_MIN_APPRECIATION;
+}
+
 
 /** L'écart d'un gain à son objectif, en points. */
 export function ecartObjectif(gain: number, objectif: number): number {

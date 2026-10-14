@@ -412,7 +412,36 @@ export interface ChiffresSynthese {
   blocages: number;
 }
 
+/**
+ * Où en est une synthèse. Seules les semaines et les mois clos passent par le
+ * circuit CT → CP : `LIBRE` est une période personnalisée, qui se consulte
+ * sans se signer ; `EN_COURS`, une période pas encore close ; `A_REDIGER`,
+ * close, et le conducteur de travaux n'y a encore rien écrit.
+ */
+export type StatutSynthese = "LIBRE" | "EN_COURS" | "A_REDIGER" | "BROUILLON" | "SOUMISE" | "APPROUVEE" | "REJETEE";
+
+/** Ce qu'écrit le conducteur de travaux avant de signer. */
+export interface RedactionSynthese {
+  appreciation: string;
+  objectifs: ObjectifSuivant[];
+}
+
+/** Une synthèse enregistrée, vue de loin : de quoi dire laquelle attend qui. */
+export interface SuiviSynthese {
+  id: string;
+  projetId: string;
+  type: TypePeriode;
+  debut: string;
+  fin: string;
+  statut: StatutSynthese;
+}
+
 export interface SynthesePeriodique {
+  /** `null` tant que le conducteur de travaux n'y a rien écrit. */
+  id: string | null;
+  statut: StatutSynthese;
+  /** Sa rédaction en cours — renvoyée au seul conducteur de travaux du chantier. */
+  redaction: RedactionSynthese | null;
   reference: string;
   type: TypePeriode;
   debut: string;

@@ -20,6 +20,9 @@ export function cleSynthese(demande: DemandeSynthese) {
   return ["chantier", "syntheses", demande.projetId, demande.type, demande.debut, demande.fin] as const;
 }
 
+/** Où en sont les synthèses enregistrées — à invalider après chaque geste du circuit. */
+export const CLE_SUIVI_SYNTHESES = ["chantier", "syntheses-suivi"] as const;
+
 /** Tout ce que lit la saisie du chef de chantier — à invalider après un enregistrement. */
 export const CLE_SAISIE = ["chantier", "saisie"] as const;
 

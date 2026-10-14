@@ -3313,6 +3313,8 @@
         "PERSONNALISEE": "Synthèse personnalisée"
       },
       "periodeEnCours": "Période en cours — chiffres provisoires",
+      "horsCircuit": "Période personnalisée — cette synthèse se consulte et s'exporte, elle ne se signe pas.",
+      "rejetee": "Renvoyée au conducteur de travaux par le chef de projet : {motif}",
       "identification": "Identification",
       "projet": "Projet",
       "lots": "Lots couverts",
@@ -3627,7 +3629,14 @@
       "periodeInvalide": "La date de début doit précéder la date de fin, et ne pas être dans le futur.",
       "generer": "Générer la synthèse",
       "raccourcisTitre": "Dernière semaine close",
-      "raccourci": "Synthèse S{numero} · {reference}"
+      "raccourci": "Synthèse S{numero} · {reference}",
+      "statut": {
+        "A_REDIGER": "À rédiger",
+        "BROUILLON": "En rédaction",
+        "SOUMISE": "À approuver",
+        "APPROUVEE": "Approuvée",
+        "REJETEE": "Renvoyée au CT"
+      }
     },
     "document": {
       "retour": "Retour au journal de chantier",
@@ -4418,6 +4427,52 @@
         "rejet": "Rapport renvoyé au chef de chantier."
       },
       "erreur": "La signature n'a pas pu être enregistrée. Réessayez."
+    },
+    "syntheseCircuit": {
+      "erreur": "L'opération n'a pas abouti. Réessayez.",
+      "redaction": {
+        "titre": "Votre synthèse de conducteur de travaux",
+        "description": "Rédigez votre appréciation de la période et les objectifs de la suivante, puis signez : la synthèse est alors figée et transmise au chef de projet.",
+        "rejetee": "Le chef de projet vous l'a renvoyée : {motif}",
+        "appreciation": "Appréciation de la période",
+        "aideAppreciation": "{min} caractères au moins pour signer — {n} saisis.",
+        "objectifs": "Objectifs de la période suivante",
+        "aideObjectifs": "Facultatifs. Chacun dit l'activité prioritaire, l'objectif quantitatif et la cible d'avancement.",
+        "objectifNumero": "Objectif {n}",
+        "lot": "Lot",
+        "sansLot": "Sans lot",
+        "activite": "Activité prioritaire",
+        "objectif": "Objectif quantitatif",
+        "cible": "Cible (%)",
+        "prerequis": "Actions préalables",
+        "ajouter": "Ajouter un objectif",
+        "retirer": "Retirer cet objectif",
+        "incomplet": "Chaque objectif demande une activité, un objectif et une cible entre 0 et 100 %.",
+        "enregistrer": "Enregistrer le brouillon",
+        "signer": "Signer et transmettre",
+        "modaleTitre": "Signer cette synthèse",
+        "modaleDescription": "Votre signature horodatée fige la synthèse telle qu'elle est et la transmet au chef de projet. Elle ne se modifie plus, sauf s'il vous la renvoie.",
+        "annuler": "Annuler",
+        "succesEnregistrement": "Brouillon enregistré.",
+        "succesSignature": "Synthèse signée et transmise au chef de projet."
+      },
+      "decision": {
+        "titre": "Cette synthèse attend votre approbation de chef de projet",
+        "description": "{conducteur} l'a signée. Approuvez-la, ou renvoyez-la-lui avec un motif.",
+        "approuver": "Approuver la synthèse",
+        "rejeter": "Rejeter",
+        "modaleTitre": "Approuver cette synthèse",
+        "modaleDescription": "Votre signature horodatée clôt le circuit : la synthèse devient définitive.",
+        "titreRejet": "Rejeter cette synthèse",
+        "descriptionRejet": "Elle retourne au conducteur de travaux, qui la reprend et la signe de nouveau.",
+        "commentaire": "Commentaire (facultatif)",
+        "motif": "Motif du rejet",
+        "aideMotif": "{min} caractères au moins — {n} saisis.",
+        "annuler": "Annuler",
+        "confirmerRejet": "Rejeter la synthèse",
+        "succesApprobation": "Synthèse approuvée.",
+        "succesRejet": "Synthèse renvoyée au conducteur de travaux."
+      }
     }
   },
   "profil": {
