@@ -7,9 +7,9 @@ Module 2 — journal de chantier. Miroir de `backend/apps/chantier/`.
 | Types | `types.ts` | Entrée de journal (chantier × jour), rapport journalier, synthèse périodique, saisie du CC |
 | Règles | `regles.ts` | Situations, circuit CC → CT → CP, délais, agrégation ; saisie : J-2, sections actives, alertes immédiates, avancement |
 | Validations | `validations.ts` | Schéma zod de **soumission** (piloté par les sections du chantier), formulaire ↔ domaine |
-| Adaptateur | `adaptateur.ts` | Routes proposées `/chantier/…` ; aiguillage vers la simulation |
+| Adaptateur | `adaptateur.ts` | Routes `/chantier/…`. **La saisie est réelle** (préparation, mes rapports, brouillon, soumission, alerte) ; le journal, le rapport lu, la relance et la synthèse passent encore par la simulation |
 | Simulation | `simulationJournal.ts` | Le journal **lu sur les rapports du formulaire** (`simulationSaisie`), plus les absences des vrais chantiers en cours (`/projets/`) |
-| Simulation | `simulationSaisie.ts` | Brouillons et rapports saisis (localStorage), sur les **vrais** lots ; rejoignent le journal |
+| Simulation | `simulationSaisie.ts` | N'est plus appelé par la saisie. Ne sert plus qu'à `simulationJournal.ts`, et disparaît avec lui |
 | Navigateur | `photos.ts`, `brouillonLocal.ts` | Compression 1 200 px / 70 % + GPS ; copie locale de la saisie (coupure réseau) |
 | Clés | `cles.ts` | Clés React Query partagées par les écrans |
 

@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, CalendarDays, FileCheck2, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
-import { useMemo } from "react";
 
 import { Badge, EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import { Button } from "@/components/ui/button";
@@ -12,10 +11,9 @@ import { jourDe, jourSaisissable, rapportModifiable } from "@/features/chantier"
 import type { PreparationSaisie } from "@/features/chantier";
 import { preparerSaisie } from "@/features/chantier/adaptateur";
 import { clePreparation } from "@/features/chantier/cles";
-import { lireProfilLocal } from "@/features/auth/api";
 import { AccesNonAutorise, peutRedigerJournal, projetVisible, useDroits } from "@/features/habilitations";
-import { listerLots, lireProjet, obtenirMeteo } from "@/features/projets/adaptateur";
-import { cleLots, cleProjet } from "@/features/projets/cles";
+import { lireProjet, obtenirMeteo } from "@/features/projets/adaptateur";
+import { cleProjet } from "@/features/projets/cles";
 import { ErreurApi } from "@/lib/api";
 
 import { FormulaireRapport } from "../FormulaireRapport";
@@ -23,8 +21,8 @@ import { FormulaireRapport } from "../FormulaireRapport";
 /**
  * Le rapport journalier d'un chantier pour un jour, côté chef de chantier.
  *
- * Lit le chantier et ses lots (les vrais, `/projets/{id}/lots/`), puis la
- * préparation du formulaire, qui couvre tous les lots en cours. Un rapport
+ * Lit le chantier, puis la préparation du formulaire, qui porte elle-même
+ * les lots en cours et leurs activités. Un rapport
  * déjà soumis ne se rouvre pas : on renvoie à sa lecture (RG-F2-03).
  */
 export function EcranSaisie({ projetId, date: demandee }: { projetId: string; date: string | null }) {
@@ -35,24 +33,11 @@ export function EcranSaisie({ projetId, date: demandee }: { projetId: string; da
   const date = demandee ?? jourDe(new Date());
 
   const projet = useQuery({ queryKey: cleProjet(projetId), queryFn: () => lireProjet(projetId) });
-  const lots = useQuery({
-    queryKey: cleLots(projetId),
-    queryFn: ({ signal }) => listerLots(projetId, signal),
-    enabled: projet.isSuccess,
-  });
-
-  const redacteur = useMemo(() => {
-    const profil = lireProfilLocal();
-    return profil ? `${profil.prenom} ${profil.nom}`.trim() : "";
-  }, []);
 
   const preparation = useQuery({
     queryKey: clePreparation(projetId, date),
-    queryFn: ({ signal }) => {
-      if (!projet.data || !lots.data) throw new Error("contexte_absent");
-      return preparerSaisie({ projet: projet.data, lots: lots.data, redacteur }, date, signal);
-    },
-    enabled: projet.isSuccess && lots.isSuccess,
+    queryFn: ({ signal }) => preparerSaisie(projetId, date, signal),
+    enabled: projet.isSuccess,
     // Toujours relue à l'ouverture : un rejet du CT a pu tomber entre-temps.
     staleTime: 0,
     refetchOnMount: "always",
@@ -68,9 +53,9 @@ export function EcranSaisie({ projetId, date: demandee }: { projetId: string; da
   });
 
   if (!peutRedigerJournal(droits)) return <AccesNonAutorise />;
-  if (projet.isPending || lots.isPending || preparation.isPending) return <EtatChargement />;
-  if (projet.isError || lots.isError) {
-    return <EtatErreur message={t("erreurChargement")} onReessayer={() => void (projet.isError ? projet.refetch() : lots.refetch())} />;
+  if (projet.isPending || preparation.isPending) return <EtatChargement />;
+  if (projet.isError) {
+    return <EtatErreur message={t("erreurChargement")} onReessayer={() => void projet.refetch()} />;
   }
   if (!projetVisible(projet.data, droits)) return <AccesNonAutorise />;
   if (preparation.isError) {

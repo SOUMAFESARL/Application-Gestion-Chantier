@@ -508,7 +508,7 @@ export function valeursDepuis(preparation: PreparationSaisie, date: string): Val
           intervenant: ligne.intervenant,
           activiteId: ligne.activiteId,
           quantiteJour: "",
-          prixUnitaire: String(ligne.prixUnitaire / 100),
+          prixUnitaire: ligne.prixUnitaire === null ? "" : String(ligne.prixUnitaire / 100),
         })),
     // Un rapport neuf part sans lot : le chef de chantier choisit ceux qu'il a
     // travaillés — sauf quand le chantier n'en a qu'un.

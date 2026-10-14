@@ -507,7 +507,8 @@ export interface MateriauDisponible {
 export interface ReprisesRapport {
   effectifs: { categorie: string; prevus: number }[];
   equipements: Pick<LigneEquipement, "designation" | "reference" | "propriete" | "operateur">[];
-  intervenants: { intervenant: string; activiteId: string; prixUnitaire: number }[];
+  /** `prixUnitaire` vaut `null` pour qui n'a pas le droit de voir les montants. */
+  intervenants: { intervenant: string; activiteId: string; prixUnitaire: number | null }[];
 }
 
 /** Le point d'un lot travaillé ce jour : ce qui s'y est passé, au-delà des quantités. */

@@ -22,13 +22,12 @@
  * et seulement ici, qu'il faudra les corriger.
  */
 
-import type { Lot, ModeExecutionLot, Projet } from "@/features/projets/types";
+import type { ModeExecutionLot } from "@/features/projets/types";
 import { api } from "@/lib/api";
 import { routesSimulees } from "@/lib/api/simulation";
 
 import { cleAlerte } from "./regles";
 import { simulationJournal } from "./simulationJournal";
-import { simulationSaisie } from "./simulationSaisie";
 import type {
   ActivitePreparee,
   AlerteImmediate,
@@ -602,9 +601,14 @@ export async function lireSynthese(demande: DemandeSynthese, signal?: AbortSigna
  *
  * **Un rapport couvre un chantier sur un jour**, tous ses lots en cours
  * réunis — décision produit du 05/10/2026, contre le « un lot, un jour » du
- * SFD. Le SFD les écrit sous `/api/v1/rapports/` ; elles sont proposées ici sous
- * `/chantier/`, comme le reste du journal. Simulées tant que Django ne les
- * sert pas (`simulationSaisie`).
+ * SFD. Le SFD les écrit sous `/api/v1/rapports/` ; Django les sert sous
+ * `/chantier/`, comme le reste du journal.
+ *
+ * **Ces cinq routes sont réelles** depuis le 13/10/2026 (plan d'alignement,
+ * tâche 1.2) : un rapport vit en base, plus dans le navigateur. Le serveur
+ * **refuse tout champ qu'il ne connaît pas** (`StrictSerializer`) — un champ
+ * ajouté à `ChargeSaisie` sans l'être côté Django donne un 400, pas un oubli
+ * silencieux.
  * ------------------------------------------------------------------ */
 
 interface ChargeSaisie {
@@ -731,7 +735,8 @@ interface ChargePreparation {
       propriete: LigneEquipement["propriete"];
       operateur: string;
     }[];
-    intervenants: { intervenant: string; activite_id: string; prix_unitaire: number }[];
+    /** `prix_unitaire` vaut `null` pour qui n'a pas le droit de voir les montants. */
+    intervenants: { intervenant: string; activite_id: string; prix_unitaire: number | null }[];
   };
   rapport: ChargeRapportExistant | null;
 }
@@ -955,9 +960,6 @@ function versPreparation(charge: ChargePreparation): PreparationSaisie {
   };
 }
 
-/** `false` tant que Django ne sert pas la saisie. */
-const SAISIE_SIMULEE = routesSimulees(false);
-
 interface ChargeRapportsProjet {
   aujourdhui: string;
   resultats: { id: string; date: string; statut: StatutRapport; enregistre_le: string }[];
@@ -968,7 +970,6 @@ interface ChargeRapportsProjet {
  * déduit ceux qui restent à rédiger (`rapportsEnAttente`).
  */
 export async function lireRapportsProjet(projetId: string, signal?: AbortSignal): Promise<RapportsProjet> {
-  if (SAISIE_SIMULEE) return simulationSaisie.lireRapportsProjet(projetId);
   const charge = await api.lire<ChargeRapportsProjet>("/chantier/rapports/", { auteur: "moi", projet: projetId }, signal);
   return {
     aujourdhui: charge.aujourdhui,
@@ -983,29 +984,24 @@ export async function lireRapportsProjet(projetId: string, signal?: AbortSignal)
 
 /**
  * Le formulaire d'un chantier pour un jour : les lots en cours, les sections
- * de leurs modes, leurs activités, le stock, les reprises, et le rapport déjà
- * commencé s'il en existe un.
+ * de leurs modes, leurs activités, les reprises, et le rapport déjà commencé
+ * s'il en existe un. Le serveur n'a besoin que du chantier et du jour.
  *
- * Le serveur n'a besoin que du chantier et du jour ; le projet complet, ses
- * lots et le nom du rédacteur ne servent qu'à la simulation, qui n'a pas de
- * base où les relire.
+ * `materiaux` revient vide tant qu'il n'existe pas de module stocks : la
+ * saisie des consommations reste libre.
  */
 export async function preparerSaisie(
-  contexte: { projet: Projet; lots: Lot[]; redacteur: string },
+  projetId: string,
   date: string,
   signal?: AbortSignal,
 ): Promise<PreparationSaisie> {
-  if (SAISIE_SIMULEE) {
-    return simulationSaisie.preparer(contexte.projet, contexte.lots, date, contexte.redacteur);
-  }
   return versPreparation(
-    await api.lire<ChargePreparation>("/chantier/rapports/preparation/", { projet: contexte.projet.id, date }, signal),
+    await api.lire<ChargePreparation>("/chantier/rapports/preparation/", { projet: projetId, date }, signal),
   );
 }
 
 /** Crée le brouillon au premier enregistrement, puis le met à jour. Aucune notification. */
 export async function enregistrerBrouillon(id: string | null, saisie: SaisieRapport): Promise<RapportExistant> {
-  if (SAISIE_SIMULEE) return simulationSaisie.enregistrerBrouillon(id, saisie);
   const charge = id
     ? await api.modifier<ChargeRapportExistant>(`/chantier/rapports/${id}/draft/`, versChargeSaisie(saisie))
     : await api.creer<ChargeRapportExistant>("/chantier/rapports/", versChargeSaisie(saisie));
@@ -1021,7 +1017,6 @@ export async function soumettreRapport(
   id: string | null,
   saisie: SaisieRapport,
 ): Promise<{ id: string; reference: string }> {
-  if (SAISIE_SIMULEE) return simulationSaisie.soumettre(id, saisie);
   const brouillon = id ?? (await enregistrerBrouillon(null, saisie)).id;
   return api.creer<{ id: string; reference: string }>(
     `/chantier/rapports/${brouillon}/soumettre/`,
@@ -1032,7 +1027,6 @@ export async function soumettreRapport(
 /** Prévient le CT et le CP sans attendre la soumission (RG-F2-11). */
 export async function envoyerAlerte(id: string, alerte: AlerteImmediate): Promise<{ envoyeeLe: string }> {
   const cle = cleAlerte(alerte);
-  if (SAISIE_SIMULEE) return simulationSaisie.alerter(id, cle);
   const charge = await api.creer<{ envoyee_le: string }>(`/chantier/rapports/${id}/alertes/`, {
     cle,
     type: alerte.type,
