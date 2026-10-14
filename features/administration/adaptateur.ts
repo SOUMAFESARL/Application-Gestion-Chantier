@@ -360,11 +360,13 @@ export async function seConnecter(identifiants: {
 }
 
 /**
- * Demande un lien de réinitialisation du mot de passe d'administration.
+ * Demande un lien de réinitialisation du mot de passe d'administration —
+ * `POST /admins/mot-de-passe/demande/`.
  *
  * `apiAdministration` **sans jeton utile** : l'appel part sur un espace dont
- * la session est justement inaccessible. C'est la raison pour laquelle la
- * réponse ne dit rien de l'adresse — voir `simulationAdministration`.
+ * la session est justement inaccessible. Le serveur répond `202` que
+ * l'adresse soit celle d'un agent ou non : l'écran ne doit rien en déduire.
+ * Le lien envoyé mène à `/admin/mot-de-passe/definir#jeton=…`.
  */
 export async function demanderReinitialisation(email: string): Promise<void> {
   const corps = { email };
@@ -374,7 +376,7 @@ export async function demanderReinitialisation(email: string): Promise<void> {
     return;
   }
 
-  await apiAdministration.creer<void>("/auth/mot-de-passe/oublie/", corps);
+  await apiAdministration.creer<void>("/admins/mot-de-passe/demande/", corps);
 }
 
 /** Déconnexion volontaire — révoque le jeton côté serveur, puis efface. */

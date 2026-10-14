@@ -7,6 +7,7 @@
 
 import {
   api,
+  apiAdministration,
   ecrireJetonAcces,
   ecrireJetonRenouvellement,
   effacerJetons,
@@ -275,20 +276,30 @@ export async function demanderReinitialisation(email: string): Promise<void> {
  * marqué « utilisé » à la vérification, avant même que son destinataire ne
  * clique.
  */
+/** Les deux espaces ont deux tables de comptes, donc deux jetons et deux jeux de routes. */
+export type EspaceCompte = "entreprise" | "administration";
+
 export async function verifierJetonReinitialisation(
   jeton: string,
+  espace: EspaceCompte = "entreprise",
 ): Promise<ContenuJetonMdp> {
+  if (espace === "administration") {
+    return apiAdministration.creer<ContenuJetonMdp>("/admins/mot-de-passe/verifier/", { jeton });
+  }
   return api.creer<ContenuJetonMdp>("/auth/mot-de-passe/verifier/", { jeton });
 }
 
 export async function reinitialiserMotDePasse(
   jeton: string,
   motDePasse: string,
+  espace: EspaceCompte = "entreprise",
 ): Promise<void> {
   // Pas de champ `confirmation` : la double saisie est une vérification
   // d'interface, elle n'a rien à prouver au serveur — contrat §5.1.
-  await api.creer<void>("/auth/mot-de-passe/reinitialiser/", {
-    jeton,
-    mot_de_passe: motDePasse,
-  });
+  const corps = { jeton, mot_de_passe: motDePasse };
+  if (espace === "administration") {
+    await apiAdministration.creer<void>("/admins/mot-de-passe/reinitialiser/", corps);
+    return;
+  }
+  await api.creer<void>("/auth/mot-de-passe/reinitialiser/", corps);
 }

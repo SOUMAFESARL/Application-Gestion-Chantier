@@ -15,7 +15,7 @@ import {
   reinitialiserMotDePasse,
   verifierJetonReinitialisation,
 } from "@/features/auth/api";
-import type { ContenuJetonMdp } from "@/features/auth/api";
+import type { ContenuJetonMdp, EspaceCompte } from "@/features/auth/api";
 import { ErreurApi } from "@/lib/api";
 
 
@@ -30,6 +30,11 @@ import { ErreurApi } from "@/lib/api";
  * Le jeton voyage en **fragment** (`#jeton=…`), jamais en paramètre de requête :
  * un fragment n'atteint ni les journaux du serveur, ni l'en-tête `Referer`.
  * Même règle que l'activation.
+ *
+ * **Deux espaces, un écran** : le back-office de la plateforme y arrive par
+ * `/admin/mot-de-passe/definir` (`espace="administration"`). Ses comptes vivent
+ * dans une autre table : le jeton se vérifie et se consomme sur les routes
+ * `/admins/…`, et les liens de retour mènent à ses propres écrans, sous `/admin`.
  */
 
 type Etat =
@@ -49,8 +54,9 @@ type Etat =
       contenu?: ContenuJetonMdp;
     };
 
-export function EcranDefinition() {
+export function EcranDefinition({ espace = "entreprise" }: { espace?: EspaceCompte }) {
   const t = useTranslations("motDePasseDefinir");
+  const racine = espace === "administration" ? "/admin" : "";
   const router = useRouter();
 
   const [etat, setEtat] = useState<Etat>({ nom: "verification" });
@@ -80,7 +86,7 @@ export function EcranDefinition() {
     // Passer par la promesse évite en plus un `setState` synchrone dans un
     // effet, que `react-hooks` refuse — et sans requête inutile au serveur.
     const lecture = valeur
-      ? verifierJetonReinitialisation(valeur)
+      ? verifierJetonReinitialisation(valeur, espace)
       : Promise.reject(new Error("jeton absent"));
 
     lecture
@@ -99,7 +105,7 @@ export function EcranDefinition() {
     return () => {
       vivant = false;
     };
-  }, []);
+  }, [espace]);
 
   const { regles, complet } = useReglesMotDePasse(motDePasse, confirmation);
 
@@ -109,7 +115,7 @@ export function EcranDefinition() {
 
     setEnCours(true);
     try {
-      await reinitialiserMotDePasse(jeton.current, motDePasse);
+      await reinitialiserMotDePasse(jeton.current, motDePasse, espace);
       const email = etat.nom === "saisie" ? etat.contenu.email : "";
       const urlConnexion =
         etat.nom === "saisie" ? etat.contenu.url_connexion : null;
@@ -152,10 +158,10 @@ export function EcranDefinition() {
           {t.rich("expireAccroche", { fort: (m) => <strong>{m}</strong> })}
         </AccrocheAuth>
         <div className="mt-4 flex flex-col items-center gap-4 [&>button]:w-full">
-          <Bouton pleineLargeur onClick={() => router.push("/mot-de-passe/oublie")}>
+          <Bouton pleineLargeur onClick={() => router.push(`${racine}/mot-de-passe/oublie`)}>
             {t("expireAction")}
           </Bouton>
-          <Link className="rounded-sm text-sm text-neutral-600 no-underline hover:text-primary-600 hover:underline focus-visible:shadow-[var(--shadow-focus)] focus-visible:outline-none" href="/connexion">
+          <Link className="rounded-sm text-sm text-neutral-600 no-underline hover:text-primary-600 hover:underline focus-visible:shadow-[var(--shadow-focus)] focus-visible:outline-none" href={`${racine}/connexion`}>
             {t("retourConnexion")}
           </Link>
         </div>
@@ -188,8 +194,8 @@ export function EcranDefinition() {
               } else {
                 router.push(
                   redirection
-                    ? `/connexion?redirection=${encodeURIComponent(redirection)}`
-                    : "/connexion",
+                    ? `${racine}/connexion?redirection=${encodeURIComponent(redirection)}`
+                    : `${racine}/connexion`,
                 );
               }
             }}
@@ -222,7 +228,7 @@ export function EcranDefinition() {
               {t("reessayer")}
             </Bouton>
           )}
-          <Link className="rounded-sm text-sm text-neutral-600 no-underline hover:text-primary-600 hover:underline focus-visible:shadow-[var(--shadow-focus)] focus-visible:outline-none" href="/connexion">
+          <Link className="rounded-sm text-sm text-neutral-600 no-underline hover:text-primary-600 hover:underline focus-visible:shadow-[var(--shadow-focus)] focus-visible:outline-none" href={`${racine}/connexion`}>
             {t("retourConnexion")}
           </Link>
         </div>
@@ -272,7 +278,7 @@ export function EcranDefinition() {
           {invitation ? t("activer") : t("enregistrer")}
         </Bouton>
 
-        <Link className="rounded-sm text-sm text-neutral-600 no-underline hover:text-primary-600 hover:underline focus-visible:shadow-[var(--shadow-focus)] focus-visible:outline-none" href="/connexion">
+        <Link className="rounded-sm text-sm text-neutral-600 no-underline hover:text-primary-600 hover:underline focus-visible:shadow-[var(--shadow-focus)] focus-visible:outline-none" href={`${racine}/connexion`}>
           {t("retourConnexion")}
         </Link>
 
