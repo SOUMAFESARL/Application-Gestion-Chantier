@@ -157,6 +157,33 @@ export function estRedacteurJournal(droits: Droits | null): boolean {
   return !(droits?.estDirection ?? false) && peutRedigerJournal(droits);
 }
 
+/**
+ * L'étape du circuit que ce compte doit signer sur ce rapport, ou `null`.
+ *
+ * - un rapport **soumis** attend le **conducteur de travaux** du chantier, qui
+ *   tient l'accès « validation » du journal ;
+ * - un rapport **validé par le CT** attend le **chef de projet** du chantier.
+ *
+ * La direction consulte sans signer (SFD F2 §3.1) : sa portée ne la nomme sur
+ * aucun chantier, elle n'a donc jamais d'étape. Le serveur, lui, accepte la
+ * signature d'un DG — c'est un choix d'écran, pas une barrière.
+ */
+export function etapeASigner(
+  situation: string,
+  projet: Projet | undefined,
+  droits: Droits | null,
+): "CT" | "CP" | null {
+  if (!projet) return null;
+  const fonctions = fonctionsSurProjet(projet, droits);
+  if (situation === "SOUMIS" && fonctions.includes("CONDUCTEUR_TRAVAUX") && peut(droits, "chantier", "validation")) {
+    return "CT";
+  }
+  if (situation === "VALIDE_CT" && fonctions.includes("CHEF_PROJET") && peut(droits, "chantier", "saisie")) {
+    return "CP";
+  }
+  return null;
+}
+
 /** Désigner (ou remplacer) le chef de projet : un acte de direction. */
 export function peutDesignerChefProjet(projet: Projet, droits: Droits | null): boolean {
   return projetModifiable(projet) && (droits?.estDirection ?? false);

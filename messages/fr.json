@@ -4379,6 +4379,45 @@
         "nonDocument": "« {nom} » n'est pas un document (PDF, Word ou Excel) : il n'a pas été joint."
       },
       "choisirHeure": "Choisir l'heure"
+    },
+    "signature": {
+      "titre": {
+        "CT": "Ce rapport attend votre signature de conducteur de travaux",
+        "CP": "Ce rapport attend votre approbation de chef de projet"
+      },
+      "description": {
+        "CT": "Relisez-le, puis validez-le ou renvoyez-le au chef de chantier avec un motif.",
+        "CP": "Le conducteur de travaux l'a validé. Approuvez-le ou renvoyez-le au chef de chantier avec un motif."
+      },
+      "signer": {
+        "CT": "Valider le rapport",
+        "CP": "Approuver le rapport"
+      },
+      "rejeter": "Rejeter",
+      "modale": {
+        "titre": {
+          "CT": "Valider ce rapport",
+          "CP": "Approuver ce rapport"
+        },
+        "description": {
+          "CT": "Votre signature horodatée transmet le rapport au chef de projet.",
+          "CP": "Votre signature horodatée clôt le circuit : le rapport compte dans l'avancement."
+        },
+        "titreRejet": "Rejeter ce rapport",
+        "descriptionRejet": "Le rapport retourne au chef de chantier, qui le corrige et le soumet de nouveau.",
+        "commentaire": "Commentaire (facultatif)",
+        "aideCommentaire": "Il figure dans le circuit de validation du rapport.",
+        "motif": "Motif du rejet",
+        "aideMotif": "{min} caractères au moins — {n} saisis.",
+        "annuler": "Annuler",
+        "confirmerRejet": "Rejeter le rapport"
+      },
+      "succes": {
+        "CT": "Rapport validé.",
+        "CP": "Rapport approuvé.",
+        "rejet": "Rapport renvoyé au chef de chantier."
+      },
+      "erreur": "La signature n'a pas pu être enregistrée. Réessayez."
     }
   },
   "profil": {

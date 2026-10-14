@@ -54,6 +54,7 @@ import {
 } from "../document";
 import { useGenerationDocumentPdf } from "../GenerationDocumentPdf";
 import { contenuRapportPdf } from "./contenuRapportPdf";
+import { SignatureRapport } from "./SignatureRapport";
 
 /**
  * Le rapport journalier, tel que le chef de chantier l'a signé — la maquette
@@ -162,6 +163,8 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
           </>
         }
       />
+
+      <SignatureRapport rapport={rapport} />
 
       <article className={PAPIER}>
         <EnTeteDocument
