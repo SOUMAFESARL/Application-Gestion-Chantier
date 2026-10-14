@@ -30,6 +30,9 @@ import type {
   StatutModule,
   TendanceIndicateur,
   TonVariation,
+  CriteresPermissions,
+  ModulePermission,
+  PermissionPlateforme,
 } from "./types";
 
 /**
@@ -776,3 +779,71 @@ export function lignesDetailJournal(
       return { cle, valeur };
     });
 }
+
+/* ------------------------------------------------------------------ *
+ * Catalogue des permissions
+ * ------------------------------------------------------------------ */
+
+export const CRITERES_PERMISSIONS_VIDES: CriteresPermissions = {
+  recherche: "",
+  module: "",
+  etat: "",
+};
+
+export function criteresPermissionsActifs(criteres: CriteresPermissions): boolean {
+  return (
+    criteres.recherche !== "" ||
+    criteres.module !== "" ||
+    criteres.etat !== ""
+  );
+}
+
+export function filtrerPermissions(
+  permissions: PermissionPlateforme[],
+  criteres: CriteresPermissions,
+): PermissionPlateforme[] {
+  const recherche = normaliser(criteres.recherche);
+
+  return permissions.filter((perm) => {
+    if (criteres.etat === "ACTIVE" && !perm.actif) return false;
+    if (criteres.etat === "INACTIVE" && perm.actif) return false;
+    if (criteres.module && !perm.modules.some((m) => m.code === criteres.module)) {
+      return false;
+    }
+    if (!recherche) return true;
+
+    return (
+      normaliser(perm.code).includes(recherche) ||
+      normaliser(perm.libelle).includes(recherche) ||
+      normaliser(perm.description).includes(recherche)
+    );
+  });
+}
+
+/** Tri par ordre croissant, puis code alphabétique. */
+export function trierPermissions(
+  permissions: PermissionPlateforme[],
+): PermissionPlateforme[] {
+  return [...permissions].sort((a, b) => {
+    if (a.ordre !== b.ordre) return a.ordre - b.ordre;
+    return a.code.localeCompare(b.code, "fr");
+  });
+}
+
+/** Les modules distincts présents parmi les permissions, triés par libellé. */
+export function modulesPresentsDansPermissions(
+  permissions: PermissionPlateforme[],
+): ModulePermission[] {
+  const vus = new Map<string, ModulePermission>();
+  for (const perm of permissions) {
+    for (const m of perm.modules) {
+      if (!vus.has(m.code)) {
+        vus.set(m.code, m);
+      }
+    }
+  }
+  return Array.from(vus.values()).sort((a, b) =>
+    a.libelle.localeCompare(b.libelle, "fr"),
+  );
+}
+

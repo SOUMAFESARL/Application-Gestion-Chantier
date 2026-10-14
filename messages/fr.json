@@ -344,7 +344,8 @@
       "titreTarifs": "Tarifs — Administration",
       "titreIdentite": "Nom et logo — Administration",
       "titreMessagerie": "Messagerie — Administration",
-      "titreJournal": "Journal de la plateforme — Administration"
+      "titreJournal": "Journal de la plateforme — Administration",
+      "titrePermissions": "Permissions — Administration"
     },
     "motDePasseOublie": {
       "accroche": "Indiquez votre adresse professionnelle : un lien de réinitialisation vous y sera envoyé.",
@@ -375,6 +376,7 @@
       "parametrage": "Paramétrage",
       "parametrageComptes": "Comptes administrateurs",
       "parametrageModules": "Modules & accès",
+      "parametragePermissions": "Permissions",
       "parametrageTarifs": "Tarifs abonnements",
       "parametrageIdentite": "Paramètres globaux",
       "parametrageMessagerie": "Messagerie"
@@ -613,6 +615,10 @@
           "nomFichier": "modules"
         }
       },
+      "permissions": {
+        "titre": "Catalogue des permissions",
+        "description": "Les droits fins que les rôles des entreprises peuvent porter, et les modules qui les portent."
+      },
       "tarifs": {
         "titre": "Tarifs affichés aux entreprises",
         "prixMensuel": "Prix mensuel (FCFA TTC)",
@@ -827,6 +833,83 @@
         "INSCRIPTION_APPROUVEE": "Inscription entreprise approuvée",
         "INSCRIPTION_REFUSEE": "Inscription entreprise refusée",
         "REINITIALISATION_MOT_DE_PASSE_ADMIN": "Demande de réinitialisation de mot de passe"
+      }
+    },
+    "permissions": {
+      "meta": {
+        "titre": "Catalogue des permissions"
+      },
+      "titre": "Catalogue des permissions",
+      "description": "Les droits fins que les rôles des entreprises peuvent porter, et les modules qui les portent.",
+      "colonnes": {
+        "code": "Code",
+        "libelle": "Libellé",
+        "modules": "Modules",
+        "active": "Active",
+        "actions": "Actions"
+      },
+      "filtres": {
+        "module": "Filtrer par module",
+        "moduleTous": "Tous les modules",
+        "etat": "Filtrer par état",
+        "etatTous": "Tous les états",
+        "etatActive": "Active",
+        "etatInactive": "Désactivée",
+        "recherche": "Rechercher une permission",
+        "recherchePlaceholder": "Code, libellé, description…"
+      },
+      "nouvelle": "Rétablir une permission",
+      "aucunModule": "Aucun module",
+      "vide": "Aucune permission ne correspond à ces critères.",
+      "desactiverTitre": "Désactiver {code} ?",
+      "desactiverTexte": "{code} ne sera plus accordée dans aucune entreprise tant qu'elle reste désactivée. Les rôles la retrouveront à sa réactivation.",
+      "desactiverConfirmer": "Désactiver la permission",
+      "modulesTitre": "Modules autorisés pour {code}",
+      "modulesTexte": "Les rôles de direction la reçoivent sur les modules cochés ; elle est retirée de tous les rôles, dans toutes les entreprises, sur les modules décochés.",
+      "modulesConfirmer": "Enregistrer les modules",
+      "supprimerTitre": "Supprimer définitivement {code} ?",
+      "supprimerTexte": "{code} sera retirée de tous les rôles de toutes les entreprises. Cette action ne s'annule pas depuis l'écran : il faudra la rétablir et la réattribuer rôle par rôle.",
+      "supprimerConfirmer": "Supprimer la permission",
+      "supprimerSaisieLibelle": "Tapez le code exact de la permission pour confirmer",
+      "supprimerSaisieAide": "Saisissez {code} pour activer la suppression.",
+      "creerTitre": "Rétablir une permission du registre",
+      "creerDescription": "Saisissez un code officiel du registre serveur pour rétablir cette permission.",
+      "creerConfirmer": "Rétablir la permission",
+      "modifierTitre": "Modifier {code}",
+      "modifierDescription": "Le code et les modules ne se modifient pas ici.",
+      "modifierConfirmer": "Enregistrer",
+      "champs": {
+        "code": "Code de la permission",
+        "libelle": "Libellé",
+        "description": "Description",
+        "modules": "Modules autorisés"
+      },
+      "placeholderCode": "module.action",
+      "placeholderDescription": "Description détaillée de la permission…",
+      "codeAide": "Un code du registre, de la forme module.action — par exemple qualite.audit.",
+      "erreurCodeRequis": "Le code est requis.",
+      "erreurCodeForme": "Le code a la forme module.action, en minuscules.",
+      "erreurLibelleRequis": "Le libellé est requis.",
+      "succes": {
+        "creee": "La permission {code} a été rétablie.",
+        "modifiee": "La permission {code} a été mise à jour.",
+        "activee": "La permission {code} est activée.",
+        "desactivee": "La permission {code} a été désactivée.",
+        "modules": "Les modules de {code} ont été mis à jour.",
+        "supprimee": "La permission {code} a été supprimée de toutes les entreprises."
+      },
+      "enCours": "Enregistrement en cours…",
+      "annuler": "Annuler",
+      "actions": {
+        "modifier": "Modifier",
+        "modules": "Changer les modules",
+        "supprimer": "Supprimer"
+      },
+      "oui": "Oui",
+      "non": "Non",
+      "export": {
+        "titre": "Catalogue des permissions",
+        "nomFichier": "permissions"
       }
     }
   },

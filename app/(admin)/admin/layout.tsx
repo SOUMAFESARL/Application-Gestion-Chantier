@@ -74,6 +74,7 @@ const ECRAN_CONNEXION = "/admin/connexion";
 const SOUS_MENU_PARAMETRAGE = [
   { href: "/admin/parametres/comptes", cle: "parametrageComptes" },
   { href: "/admin/parametres/modules", cle: "parametrageModules" },
+  { href: "/admin/parametres/permissions", cle: "parametragePermissions" },
   { href: "/admin/parametres/tarifs", cle: "parametrageTarifs" },
   { href: "/admin/parametres/globaux", cle: "parametrageIdentite" },
   { href: "/admin/parametres/messagerie", cle: "parametrageMessagerie" },
