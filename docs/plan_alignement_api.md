@@ -126,6 +126,25 @@ Constats à reprendre ailleurs :
   (`mot-de-passe/demande|verifier|reinitialiser/`) ; activation d'un module par
   client ; aperçu avant suppression ; `verifier-acces/`.
 
+Cadrage du 14/10/2026. En production le back-office appelle déjà le backend :
+`simulationAdministration.ts` ne sert qu'en mode démonstration. Décisions :
+**pas d'écran des inscriptions à valider** (le backend ne met jamais une demande
+dans l'état `A_VALIDER`) ; **l'assistance à une entreprise est reportée** à un
+lot dédié ; **motif de suppression obligatoire, 20 caractères au moins,
+journalisé** ; la suppression reste coupée en production
+(`SUPPRESSION_ENTREPRISE_ACTIVEE`) tant que l'utilisateur ne l'allume pas.
+
+| Tâche | Contenu | État |
+|---|---|---|
+| **2.1** Mot de passe oublié | L'écran appelait `/auth/mot-de-passe/oublie/` (inexistant) : il appelle `/admins/mot-de-passe/demande/`. Page `/admin/mot-de-passe/definir` créée (cible du lien de l'e-mail) : l'écran des entreprises, paramétré par `espace`, vérifie et consomme le jeton sur `/admins/…` | **Fait le 14/10/2026.** Chaîne vérifiée par le backend local : demande 202 identique pour une adresse inconnue, e-mail avec le lien `/admin/mot-de-passe/definir#jeton=…`, vérification 200 (motif `OUBLI`, retour `/admin/connexion`), jeton faux 410. **Vérification à l'écran à faire** (mémoire de la machine) |
+| **2.2** Date de fin d'abonnement | `PATCH /admins/clients/{id}/` non servi (405) : à écrire côté backend | À faire |
+| **2.3** Modules d'un client | Activer / désactiver ; brouillon `ModulesClient.tsx` dans le stash | À faire |
+| **2.4** Suppression (US 1.1) | Aperçu, nom technique retapé, motif ≥ 20 caractères journalisé ; brouillon `SuppressionClient.tsx` | À faire |
+| **2.5** Messagerie | Réglage SMTP et e-mail de test ; brouillon `EcranMessagerie.tsx` | À faire |
+| **2.6** Journal de la plateforme | Lecture, filtres, export | À faire |
+| **2.7** Catalogue des permissions | Brouillon `ListePermissions.tsx` | À faire |
+| **2.8** Clôture | Suppression de `simulationAdministration.ts`, README, plan | À faire |
+
 ### Lot 3 — Paramétrage et accès de l'entreprise
 
 - Rôles, collaborateurs, invitations, identité de la plateforme : retrait des
