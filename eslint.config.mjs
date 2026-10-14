@@ -316,9 +316,9 @@ const eslintConfig = defineConfig([
       // Couche de simulation : elle imite les messages du serveur pour que les
       // écrans se relisent sans API. Rien n'en sort en production.
       "lib/api/simulation.ts",
-      // Meme role pour le back-office de la plateforme, dont aucun endpoint
-      // n'existe encore : le module rejoue les messages du serveur.
-      "lib/api/simulationAdministration.ts",
+      // Les paramètres publics rejoués pour l'espace entreprise (tarifs,
+      // identité), en attendant la fin de la simulation de l'abonnement (lot 6).
+      "lib/api/simulationParametresPublics.ts",
       "features/auth/api.ts",
       "features/configuration/api.ts",
       // Le tableau de bord DG de démonstration, en attendant sa route :

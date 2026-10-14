@@ -13,7 +13,7 @@
 
 import { apiPlateforme } from "@/lib/api";
 import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
-import { simulationParametresPublics } from "@/lib/api/simulationAdministration";
+import { simulationParametresPublics } from "@/lib/api/simulationParametresPublics";
 
 import type { CodePlan } from "@/features/abonnement/types";
 

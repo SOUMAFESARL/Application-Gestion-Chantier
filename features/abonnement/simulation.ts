@@ -8,7 +8,7 @@
  */
 
 import { attendre } from "@/lib/api/simulation";
-import { simulationParametresPublics } from "@/lib/api/simulationAdministration";
+import { simulationParametresPublics } from "@/lib/api/simulationParametresPublics";
 
 import { decomposerTva, planParCode, prixPeriode } from "./regles";
 import { PAYS_FISCAUX, PLANS_DISPONIBLES } from "./types";

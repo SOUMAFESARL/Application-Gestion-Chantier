@@ -110,7 +110,7 @@ function ecrireEtat(etat: EtatSimule): void {
 }
 
 /**
- * Exportees pour `simulationAdministration.ts`, qui rejoue le meme contrat.
+ * Exportees pour les modules de simulation (`simulationParametresPublics.ts`).
  * Elles restent internes a la couche de simulation : rien d'autre ne les
  * importe, et rien d'autre ne le doit.
  */
