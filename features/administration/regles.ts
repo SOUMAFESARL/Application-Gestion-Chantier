@@ -14,6 +14,8 @@ import type {
   ClientPlateforme,
   CodePlan,
   CompteAdministrateur,
+  EntreeJournalPlateforme,
+  FiltresJournalPlateforme,
   ModuleClient,
   ModulePlateforme,
   EtatCommercial,
@@ -697,4 +699,80 @@ export function modulesProposesAuClient(client: ClientPlateforme): ModuleClient[
 /** Un module peut-il être retiré à ce client ? Jamais un module socle. */
 export function retraitModulePossible(module: ModuleClient): boolean {
   return module.actif && module.desactivable;
+}
+
+/** Le plafond de lignes chargées pour une sélection du journal. */
+export const PLAFOND_JOURNAL = 2000;
+
+/** La période par défaut : les 30 derniers jours, aujourd'hui compris. */
+export function periodeJournalParDefaut(maintenant: Date = new Date()): { du: string; au: string } {
+  const au = aujourdhuiIso(maintenant);
+  const dateDu = new Date(maintenant.getTime() - 29 * 24 * 60 * 60 * 1000);
+  const du = aujourdhuiIso(dateDu);
+  return { du, au };
+}
+
+export function filtresJournalVides(maintenant?: Date): FiltresJournalPlateforme {
+  return {
+    ...periodeJournalParDefaut(maintenant),
+    agentId: "",
+    entrepriseId: "",
+    action: "",
+  };
+}
+
+/** Un filtre du journal est-il actif par rapport aux valeurs par défaut. */
+export function filtresJournalActifs(
+  filtres: FiltresJournalPlateforme,
+  defaut?: FiltresJournalPlateforme,
+): boolean {
+  const reference = defaut ?? filtresJournalVides();
+  return (
+    filtres.du !== reference.du ||
+    filtres.au !== reference.au ||
+    filtres.agentId !== "" ||
+    filtres.entrepriseId !== "" ||
+    filtres.action !== ""
+  );
+}
+
+/** Recherche libre sur les lignes chargées : agent, entreprise, action, adresse IP, détail. */
+export function filtrerJournal(
+  entrees: EntreeJournalPlateforme[],
+  recherche: string,
+): EntreeJournalPlateforme[] {
+  const motif = normaliser(recherche);
+  if (!motif) return entrees;
+
+  return entrees.filter((entree) => {
+    return (
+      normaliser(entree.agent).includes(motif) ||
+      normaliser(entree.entreprise).includes(motif) ||
+      normaliser(entree.action).includes(motif) ||
+      (entree.adresseIp && normaliser(entree.adresseIp).includes(motif)) ||
+      normaliser(JSON.stringify(entree.detail)).includes(motif)
+    );
+  });
+}
+
+/** Les paires à afficher pour le détail d'une ligne, dans l'ordre des clés. */
+export function lignesDetailJournal(
+  detail: Record<string, unknown>,
+): { cle: string; valeur: string }[] {
+  return Object.keys(detail)
+    .sort()
+    .map((cle) => {
+      const v = detail[cle];
+      let valeur: string;
+      if (v === null || v === undefined) {
+        valeur = "";
+      } else if (typeof v === "string") {
+        valeur = v;
+      } else if (typeof v === "number" || typeof v === "boolean") {
+        valeur = String(v);
+      } else {
+        valeur = JSON.stringify(v);
+      }
+      return { cle, valeur };
+    });
 }

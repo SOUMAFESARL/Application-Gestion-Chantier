@@ -394,3 +394,34 @@ export interface ResultatDiagnosticMessagerie {
   nomEhlo: string | null;
   reglage: ReglageEffectifMessagerie;
 }
+
+/** Une ligne du journal de la plateforme : un geste d'un agent, immuable. */
+export interface EntreeJournalPlateforme {
+  id: number;
+  agentId: string | null;
+  agent: string;
+  entrepriseId: string | null;
+  entreprise: string;
+  action: string;
+  detail: Record<string, unknown>;
+  adresseIp: string | null;
+  appareil: string;
+  horodatage: Date;
+}
+
+export interface FiltresJournalPlateforme {
+  /** `AAAA-MM-JJ`, inclus. */
+  du: string;
+  au: string;
+  agentId: string;
+  entrepriseId: string;
+  action: string;
+}
+
+export interface PageJournalPlateforme {
+  entrees: EntreeJournalPlateforme[];
+  /** Le nombre de lignes de la sélection côté serveur — peut dépasser `entrees.length`. */
+  total: number;
+  /** Vrai quand la sélection dépasse le plafond de chargement. */
+  tronque: boolean;
+}

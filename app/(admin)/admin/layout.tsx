@@ -5,6 +5,7 @@ import {
   CreditCard,
   LayoutDashboard,
   LogOut,
+  ScrollText,
   Settings,
   ShieldCheck,
   UserRound,
@@ -232,6 +233,7 @@ export default function LayoutAdministration({
     { href: "/admin", icone: LayoutDashboard, libelle: t("navigation.tableauDeBord") },
     { href: "/admin/clients", icone: Building2, libelle: t("navigation.clients") },
     { href: "/admin/abonnements", icone: CreditCard, libelle: t("navigation.abonnements") },
+    { href: "/admin/journal", icone: ScrollText, libelle: t("navigation.journal") },
   ];
 
   const estActive = (href: string) =>

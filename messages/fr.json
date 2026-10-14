@@ -343,7 +343,8 @@
       "titreModules": "Modules — Administration",
       "titreTarifs": "Tarifs — Administration",
       "titreIdentite": "Nom et logo — Administration",
-      "titreMessagerie": "Messagerie — Administration"
+      "titreMessagerie": "Messagerie — Administration",
+      "titreJournal": "Journal de la plateforme — Administration"
     },
     "motDePasseOublie": {
       "accroche": "Indiquez votre adresse professionnelle : un lien de réinitialisation vous y sera envoyé.",
@@ -366,6 +367,7 @@
     "navigation": {
       "abonnements": "Abonnements",
       "clients": "Clients",
+      "journal": "Journal",
       "deconnexion": "Se déconnecter",
       "ouvrirMenu": "Ouvrir le menu",
       "tableauDeBord": "Vue d’ensemble",
@@ -760,6 +762,72 @@
       "erreurPassee": "La date de fin ne peut pas être antérieure à aujourd’hui.",
       "erreurMotifRequis": "Le motif est requis.",
       "erreurMotifCourt": "Le motif doit contenir au moins 10 caractères."
+    },
+    "journal": {
+      "meta": {
+        "titre": "Journal de la plateforme"
+      },
+      "titre": "Journal de la plateforme",
+      "description": "Les gestes des agents de la plateforme : qui a fait quoi, sur quelle entreprise, et quand. Ce journal ne se modifie pas.",
+      "colonnes": {
+        "date": "Date",
+        "agent": "Agent",
+        "action": "Action",
+        "entreprise": "Entreprise",
+        "adresseIp": "Adresse IP",
+        "detail": "Détail"
+      },
+      "filtres": {
+        "du": "Du",
+        "au": "Au",
+        "agent": "Agent",
+        "agentTous": "Tous les agents",
+        "entreprise": "Entreprise",
+        "entrepriseTous": "Toutes les entreprises",
+        "action": "Action",
+        "actionTous": "Toutes les actions",
+        "recherche": "Rechercher dans le journal",
+        "recherchePlaceholder": "Agent, entreprise, adresse IP, détail…"
+      },
+      "vide": "Aucune action sur cette période.",
+      "detail": {
+        "titre": "Détail de l’action",
+        "appareil": "Appareil",
+        "fermer": "Fermer"
+      },
+      "tronque": "{total} lignes correspondent : seules les {plafond} plus récentes sont affichées. Resserrez la période pour voir les autres.",
+      "export": {
+        "titre": "Journal de la plateforme",
+        "nomFichier": "journal-plateforme",
+        "colonneCode": "Code",
+        "colonneAppareil": "Appareil"
+      },
+      "actions": {
+        "SUSPENSION_CLIENT": "Suspension d’une entreprise",
+        "REACTIVATION_CLIENT": "Réactivation d’une entreprise",
+        "CHANGEMENT_PLAN": "Changement de forfait",
+        "MODIFICATION_ECHEANCE": "Modification de l’échéance",
+        "ACTIVATION_MODULE": "Activation d’un module",
+        "DESACTIVATION_MODULE": "Retrait d’un module",
+        "SUPPRESSION_DEFINITIVE_ENTREPRISE": "Suppression définitive d’une entreprise",
+        "MODIFICATION_MESSAGERIE": "Modification de la messagerie",
+        "REINITIALISATION_MESSAGERIE": "Retour au réglage serveur de la messagerie",
+        "TEST_MESSAGERIE": "Test de la messagerie",
+        "CONNEXION_ASSISTANCE": "Ouverture d’une session d’assistance",
+        "DECONNEXION_ASSISTANCE": "Fin d’une session d’assistance",
+        "TENTATIVE_ECRITURE_BLOQUEE": "Écriture bloquée pendant une assistance",
+        "CREATION_ADMIN": "Création d’un administrateur",
+        "SUSPENSION_ADMIN": "Suspension d’un administrateur",
+        "REACTIVATION_ADMIN": "Réactivation d’un administrateur",
+        "MODIFICATION_IDENTITE_PLATEFORME": "Modification du nom ou du logo de la plateforme",
+        "MODIFICATION_TARIFS": "Modification des tarifs",
+        "CONNEXION_SUPER_ADMIN": "Connexion d’un administrateur",
+        "DECONNEXION_SUPER_ADMIN": "Déconnexion d’un administrateur",
+        "ECHEC_CONNEXION_SUPER_ADMIN": "Échec de connexion administrateur",
+        "INSCRIPTION_APPROUVEE": "Inscription entreprise approuvée",
+        "INSCRIPTION_REFUSEE": "Inscription entreprise refusée",
+        "REINITIALISATION_MOT_DE_PASSE_ADMIN": "Demande de réinitialisation de mot de passe"
+      }
     }
   },
   "configuration": {
