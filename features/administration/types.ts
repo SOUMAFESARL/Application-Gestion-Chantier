@@ -208,6 +208,22 @@ export interface ClientPlateforme {
   nbUtilisateurs: number;
   nbProjets: number;
   abonnement: AbonnementClient;
+  modules: ModuleClient[];
+  dirigeant: DirigeantClient | null;
+}
+
+export interface DirigeantClient {
+  nom: string;
+  email: string;
+}
+
+export interface ModuleClient {
+  id: string;
+  code: string;
+  libelle: string;
+  actif: boolean;
+  /** Faux pour un module socle (Projets) : le serveur refuse de le retirer. */
+  desactivable: boolean;
 }
 
 /**

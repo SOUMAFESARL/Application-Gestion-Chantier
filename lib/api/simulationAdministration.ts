@@ -54,6 +54,8 @@ export interface ChargeClientPlateforme {
   nb_utilisateurs: number;
   nb_projets: number;
   abonnement: ChargeAbonnementClient;
+  modules?: { id: string; code: string; libelle: string; actif: boolean; desactivable?: boolean }[];
+  dirigeant?: { nom: string; email: string } | null;
 }
 
 export interface ChargePointEvolution {

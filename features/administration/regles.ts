@@ -14,6 +14,7 @@ import type {
   ClientPlateforme,
   CodePlan,
   CompteAdministrateur,
+  ModuleClient,
   ModulePlateforme,
   EtatCommercial,
   IndicateursPlateforme,
@@ -681,4 +682,19 @@ export function initialesAdministrateur(profil: {
     profil.email[0]?.toUpperCase() ||
     "?"
   );
+}
+
+/**
+ * Les modules qu'on propose d'activer ou de retirer pour un client.
+ *
+ * « Administration » n'en fait pas partie : tout client l'a, c'est l'espace de son DG.
+ * Le catalogue garde son ordre (le serveur trie par `ordre`).
+ */
+export function modulesProposesAuClient(client: ClientPlateforme): ModuleClient[] {
+  return client.modules.filter((module) => module.code.toLowerCase() !== "administration");
+}
+
+/** Un module peut-il être retiré à ce client ? Jamais un module socle. */
+export function retraitModulePossible(module: ModuleClient): boolean {
+  return module.actif && module.desactivable;
 }

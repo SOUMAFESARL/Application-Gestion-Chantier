@@ -51,6 +51,7 @@ import type {
   DemandeModificationProfil,
   DemandeModule,
   IndicateursPlateforme,
+  ModuleClient,
   ModulePlateforme,
   PointEvolutionAbonnements,
   ProfilAdministrateur,
@@ -78,6 +79,19 @@ interface ChargeAbonnement {
   renouvellement_auto: boolean;
 }
 
+interface ChargeModuleClient {
+  id: string;
+  code: string;
+  libelle: string;
+  actif: boolean;
+  desactivable?: boolean;
+}
+
+interface ChargeDirigeantClient {
+  nom: string;
+  email: string;
+}
+
 interface ChargeClient {
   id: string;
   raison_sociale: string;
@@ -93,6 +107,8 @@ interface ChargeClient {
   nb_utilisateurs: number;
   nb_projets: number;
   abonnement: ChargeAbonnement;
+  modules?: ChargeModuleClient[];
+  dirigeant?: ChargeDirigeantClient | null;
 }
 
 /** L'utilisateur renvoyé par `POST /admins/connexion/`. */
@@ -267,6 +283,17 @@ function versAbonnement(charge: ChargeAbonnement): AbonnementClient {
   };
 }
 
+function versModuleClient(charge: ChargeModuleClient): ModuleClient {
+  return {
+    id: charge.id,
+    code: charge.code,
+    libelle: charge.libelle,
+    actif: charge.actif,
+    // Absent d'une réponse ancienne : on le tient pour retirable, le serveur reste juge.
+    desactivable: charge.desactivable ?? true,
+  };
+}
+
 function versClient(charge: ChargeClient): ClientPlateforme {
   return {
     id: charge.id,
@@ -283,6 +310,8 @@ function versClient(charge: ChargeClient): ClientPlateforme {
     nbUtilisateurs: charge.nb_utilisateurs,
     nbProjets: charge.nb_projets,
     abonnement: versAbonnement(charge.abonnement),
+    modules: (charge.modules || []).map(versModuleClient),
+    dirigeant: charge.dirigeant ? { nom: charge.dirigeant.nom, email: charge.dirigeant.email } : null,
   };
 }
 
@@ -815,6 +844,25 @@ export async function changerPlan(id: string, plan: CodePlan): Promise<ClientPla
         plan_code: plan,
       });
 
+  return versClient(charge);
+}
+
+/**
+ * Active ou retire un module pour un client —
+ * `POST /admins/clients/<id>/modules/<module>/activer|desactiver/`.
+ *
+ * Retirer coupe l'accès sans rien effacer : les données du module restent, et reviennent
+ * telles quelles à la réactivation. La réponse est la fiche à jour.
+ */
+export async function basculerModuleClient(
+  clientId: string,
+  moduleId: string,
+  actif: boolean,
+): Promise<ClientPlateforme> {
+  const charge = await apiAdministration.creer<ChargeClient>(
+    `/admins/clients/${clientId}/modules/${moduleId}/${actif ? "activer" : "desactiver"}/`,
+    {},
+  );
   return versClient(charge);
 }
 
