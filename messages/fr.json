@@ -3871,6 +3871,7 @@
         "nombre": "{n, plural, one {# photo jointe} other {# photos jointes}}",
         "titre": "Photo {rang}/{total}",
         "meta": "{heure} · {latitude}° N, {longitude}° O",
+        "metaSansPosition": "{heure} · position non relevée",
         "gps": "GPS confirmé"
       },
       "documents": {

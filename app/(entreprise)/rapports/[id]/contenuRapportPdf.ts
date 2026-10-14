@@ -127,10 +127,13 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
           },
           {
             libelle: r("meteo.temperature"),
-            valeur: r("meteo.temperatureValeur", {
-              min: rapport.meteo.temperatureMin,
-              max: rapport.meteo.temperatureMax,
-            }),
+            valeur:
+              rapport.meteo.temperatureMin === null && rapport.meteo.temperatureMax === null
+                ? neant
+                : r("meteo.temperatureValeur", {
+                    min: rapport.meteo.temperatureMin ?? neant,
+                    max: rapport.meteo.temperatureMax ?? neant,
+                  }),
             ton: TEINTE_METEO.temperature,
           },
         ],
@@ -138,7 +141,11 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
       {
         type: "tuiles",
         tuiles: [
-          { libelle: r("meteo.humidite"), valeur: pourcent(rapport.meteo.humidite), ton: TEINTE_METEO.humidite },
+          {
+            libelle: r("meteo.humidite"),
+            valeur: rapport.meteo.humidite === null ? neant : pourcent(rapport.meteo.humidite),
+            ton: TEINTE_METEO.humidite,
+          },
           { libelle: r("meteo.vent"), valeur: rapport.meteo.vent, ton: TEINTE_METEO.vent },
           {
             libelle: r("meteo.conditions"),
@@ -469,11 +476,14 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
           texte: r("pdf.photo", {
             titre: r("photos.titre", { rang: rang + 1, total: rapport.listePhotos.length }),
             legende: photo.legende,
-            meta: r("photos.meta", {
-              heure: photo.heure,
-              latitude: Math.abs(photo.latitude).toFixed(4),
-              longitude: Math.abs(photo.longitude).toFixed(4),
-            }),
+            meta:
+              photo.latitude === null || photo.longitude === null
+                ? r("photos.metaSansPosition", { heure: photo.heure })
+                : r("photos.meta", {
+                    heure: photo.heure,
+                    latitude: Math.abs(photo.latitude).toFixed(4),
+                    longitude: Math.abs(photo.longitude).toFixed(4),
+                  }),
           }),
           ton: photo.gpsConfirme ? ("succes" as const) : ("neutre" as const),
         })),

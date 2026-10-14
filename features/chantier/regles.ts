@@ -448,13 +448,20 @@ export function presenceSuffisante(taux: number | null): "BONNE" | "ACCEPTABLE" 
   return "INSUFFISANTE";
 }
 
-/** Le montant d'un bon de tâcheron : quantité du jour × prix du bordereau. */
-export function montantProduction(ligne: LigneProduction): number {
-  return Math.round(ligne.prixUnitaire * ligne.quantiteJour);
+/**
+ * Le montant d'un bon de tâcheron : quantité du jour × prix du bordereau.
+ * `null` quand le prix est masqué — le serveur ne le donne qu'à qui peut voir
+ * les montants, et un total calculé sans lui serait faux sans le paraître.
+ */
+export function montantProduction(ligne: LigneProduction): number | null {
+  return ligne.prixUnitaire === null ? null : Math.round(ligne.prixUnitaire * ligne.quantiteJour);
 }
 
-export function totalProduction(lignes: LigneProduction[]): number {
-  return lignes.reduce((total, ligne) => total + montantProduction(ligne), 0);
+export function totalProduction(lignes: LigneProduction[]): number | null {
+  const montants = lignes.map(montantProduction);
+  return montants.some((montant) => montant === null)
+    ? null
+    : montants.reduce<number>((total, montant) => total + (montant ?? 0), 0);
 }
 
 export function cumulActivite(ligne: LigneActivite): number {
