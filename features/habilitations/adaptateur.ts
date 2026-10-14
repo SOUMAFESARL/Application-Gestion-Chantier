@@ -38,9 +38,13 @@ function accesHabilitation(valeur: unknown): unknown {
 export function versDroits(profil: ProfilUtilisateur): Droits {
   if (profil.is_dg || profil.role_global === "DG") return droitsDirection();
 
+  // Le serveur écrit les modules en capitales (`CHANTIER`), le domaine en
+  // minuscules (`chantier`, `MODULES_CCD`). Sans cette traduction, aucun
+  // module n'était reconnu : tout rôle hors direction se voyait refuser
+  // chaque écran, sans erreur, sur la seule casse d'une clé.
   const brutes: Record<string, unknown> = {};
   for (const [module, valeur] of Object.entries(profil.habilitations ?? {})) {
-    brutes[module] = accesNormalises(accesHabilitation(valeur));
+    brutes[module.toLowerCase()] = accesNormalises(accesHabilitation(valeur));
   }
   return {
     estDirection: false,
