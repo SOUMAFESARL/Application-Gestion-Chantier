@@ -4,9 +4,8 @@
  * Même contrat que `features/projets/adaptateur.ts` : les charges utiles sont
  * privées, et rien au-dessus ne connaît la forme HTTP.
  *
- * **Les routes ne sont pas encore fournies.** Celles-ci sont proposées au
- * backend (`backend/apps/chantier/`) d'après les maquettes F2 et le message
- * du 25/09 :
+ * Les routes ont été proposées au backend d'après les maquettes F2 et le
+ * message du 25/09, puis servies par Django (`apps/chantier/`) :
  *
  * - `GET  /chantier/journal/?date_debut=&date_fin=` — les lignes chantier ×
  *   jour, absences comprises (le serveur sait quels chantiers étaient
@@ -16,10 +15,9 @@
  * - `GET  /chantier/syntheses/?projet=&type=&date_debut=&date_fin=` — la
  *   synthèse agrégée à la demande par l'ORM.
  *
- * Tant que Django ne les sert pas, `JOURNAL_SIMULE` aiguille vers
- * `simulationJournal` (rapports du formulaire de saisie, complétés de rapports de
- * démonstration sur les vrais chantiers). Les noms de champs sont **à confirmer** : c'est ici,
- * et seulement ici, qu'il faudra les corriger.
+ * **Le journal et le rapport sont réels** depuis le 14/10/2026 (plan
+ * d'alignement, tâche 1.3). La relance et la synthèse n'ont pas encore de
+ * route : elles passent encore par `simulationJournal`.
  */
 
 import type { ModeExecutionLot } from "@/features/projets/types";
@@ -135,20 +133,22 @@ interface ChargeRapport extends ChargeEntree {
   meteo: {
     matin: ConditionsMeteo["matin"];
     apres_midi: ConditionsMeteo["apresMidi"];
-    temperature_min: number;
-    temperature_max: number;
-    humidite: number;
+    temperature_min: number | null;
+    temperature_max: number | null;
+    humidite: number | null;
     vent: string;
     conditions: ConditionsMeteo["conditions"];
     prevision?: string | null;
   };
+  /** Les nombres sont exigés à la soumission : seul un brouillon les laisse vides. */
   effectifs: { categorie: string; prevus: number; presents: number; heures: number; observation?: string | null }[] | null;
   production:
     | {
         intervenant: string;
         activite: string;
         unite: string;
-        prix_unitaire: number;
+        /** `null` : masqué pour qui n'a pas le droit de voir les montants. */
+        prix_unitaire: number | null;
         quantite_jour: number;
         cumul: number;
       }[]
@@ -171,10 +171,11 @@ interface ChargeRapport extends ChargeEntree {
   materiaux: {
     designation: string;
     unite: string;
-    stock_debut: number;
+    /** `null` tant qu'il n'existe pas de module stocks : consommation déclarée, stock inconnu. */
+    stock_debut: number | null;
     livre: number;
     utilise: number;
-    seuil_alerte: number;
+    seuil_alerte: number | null;
   }[];
   livraisons: {
     fournisseur: string;
@@ -207,8 +208,8 @@ interface ChargeRapport extends ChargeEntree {
     url?: string | null;
     legende: string;
     heure: string;
-    latitude: number;
-    longitude: number;
+    latitude: number | null;
+    longitude: number | null;
     gps_confirme: boolean;
   }[];
   /** Absent d'un serveur qui ne les renvoie pas encore : aucun document. */
@@ -549,12 +550,16 @@ function versSynthese(charge: ChargeSynthese): SynthesePeriodique {
  * Lectures et écritures.
  * ------------------------------------------------------------------ */
 
-/** `false` tant que Django ne sert pas les routes du journal : simulé même en production. */
-export const JOURNAL_SIMULE = routesSimulees(false);
+/**
+ * La relance et la synthèse n'ont pas encore de route côté Django (tâches 1.5
+ * et 1.6 du plan d'alignement) : elles restent simulées, même en production.
+ * Le journal et le rapport, eux, sont réels depuis le 14/10/2026.
+ */
+const RELANCE_SIMULEE = routesSimulees(false);
+const SYNTHESE_SIMULEE = routesSimulees(false);
 
 /** Le journal des neuf dernières semaines, tous chantiers confondus. */
 export async function lireJournal(signal?: AbortSignal): Promise<Journal> {
-  if (JOURNAL_SIMULE) return simulationJournal.lireJournal();
   const charge = await api.lire<ChargeJournal>("/chantier/journal/", undefined, signal);
   return {
     aujourdhui: charge.aujourdhui,
@@ -564,7 +569,6 @@ export async function lireJournal(signal?: AbortSignal): Promise<Journal> {
 }
 
 export async function lireRapport(id: string, signal?: AbortSignal): Promise<RapportJournalier> {
-  if (JOURNAL_SIMULE) return simulationJournal.lireRapport(id);
   return versRapport(await api.lire<ChargeRapport>(`/chantier/rapports/${id}/`, undefined, signal));
 }
 
@@ -573,13 +577,13 @@ export async function lireRapport(id: string, signal?: AbortSignal): Promise<Rap
  * rapport manque, le signataire attendu s'il est déposé.
  */
 export async function relancer(id: string): Promise<{ relanceLe: string }> {
-  if (JOURNAL_SIMULE) return simulationJournal.relancer(id);
+  if (RELANCE_SIMULEE) return simulationJournal.relancer(id);
   const charge = await api.creer<{ relance_le: string }>(`/chantier/journal/${id}/relancer/`, {});
   return { relanceLe: charge.relance_le };
 }
 
 export async function lireSynthese(demande: DemandeSynthese, signal?: AbortSignal): Promise<SynthesePeriodique> {
-  if (JOURNAL_SIMULE) return simulationJournal.lireSynthese(demande);
+  if (SYNTHESE_SIMULEE) return simulationJournal.lireSynthese(demande);
   const parametres = {
     projet: demande.projetId,
     type: demande.type,

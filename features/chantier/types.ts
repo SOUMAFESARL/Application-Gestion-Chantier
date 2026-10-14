@@ -132,9 +132,10 @@ export type ConditionsTravail = "FAVORABLES" | "DIFFICILES" | "ARRET";
 export interface ConditionsMeteo {
   matin: Meteo;
   apresMidi: Meteo;
-  temperatureMin: number;
-  temperatureMax: number;
-  humidite: number;
+  /** `null` : non relevé — seuls le ciel et les conditions sont obligatoires. */
+  temperatureMin: number | null;
+  temperatureMax: number | null;
+  humidite: number | null;
   vent: string;
   conditions: ConditionsTravail;
   /** La prévision du lendemain, quand elle change l'organisation du chantier. */
@@ -144,6 +145,7 @@ export interface ConditionsMeteo {
 /** Une catégorie d'ouvriers présents — lots en régie directe seulement. */
 export interface LigneEffectif {
   categorie: string;
+  /** Exigés par le serveur à la soumission : un rapport lu en document les porte toujours. */
   prevus: number;
   presents: number;
   heures: number;
@@ -155,8 +157,9 @@ export interface LigneProduction {
   intervenant: string;
   activite: string;
   unite: string;
-  /** En centimes de FCFA, comme tout montant du produit. */
-  prixUnitaire: number;
+  /** En centimes de FCFA ; `null` pour qui n'a pas le droit de voir les montants. */
+  prixUnitaire: number | null;
+  /** Exigée par le serveur à la soumission. */
   quantiteJour: number;
   cumul: number;
 }
@@ -258,8 +261,9 @@ export interface Photo {
   url: string | null;
   legende: string;
   heure: string;
-  latitude: number;
-  longitude: number;
+  /** `null` : photo prise sans position — `gpsConfirme` vaut alors `false`. */
+  latitude: number | null;
+  longitude: number | null;
   gpsConfirme: boolean;
 }
 

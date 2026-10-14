@@ -255,10 +255,19 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
                   [t("meteo.apresMidi"), tEnum(`meteo.${rapport.meteo.apresMidi}`), TEINTE_METEO.ciel],
                   [
                     t("meteo.temperature"),
-                    t("meteo.temperatureValeur", { min: rapport.meteo.temperatureMin, max: rapport.meteo.temperatureMax }),
+                    rapport.meteo.temperatureMin === null && rapport.meteo.temperatureMax === null
+                      ? t("neant")
+                      : t("meteo.temperatureValeur", {
+                          min: rapport.meteo.temperatureMin ?? t("neant"),
+                          max: rapport.meteo.temperatureMax ?? t("neant"),
+                        }),
                     TEINTE_METEO.temperature,
                   ],
-                  [t("meteo.humidite"), t("pourcent", { valeur: rapport.meteo.humidite }), TEINTE_METEO.humidite],
+                  [
+                    t("meteo.humidite"),
+                    rapport.meteo.humidite === null ? t("neant") : t("pourcent", { valeur: rapport.meteo.humidite }),
+                    TEINTE_METEO.humidite,
+                  ],
                   [t("meteo.vent"), rapport.meteo.vent, TEINTE_METEO.vent],
                   [
                     t("meteo.conditions"),
@@ -616,11 +625,13 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
                     </span>
                     <span className="text-neutral-700">{photo.legende}</span>
                     <span className="text-neutral-500 tabular-nums">
-                      {t("photos.meta", {
-                        heure: photo.heure,
-                        latitude: Math.abs(photo.latitude).toFixed(4),
-                        longitude: Math.abs(photo.longitude).toFixed(4),
-                      })}
+                      {photo.latitude === null || photo.longitude === null
+                        ? t("photos.metaSansPosition", { heure: photo.heure })
+                        : t("photos.meta", {
+                            heure: photo.heure,
+                            latitude: Math.abs(photo.latitude).toFixed(4),
+                            longitude: Math.abs(photo.longitude).toFixed(4),
+                          })}
                     </span>
                     {photo.gpsConfirme && <span className="font-medium text-succes">{t("photos.gps")}</span>}
                   </div>

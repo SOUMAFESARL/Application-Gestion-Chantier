@@ -7,8 +7,8 @@ Module 2 — journal de chantier. Miroir de `backend/apps/chantier/`.
 | Types | `types.ts` | Entrée de journal (chantier × jour), rapport journalier, synthèse périodique, saisie du CC |
 | Règles | `regles.ts` | Situations, circuit CC → CT → CP, délais, agrégation ; saisie : J-2, sections actives, alertes immédiates, avancement |
 | Validations | `validations.ts` | Schéma zod de **soumission** (piloté par les sections du chantier), formulaire ↔ domaine |
-| Adaptateur | `adaptateur.ts` | Routes `/chantier/…`. **La saisie est réelle** (préparation, mes rapports, brouillon, soumission, alerte) ; le journal, le rapport lu, la relance et la synthèse passent encore par la simulation |
-| Simulation | `simulationJournal.ts` | Le journal **lu sur les rapports du formulaire** (`simulationSaisie`), plus les absences des vrais chantiers en cours (`/projets/`) |
+| Adaptateur | `adaptateur.ts` | Routes `/chantier/…`. **La saisie, le journal et le rapport lu sont réels** ; la relance et la synthèse passent encore par la simulation, faute de route côté Django |
+| Simulation | `simulationJournal.ts` | Ne sert plus qu'à la relance et à la synthèse ; disparaît quand leurs routes existent |
 | Simulation | `simulationSaisie.ts` | N'est plus appelé par la saisie. Ne sert plus qu'à `simulationJournal.ts`, et disparaît avec lui |
 | Navigateur | `photos.ts`, `brouillonLocal.ts` | Compression 1 200 px / 70 % + GPS ; copie locale de la saisie (coupure réseau) |
 | Clés | `cles.ts` | Clés React Query partagées par les écrans |
