@@ -9,12 +9,14 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { ModaleFinAbonnement } from "../ModaleFinAbonnement";
+import { ModulesClient } from "./ModulesClient";
 
 import { Alerte, Bouton, EtatChargement, EtatErreur, Modale } from "@/components/ui";
 import { Input } from "@/components/ui/input";
 import {
   alerteClient,
   peutAgirSurClients,
+  peutGererModulesClient,
   reactivationPossible,
   suspensionPossible,
 } from "@/features/administration";
@@ -240,6 +242,14 @@ export function FicheClient({ id }: { id: string }) {
             libelle={t("fiche.telephoneContact")}
             valeur={client.telephoneContact || ABSENT}
           />
+          <Ligne
+            libelle={t("fiche.dirigeant")}
+            valeur={
+              client.dirigeant
+                ? `${client.dirigeant.nom} — ${client.dirigeant.email}`
+                : t("fiche.aucunDirigeant")
+            }
+          />
         </section>
 
         <section className={CARTE}>
@@ -279,6 +289,8 @@ export function FicheClient({ id }: { id: string }) {
           <Ligne libelle={t("fiche.utilisateurs")} valeur={String(client.nbUtilisateurs)} />
           <Ligne libelle={t("fiche.projets")} valeur={String(client.nbProjets)} />
         </section>
+
+        <ModulesClient client={client} peutAgir={peutGererModulesClient(profil)} />
       </div>
 
       <Modale

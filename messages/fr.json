@@ -289,7 +289,24 @@
       "suspendre": "Suspendre l’accès",
       "telephoneContact": "Téléphone",
       "utilisateurs": "Utilisateurs",
-      "ville": "Ville"
+      "ville": "Ville",
+      "dirigeant": "Dirigeant",
+      "aucunDirigeant": "Aucun compte dirigeant"
+    },
+    "modulesClient": {
+      "titre": "Modules",
+      "aucun": "Aucun module au catalogue.",
+      "socle": "Module socle : il ne peut pas être retiré.",
+      "retraitTitre": "Retirer {module} à {client} ?",
+      "retraitTexte": "Les utilisateurs de l’entreprise n’auront plus accès à ce module. Ses données sont conservées et reviendront telles quelles si vous le réactivez. Le dirigeant de l’entreprise est prévenu par courriel.",
+      "retraitConfirmer": "Retirer le module",
+      "activationTitre": "Activer {module} pour {client} ?",
+      "activationTexte": "Les rôles standards de l’entreprise reçoivent leurs droits par défaut sur ce module. Les rôles personnalisés n’y reçoivent aucun droit : le dirigeant devra les leur accorder. Le dirigeant est prévenu par courriel.",
+      "activationConfirmer": "Activer le module",
+      "annuler": "Annuler",
+      "sansDirigeant": "Aucun dirigeant actif : personne ne sera prévenu.",
+      "succesActivation": "{module} activé pour {client}.",
+      "succesRetrait": "{module} retiré à {client}."
     },
     "graphiques": {
       "aucuneDonnee": "Aucune donnée sur cette période.",
