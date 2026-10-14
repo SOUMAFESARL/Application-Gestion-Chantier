@@ -11,13 +11,8 @@
  * client — où aucune de ces routes n'existe, et où le `404` obtenu n'aurait
  * pas accusé la bonne cause.
  *
- * **La session et la lecture des clients sont réelles** : connexion,
- * déconnexion, liste et fiche client appellent `/api/v1/admins/`, quel que soit
- * `NEXT_PUBLIC_API_SIMULE`. **Le reste du domaine est encore simulé**
- * (actions sur un client, abonnements, indicateurs) : ces
- * endpoints ne sont pas écrits côté Django. Leurs appels réels sont néanmoins
- * présents, à leur place définitive — c'est ce qui rend la bascule du drapeau
- * sans effet sur les écrans.
+ * **Tout le domaine est réel** depuis le lot 2 (14/10/2026) : chaque
+ * fonction appelle `/api/v1/admins/…`, quel que soit `NEXT_PUBLIC_API_SIMULE`.
  *
  * Les charges utiles (`Charge*`) sont **privées** : elles décrivent un
  * transport, et les exporter rouvrirait la brèche que cette couche ferme.
@@ -32,14 +27,9 @@ import {
   lireJetonRenouvellement,
 } from "@/lib/api";
 import { accesNormalises } from "@/features/roles/regles";
-import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
-import {
-  simulationAdministration,
-  simulationParametresPublics,
-} from "@/lib/api/simulationAdministration";
 import { texte } from "@/i18n/horsReact";
 
-import { indicateurs, PLAFOND_JOURNAL } from "./regles";
+import { PLAFOND_JOURNAL } from "./regles";
 import type {
   AbonnementClient,
   CleIndicateur,
@@ -486,12 +476,6 @@ export async function seConnecter(identifiants: {
  */
 export async function demanderReinitialisation(email: string): Promise<void> {
   const corps = { email };
-
-  if (SIMULATION_ACTIVE) {
-    await simulationAdministration.demanderReinitialisation(corps);
-    return;
-  }
-
   await apiAdministration.creer<void>("/admins/mot-de-passe/demande/", corps);
 }
 
@@ -520,11 +504,6 @@ export async function seDeconnecter(): Promise<void> {
  * `SurveillantSessionAdmin` qui renvoie vers la connexion.
  */
 export async function obtenirProfil(): Promise<ProfilAdministrateur> {
-  if (SIMULATION_ACTIVE) {
-    const local = lireProfilLocal();
-    if (local) return local;
-    throw new ErreurApi("non_authentifie", texte("administration.erreurs.action"), 401);
-  }
   try {
     const profil = versProfil(
       await apiAdministration.lire<ChargeUtilisateurSuperAdmin>("/admins/moi/"),
@@ -560,16 +539,9 @@ export async function modifierProfil(
     telephone: demande.telephone,
   };
 
-  let profil: ProfilAdministrateur;
-  if (SIMULATION_ACTIVE) {
-    const reponse = await simulationAdministration.modifierProfil(actuel.id, corps);
-    const nomComplet = `${reponse.prenom} ${reponse.nom}`.trim();
-    profil = { ...actuel, ...reponse, nomComplet: nomComplet || reponse.email };
-  } else {
-    profil = versProfil(
-      await apiAdministration.modifier<ChargeUtilisateurSuperAdmin>("/admins/moi/", corps),
-    );
-  }
+  const profil = versProfil(
+    await apiAdministration.modifier<ChargeUtilisateurSuperAdmin>("/admins/moi/", corps),
+  );
 
   ecrireProfilLocal(profil);
   return profil;
@@ -591,22 +563,15 @@ export async function modifierPhotoProfil(
     throw new ErreurApi("non_authentifie", texte("administration.erreurs.action"), 401);
   }
 
-  let profil: ProfilAdministrateur;
-  if (SIMULATION_ACTIVE) {
-    const photo = fichier ? await lireEnDataUrl(fichier) : null;
-    await simulationAdministration.modifierPhoto(photo);
-    profil = { ...actuel, photo };
-  } else {
-    const formulaire = new FormData();
-    if (fichier) formulaire.append("photo", fichier);
-    else formulaire.append("retirer_photo", "true");
-    profil = versProfil(
-      await apiAdministration.modifier<ChargeUtilisateurSuperAdmin>(
-        "/admins/moi/photo/",
-        formulaire,
-      ),
-    );
-  }
+  const formulaire = new FormData();
+  if (fichier) formulaire.append("photo", fichier);
+  else formulaire.append("retirer_photo", "true");
+  const profil = versProfil(
+    await apiAdministration.modifier<ChargeUtilisateurSuperAdmin>(
+      "/admins/moi/photo/",
+      formulaire,
+    ),
+  );
 
   ecrireProfilLocal(profil);
   return profil;
@@ -627,11 +592,7 @@ export async function changerMotDePasse(demande: DemandeChangementMotDePasse): P
   };
 
   try {
-    if (SIMULATION_ACTIVE) {
-      await simulationAdministration.changerMotDePasse(corps);
-    } else {
-      await apiAdministration.creer<void>("/admins/moi/mot-de-passe/", corps);
-    }
+    await apiAdministration.creer<void>("/admins/moi/mot-de-passe/", corps);
   } catch (cause) {
     if (cause instanceof ErreurApi) {
       const { ancien_mot_de_passe: ancien, nouveau_mot_de_passe: nouveau } = cause.details;
@@ -651,32 +612,15 @@ export async function changerMotDePasse(demande: DemandeChangementMotDePasse): P
  * ------------------------------------------------------------------ */
 
 /** Le profil connecté, sous la forme d'un compte — pour la simulation seulement. */
-function compteDuProfil(profil: ProfilAdministrateur | null): ChargeCompteAdministrateur | null {
-  if (!profil) return null;
-  return {
-    id: profil.id,
-    email: profil.email,
-    nom: profil.nom,
-    prenom: profil.prenom,
-    telephone: profil.telephone,
-    role: profil.role,
-    statut: "ACTIF",
-    cree_le: new Date().toISOString(),
-    derniere_connexion: new Date().toISOString(),
-  };
-}
-
 /** `GET /admins/comptes/` — les agents de la plateforme, suspendus compris. */
 export async function listerAdministrateurs(
   signal?: AbortSignal,
 ): Promise<CompteAdministrateur[]> {
-  const charges: ChargeCompteAdministrateur[] = SIMULATION_ACTIVE
-    ? await simulationAdministration.listerComptes(compteDuProfil(lireProfilLocal()))
-    : await apiAdministration.lire<ChargeCompteAdministrateur[]>(
-        "/admins/comptes/",
-        undefined,
-        signal,
-      );
+  const charges = await apiAdministration.lire<ChargeCompteAdministrateur[]>(
+    "/admins/comptes/",
+    undefined,
+    signal,
+  );
 
   return charges.map(versCompte);
 }
@@ -695,31 +639,25 @@ export async function creerAdministrateur(
     role: demande.role,
   };
 
-  const charge: ChargeCompteAdministrateur = SIMULATION_ACTIVE
-    ? await simulationAdministration.creerCompte(corps)
-    : await apiAdministration.creer<ChargeCompteAdministrateur>("/admins/comptes/", corps);
+  const charge = await apiAdministration.creer<ChargeCompteAdministrateur>("/admins/comptes/", corps);
 
   return versCompte(charge);
 }
 
 export async function suspendreAdministrateur(id: string): Promise<CompteAdministrateur> {
-  const charge: ChargeCompteAdministrateur = SIMULATION_ACTIVE
-    ? await simulationAdministration.suspendreCompte(id, lireProfilLocal()?.id ?? null)
-    : await apiAdministration.creer<ChargeCompteAdministrateur>(
-        `/admins/comptes/${id}/suspendre/`,
-        {},
-      );
+  const charge = await apiAdministration.creer<ChargeCompteAdministrateur>(
+    `/admins/comptes/${id}/suspendre/`,
+    {},
+  );
 
   return versCompte(charge);
 }
 
 export async function reactiverAdministrateur(id: string): Promise<CompteAdministrateur> {
-  const charge: ChargeCompteAdministrateur = SIMULATION_ACTIVE
-    ? await simulationAdministration.reactiverCompte(id)
-    : await apiAdministration.creer<ChargeCompteAdministrateur>(
-        `/admins/comptes/${id}/reactiver/`,
-        {},
-      );
+  const charge = await apiAdministration.creer<ChargeCompteAdministrateur>(
+    `/admins/comptes/${id}/reactiver/`,
+    {},
+  );
 
   return versCompte(charge);
 }
@@ -730,9 +668,7 @@ export async function reactiverAdministrateur(id: string): Promise<CompteAdminis
 
 /** `GET /admins/modules/` — le catalogue, modules inactifs compris. */
 export async function listerModules(signal?: AbortSignal): Promise<ModulePlateforme[]> {
-  const charges: ChargeModule[] = SIMULATION_ACTIVE
-    ? await simulationAdministration.listerModules()
-    : await apiAdministration.lire<ChargeModule[]>("/admins/modules/", undefined, signal);
+  const charges = await apiAdministration.lire<ChargeModule[]>("/admins/modules/", undefined, signal);
 
   return charges.map(versModule);
 }
@@ -741,9 +677,7 @@ export async function listerModules(signal?: AbortSignal): Promise<ModulePlatefo
 export async function creerModule(demande: DemandeModule): Promise<ModulePlateforme> {
   const corps = corpsModule(demande);
 
-  const charge: ChargeModule = SIMULATION_ACTIVE
-    ? await simulationAdministration.creerModule(corps)
-    : await apiAdministration.creer<ChargeModule>("/admins/modules/", corps);
+  const charge = await apiAdministration.creer<ChargeModule>("/admins/modules/", corps);
 
   return versModule(charge);
 }
@@ -755,25 +689,19 @@ export async function modifierModule(
 ): Promise<ModulePlateforme> {
   const corps = corpsModule(demande);
 
-  const charge: ChargeModule = SIMULATION_ACTIVE
-    ? await simulationAdministration.modifierModule(id, corps)
-    : await apiAdministration.modifier<ChargeModule>(`/admins/modules/${id}/`, corps);
+  const charge = await apiAdministration.modifier<ChargeModule>(`/admins/modules/${id}/`, corps);
 
   return versModule(charge);
 }
 
 export async function desactiverModule(id: string): Promise<ModulePlateforme> {
-  const charge: ChargeModule = SIMULATION_ACTIVE
-    ? await simulationAdministration.desactiverModule(id)
-    : await apiAdministration.creer<ChargeModule>(`/admins/modules/${id}/desactiver/`, {});
+  const charge = await apiAdministration.creer<ChargeModule>(`/admins/modules/${id}/desactiver/`, {});
 
   return versModule(charge);
 }
 
 export async function reactiverModule(id: string): Promise<ModulePlateforme> {
-  const charge: ChargeModule = SIMULATION_ACTIVE
-    ? await simulationAdministration.reactiverModule(id)
-    : await apiAdministration.creer<ChargeModule>(`/admins/modules/${id}/reactiver/`, {});
+  const charge = await apiAdministration.creer<ChargeModule>(`/admins/modules/${id}/reactiver/`, {});
 
   return versModule(charge);
 }
@@ -803,22 +731,7 @@ export async function modifierTarifs(tarifs: TarifPlan[]): Promise<void> {
     })),
   }));
 
-  if (SIMULATION_ACTIVE) {
-    await simulationAdministration.modifierTarifs(corps);
-    return;
-  }
-
   await apiAdministration.modifier<void>("/admins/parametres/tarifs/", { tarifs: corps });
-}
-
-/** Lit un fichier en `data:` URL — la simulation n'a pas de stockage de fichiers. */
-function lireEnDataUrl(fichier: File): Promise<string> {
-  return new Promise((resoudre, rejeter) => {
-    const lecteur = new FileReader();
-    lecteur.onload = () => resoudre(String(lecteur.result));
-    lecteur.onerror = () => rejeter(lecteur.error);
-    lecteur.readAsDataURL(fichier);
-  });
 }
 
 /**
@@ -832,17 +745,6 @@ export async function modifierIdentite(demande: {
   logo: File | null;
   retirerLogo: boolean;
 }): Promise<void> {
-  if (SIMULATION_ACTIVE) {
-    const actuelle = await simulationParametresPublics.lireIdentite();
-    const logo = demande.logo
-      ? await lireEnDataUrl(demande.logo)
-      : demande.retirerLogo
-        ? null
-        : actuelle.logo_url;
-    await simulationAdministration.modifierIdentite({ nom: demande.nom, logo_url: logo });
-    return;
-  }
-
   const formulaire = new FormData();
   formulaire.append("nom", demande.nom);
   if (demande.logo) formulaire.append("logo", demande.logo);
@@ -906,27 +808,28 @@ export async function suspendreClient(
   id: string,
   motif: string,
 ): Promise<ClientPlateforme> {
-  const charge: ChargeClient = SIMULATION_ACTIVE
-    ? await simulationAdministration.suspendreClient(id, motif)
-    : await apiAdministration.creer<ChargeClient>(`/clients/${id}/suspendre/`, { motif });
+  const charge = await apiAdministration.creer<ChargeClient>(
+    `/admins/clients/${id}/suspendre/`,
+    { motif },
+  );
 
   return versClient(charge);
 }
 
 export async function reactiverClient(id: string): Promise<ClientPlateforme> {
-  const charge: ChargeClient = SIMULATION_ACTIVE
-    ? await simulationAdministration.reactiverClient(id)
-    : await apiAdministration.creer<ChargeClient>(`/clients/${id}/reactiver/`, {});
+  const charge = await apiAdministration.creer<ChargeClient>(
+    `/admins/clients/${id}/reactiver/`,
+    {},
+  );
 
   return versClient(charge);
 }
 
 export async function changerPlan(id: string, plan: CodePlan): Promise<ClientPlateforme> {
-  const charge: ChargeClient = SIMULATION_ACTIVE
-    ? await simulationAdministration.changerPlan(id, plan)
-    : await apiAdministration.modifier<ChargeClient>(`/clients/${id}/abonnement/`, {
-        plan_code: plan,
-      });
+  const charge = await apiAdministration.modifier<ChargeClient>(
+    `/admins/clients/${id}/abonnement/`,
+    { plan_code: plan },
+  );
 
   return versClient(charge);
 }
@@ -959,17 +862,10 @@ export async function basculerModuleClient(
  *
  * **Le calcul appartient au serveur**, et l'endpoint existe dans le contrat
  * pour cette raison : additionner côté client suppose d'avoir téléchargé tous
- * les clients, ce qui tient à cinq et plus à cinq mille. La branche simulée
- * calcule depuis la liste faute de mieux — c'est la seule différence de
- * comportement entre les deux modes de ce domaine, et elle disparaît avec le
- * drapeau.
+ * les clients, ce qui tient à cinq et plus à cinq mille.
  */
 export async function lireIndicateurs(): Promise<IndicateursPlateforme> {
-  if (SIMULATION_ACTIVE) {
-    return indicateurs(await listerClients());
-  }
-
-  const charge = await apiAdministration.lire<ChargeIndicateurs>("/indicateurs/");
+  const charge = await apiAdministration.lire<ChargeIndicateurs>("/admins/indicateurs/");
   return {
     nbClients: charge.nb_clients,
     nbClientsActifs: charge.nb_clients_actifs,
@@ -982,11 +878,6 @@ export async function lireIndicateurs(): Promise<IndicateursPlateforme> {
 /**
  * L'historique des renouvellements, jour par jour.
  *
- * **Il ne se calcule pas depuis la liste des clients**, contrairement aux
- * indicateurs : un client ne porte que son échéance en cours, pas les
- * facturations passées. C'est la raison d'être de cet endpoint — et la raison
- * pour laquelle la branche simulée fabrique une série au lieu de la déduire.
- *
  * Le serveur renvoie la série complète (trois mois) : les fenêtres de 30 et 7
  * jours se découpent côté écran (`fenetreEvolution`), sans nouvel aller-retour
  * — changer de fenêtre est un geste qu'on répète, pas une navigation.
@@ -994,13 +885,11 @@ export async function lireIndicateurs(): Promise<IndicateursPlateforme> {
 export async function lireEvolutionAbonnements(
   signal?: AbortSignal,
 ): Promise<PointEvolutionAbonnements[]> {
-  const charges: ChargePointEvolution[] = SIMULATION_ACTIVE
-    ? await simulationAdministration.evolutionAbonnements()
-    : await apiAdministration.lire<ChargePointEvolution[]>(
-        "/indicateurs/evolution/",
-        undefined,
-        signal,
-      );
+  const charges = await apiAdministration.lire<ChargePointEvolution[]>(
+    "/admins/indicateurs/evolution/",
+    undefined,
+    signal,
+  );
 
   return charges.map((charge) => ({
     date: new Date(charge.date),
@@ -1012,7 +901,7 @@ export async function lireEvolutionAbonnements(
 /**
  * La tendance de chaque indicateur de tête — la mini-courbe des tuiles.
  *
- * Endpoint séparé de `/indicateurs/`, et non un champ de plus dans sa réponse :
+ * Endpoint séparé de `/admins/indicateurs/`, et non un champ de plus dans sa réponse :
  * les tuiles s'affichent dès que les chiffres sont là, sans attendre huit mois
  * d'historique. Une courbe qui arrive une seconde après son chiffre ne gêne
  * personne ; un chiffre qui attend sa courbe, si.
@@ -1020,13 +909,11 @@ export async function lireEvolutionAbonnements(
 export async function lireTendancesIndicateurs(
   signal?: AbortSignal,
 ): Promise<TendanceIndicateur[]> {
-  const charges: ChargeTendance[] = SIMULATION_ACTIVE
-    ? await simulationAdministration.tendancesIndicateurs()
-    : await apiAdministration.lire<ChargeTendance[]>(
-        "/indicateurs/tendances/",
-        undefined,
-        signal,
-      );
+  const charges = await apiAdministration.lire<ChargeTendance[]>(
+    "/admins/indicateurs/tendances/",
+    undefined,
+    signal,
+  );
 
   return charges.map((charge) => ({
     cle: CLES_INDICATEURS[charge.cle],

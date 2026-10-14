@@ -136,14 +136,17 @@ journalisé** ; la suppression reste coupée en production
 
 | Tâche | Contenu | État |
 |---|---|---|
-| **2.1** Mot de passe oublié | L'écran appelait `/auth/mot-de-passe/oublie/` (inexistant) : il appelle `/admins/mot-de-passe/demande/`. Page `/admin/mot-de-passe/definir` créée (cible du lien de l'e-mail) : l'écran des entreprises, paramétré par `espace`, vérifie et consomme le jeton sur `/admins/…` | **Fait le 14/10/2026.** Chaîne vérifiée par le backend local : demande 202 identique pour une adresse inconnue, e-mail avec le lien `/admin/mot-de-passe/definir#jeton=…`, vérification 200 (motif `OUBLI`, retour `/admin/connexion`), jeton faux 410. **Vérification à l'écran à faire** (mémoire de la machine) |
-| **2.2** Date de fin d'abonnement | `PATCH /admins/clients/{id}/` non servi (405) : à écrire côté backend | À faire |
-| **2.3** Modules d'un client | Activer / désactiver ; brouillon `ModulesClient.tsx` dans le stash | À faire |
-| **2.4** Suppression (US 1.1) | Aperçu, nom technique retapé, motif ≥ 20 caractères journalisé ; brouillon `SuppressionClient.tsx` | À faire |
-| **2.5** Messagerie | Réglage SMTP et e-mail de test ; brouillon `EcranMessagerie.tsx` | À faire |
-| **2.6** Journal de la plateforme | Lecture, filtres, export | À faire |
-| **2.7** Catalogue des permissions | Brouillon `ListePermissions.tsx` | À faire |
-| **2.8** Clôture | Suppression de `simulationAdministration.ts`, README, plan | À faire |
+| **2.0** Droits superviseur / support | Dérivation serveur du vrai rôle (`SUPERVISEUR` / `SUPPORT`) dans `/admins/moi/` et `/admins/connexion/`. Contrôle d'écriture strict au superviseur (`exiger_superviseur`). Frontend aligné : affichage du vrai rôle, actions d'écriture masquées ou grisées pour le support. | **Fait le 14/10/2026.** Vérifié : superviseur peut agir, support consulte en lecture seule sans pouvoir déclencher d'écriture. |
+| **2.1** Mot de passe oublié | L'écran appelait `/auth/mot-de-passe/oublie/` (inexistant) : il appelle `/admins/mot-de-passe/demande/`. Page `/admin/mot-de-passe/definir` créée (cible du lien de l'e-mail) : l'écran des entreprises, paramétré par `espace`, vérifie et consomme le jeton sur `/admins/…` | **Fait le 14/10/2026.** Chaîne vérifiée par le backend local : demande 202 identique pour une adresse inconnue, e-mail avec le lien `/admin/mot-de-passe/definir#jeton=…`, vérification 200 (motif `OUBLI`, retour `/admin/connexion`), jeton faux 410. |
+| **2.2** Date de fin d'abonnement | Endpoint `PATCH /admins/clients/{id}/abonnement/` avec modification de l'échéance et motif obligatoire (≥ 10 caractères) journalisé. Modale `ModaleFinAbonnement` côté frontend avec vérification des bornes. | **Fait le 14/10/2026.** Vérifié : modification de date d'échéance réussie, motif tracé au journal, rafraîchissement réactif du cache. |
+| **2.3** Modules d'un client | Module obligatoire non désactivable (`PROJETS`) côté backend (400 `module_obligatoire`). Modale et cartes de gestion des modules par entreprise côté frontend avec interrupteurs clairs. | **Fait le 14/10/2026.** Vérifié : le module Projets ne peut être désactivé ni par l'API ni par l'interface, les autres basculent sans perte de données. |
+| **2.4** Suppression (US 1.1) | 8 barrières strictes au serveur (superviseur, non protégée, interrupteur activé, suspendue, motif ≥ 20 car., confirmation slug, dump schéma bloquant, notification préalable DG). Carte « Zone dangereuse » et modale complète côté frontend. | **Fait le 14/10/2026.** Vérifié : refus si non suspendue, refus si motif court, confirmation par slug, dump `.dump` et `.json` compagnon générés avant suppression. |
+| **2.5** Messagerie | Réglage SMTP plateforme et test d'envoi d'e-mail en direct avec diagnostic précis des anomalies de connexion / chiffrement. | **Fait le 14/10/2026.** Vérifié : écran de messagerie fonctionnel, test SMTP interactif avec rapport visuel immédiat. |
+| **2.6** Journal de la plateforme | Journalisation de toutes les actions super admin au schéma public. Filtres par date, agent, entreprise, type d'action, pagination serveur et export CSV / XLSX. | **Fait le 14/10/2026.** Vérifié : consultation, filtrage multi-critères et export du journal conformes. |
+| **2.7** Catalogue des permissions | Catalogue complet des permissions de la plateforme, affectation aux modules, activation/désactivation, filtres et export. | **Fait le 14/10/2026.** Vérifié : listing, recherche, tri et consultation des permissions sans simulation. |
+| **2.8** Clôture | Retrait de `simulationAdministration.ts`, extraction de `simulationParametresPublics.ts` pour l'espace entreprise, adaptateur d'administration 100% réel. | **Fait le 14/10/2026.** Vérifié : 0 branche simulée dans l'adaptateur admin, build et typage validés. |
+
+*Lot 2 fusionné dans `develop` des deux dépôts le 14/10/2026, **non poussé** : push et vérification finale par le développeur.*
 
 ### Lot 3 — Paramétrage et accès de l'entreprise
 
