@@ -56,6 +56,24 @@ export function peutAgirSurClients(
   return profil?.role === "SUPERVISEUR";
 }
 
+/**
+ * Qui active ou retire un module pour un client : **les deux rôles**. C'est un geste de
+ * support courant ; le reste de la fiche (forfait, échéance, suspension) est réservé au
+ * superviseur. Comme les deux autres, ce test ne protège rien : il décide d'un bouton.
+ */
+export function peutGererModulesClient(profil: ProfilAdministrateur | null): boolean {
+  return profil !== null;
+}
+
+/**
+ * Qui voit l'action de suppression définitive : le superviseur seul. Contrairement aux
+ * autres actions, elle est **masquée** et non grisée pour le SUPPORT : une zone de danger
+ * qu'on ne peut pas utiliser n'apprend rien et inquiète.
+ */
+export function peutSupprimerClient(profil: ProfilAdministrateur | null): boolean {
+  return profil?.role === "SUPERVISEUR";
+}
+
 /** Nombre de jours entiers entre aujourd'hui et une échéance. */
 export function joursAvant(
   echeance: Date,
