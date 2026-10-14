@@ -9,7 +9,7 @@ import { useMemo, useState } from "react";
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { Bouton, EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import { situationDuJour, tauxSoumission, validationsEnAttente } from "@/features/chantier";
-import { lireJournal } from "@/features/chantier/adaptateur";
+import { lireJournal, SYNTHESE_DISPONIBLE } from "@/features/chantier/adaptateur";
 import { CLE_JOURNAL } from "@/features/chantier/cles";
 import { estRedacteurJournal, useDroits, useProjetsVisibles } from "@/features/habilitations";
 
@@ -21,7 +21,10 @@ import { SituationDuJour } from "./SituationDuJour";
 import { SynthesesPeriodiques } from "./SynthesesPeriodiques";
 
 type Onglet = "jour" | "validations" | "historique" | "syntheses";
-const ONGLETS: readonly Onglet[] = ["jour", "validations", "historique", "syntheses"];
+// Les synthèses n'apparaissent que servies par Django (`SYNTHESE_DISPONIBLE`).
+const ONGLETS: readonly Onglet[] = SYNTHESE_DISPONIBLE
+  ? ["jour", "validations", "historique", "syntheses"]
+  : ["jour", "validations", "historique"];
 
 /** Le taux de remise se lit sur une semaine de chantier. */
 const JOURS_TAUX = 5;
@@ -39,7 +42,7 @@ const JOURS_TAUX = 5;
  *    dans les bons de paiement) ;
  * 3. **l'historique** — tous les rapports, filtrables, exportables ;
  * 4. **les synthèses** — hebdomadaire, mensuelle ou personnalisée, agrégées
- *    des rapports journaliers.
+ *    des rapports journaliers ; masquées tant que Django ne les sert pas.
  *
  * Retirés de la maquette pour ce profil : l'onglet « Saisir un rapport » et
  * les boutons Valider / Rejeter. Ajoutée : la relance, seul geste du DG ici.
