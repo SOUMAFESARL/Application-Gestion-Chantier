@@ -33,6 +33,7 @@ import type {
   CriteresPermissions,
   ModulePermission,
   PermissionPlateforme,
+  ApercuSuppression,
 } from "./types";
 
 /**
@@ -845,5 +846,23 @@ export function modulesPresentsDansPermissions(
   return Array.from(vus.values()).sort((a, b) =>
     a.libelle.localeCompare(b.libelle, "fr"),
   );
+}
+
+/**
+ * Pourquoi la suppression n'est pas proposée — ou `null` si elle l'est.
+ * Une raison à la fois, dans l'ordre du serveur : c'est celle-là qu'il répondrait.
+ */
+export type RefusSuppression = "protegee" | "desactivee" | "nonSuspendue";
+
+export function refusSuppression(apercu: ApercuSuppression): RefusSuppression | null {
+  if (apercu.protegee) return "protegee";
+  if (!apercu.suppressionActivee) return "desactivee";
+  if (!apercu.suspendue) return "nonSuspendue";
+  return null;
+}
+
+/** Le nom technique retapé correspond-il ? Casse et espaces de bord ignorés, comme le serveur. */
+export function confirmationSuppressionValide(saisie: string, slug: string): boolean {
+  return saisie.trim().toLowerCase() === slug.toLowerCase();
 }
 

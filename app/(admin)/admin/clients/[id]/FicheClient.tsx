@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 
 import { ModaleFinAbonnement } from "../ModaleFinAbonnement";
 import { ModulesClient } from "./ModulesClient";
+import { SuppressionClient } from "./SuppressionClient";
 
 import { Alerte, Bouton, EtatChargement, EtatErreur, Modale } from "@/components/ui";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import {
   alerteClient,
   peutAgirSurClients,
   peutGererModulesClient,
+  peutSupprimerClient,
   reactivationPossible,
   suspensionPossible,
 } from "@/features/administration";
@@ -292,6 +294,8 @@ export function FicheClient({ id }: { id: string }) {
 
         <ModulesClient client={client} peutAgir={peutGererModulesClient(profil)} />
       </div>
+
+      {peutSupprimerClient(profil) && <SuppressionClient client={client} />}
 
       <Modale
         ouverte={action === "suspension"}

@@ -456,3 +456,35 @@ export interface CriteresPermissions {
   etat: "" | "ACTIVE" | "INACTIVE";
 }
 
+export interface DirigeantClient {
+  nom: string;
+  email: string;
+}
+
+/**
+ * Ce que la suppression définitive emporterait, lu avant de la confirmer.
+ */
+export interface ApercuSuppression {
+  slug: string;
+  raisonSociale: string;
+  /** `public` et `demo` : jamais supprimables. */
+  protegee: boolean;
+  suppressionActivee: boolean;
+  /** Seule une entreprise suspendue se supprime (règle serveur, B5). */
+  suspendue: boolean;
+  motifLongueurMin: number;
+  sauvegardeConserveeJours: number;
+  nbUtilisateurs: number;
+  nbProjets: number;
+  /** Informatif : les paiements ne bloquent pas la suppression. */
+  nbPaiements: number;
+  /** Les adresses e-mail que la suppression libère. */
+  adresses: string[];
+  dirigeants: DirigeantClient[];
+}
+
+export interface ResultatSuppression {
+  slug: string;
+  sauvegarde: string;
+}
+

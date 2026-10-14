@@ -12,6 +12,8 @@ import { ACCES_MODULE } from "@/features/roles/types";
 import { texte } from "@/i18n/horsReact";
 import { chaineNonVide, email } from "@/lib/validations/champs";
 
+import { confirmationSuppressionValide } from "./regles";
+
 /**
  * La connexion au back-office.
  *
@@ -377,4 +379,21 @@ export type ValeursPermission = z.output<typeof schemaPermission>;
 
 export type SaisieModificationPermission = z.input<typeof schemaModificationPermission>;
 export type ValeursModificationPermission = z.output<typeof schemaModificationPermission>;
+
+export function schemaSuppressionClient(slug: string, motifMin: number) {
+  return z.object({
+    motif: chaineNonVide(texte("administration.suppressionDefinitive.erreurMotifRequis")).min(
+      motifMin,
+      texte("administration.suppressionDefinitive.erreurMotifCourt"),
+    ),
+    confirmation: z.string().refine(
+      (valeur) => confirmationSuppressionValide(valeur, slug),
+      texte("administration.suppressionDefinitive.erreurConfirmation"),
+    ),
+  });
+}
+
+export type SchemaSuppressionClient = ReturnType<typeof schemaSuppressionClient>;
+export type SaisieSuppressionClient = z.input<SchemaSuppressionClient>;
+export type ValeursSuppressionClient = z.output<SchemaSuppressionClient>;
 
