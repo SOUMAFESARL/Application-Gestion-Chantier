@@ -12,7 +12,6 @@ import {
   ecartObjectif,
   enAlerteStock,
   estManquant,
-  etapeEnAttente,
   incidentsResolus,
   numeroSemaine,
   periodeValide,
@@ -42,6 +41,7 @@ import {
   TableauDocument,
 } from "../document";
 import { useGenerationDocumentPdf } from "../GenerationDocumentPdf";
+import { CircuitSynthese } from "./CircuitSynthese";
 import { contenuSynthesePdf, signe } from "./contenuSynthesePdf";
 
 const TYPES: TypePeriode[] = ["HEBDOMADAIRE", "MENSUELLE", "PERSONNALISEE"];
@@ -51,7 +51,8 @@ const TYPES: TypePeriode[] = ["HEBDOMADAIRE", "MENSUELLE", "PERSONNALISEE"];
  * du client. Elle n'est pas saisie : elle s'agrège des rapports journaliers
  * de la période, et la section 1 montre **exactement** lesquels, absences
  * comprises. Elle se signe CT → CP ; le chef de chantier a déjà signé chaque
- * rapport qui la compose.
+ * rapport qui la compose. Seules les semaines et les mois clos passent par ce
+ * circuit : une période personnalisée se consulte et s'exporte.
  */
 export function SyntheseDocument({
   projetId,
@@ -89,10 +90,10 @@ export function SyntheseDocument({
   if (requete.isError) {
     return <EtatErreur message={t("erreurChargement")} onReessayer={() => void requete.refetch()} />;
   }
-  return <Document synthese={requete.data} />;
+  return <Document synthese={requete.data} demande={demande} />;
 }
 
-function Document({ synthese }: { synthese: SynthesePeriodique }) {
+function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande: DemandeSynthese }) {
   const t = useTranslations("journal.synthese");
   const tRapport = useTranslations("journal.rapport");
   const tCircuit = useTranslations("journal.circuit");
@@ -107,8 +108,8 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
     : null;
   const ecart = ecartObjectif(progression.gain, progression.objectif);
   const retardCumule = progression.theorique - progression.fin;
-  const attente = etapeEnAttente(synthese.circuit);
-  const approuvee = synthese.circuit.every((etape) => etape.etat === "SIGNE");
+  const approuvee = synthese.statut === "APPROUVEE";
+  const rejet = synthese.circuit.find((etape) => etape.etat === "REJETE");
 
   const libellePeriode =
     synthese.type === "HEBDOMADAIRE"
@@ -167,17 +168,26 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
         }
       />
 
+      <CircuitSynthese synthese={synthese} demande={demande} />
+
       <article className={PAPIER}>
         <EnTeteDocument
           titre={t("titre")}
           sousTitre={t("sousTitre")}
           bandeau={
-            !attente &&
-            !approuvee && (
+            synthese.statut === "EN_COURS" ? (
               <BandeauDocument ton="avertissement">
                 <span className="font-semibold">{t("periodeEnCours")}</span>
               </BandeauDocument>
-            )
+            ) : synthese.statut === "REJETEE" ? (
+              <BandeauDocument ton="erreur">
+                <span className="font-semibold">{t("rejetee", { motif: rejet?.commentaire ?? "" })}</span>
+              </BandeauDocument>
+            ) : synthese.statut === "LIBRE" ? (
+              <BandeauDocument ton="information">
+                <span className="font-semibold">{t("horsCircuit")}</span>
+              </BandeauDocument>
+            ) : null
           }
         />
 
@@ -584,7 +594,11 @@ function Document({ synthese }: { synthese: SynthesePeriodique }) {
           </SectionDocument>
 
           <SectionDocument numero={8} titre={t("sections.circuit")}>
-            <CircuitSignatures circuit={synthese.circuit} />
+            {synthese.circuit.length === 0 ? (
+              <p className="m-0 rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-600">{t("horsCircuit")}</p>
+            ) : (
+              <CircuitSignatures circuit={synthese.circuit} />
+            )}
             {approuvee && (
               <p className="m-0 flex items-center gap-2 text-sm text-succes">
                 <CheckCircle2 className="size-4" aria-hidden="true" />

@@ -13,19 +13,16 @@
  * - `GET  /chantier/rapports/{id}/` — un rapport journalier complet ;
  * - `POST /chantier/journal/{id}/relancer/` — relance du CC ou du signataire ;
  * - `GET  /chantier/syntheses/?projet=&type=&date_debut=&date_fin=` — la
- *   synthèse agrégée à la demande par l'ORM.
+ *   synthèse agrégée à la demande par l'ORM, et son circuit CT → CP.
  *
- * **Le journal, le rapport et la relance sont réels** depuis le 14/10/2026
- * (plan d'alignement, tâches 1.3 et 1.5). La synthèse n'a pas encore de
- * route : elle passe encore par `simulationJournal`.
+ * **Tout est réel** depuis le 14/10/2026 (plan d'alignement, lot 1) : saisie,
+ * journal, rapport, circuit de validation, relance et synthèse.
  */
 
 import type { ModeExecutionLot } from "@/features/projets/types";
 import { api } from "@/lib/api";
-import { routesSimulees } from "@/lib/api/simulation";
 
 import { cleAlerte } from "./regles";
-import { simulationJournal } from "./simulationJournal";
 import type {
   ActivitePreparee,
   AlerteImmediate,
@@ -56,11 +53,14 @@ import type {
   RapportExistant,
   RapportJournalier,
   RapportsProjet,
+  RedactionSynthese,
   RoleSignataire,
   SaisieRapport,
   SectionSaisie,
   SituationRapport,
   StatutRapport,
+  StatutSynthese,
+  SuiviSynthese,
   SynthesePeriodique,
   TravauxLot,
   TypePeriode,
@@ -227,7 +227,19 @@ interface ChargeIncident {
   resolu: boolean;
 }
 
+interface ChargeObjectif {
+  lot_code: string;
+  activite: string;
+  objectif: string;
+  cible: number;
+  prerequis: string;
+}
+
 interface ChargeSynthese {
+  id: string | null;
+  statut: StatutSynthese;
+  /** Renvoyée au seul conducteur de travaux du chantier, tant qu'il peut écrire. */
+  redaction: { appreciation: string; objectifs: ChargeObjectif[] } | null;
   reference: string;
   type: TypePeriode;
   date_debut: string;
@@ -275,18 +287,19 @@ interface ChargeSynthese {
     absences: number;
     observation?: string | null;
   }[];
+  /** Le module stocks n'existe pas : les stocks et le seuil restent vides. */
   materiaux: {
     designation: string;
     unite: string;
-    stock_debut: number;
+    stock_debut: number | null;
     consomme: number;
     livre: number;
-    stock_fin: number;
-    seuil_alerte: number;
+    stock_fin: number | null;
+    seuil_alerte: number | null;
   }[];
   incidents: (ChargeIncident & { date: string })[];
   appreciation: { auteur_nom: string; redigee_le: string; texte: string } | null;
-  objectifs: { lot_code: string; activite: string; objectif: string; cible: number; prerequis: string }[];
+  objectifs: ChargeObjectif[];
   circuit: ChargeEtape[];
 }
 
@@ -471,15 +484,13 @@ function versSynthese(charge: ChargeSynthese): SynthesePeriodique {
         texte: charge.appreciation.texte,
       }
     : null;
-  const objectifs: ObjectifSuivant[] = charge.objectifs.map((objectif) => ({
-    lotCode: objectif.lot_code,
-    activite: objectif.activite,
-    objectif: objectif.objectif,
-    cible: objectif.cible,
-    prerequis: objectif.prerequis,
-  }));
   const chiffres = charge.chiffres;
   return {
+    id: charge.id,
+    statut: charge.statut,
+    redaction: charge.redaction
+      ? { appreciation: charge.redaction.appreciation, objectifs: charge.redaction.objectifs.map(versObjectif) }
+      : null,
     reference: charge.reference,
     type: charge.type,
     debut: charge.date_debut,
@@ -541,8 +552,18 @@ function versSynthese(charge: ChargeSynthese): SynthesePeriodique {
       date: incident.date,
     })),
     appreciation,
-    objectifs,
+    objectifs: charge.objectifs.map(versObjectif),
     circuit: charge.circuit.map(versEtape),
+  };
+}
+
+function versObjectif(charge: ChargeObjectif): ObjectifSuivant {
+  return {
+    lotCode: charge.lot_code,
+    activite: charge.activite,
+    objectif: charge.objectif,
+    cible: charge.cible,
+    prerequis: charge.prerequis,
   };
 }
 
@@ -551,20 +572,12 @@ function versSynthese(charge: ChargeSynthese): SynthesePeriodique {
  * ------------------------------------------------------------------ */
 
 /**
- * La synthèse n'a pas encore de route côté Django. Le journal, le rapport et
- * la relance sont réels depuis le 14/10/2026.
+ * L'écran peut-il proposer la synthèse ? Seulement servie par Django : une
+ * synthèse simulée, agrégée de rapports inventés, passerait pour réelle devant
+ * un client (décision du 13/10/2026). Django la sert depuis le 14/10/2026 ;
+ * l'onglet et la page se masquent ensemble si on repasse ce drapeau à `false`.
  */
-const SYNTHESE_LIVREE = false;
-const SYNTHESE_SIMULEE = routesSimulees(SYNTHESE_LIVREE);
-
-/**
- * L'écran peut-il proposer la synthèse ? Pas tant que Django ne la sert pas :
- * une synthèse simulée, agrégée de rapports inventés, passerait pour réelle
- * devant un client (décision du 13/10/2026, plan d'alignement tâche 1.6).
- * L'onglet et la page se rouvrent ensemble, quand `SYNTHESE_LIVREE` passe à
- * `true`.
- */
-export const SYNTHESE_DISPONIBLE = SYNTHESE_LIVREE;
+export const SYNTHESE_DISPONIBLE = true;
 
 /** Le journal des neuf dernières semaines, tous chantiers confondus. */
 export async function lireJournal(signal?: AbortSignal): Promise<Journal> {
@@ -619,15 +632,96 @@ export async function relancer(id: string): Promise<{ relanceLe: string }> {
   return { relanceLe: charge.relance_le };
 }
 
-export async function lireSynthese(demande: DemandeSynthese, signal?: AbortSignal): Promise<SynthesePeriodique> {
-  if (SYNTHESE_SIMULEE) return simulationJournal.lireSynthese(demande);
-  const parametres = {
+/* ------------------------------------------------------------------ *
+ * La synthèse périodique et son circuit CT → CP.
+ *
+ *   GET  /chantier/syntheses/?projet=&type=&date_debut=&date_fin=
+ *   GET  /chantier/syntheses/suivi/?projet=
+ *   POST /chantier/syntheses/redaction/      le CT enregistre, sans signer
+ *   POST /chantier/syntheses/soumettre/      le CT enregistre et signe
+ *   POST /chantier/syntheses/{id}/approuver/ le CP clôt le circuit
+ *   POST /chantier/syntheses/{id}/rejeter/   le CP la rend au CT, motif ≥ 20 caractères
+ *
+ * Une synthèse se désigne par son chantier et sa période tant que le CT n'y
+ * a rien écrit ; elle a ensuite un identifiant. Chaque écriture renvoie la
+ * synthèse à jour.
+ * ------------------------------------------------------------------ */
+
+function versPeriode(demande: DemandeSynthese) {
+  return {
     projet: demande.projetId,
     type: demande.type,
     date_debut: demande.debut,
     date_fin: demande.fin,
   };
-  return versSynthese(await api.lire<ChargeSynthese>("/chantier/syntheses/", parametres, signal));
+}
+
+export async function lireSynthese(demande: DemandeSynthese, signal?: AbortSignal): Promise<SynthesePeriodique> {
+  return versSynthese(await api.lire<ChargeSynthese>("/chantier/syntheses/", versPeriode(demande), signal));
+}
+
+function versChargeRedaction(demande: DemandeSynthese, redaction: RedactionSynthese) {
+  return {
+    ...versPeriode(demande),
+    appreciation: redaction.appreciation,
+    objectifs: redaction.objectifs.map((objectif) => ({
+      lot_code: objectif.lotCode,
+      activite: objectif.activite,
+      objectif: objectif.objectif,
+      cible: objectif.cible,
+      prerequis: objectif.prerequis,
+    })),
+  };
+}
+
+/** Le CT enregistre son appréciation et ses objectifs, sans signer. */
+export async function enregistrerSynthese(
+  demande: DemandeSynthese,
+  redaction: RedactionSynthese,
+): Promise<SynthesePeriodique> {
+  return versSynthese(
+    await api.creer<ChargeSynthese>("/chantier/syntheses/redaction/", versChargeRedaction(demande, redaction)),
+  );
+}
+
+/** Le CT enregistre et signe : la synthèse est figée et part au chef de projet. */
+export async function soumettreSynthese(
+  demande: DemandeSynthese,
+  redaction: RedactionSynthese,
+): Promise<SynthesePeriodique> {
+  return versSynthese(
+    await api.creer<ChargeSynthese>("/chantier/syntheses/soumettre/", versChargeRedaction(demande, redaction)),
+  );
+}
+
+export async function approuverSynthese(id: string, commentaire: string): Promise<SynthesePeriodique> {
+  return versSynthese(await api.creer<ChargeSynthese>(`/chantier/syntheses/${id}/approuver/`, { commentaire }));
+}
+
+export async function rejeterSynthese(id: string, motif: string): Promise<SynthesePeriodique> {
+  return versSynthese(await api.creer<ChargeSynthese>(`/chantier/syntheses/${id}/rejeter/`, { motif }));
+}
+
+interface ChargeSuiviSynthese {
+  id: string;
+  projet_id: string;
+  type: TypePeriode;
+  date_debut: string;
+  date_fin: string;
+  statut: StatutSynthese;
+}
+
+/** Les synthèses enregistrées des trois derniers mois, chantiers visibles. */
+export async function lireSuiviSyntheses(signal?: AbortSignal): Promise<SuiviSynthese[]> {
+  const charge = await api.lire<{ resultats: ChargeSuiviSynthese[] }>("/chantier/syntheses/suivi/", undefined, signal);
+  return charge.resultats.map((ligne) => ({
+    id: ligne.id,
+    projetId: ligne.projet_id,
+    type: ligne.type,
+    debut: ligne.date_debut,
+    fin: ligne.date_fin,
+    statut: ligne.statut,
+  }));
 }
 
 /* ------------------------------------------------------------------ *

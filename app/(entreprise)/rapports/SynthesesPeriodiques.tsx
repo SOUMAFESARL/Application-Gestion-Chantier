@@ -1,12 +1,14 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, FileBarChart } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
-import { Bouton } from "@/components/ui";
+import { Badge, Bouton } from "@/components/ui";
+import type { VarianteBadge } from "@/components/ui/Badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SelecteurDate } from "@/components/ui/SelecteurDate";
 import {
@@ -16,7 +18,9 @@ import {
   periodeValide,
   semainesRecentes,
 } from "@/features/chantier";
-import type { Journal, Periode, TypePeriode } from "@/features/chantier";
+import type { Journal, Periode, StatutSynthese, TypePeriode } from "@/features/chantier";
+import { lireSuiviSyntheses } from "@/features/chantier/adaptateur";
+import { CLE_SUIVI_SYNTHESES } from "@/features/chantier/cles";
 import { formaterJourMoisNumerique } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +29,15 @@ import { BLOC, BLOC_CORPS, BLOC_ENTETE, BLOC_SOUS_TITRE, BLOC_TITRE } from "./cl
 const TYPES: TypePeriode[] = ["HEBDOMADAIRE", "MENSUELLE", "PERSONNALISEE"];
 const NOMBRE_SEMAINES = 8;
 const NOMBRE_MOIS = 3;
+
+/** Le ton d'une synthèse de semaine close : ce qui attend quelqu'un se voit. */
+const TON_STATUT: Partial<Record<StatutSynthese, VarianteBadge>> = {
+  A_REDIGER: "avertissement",
+  BROUILLON: "avertissement",
+  SOUMISE: "information",
+  APPROUVEE: "succes",
+  REJETEE: "erreur",
+};
 
 /** Le lien d'une synthèse : tout ce qui la décrit tient dans l'adresse, qui se partage. */
 export function lienSynthese(projetId: string, periode: Periode): string {
@@ -93,6 +106,16 @@ export function SynthesesPeriodiques({ journal }: { journal: Journal }) {
           : null;
 
   const derniereSemaine = semaines[Math.max(0, semaineClose)];
+
+  // Où en est la synthèse de la dernière semaine close, chantier par chantier.
+  const suivi = useQuery({ queryKey: CLE_SUIVI_SYNTHESES, queryFn: ({ signal }) => lireSuiviSyntheses(signal) });
+  const statutSemaine = (projetId: string): StatutSynthese | null => {
+    if (!derniereSemaine || !periodeClose(derniereSemaine, journal.aujourdhui) || !suivi.isSuccess) return null;
+    const enregistree = suivi.data.find(
+      (ligne) => ligne.projetId === projetId && ligne.type === "HEBDOMADAIRE" && ligne.debut === derniereSemaine.debut,
+    );
+    return enregistree?.statut ?? "A_REDIGER";
+  };
 
   return (
     <div className="grid items-start gap-6 lg:grid-cols-5">
@@ -259,22 +282,29 @@ export function SynthesesPeriodiques({ journal }: { journal: Journal }) {
         </header>
         <ul className={cn(BLOC_CORPS, "m-0 flex list-none flex-col")}>
           {derniereSemaine &&
-            chantiers.map((chantier) => (
-              <li key={chantier.id} className="border-b border-neutral-100 last:border-b-0">
-                <Link
-                  href={lienSynthese(chantier.id, derniereSemaine)}
-                  className="flex items-center justify-between gap-3 py-3 text-inherit no-underline hover:text-primary-600"
-                >
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-sm font-medium text-neutral-900">{chantier.nom}</span>
-                    <span className="text-xs text-neutral-500">
-                      {t("raccourci", { numero: numeroSemaine(derniereSemaine.debut), reference: chantier.reference })}
+            chantiers.map((chantier) => {
+              const statut = statutSemaine(chantier.id);
+              const ton = statut ? TON_STATUT[statut] : undefined;
+              return (
+                <li key={chantier.id} className="border-b border-neutral-100 last:border-b-0">
+                  <Link
+                    href={lienSynthese(chantier.id, derniereSemaine)}
+                    className="flex items-center justify-between gap-3 py-3 text-inherit no-underline hover:text-primary-600"
+                  >
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate text-sm font-medium text-neutral-900">{chantier.nom}</span>
+                      <span className="text-xs text-neutral-500">
+                        {t("raccourci", { numero: numeroSemaine(derniereSemaine.debut), reference: chantier.reference })}
+                      </span>
                     </span>
-                  </span>
-                  <ArrowRight className="size-4 shrink-0 text-neutral-400" aria-hidden="true" />
-                </Link>
-              </li>
-            ))}
+                    <span className="flex shrink-0 items-center gap-2">
+                      {statut && ton && <Badge variante={ton}>{t(`statut.${statut}`)}</Badge>}
+                      <ArrowRight className="size-4 shrink-0 text-neutral-400" aria-hidden="true" />
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
         </ul>
       </section>
     </div>

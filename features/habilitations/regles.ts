@@ -178,15 +178,27 @@ export function etapeASigner(
   droits: Droits | null,
   collaborateurId: string | null,
 ): "CT" | "CP" | null {
-  if (!projet || !collaborateurId) return null;
+  const etape = situation === "SOUMIS" ? "CT" : situation === "VALIDE_CT" ? "CP" : null;
+  return etape && tientEtape(etape, projet, droits, collaborateurId) ? etape : null;
+}
+
+/**
+ * Ce compte tient-il cette étape du circuit sur ce chantier ? La fonction sur
+ * le chantier, et l'accès qui va avec : « validation » du journal pour le
+ * conducteur de travaux, « saisie » pour le chef de projet — les mêmes
+ * gabarits que le serveur. Sert au rapport (`etapeASigner`) comme à la
+ * synthèse périodique.
+ */
+export function tientEtape(
+  etape: "CT" | "CP",
+  projet: Projet | undefined,
+  droits: Droits | null,
+  collaborateurId: string | null,
+): boolean {
+  if (!projet || !collaborateurId) return false;
   const fonctions = fonctionsDansProjet(projet, collaborateurId);
-  if (situation === "SOUMIS" && fonctions.includes("CONDUCTEUR_TRAVAUX") && peut(droits, "chantier", "validation")) {
-    return "CT";
-  }
-  if (situation === "VALIDE_CT" && fonctions.includes("CHEF_PROJET") && peut(droits, "chantier", "saisie")) {
-    return "CP";
-  }
-  return null;
+  if (etape === "CT") return fonctions.includes("CONDUCTEUR_TRAVAUX") && peut(droits, "chantier", "validation");
+  return fonctions.includes("CHEF_PROJET") && peut(droits, "chantier", "saisie");
 }
 
 /** Désigner (ou remplacer) le chef de projet : un acte de direction. */
