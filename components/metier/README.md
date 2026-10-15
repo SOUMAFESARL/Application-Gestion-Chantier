@@ -8,7 +8,7 @@ mélange à l'interface.
 |---|---|---|
 | `BadgeEssai` | Le compteur de jours d'essai | Passe en alerte sous 7 jours |
 | `ChampsMotDePasse` | Saisie et confirmation d'un mot de passe | Porte les règles du Socle §2.1 |
-| `ChampTelephone` | Numéro avec indicatif et drapeau | **Stocke `+2250700000000`, affiche « 07 00 00 00 00 »** |
+| `ChampTelephone` | Numéro avec indicatif et drapeau | **Stocke `+2250700000000`, affiche « 07 00 00 00 00 »**. La prop `international?: boolean` ajoute l'option « Autre pays » (globe) pour tout format E.164 mondial. |
 | `Drapeau` | Les neuf drapeaux, en SVG | Décoratif : `aria-hidden`, le nom du pays est toujours écrit à côté |
 | `SelecteurVille` | Choix d'une localité dans un pays | La liste **suit le pays de l'entreprise** ; option de saisie libre toujours présente |
 

@@ -1,21 +1,19 @@
-/**
- * Indicatifs téléphoniques des neuf pays où une entreprise peut s'inscrire.
- *
- * **Ce qui est enregistré, c'est le numéro international** — `+2250700000000`,
- * sans espace. Trois raisons, et la troisième est la plus concrète :
- *
- * 1. un numéro sans indicatif ne veut rien dire dès qu'un client travaille
- *    dans deux pays, et la même suite de chiffres existe dans plusieurs ;
- * 2. la mise en forme est une affaire d'affichage : la stocker, c'est stocker
- *    des espaces et devoir les enlever partout ;
- * 3. **le lien WhatsApp du serveur repose dessus.** `lien_whatsapp` retire les
- *    caractères non numériques et compose `wa.me/<chiffres>` : sur un numéro
- *    local, il produit un lien mort, silencieusement.
- *
- * La liste est **fermée aux neuf pays de l'inscription** — c'est la décision
- * prise pour les villes, et pour la même raison : deux listes de pays qui
- * divergent laissent quelqu'un devant un champ qui ne propose pas le sien.
- */
+/** Le pseudo-pays « autre indicatif » : un numéro hors des neuf pays, saisi en entier. */
+export const CODE_INTERNATIONAL = "INTL";
+
+/** E.164 : `+`, un indicatif qui ne commence pas par 0, 8 à 15 chiffres en tout. */
+const E164 = /^\+[1-9]\d{7,14}$/;
+
+/** Retire espaces, points, tirets, parenthèses, barres ; `00…` devient `+…`. N'invente rien. */
+export function normaliserTelephone(valeur: string): string {
+  if (!valeur) return "";
+  const brut = valeur.trim().replace(/[\s().\-/]/g, "");
+  return brut.startsWith("00") ? `+${brut.slice(2)}` : brut;
+}
+
+export function estE164(valeur: string): boolean {
+  return E164.test(valeur);
+}
 
 export interface PaysTelephone {
   /** Code ISO à deux lettres. */
@@ -47,7 +45,7 @@ export const PAYS_TELEPHONE: PaysTelephone[] = [
   { code: "BF", indicatif: "+226", groupes: [2, 2, 2, 2], longueurMin: 8, longueurMax: 8 },
   { code: "ML", indicatif: "+223", groupes: [2, 2, 2, 2], longueurMin: 8, longueurMax: 8 },
   { code: "TG", indicatif: "+228", groupes: [2, 2, 2, 2], longueurMin: 8, longueurMax: 8 },
-  { code: "BJ", indicatif: "+229", groupes: [2, 2, 2, 2, 2], longueurMin: 8, longueurMax: 10 },
+  { code: "BJ", indicatif: "+229", groupes: [2, 2, 2, 2], longueurMin: 8, longueurMax: 10 },
   { code: "GN", indicatif: "+224", groupes: [3, 2, 2, 2], longueurMin: 8, longueurMax: 9 },
   { code: "GA", indicatif: "+241", groupes: [2, 2, 2, 2], longueurMin: 7, longueurMax: 9 },
 ];
@@ -82,7 +80,11 @@ export interface TelephoneAnalyse {
  * `+225 07 00 00 00 00`, `0022507000000 00`, ou un simple `0700000000` saisi
  * avant que ce champ existe. Le dernier cas est le seul où le pays est supposé.
  */
-export function analyserTelephone(valeur: string, paysDefaut: string): TelephoneAnalyse {
+export function analyserTelephone(
+  valeur: string,
+  paysDefaut: string,
+  { international = false }: { international?: boolean } = {},
+): TelephoneAnalyse {
   const defaut = paysTelephone(paysDefaut).code;
   const brut = (valeur || "").replace(/[\s().\-/]/g, "");
 
@@ -90,24 +92,29 @@ export function analyserTelephone(valeur: string, paysDefaut: string): Telephone
 
   // `00` est la forme internationale composée depuis un poste fixe africain ;
   // elle arrive telle quelle dans les carnets d'adresses.
-  const international = brut.startsWith("00") ? `+${brut.slice(2)}` : brut;
+  const numeroInter = brut.startsWith("00") ? `+${brut.slice(2)}` : brut;
 
-  if (international.startsWith("+")) {
+  if (numeroInter.startsWith("+")) {
     for (const pays of CODES_PAR_INDICATIF_DECROISSANT) {
-      if (international.startsWith(pays.indicatif)) {
+      if (numeroInter.startsWith(pays.indicatif)) {
         return {
           pays: pays.code,
-          national: international.slice(pays.indicatif.length).replace(/\D/g, ""),
+          national: numeroInter.slice(pays.indicatif.length).replace(/\D/g, ""),
           indicatifExplicite: true,
         };
       }
     }
-    // Indicatif hors des neuf pays : on garde les chiffres pour ne rien
-    // perdre, et le champ affichera le pays par défaut. La valeur n'est pas
-    // détruite — elle est simplement à corriger par celui qui la relit.
+    if (international) {
+      return {
+        pays: CODE_INTERNATIONAL,
+        national: numeroInter.slice(1).replace(/\D/g, ""),
+        indicatifExplicite: true,
+      };
+    }
+    // Indicatif hors des neuf pays sans option international : on garde les chiffres
     return {
       pays: defaut,
-      national: international.replace(/\D/g, ""),
+      national: numeroInter.replace(/\D/g, ""),
       indicatifExplicite: false,
     };
   }
@@ -118,13 +125,27 @@ export function analyserTelephone(valeur: string, paysDefaut: string): Telephone
 /** Recompose la valeur à enregistrer. Vide si aucun chiffre n'a été saisi. */
 export function composerTelephone(pays: string, national: string): string {
   const chiffres = (national || "").replace(/\D/g, "");
-  return chiffres ? `${paysTelephone(pays).indicatif}${chiffres}` : "";
+  if (!chiffres) return "";
+  if (pays === CODE_INTERNATIONAL) {
+    return `+${chiffres}`;
+  }
+  return `${paysTelephone(pays).indicatif}${chiffres}`;
 }
 
 /** Met le numéro national en forme selon le découpage du pays. */
 export function formaterNational(pays: string, national: string): string {
   const chiffres = (national || "").replace(/\D/g, "");
   if (!chiffres) return "";
+
+  if (pays === CODE_INTERNATIONAL) {
+    const morceaux: string[] = [];
+    let reste = chiffres;
+    while (reste) {
+      morceaux.push(reste.slice(0, 3));
+      reste = reste.slice(3);
+    }
+    return morceaux.join(" ");
+  }
 
   const morceaux: string[] = [];
   let reste = chiffres;
@@ -150,6 +171,9 @@ export function formaterNational(pays: string, national: string): string {
  * langues. Le dériver du découpage évite en plus qu'il le contredise.
  */
 export function gabaritNational(pays: string): string {
+  if (pays === CODE_INTERNATIONAL) {
+    return "00 0 00 00 00 00";
+  }
   return paysTelephone(pays)
     .groupes.map((taille) => "0".repeat(taille))
     .join(" ");
@@ -162,9 +186,32 @@ export function telephoneValide(valeur: string, paysDefaut: string): boolean {
   return national.length >= longueurMin && national.length <= longueurMax;
 }
 
+/**
+ * Valide un numéro **de n'importe quel pays** : les neuf pays gardent leurs règles de longueur
+ * (`telephoneValide`), les autres doivent être E.164.
+ */
+export function telephoneInternationalValide(valeur: string, paysDefaut: string): boolean {
+  const norm = normaliserTelephone(valeur);
+  if (!norm) return false;
+  const analyse = analyserTelephone(norm, paysDefaut, { international: true });
+  if (analyse.pays !== CODE_INTERNATIONAL) {
+    return telephoneValide(norm, paysDefaut);
+  }
+  return estE164(norm);
+}
+
 /** Affichage en lecture : « +225 07 00 00 00 00 ». Chaîne vide si rien. */
 export function afficherTelephone(valeur: string, paysDefaut = PAYS_TELEPHONE_DEFAUT): string {
-  const { pays, national } = analyserTelephone(valeur, paysDefaut);
-  if (!national) return "";
-  return `${paysTelephone(pays).indicatif} ${formaterNational(pays, national)}`;
+  const analyse = analyserTelephone(valeur, paysDefaut, { international: true });
+  if (!analyse.national) return "";
+  if (analyse.pays === CODE_INTERNATIONAL) {
+    const morceaux: string[] = [];
+    let reste = analyse.national;
+    while (reste) {
+      morceaux.push(reste.slice(0, 3));
+      reste = reste.slice(3);
+    }
+    return `+${morceaux.join(" ")}`;
+  }
+  return `${paysTelephone(analyse.pays).indicatif} ${formaterNational(analyse.pays, analyse.national)}`;
 }

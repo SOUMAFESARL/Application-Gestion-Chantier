@@ -191,6 +191,13 @@ export interface AbonnementClient {
  * compter : ils vivent dans le schéma du client, où le back-office ne va pas
  * lire lui-même.
  */
+export interface TelephoneClient {
+  libelle: string;
+  libelleAffiche: string;
+  numero: string;
+  principal: boolean;
+}
+
 export interface ClientPlateforme {
   id: string;
   raisonSociale: string;
@@ -201,6 +208,7 @@ export interface ClientPlateforme {
   ville: string;
   emailContact: string;
   telephoneContact: string;
+  telephones: TelephoneClient[];
   statut: StatutClient;
   creeLe: Date;
   /** `null` tant que personne ne s'est connecté — voir `EN_ATTENTE`. */

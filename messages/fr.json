@@ -288,6 +288,8 @@
       "slug": "Sous-domaine",
       "suspendre": "Suspendre l’accès",
       "telephoneContact": "Téléphone",
+      "telephones": "Téléphones",
+      "principal": "principal",
       "utilisateurs": "Utilisateurs",
       "ville": "Ville",
       "dirigeant": "Dirigeant",
@@ -961,10 +963,6 @@
       "champRccm": "Numéro RCCM",
       "champRccmAide": "Registre du Commerce et du Crédit Mobilier",
       "champTelephone": "Numéro de téléphone",
-      "champTelephoneFixe": "Numéro fixe",
-      "champTelephoneSecondaire": "Numéro secondaire {rang}",
-      "ajouterTelephoneSecondaire": "Ajouter un numéro secondaire",
-      "retirerTelephoneSecondaire": "Retirer le numéro secondaire {rang}",
       "champVille": "Ville",
       "champVilleExemple": "Abidjan",
       "chargement": "Chargement de la configuration…",
@@ -992,6 +990,29 @@
       "succes": "Les informations de votre entreprise ont été mises à jour.",
       "succesTitre": "Informations enregistrées",
       "titre": "Votre entreprise"
+    },
+    "telephones": {
+      "titre": "Numéros de contact",
+      "aide": "Jusqu’à cinq numéros. Le principal figure sur les factures et les documents.",
+      "libelle": "Usage",
+      "libelles": {
+        "MOBILE": "Mobile",
+        "FIXE": "Fixe",
+        "WHATSAPP": "WhatsApp",
+        "STANDARD": "Standard",
+        "COMPTABILITE": "Comptabilité",
+        "AUTRE": "Autre"
+      },
+      "principal": "Principal",
+      "definirPrincipal": "Définir comme principal",
+      "ajouter": "Ajouter un numéro",
+      "retirer": "Retirer ce numéro",
+      "maximum": "Cinq numéros au plus.",
+      "erreurVide": "Saisissez ce numéro, ou retirez la ligne.",
+      "erreurFormat": "Saisissez le numéro au format international : + suivi de l’indicatif du pays et du numéro.",
+      "erreurDoublon": "Ce numéro figure deux fois.",
+      "erreurPrincipal": "Désignez un, et un seul, numéro principal.",
+      "erreurAucun": "Renseignez au moins un numéro de contact."
     },
     "metaDescription": "Gérez les informations de votre entreprise, affichées sur vos documents et vos factures.",
     "titre": "Configuration de l’entreprise"
@@ -3561,9 +3582,11 @@
   "telephone": {
     "aide": "Numéro mobile, sans l'indicatif — il est choisi à gauche.",
     "aucunPays": "Aucun pays ne correspond.",
+    "autrePays": "Autre pays",
     "choisirPays": "Indicatif du pays",
     "erreurIncomplet": "Ce numéro est incomplet pour le pays choisi.",
     "erreurRequis": "Le numéro de téléphone est requis.",
+    "gabaritInternational": "33 6 12 34 56 78",
     "rechercherPays": "Rechercher un pays ou un indicatif…"
   },
   "zoneDepot": {
