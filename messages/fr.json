@@ -1131,6 +1131,33 @@
       "conforme": "Dans les temps",
       "repereTheorique": "Repère : avancement théorique"
     },
+    "sante": {
+      "titre": "Santé du projet",
+      "score": "{score} / 100",
+      "nonCalcule": "Non calculé",
+      "nonDemarre": "Le calcul démarre avec le premier rapport journalier.",
+      "fige": "Calcul figé (projet terminé ou suspendu).",
+      "penalitesTitre": "Pénalités appliquées",
+      "delais": "Délais",
+      "blocages": "Blocages",
+      "reporting": "Rapports",
+      "points": "{points} pts",
+      "explication": "Ce qui pèse le plus : {penalite}.",
+      "aucunePenalite": "Aucune pénalité.",
+      "penaliteDelais": "les retards de délais",
+      "penaliteBlocages": "les blocages ouverts",
+      "penaliteReporting": "le manque de rapports journaliers",
+      "historiqueTitre": "Historique des scores",
+      "derniersSnapshots": "Derniers relevés",
+      "badge": {
+        "VERT": "Sous contrôle",
+        "ORANGE": "Vigilance",
+        "ROUGE": "Critique",
+        "BON": "Sous contrôle",
+        "VIGILANCE": "Vigilance",
+        "CRITIQUE": "Critique"
+      }
+    },
     "informations": {
       "titre": "Informations générales",
       "reference": "Référence",
