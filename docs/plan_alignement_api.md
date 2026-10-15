@@ -174,22 +174,47 @@ journalisé** ; la suppression reste coupée en production
 
 ### Lot 4 — Gestion de projet
 
-- **US 3.1** durée en mois et années · **US 3.3** budget d'une activité ·
-  **US 3.4** cohérence des budgets activité / lot / projet · **US 3.5** date de
-  début dans le passé · **US 3.6** et **3.7** dates obligatoires avant de créer
-  un lot ou une activité · **US 3.8** prolongation des dates · **US 3.9**
-  modification du budget.
-- **US 3.2** — protection du nom du projet : **à discuter**, non planifiable
-  tant que la règle n'est pas arbitrée.
-- Équipes et encadrement : alignement sur le modèle d'affectations du backend.
-- Backend : déclarer au schéma OpenAPI les 18 routes qui en sont absentes.
-- **Servi, jamais appelé** : santé du projet (`sante/`, `detail/`,
-  `historique/`) ; reprogrammation et historique des dates, pour le projet, le
-  lot et l'activité ; journal et motifs de report ; activation d'un lot ou
-  d'une activité ; import de lots côté serveur et son modèle (le frontend lit
-  aujourd'hui le fichier Excel lui-même) ; affectations et collaborateurs
-  affectables ; statistiques d'équipes ; détail et modification d'un tiers ;
-  référentiel des villes (le frontend embarque sa propre liste).
+#### Cadrage et décisions des 14 et 15/10/2026
+
+- « La durée (US 3.1) et le début dans le passé (US 3.5) étaient déjà en place : vérifiés. »
+- « Les dates ne pouvaient plus être modifiées une fois fixées (RG-11, `PATCH` refusé) : la reprogrammation est branchée pour le projet, les lots et les activités. »
+- « Les équipes étaient simulées en production : elles sont réelles. »
+- « Le retrait d'un collaborateur efface physiquement l'affectation, par décision du développeur (environnement de tests), contre le Socle Commun : à revoir avant la mise en service. »
+- « **Non branchés, par décision** : activation / désactivation d'un lot ou d'une activité ; détail et modification d'un tiers (le module Tiers est à construire) ; référentiel des villes (liste embarquée générée depuis le serveur) ; statistiques d'équipes (calculées par l'écran). »
+
+| # | Décision |
+|---|---|
+| 4.0 | Un lot, deux phases (A puis B), enchaînées sans point d'arrêt |
+| 4.1 | US 3.1 durée : déjà affichée ; vérification à l'écran, PDF compris |
+| 4.2 | US 3.2 : seuls le **DG et l'AD** renomment un projet ; refus 403 pour les autres ; renommage journalisé |
+| 4.3 | US 3.3 : budget d'activité dans le tableau des activités et son export |
+| 4.4 | US 3.4 : **somme** des budgets des lots ≤ budget du projet ; **somme** des budgets des activités d'un lot ≤ budget du lot ; un parent ne descend pas sous la somme de ses enfants ; le message donne le disponible ; **un parent sans budget ne borne rien** ; serveur **et** écran |
+| 4.5 | US 3.5 : début dans le passé accepté (déjà) ; fin **strictement** après le début pour le projet |
+| 4.6 | US 3.6 / 3.7 : pas de lot (création, import, activation) sans les deux dates du projet ; pas d'activité (création, activation) sans les deux dates de son lot ; **les dates d'un lot sont contenues dans celles du projet** (comme celles d'une activité dans son lot) |
+| 4.7 | US 3.8 : reprogrammation branchée (motif + justification) pour le **projet, le lot et l'activité**, historique affiché |
+| 4.8 | US 3.9 : budget du projet modifiable, borné par la somme des lots, **journalisé** (ancien / nouveau), sans motif |
+| 4.10 | Encadrement : aligné sur les affectations ; `zone` (chef de chantier) et `fonction_membre` (« autre membre », rôle VI) ajoutés au serveur ; le projet expose son encadrement par fonction |
+| 4.11 | Équipes : routes des membres côté serveur, nature `SOUS_TRAITANT`, fin de la simulation |
+| Retrait | Retirer un collaborateur **d'un projet** : DG et AD sur tous les projets ; CP et CT sur les projets où ils sont affectés ; **personne ne se retire soi-même** ; **effacement physique** de l'affectation (choix assumé pour l'environnement de tests, contre le Socle Commun) ; chaque retrait journalisé ; l'écran confirme explicitement le retrait du **dernier CP** |
+
+| Tâche | Contenu | État |
+|---|---|---|
+| **B1** Budgets backend | Cohérence pyramidale des budgets (somme activités ≤ budget lot, somme lots ≤ budget projet), indisponibilité sous la somme des enfants, modification journalisée du budget projet (`PATCH /projets/{id}/budget/`). | **Fait le 15/10/2026.** 17 tests pytest au vert (`test_budgets.py`), formatage FCFA standardisé. |
+| **F1** Budgets frontend | Intégration du budget par activité dans le tableau et l'export CSV, validation hiérarchique en direct des plafonds disponibles, tiroir de modification du budget projet. | **Fait le 15/10/2026.** Vérifié : plafonds bloquants, feedback visuel temps réel, export enrichi, zéro régression. |
+| **B2** Dates backend | Dates obligatoires et contenues (lot dans projet, activité dans lot), début dans le passé accepté, interdiction de modification directe par `PATCH` (RG-11). | **Fait le 15/10/2026.** 19 tests pytest au vert (`test_dates.py`), validation stricte à la création et à l'import. |
+| **F2** Dates frontend | Contrôles de saisie et bornage calendaire dynamique (lot borné par projet, activité par lot), dates obligatoires avant création, début dans le passé validé. | **Fait le 15/10/2026.** Vérifié : bornes min/max sur sélecteurs de date, blocage à la saisie, messages contextuels. |
+| **F3** Reprogrammation | Branchement du workflow de report calendaire avec motif et justification (projet, lots, activités) et affichage de l'historique complet des reports dans la fiche. | **Fait le 15/10/2026.** Vérifié : formulaire de reprogrammation, journal d'audit chronologique, rafraîchissement réactif. |
+| **B3** Nom de projet | Protection du nom de projet : modification réservée au DG et à l'AD (`PATCH /projets/{id}/nom/`), refus 403 pour les autres rôles, journalisation de l'ancien et du nouveau nom. | **Fait le 15/10/2026.** 9 tests pytest au vert (`test_nom_projet.py`), permissions strictes et audit validé. |
+| **F4** Nom et durée | Tiroir de renommage avec garde de permissions (DG / AD uniquement), libellés i18n, vérification de la durée en mois/années sur fiche et PDF. | **Fait le 15/10/2026.** Vérifié : bouton conditionné au rôle, mutation optimiste/invalidation, export PDF cohérent. |
+| **B4** Encadrement et retrait | Alignement de l'encadrement sur le modèle `AffectationProjet`, champs `zone` et `fonction_membre`, endpoint de retrait avec suppression physique (décision test) et audit. | **Fait le 15/10/2026.** 17 tests pytest au vert (`test_encadrement.py`, `test_retrait.py`), contrôle DG/AD/CP. |
+| **F5** Encadrement frontend | Affichage et gestion de l'équipe d'encadrement par fonction, retrait de collaborateur avec dialogue de confirmation explicite si dernier CP, fin du code simulé. | **Fait le 15/10/2026.** Vérifié : ajout/retrait d'intervenant, alerte dernier CP, synchronisation instantanée. |
+| **B5** Équipes backend | Modèle d'équipes et membres persistés, nature `SOUS_TRAITANT`, unicité d'affectation d'équipe par activité, endpoints de gestion des membres. | **Fait le 15/10/2026.** 16 tests pytest au vert (`test_equipes.py`), intégrité et cascade validées. |
+| **F6** Équipes frontend | Remplacement intégral de la simulation d'équipes par les requêtes réelles serveur, gestion des équipes de chantier et affectations aux activités. | **Fait le 15/10/2026.** Vérifié : 0 appel simulé, création/édition d'équipes, affectation par activité opérationnelle. |
+| **B6** OpenAPI | Déclaration au schéma OpenAPI de l'intégralité des routes du module Projets (39 routes résolues), typage des serializers et paramètres d'opération. | **Fait le 15/10/2026.** 15 tests pytest au vert (`test_schema_openapi.py`), conformité Swagger et documentation 100%. |
+| **F7** Santé et import | Carte d'indice de santé dans la fiche (score, badge, pénalités avec jauges, explication, courbe historique), import atomique des lots via multipart serveur et téléchargement de modèle Excel. | **Fait le 15/10/2026.** Vérifié : affichage score et décomposition, courbe SVG, import serveur avec erreurs par ligne, téléchargement modèle. |
+| **F8** Clôture | Clôture finale du lot 4 : mise à jour des README, validation de la disparition de toute simulation dans le domaine Projets, plan d'alignement synchronisé. | **Fait le 15/10/2026.** Vérifié : build, typecheck, lint 100% verts, 0 branche simulée restante. |
+
+*Lot 4 fusionné dans `develop` des deux dépôts le 15/10/2026, **non poussé**.*
 
 ### Lot 5 — Tableau de bord
 
