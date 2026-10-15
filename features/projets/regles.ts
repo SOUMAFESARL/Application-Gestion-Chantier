@@ -341,13 +341,36 @@ export function plafondBudgetDepasse(
   return null;
 }
 
+/** La somme des budgets (centimes) ; un budget absent compte zéro. */
+export function sommeBudgets(elements: { budget: number | null }[]): number {
+  return elements.reduce((somme, e) => somme + (e.budget ?? 0), 0);
+}
+
+/**
+ * Ce qui reste sous le plafond d'un parent pour un enfant, **les autres enfants déduits**.
+ * `null` : le parent n'a pas de budget, il ne borne rien. Jamais négatif.
+ */
+export function budgetDisponible(plafond: number | null, autres: { budget: number | null }[]): number | null {
+  if (plafond === null) return null;
+  const sommeAutres = sommeBudgets(autres);
+  return Math.max(0, plafond - sommeAutres);
+}
+
+/** Le plancher d'un parent : la somme de ses enfants ; `null` s'il n'en a aucun de budgété. */
+export function plancherBudget(enfants: { budget: number | null }[]): number | null {
+  const avecBudget = enfants.filter((e) => e.budget !== null);
+  if (avecBudget.length === 0) return null;
+  return sommeBudgets(avecBudget);
+}
+
 /**
  * Le plus gros budget porté par les activités d'un lot : le budget du lot ne
  * peut descendre en dessous. `null` : aucune activité n'a de budget.
+ *
+ * @deprecated Utiliser `plancherBudget(lot.activites)`.
  */
 export function budgetMaxActivites(lot: Lot): number | null {
-  const budgets = lot.activites.flatMap((activite) => (activite.budget === null ? [] : [activite.budget]));
-  return budgets.length === 0 ? null : Math.max(...budgets);
+  return plancherBudget(lot.activites);
 }
 
 /**

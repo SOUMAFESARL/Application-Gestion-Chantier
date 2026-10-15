@@ -31,10 +31,10 @@ import {
   STATUT_DECLARE_PAR_DEFAUT,
   STATUTS_DECLARES,
   UNITES_ACTIVITE,
-  budgetMaxActivites,
+  budgetDisponible,
   budgetRecevable,
   datesChantierCoherentes,
-  plafondBudgetDepasse,
+  plancherBudget,
   refusContrat,
 } from "./regles";
 import type {
@@ -228,28 +228,34 @@ function budgetSaisi(saisie: string): number | null {
 
 /**
  * `schemaLot`, borné par ce que l'écran seul connaît : le budget du projet,
- * que le lot ne dépasse pas, et — pour un lot existant — celui de ses
- * activités, qu'il doit toujours contenir.
+ * les autres lots déjà engagés (disponible), et — pour un lot existant — la
+ * somme de ses activités (plancher).
  */
-export function schemaLotBorne(budgetProjet: number | null, lot: Lot | null = null) {
-  const plancher = lot ? budgetMaxActivites(lot) : null;
+export function schemaLotBorne(
+  budgetProjet: number | null,
+  lot: Lot | null = null,
+  autresLots: { budget: number | null }[] = [],
+) {
+  const plancher = lot ? plancherBudget(lot.activites) : null;
+  const disponible = budgetDisponible(budgetProjet, autresLots);
   return schemaLot.superRefine((saisie, ctx) => {
     const budget = budgetSaisi(saisie.budget);
     if (budget === null) return;
-    if (plafondBudgetDepasse(budget, { projet: budgetProjet })) {
+    if (disponible !== null && budget > disponible) {
       ctx.addIssue({
         code: "custom",
         path: ["budget"],
-        message: texte("projets.lotsActivites.formLot.erreurBudgetDepasseProjet", {
-          montant: formaterMontant(budgetProjet),
+        message: texte("projets.lotsActivites.formLot.erreurBudgetDisponible", {
+          disponible: formaterMontant(disponible),
+          plafond: formaterMontant(budgetProjet),
         }),
       });
     } else if (plancher !== null && budget < plancher) {
       ctx.addIssue({
         code: "custom",
         path: ["budget"],
-        message: texte("projets.lotsActivites.formLot.erreurBudgetSousActivites", {
-          montant: formaterMontant(plancher),
+        message: texte("projets.lotsActivites.formLot.erreurBudgetPlancher", {
+          somme: formaterMontant(plancher),
         }),
       });
     }
@@ -357,27 +363,72 @@ export const schemaActivite = z
   });
 
 /**
- * `schemaActivite`, borné par le budget du lot choisi et par celui du projet :
- * une activité ne dépasse ni l'un ni l'autre.
+ * `schemaActivite`, borné par le budget du lot et les autres activités :
+ * ce qui reste disponible sur le lot.
  */
-export function schemaActiviteBornee(budgetProjet: number | null, lots: Lot[]) {
+export function schemaActiviteBorne(
+  budgetLot: number | null,
+  autresActivites: { budget: number | null }[] = [],
+) {
+  const disponible = budgetDisponible(budgetLot, autresActivites);
   return schemaActivite.superRefine((saisie, ctx) => {
     const budget = budgetSaisi(saisie.budget);
+    if (budget === null) return;
+    if (disponible !== null && budget > disponible) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["budget"],
+        message: texte("projets.lotsActivites.formActivite.erreurBudgetDisponible", {
+          disponible: formaterMontant(disponible),
+          plafond: formaterMontant(budgetLot),
+        }),
+      });
+    }
+  });
+}
+
+/**
+ * `schemaActivite`, borné par le budget du lot choisi et par celui du projet :
+ * l'activité ne dépasse ni le disponible de son lot ni le disponible du projet.
+ */
+export function schemaActiviteBornee(
+  budgetProjet: number | null,
+  lots: Lot[],
+  activiteId?: string,
+) {
+  return schemaActivite.superRefine((saisie, ctx) => {
+    const budget = budgetSaisi(saisie.budget);
+    if (budget === null) return;
     const lot = lots.find((candidat) => candidat.id === saisie.lotId);
-    const plafond = plafondBudgetDepasse(budget, { lot: lot?.budget ?? null, projet: budgetProjet });
-    if (plafond === null) return;
-    ctx.addIssue({
-      code: "custom",
-      path: ["budget"],
-      message:
-        plafond === "LOT"
-          ? texte("projets.lotsActivites.formActivite.erreurBudgetDepasseLot", {
-              montant: formaterMontant(lot?.budget ?? null),
-            })
-          : texte("projets.lotsActivites.formActivite.erreurBudgetDepasseProjet", {
-              montant: formaterMontant(budgetProjet),
-            }),
-    });
+    if (!lot) return;
+
+    const autresActivites = lot.activites.filter((a) => a.id !== activiteId);
+    if (lot.budget !== null) {
+      const disponibleLot = budgetDisponible(lot.budget, autresActivites);
+      if (disponibleLot !== null && budget > disponibleLot) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["budget"],
+          message: texte("projets.lotsActivites.formActivite.erreurBudgetDisponible", {
+            disponible: formaterMontant(disponibleLot),
+            plafond: formaterMontant(lot.budget),
+          }),
+        });
+      }
+    } else if (budgetProjet !== null) {
+      const autresLots = lots.filter((l) => l.id !== lot.id);
+      const disponibleProjet = budgetDisponible(budgetProjet, autresLots);
+      if (disponibleProjet !== null && budget > disponibleProjet) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["budget"],
+          message: texte("projets.lotsActivites.formActivite.erreurBudgetDisponibleProjet", {
+            disponible: formaterMontant(disponibleProjet),
+            plafond: formaterMontant(budgetProjet),
+          }),
+        });
+      }
+    }
   });
 }
 
@@ -660,12 +711,30 @@ export function versPlanningProjet(valeurs: z.output<typeof schemaPlanning>): Pl
   return { dateDebutPrevue: valeurs.dateDebut, dateFinPrevue: valeurs.dateFin };
 }
 
-export const schemaBudget = z.object({
-  montant: chaineNonVide(texte("projets.cadrage.erreurBudgetRequis")).refine(
-    (valeur) => MOTIF_MONTANT.test(valeur) && budgetRecevable(saisieEnCentimes(valeur)),
-    { message: texte("projets.cadrage.erreurBudgetInvalide") },
-  ),
-});
+export function schemaBudgetProjet(plancher: number | null = null) {
+  return z
+    .object({
+      montant: chaineNonVide(texte("projets.cadrage.erreurBudgetRequis")).refine(
+        (valeur) => MOTIF_MONTANT.test(valeur) && budgetRecevable(saisieEnCentimes(valeur)),
+        { message: texte("projets.cadrage.erreurBudgetInvalide") },
+      ),
+    })
+    .superRefine((saisie, ctx) => {
+      if (plancher === null) return;
+      const centimes = saisieEnCentimes(saisie.montant);
+      if (centimes !== null && centimes < plancher) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["montant"],
+          message: texte("projets.cadrage.erreurBudgetPlancher", {
+            somme: formaterMontant(plancher),
+          }),
+        });
+      }
+    });
+}
+
+export const schemaBudget = schemaBudgetProjet();
 
 export type SaisieBudget = z.input<typeof schemaBudget>;
 

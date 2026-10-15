@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FileSpreadsheet, LoaderCircle, PenLine } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -34,8 +35,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useDroits } from "@/features/habilitations";
 import { creerLot, modifierLot } from "@/features/projets/adaptateur";
 import {
+  budgetDisponible,
   codeLotSuivant,
   MODES_EXECUTION_LOT,
   STATUTS_DECLARES,
@@ -50,7 +53,7 @@ import {
   type SaisieLotProjet,
 } from "@/features/projets/validations";
 import { ErreurApi } from "@/lib/api";
-import { formaterSaisieMontant } from "@/lib/format";
+import { formaterMontant, formaterSaisieMontant } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { ComboboxNomLot } from "./ComboboxNomLot";
@@ -130,6 +133,7 @@ export function TiroirLot({
             projetId={projetId}
             budgetProjet={budgetProjet}
             lot={lot}
+            lots={lots}
             onFermer={onFermer}
             onEnregistre={onModifie}
             onOccupe={setOccupe}
@@ -192,7 +196,11 @@ export function TiroirLot({
           <SaisieLot
             projetId={projetId}
             budgetProjet={budgetProjet}
-            onFermer={onFermer} onEnregistre={onCree} onOccupe={setOccupe} />
+            lots={lots}
+            onFermer={onFermer}
+            onEnregistre={onCree}
+            onOccupe={setOccupe}
+          />
         ) : (
           <ImportLots
             projetId={projetId}
@@ -218,6 +226,7 @@ function SaisieLot({
   projetId,
   budgetProjet,
   lot = null,
+  lots = [],
   onFermer,
   onEnregistre,
   onOccupe,
@@ -225,6 +234,7 @@ function SaisieLot({
   projetId: string;
   budgetProjet: number | null;
   lot?: Lot | null;
+  lots?: Lot[];
   onFermer: () => void;
   onEnregistre: (lot: Lot) => void;
   onOccupe: (occupe: boolean) => void;
@@ -232,9 +242,20 @@ function SaisieLot({
   const t = useTranslations("projets.lotsActivites.formLot");
   const tCreation = useTranslations("projets.tiroirCreation");
   const tLots = useTranslations("projets.lotsActivites");
+  const { peut } = useDroits();
+  const peutVoirMontants = peut("finance");
 
-  // Le budget ne dépasse pas celui du projet, ni ne descend sous celui des activités.
-  const schema = schemaLotBorne(budgetProjet, lot);
+  const autresLots = useMemo(() => lots.filter((l) => l.id !== lot?.id), [lots, lot]);
+  const schema = schemaLotBorne(budgetProjet, lot, autresLots);
+  const disponible = useMemo(
+    () => (budgetProjet !== null ? budgetDisponible(budgetProjet, autresLots) : null),
+    [budgetProjet, autresLots],
+  );
+  const aideDisponible =
+    peutVoirMontants && disponible !== null
+      ? t("aideDisponible", { montant: formaterMontant(disponible) })
+      : null;
+
   const form = useForm<SaisieLotProjet>({
     resolver: zodResolver(schema),
     defaultValues: lot ? lotEnSaisie(lot) : lotVide(),
@@ -258,6 +279,10 @@ function SaisieLot({
       );
       onFermer();
     } catch (err) {
+      if (err instanceof ErreurApi && err.erreursParChamp.budget_initial_montant) {
+        form.setError("budget", { message: err.erreursParChamp.budget_initial_montant });
+        return;
+      }
       const repli = lot ? t("erreurModification") : t("erreurGenerique");
       toast.error(err instanceof ErreurApi && err.message ? err.message : repli);
     } finally {
@@ -393,6 +418,7 @@ function SaisieLot({
                     disabled={enCours}
                   />
                 </FormControl>
+                {aideDisponible && <FormDescription>{aideDisponible}</FormDescription>}
                 <FormMessage />
               </FormItem>
             )}
