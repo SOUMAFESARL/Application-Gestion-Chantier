@@ -18,7 +18,6 @@
 
 import { texte } from "@/i18n/horsReact";
 import { api, type ErreurApi } from "@/lib/api";
-import { routesSimulees } from "@/lib/api/simulation";
 
 import {
   lireLotsImportes,
@@ -27,7 +26,6 @@ import {
   STATUT_DECLARE_PAR_DEFAUT,
   statutDeReprise,
 } from "./regles";
-import { simulationEquipes } from "./simulationEquipes";
 
 import type {
   Activite,
@@ -68,13 +66,6 @@ import type {
   TypeProjet,
   UniteActivite,
 } from "./types";
-
-/**
- * Équipes et affectations : `false` tant que Django ne les sert pas, ce qui
- * les garde simulées même en production. Les lots et activités, eux, sont
- * servis par le serveur.
- */
-const EQUIPES_SIMULEES = routesSimulees(false);
 
 /* ------------------------------------------------------------------ *
  * Les charges utiles du serveur — la seule zone en `snake_case`.
@@ -641,10 +632,17 @@ interface ChargeEquipe {
   effectif?: number;
 }
 
+interface ChargeEquipeChantierActivite {
+  id: string;
+  nom: string;
+  effectif?: number;
+  affectation_id?: string;
+}
+
 /**
  * Une activité, telle que `GET /lots/{lot_id}/activites/` la renvoie. Elle
  * n'a pas de code : `listerActivites` lui en donne un d'après son rang dans
- * le lot. Ses équipes ne sont que des identifiants.
+ * le lot.
  */
 interface ChargeActivite {
   id: string;
@@ -653,9 +651,9 @@ interface ChargeActivite {
   statut?: string | null;
   /** L'activité qui doit être terminée avant celle-ci. */
   dependance?: string | null;
-  /** Le collaborateur responsable — nom du champ **à confirmer** côté serveur. */
+  /** Le collaborateur responsable. */
   responsable?: string | null;
-  equipe_ids?: string[];
+  equipe_chantier?: ChargeEquipeChantierActivite | null;
   budget_initial_montant?: number | string | null;
   unite?: UniteActivite | null;
   unite_libelle?: string;
@@ -768,7 +766,14 @@ function versActivite(charge: ChargeActivite, code = ""): Activite {
     surCheminCritique: false,
     dependanceId: charge.dependance ?? null,
     responsableId: charge.responsable ?? null,
-    equipe: null,
+    equipe: charge.equipe_chantier
+      ? {
+          id: charge.equipe_chantier.id,
+          nom: charge.equipe_chantier.nom,
+          effectif: charge.equipe_chantier.effectif ?? 0,
+          affectationId: charge.equipe_chantier.affectation_id,
+        }
+      : null,
     statut: depuisServeur(STATUT_SERVEUR, charge.statut, STATUT_DECLARE_PAR_DEFAUT),
   };
 }
@@ -802,22 +807,9 @@ function parOrdre<T extends { ordre?: number }>(charges: T[]): T[] {
   return [...charges].sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0));
 }
 
-/**
- * Tant que les équipes sont simulées, l'équipe d'une activité vient de la
- * simulation : le serveur ne connaît pas ses identifiants.
- */
-function avecEquipeSimulee(projetId: string, activites: Activite[]): Activite[] {
-  if (!EQUIPES_SIMULEES) return activites;
-  const affectations = simulationEquipes.affectations(projetId);
-  return activites.map((activite) => ({
-    ...activite,
-    equipe: affectations.get(activite.id) ?? null,
-  }));
-}
-
 /** Les activités d'un lot, codées `L-03.02` d'après leur rang dans le lot. */
 async function listerActivites(
-  projetId: string,
+  _projetId: string,
   lot: Pick<ChargeLot, "id" | "code">,
   signal?: AbortSignal,
 ): Promise<Activite[]> {
@@ -826,11 +818,8 @@ async function listerActivites(
     undefined,
     signal,
   );
-  return avecEquipeSimulee(
-    projetId,
-    parOrdre(aPlat(charge)).map((activite, rang) =>
-      versActivite(activite, `${lot.code}.${String(rang + 1).padStart(2, "0")}`),
-    ),
+  return parOrdre(aPlat(charge)).map((activite, rang) =>
+    versActivite(activite, `${lot.code}.${String(rang + 1).padStart(2, "0")}`),
   );
 }
 
@@ -931,7 +920,6 @@ function versChargeActivite(saisie: SaisieActiviteDomaine) {
     unite: saisie.unite,
     budget_initial_montant: saisie.budget,
     responsable: saisie.responsableId,
-    ...(EQUIPES_SIMULEES ? {} : { equipe_ids: saisie.equipeId ? [saisie.equipeId] : [] }),
     statut: STATUT_SERVEUR[saisie.statut],
   };
   if (saisie.dateDebutPrevue !== undefined) {
@@ -957,26 +945,20 @@ function sansVides(charge: ReturnType<typeof versChargeActivite>): Partial<typeo
   );
 }
 
-/** L'équipe saisie, gardée par la simulation tant que les équipes y vivent. */
-function retenirEquipe(projetId: string, activite: Activite, equipeId: string | null): Activite {
-  if (!EQUIPES_SIMULEES) return activite;
-  return {
-    ...activite,
-    equipe: simulationEquipes.affecter(projetId, activite.id, equipeId),
-  };
-}
-
 export async function creerActivite(
   projetId: string,
   saisie: SaisieActiviteDomaine,
 ): Promise<Activite> {
-  const creee = versActivite(
+  let creee = versActivite(
     await api.creer<ChargeActivite>(
       `/lots/${saisie.lotId}/activites/`,
       sansVides(versChargeActivite(saisie)),
     ),
   );
-  return retenirEquipe(projetId, creee, saisie.equipeId);
+  if (saisie.equipeId) {
+    creee = await affecterEquipe(projetId, creee, saisie.equipeId);
+  }
+  return creee;
 }
 
 export async function modifierActivite(
@@ -984,10 +966,16 @@ export async function modifierActivite(
   activiteId: string,
   saisie: SaisieActiviteDomaine,
 ): Promise<Activite> {
-  const modifiee = versActivite(
+  let modifiee = versActivite(
     await api.modifier<ChargeActivite>(`/activites/${activiteId}/`, versChargeActivite(saisie)),
   );
-  return retenirEquipe(projetId, modifiee, saisie.equipeId);
+  if (saisie.equipeId !== undefined) {
+    const equipeActuelle = modifiee.equipe?.id ?? null;
+    if (saisie.equipeId !== equipeActuelle) {
+      modifiee = await affecterEquipe(projetId, modifiee, saisie.equipeId);
+    }
+  }
+  return modifiee;
 }
 
 /**
@@ -1040,21 +1028,22 @@ export async function lireStatistiques(
 }
 
 /* ------------------------------------------------------------------ *
- * Équipes et affectations — routes proposées, pas encore livrées : servies
- * par `simulationEquipes.ts` en attendant Django.
+ * Équipes et affectations — routes réelles servies par Django (B5).
  * ------------------------------------------------------------------ */
 
 interface ChargeMembre {
   id: string;
-  prenom: string;
-  nom: string;
+  prenom?: string;
+  nom?: string;
   role?: RoleMembreEquipe;
   collaborateur_id?: string | null;
+  utilisateur_id?: string | null;
 }
 
 interface ChargeEquipeDetail extends ChargeEquipe {
   projet_id: string;
   nature: NatureEquipe;
+  corps_etat?: string;
   specialite?: string;
   chef?: ChargeMembre | null;
   membres?: ChargeMembre[];
@@ -1063,20 +1052,25 @@ interface ChargeEquipeDetail extends ChargeEquipe {
 function versMembre(charge: ChargeMembre, chef = false): MembreEquipe {
   return {
     id: charge.id,
-    prenom: charge.prenom,
-    nom: charge.nom,
+    prenom: charge.prenom ?? "",
+    nom: charge.nom ?? "",
     // Un serveur qui ne renverrait pas encore le rôle : la place dans l'équipe le dit.
     role: charge.role ?? (chef ? "CHEF_EQUIPE" : ROLE_MEMBRE_PAR_DEFAUT),
-    collaborateurId: charge.collaborateur_id ?? null,
+    collaborateurId: charge.collaborateur_id ?? charge.utilisateur_id ?? null,
   };
 }
 
-function versChargeMembre(membre: SaisieMembreEquipe): Omit<ChargeMembre, "id"> {
+function versChargeMembre(membre: SaisieMembreEquipe): Record<string, unknown> {
+  if (membre.collaborateurId) {
+    return {
+      collaborateur_id: membre.collaborateurId,
+      role: membre.role,
+    };
+  }
   return {
     prenom: membre.prenom,
     nom: membre.nom,
     role: membre.role,
-    collaborateur_id: membre.collaborateurId,
   };
 }
 
@@ -1085,7 +1079,7 @@ function versEquipeDetail(charge: ChargeEquipeDetail): Equipe {
     ...versEquipe(charge),
     projetId: charge.projet_id,
     nature: charge.nature,
-    specialite: charge.specialite ?? "",
+    specialite: charge.specialite ?? charge.corps_etat ?? "",
     chef: charge.chef ? versMembre(charge.chef, true) : null,
     membres: (charge.membres ?? []).map((membre) => versMembre(membre)),
   };
@@ -1093,7 +1087,6 @@ function versEquipeDetail(charge: ChargeEquipeDetail): Equipe {
 
 /** Les équipes constituées sur un chantier — celles qu'on peut y affecter. */
 export async function listerEquipes(projetId: string, signal?: AbortSignal): Promise<Equipe[]> {
-  if (EQUIPES_SIMULEES) return simulationEquipes.listerEquipes(projetId);
   const charge = await api.lire<ChargeEquipeDetail[] | ChargeListe<ChargeEquipeDetail>>(
     `/projets/${projetId}/equipes/`,
     undefined,
@@ -1104,7 +1097,6 @@ export async function listerEquipes(projetId: string, signal?: AbortSignal): Pro
 }
 
 export async function creerEquipe(projetId: string, creation: CreationEquipe): Promise<Equipe> {
-  if (EQUIPES_SIMULEES) return simulationEquipes.creerEquipe(projetId, creation);
   return versEquipeDetail(
     await api.creer<ChargeEquipeDetail>(`/projets/${projetId}/equipes/`, {
       nom: creation.nom,
@@ -1128,7 +1120,6 @@ export async function ajouterMembreEquipe(
   equipeId: string,
   membre: SaisieMembreEquipe,
 ): Promise<Equipe> {
-  if (EQUIPES_SIMULEES) return simulationEquipes.ajouterMembre(projetId, equipeId, membre);
   return versEquipeDetail(
     await api.creer<ChargeEquipeDetail>(
       `/projets/${projetId}/equipes/${equipeId}/membres/`,
@@ -1143,8 +1134,6 @@ export async function changerRoleMembreEquipe(
   membreId: string,
   role: RoleMembreEquipe,
 ): Promise<Equipe> {
-  if (EQUIPES_SIMULEES)
-    return simulationEquipes.changerRoleMembre(projetId, equipeId, membreId, role);
   return versEquipeDetail(
     await api.modifier<ChargeEquipeDetail>(
       `/projets/${projetId}/equipes/${equipeId}/membres/${membreId}/`,
@@ -1159,7 +1148,6 @@ export async function retirerMembreEquipe(
   equipeId: string,
   membreId: string,
 ): Promise<Equipe> {
-  if (EQUIPES_SIMULEES) return simulationEquipes.retirerMembre(projetId, equipeId, membreId);
   await api.supprimer(`/projets/${projetId}/equipes/${equipeId}/membres/${membreId}/`);
   return versEquipeDetail(
     await api.lire<ChargeEquipeDetail>(`/projets/${projetId}/equipes/${equipeId}/`),
@@ -1173,21 +1161,31 @@ export async function retirerMembreEquipe(
  */
 export async function affecterEquipe(
   projetId: string,
-  activiteId: string,
+  activite: Activite | string,
   equipeId: string | null,
 ): Promise<Activite> {
-  if (EQUIPES_SIMULEES) {
-    const activite = versActivite(await api.lire<ChargeActivite>(`/activites/${activiteId}/`));
-    return {
-      ...activite,
-      equipe: simulationEquipes.affecter(projetId, activiteId, equipeId),
-    };
+  const activiteId = typeof activite === "string" ? activite : activite.id;
+
+  if (equipeId) {
+    await api.creer(`/projets/${projetId}/equipes/affectations/`, {
+      equipe_id: equipeId,
+      activite_id: activiteId,
+    });
+  } else {
+    let affectationId: string | undefined;
+    if (typeof activite === "object" && activite.equipe?.affectationId) {
+      affectationId = activite.equipe.affectationId;
+    } else {
+      const chargeAct = await api.lire<ChargeActivite>(`/activites/${activiteId}/`);
+      affectationId = chargeAct.equipe_chantier?.affectation_id;
+    }
+
+    if (affectationId) {
+      await api.supprimer(`/projets/${projetId}/equipes/affectations/${affectationId}/`);
+    }
   }
-  return versActivite(
-    await api.modifier<ChargeActivite>(`/activites/${activiteId}/`, {
-      equipe_ids: equipeId ? [equipeId] : [],
-    }),
-  );
+
+  return versActivite(await api.lire<ChargeActivite>(`/activites/${activiteId}/`));
 }
 
 /* ------------------------------------------------------------------ *
