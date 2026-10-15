@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FileSpreadsheet, LoaderCircle, PenLine } from "lucide-react";
+import { FileSpreadsheet, LoaderCircle, Pencil, PenLine } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -9,6 +9,8 @@ import { toast } from "sonner";
 
 import { Alerte, Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
+import { HistoriqueDatesCourt } from "./HistoriqueDatesCourt";
+import { ModaleReprogrammation } from "./ModaleReprogrammation";
 import {
   Form,
   FormControl,
@@ -54,7 +56,7 @@ import {
   type SaisieLotProjet,
 } from "@/features/projets/validations";
 import { ErreurApi } from "@/lib/api";
-import { formaterMontant, formaterSaisieMontant } from "@/lib/format";
+import { formaterDate, formaterMontant, formaterSaisieMontant } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { ComboboxNomLot } from "./ComboboxNomLot";
@@ -251,6 +253,7 @@ function SaisieLot({
   const t = useTranslations("projets.lotsActivites.formLot");
   const tCreation = useTranslations("projets.tiroirCreation");
   const tLots = useTranslations("projets.lotsActivites");
+  const tReprog = useTranslations("projets.reprogrammation");
   const { peut } = useDroits();
   const peutVoirMontants = peut("finance");
 
@@ -280,11 +283,17 @@ function SaisieLot({
 
   const valeurs = useWatch({ control: form.control }) as SaisieLotProjet;
   const enCours = form.formState.isSubmitting;
+  const datesLotFigees = Boolean(lot && (lot.dateDebut || lot.dateFin));
+  const [reprogrammationOuverte, setReprogrammationOuverte] = useState(false);
 
   async function soumettre(saisie: SaisieLotProjet) {
     onOccupe(true);
     try {
       const valeurs = versCreationLotProjet(schema.parse(saisie));
+      if (datesLotFigees) {
+        delete valeurs.dateDebut;
+        delete valeurs.dateFin;
+      }
       // Le serveur renvoie le lot seul : ses activités restent celles qu'on a.
       const enregistre = lot
         ? { ...(await modifierLot(lot.id, valeurs)), activites: lot.activites }
@@ -453,6 +462,28 @@ function SaisieLot({
             )}
           />
 
+          {datesLotFigees && lot && (
+            <div className="flex items-center justify-between gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-2.5">
+              <span className="text-xs text-neutral-600">
+                {tReprog("datesActuellesFormat", {
+                  label: tReprog("datesActuelles"),
+                  debut: formaterDate(lot.dateDebut),
+                  fin: formaterDate(lot.dateFin),
+                })}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={() => setReprogrammationOuverte(true)}
+              >
+                <Pencil className="size-3.5" aria-hidden="true" />
+                {tReprog("modifierDates")}
+              </Button>
+            </div>
+          )}
+
           <div className={RANGEE}>
             <FormField
               control={form.control}
@@ -469,7 +500,7 @@ function SaisieLot({
                       auPlusTard={valeurs.dateFin || datesProjet?.dateFinPrevue || undefined}
                       className={CHAMP}
                       placeholder={tCreation("champDateChoisir")}
-                      disabled={enCours}
+                      disabled={enCours || datesLotFigees}
                     />
                   </FormControl>
                   <FormMessage />
@@ -491,7 +522,7 @@ function SaisieLot({
                       auPlusTard={datesProjet?.dateFinPrevue || undefined}
                       className={CHAMP}
                       placeholder={tCreation("champDateChoisir")}
-                      disabled={enCours}
+                      disabled={enCours || datesLotFigees}
                     />
                   </FormControl>
                   <FormMessage />
@@ -499,6 +530,8 @@ function SaisieLot({
               )}
             />
           </div>
+
+          {lot && <HistoriqueDatesCourt objet="lots" id={lot.id} />}
         </form>
       </Form>
 
@@ -516,6 +549,32 @@ function SaisieLot({
           {lot ? t("enregistrer") : t("ajouter")}
         </Button>
       </SheetFooter>
+
+      {lot && datesLotFigees && (
+        <ModaleReprogrammation
+          ouverte={reprogrammationOuverte}
+          onFermer={() => setReprogrammationOuverte(false)}
+          objet="lots"
+          id={lot.id}
+          nomObjet={lot.nom}
+          projetId={projetId}
+          datesActuelles={{ debut: lot.dateDebut, fin: lot.dateFin }}
+          bornesParent={
+            datesProjet
+              ? { debutMin: datesProjet.dateDebutPrevue, finMax: datesProjet.dateFinPrevue }
+              : null
+          }
+          onSucces={(resultat) => {
+            form.setValue("dateDebut", resultat.dateDebutPrevue ?? "");
+            form.setValue("dateFin", resultat.dateFinPrevue);
+            onEnregistre({
+              ...lot,
+              dateDebut: resultat.dateDebutPrevue,
+              dateFin: resultat.dateFinPrevue,
+            });
+          }}
+        />
+      )}
     </>
   );
 }

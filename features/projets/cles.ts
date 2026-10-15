@@ -29,3 +29,17 @@ export function cleEquipes(projetId: string) {
 export function cleProjet(projetId: string) {
   return ["projets", projetId, "detail"] as const;
 }
+
+/** La liste des motifs de report de dates (référentiel). */
+export const CLE_MOTIFS_REPORT = ["referentiels", "motifs-report"] as const;
+
+/** L'historique des modifications de dates pour un objet donné. */
+export function cleHistoriqueDates(objet: "projets" | "lots" | "activites", id: string) {
+  return [objet, id, "historique-dates"] as const;
+}
+
+/** Le journal consolidé des reports d'un projet (projet, lots, activités). */
+export function cleJournalReports(projetId: string) {
+  return ["projets", projetId, "journal-reports"] as const;
+}
+
