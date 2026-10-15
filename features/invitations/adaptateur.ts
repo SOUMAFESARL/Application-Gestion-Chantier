@@ -12,6 +12,7 @@ import type {
   Collaborateur,
   CollaborateurAjoute,
   CreationCollaborateur,
+  InvitationRenvoyee,
   StatutCollaborateur,
 } from "./types";
 
@@ -35,6 +36,7 @@ interface ChargeCollaborateur {
   /** Absents des réponses les plus anciennes : ils se lisent `null`. */
   avatar_url?: string | null;
   derniere_connexion?: string | null;
+  email_envoye?: boolean;
 }
 
 interface ChargeCreationCollaborateur {
@@ -161,5 +163,18 @@ export async function ajouterCollaborateur(
   return {
     collaborateur: versCollaborateur(charge),
     lienActivation: charge.lien_activation ?? null,
+  };
+}
+
+/**
+ * Émet un nouveau lien d'activation et révoque l'ancien — `POST …/{id}/renvoyer-invitation/`.
+ * Le lien d'une invitation vaut 72 heures ; au-delà, c'est le seul moyen de le refaire.
+ */
+export async function renvoyerInvitation(id: string): Promise<InvitationRenvoyee> {
+  const charge = await api.creer<ChargeCollaborateur>(`${RESSOURCE}${id}/renvoyer-invitation/`, {});
+  return {
+    collaborateur: versCollaborateur(charge),
+    lienActivation: charge.lien_activation ?? null,
+    emailEnvoye: charge.email_envoye ?? false,
   };
 }

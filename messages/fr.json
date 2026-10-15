@@ -1315,6 +1315,7 @@
     "actionReactiver": "Réactiver {nom}",
     "actionSupprimer": "Supprimer {nom}",
     "actionSuspendre": "Suspendre {nom}",
+    "actionRenvoyer": "Renvoyer l’invitation à {nom}",
     "colonneActions": "Actions",
     "colonneDate": "Date",
     "colonneNom": "Collaborateur",
@@ -1389,6 +1390,17 @@
         "confirmer": "Supprimer définitivement",
         "enCours": "Suppression…",
         "succes": "{nom} a été supprimé."
+      },
+      "renvoi": {
+        "titre": "Renvoyer l’invitation à {nom} ?",
+        "description": "Un nouveau lien d’activation, valable 72 heures, lui sera envoyé par courriel. L’ancien lien cessera de fonctionner.",
+        "confirmer": "Renvoyer",
+        "enCours": "Envoi…",
+        "succes": "Une nouvelle invitation a été envoyée à {nom}.",
+        "sansCourriel": "Le lien a été renouvelé, mais le courriel n’est pas parti. Copiez le lien pour le transmettre à {nom}.",
+        "copierLien": "Copier le lien",
+        "lienCopie": "Lien copié.",
+        "copieImpossible": "Le navigateur a refusé la copie."
       }
     },
     "fiche": {
@@ -1399,6 +1411,7 @@
       "introuvableAide": "Ce compte n’existe pas ou a été supprimé.",
       "suspendre": "Suspendre",
       "reactiver": "Réactiver",
+      "renvoyerInvitation": "Renvoyer l’invitation",
       "supprimer": "Supprimer",
       "proprietaire": "Propriétaire du compte",
       "sectionInfos": "Informations personnelles",

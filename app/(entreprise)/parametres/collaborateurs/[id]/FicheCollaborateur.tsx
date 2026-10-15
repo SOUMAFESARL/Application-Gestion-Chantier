@@ -11,6 +11,7 @@ import {
   FolderKanban,
   Pause,
   Play,
+  Send,
   Trash2,
   UserRound,
 } from "lucide-react";
@@ -38,6 +39,7 @@ import { useGestionCollaborateur } from "@/features/invitations/components/Gesti
 import {
   initiales,
   reactivationPossible,
+  renvoiInvitationPossible,
   suppressionPossible,
   suspensionPossible,
 } from "@/features/invitations/regles";
@@ -132,7 +134,7 @@ export function FicheCollaborateur({
   const colle = useEstColle(entete);
   const hauteurEntete = useHauteur(entete);
 
-  const { suspendre, reactiver, supprimer, modaux } = useGestionCollaborateur({
+  const { suspendre, reactiver, supprimer, renvoyer, modaux } = useGestionCollaborateur({
     onSupprime: () => router.replace("/parametres/collaborateurs"),
   });
 
@@ -239,6 +241,16 @@ export function FicheCollaborateur({
                   onClick={() => reactiver(collaborateur)}
                 >
                   {t("fiche.reactiver")}
+                </Bouton>
+              )}
+              {renvoiInvitationPossible(collaborateur, moiId) && (
+                <Bouton
+                  variante="secondaire"
+                  taille="sm"
+                  iconeGauche={<Send size={16} aria-hidden="true" />}
+                  onClick={() => renvoyer(collaborateur)}
+                >
+                  {t("fiche.renvoyerInvitation")}
                 </Bouton>
               )}
               {suppressionPossible(collaborateur, moiId) && (

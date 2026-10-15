@@ -46,11 +46,19 @@ function compteGerable(collaborateur: Collaborateur, moiId: string | null): bool
 }
 
 /**
- * La suspension ne vise qu'un compte actif. Une invitation en attente ne se
- * suspend pas : elle se supprime, ce qui invalide son lien d'activation.
+ * La suspension ne vise qu'un compte actif. Une invitation en attente ne
+ * se suspend pas : elle se renvoie, ou se supprime.
  */
 export function suspensionPossible(collaborateur: Collaborateur, moiId: string | null): boolean {
   return collaborateur.statut === "ACTIF" && compteGerable(collaborateur, moiId);
+}
+
+/**
+ * Une invitation se renvoie tant que le compte n'est pas activé. Mêmes limites que les autres
+ * gestes (`compteGerable`) : ni le propriétaire, ni soi-même.
+ */
+export function renvoiInvitationPossible(collaborateur: Collaborateur, moiId: string | null): boolean {
+  return collaborateur.statut === "INVITE" && compteGerable(collaborateur, moiId);
 }
 
 export function reactivationPossible(collaborateur: Collaborateur, moiId: string | null): boolean {
