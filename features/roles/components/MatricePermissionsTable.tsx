@@ -4,7 +4,7 @@ import { Pencil, Trash } from "@phosphor-icons/react/dist/ssr";
 import { useTranslations } from "next-intl";
 import { Badge, Bouton } from "@/components/ui";
 import { MODULES_CCD } from "../types";
-import type { AccesModule, ProjetRoleMatrice, RoleItem } from "../types";
+import type { AccesModule, RoleItem } from "../types";
 import { SelecteurAcces } from "./SelecteurAcces";
 
 interface Props {
@@ -12,8 +12,6 @@ interface Props {
   onEditerRole?: (role: RoleItem) => void;
   onSupprimerRole?: (role: RoleItem) => void;
   onChangeAcces?: (roleId: string, module: string, acces: AccesModule[]) => void;
-  estProjet?: boolean;
-  matriceProjet?: ProjetRoleMatrice[];
 }
 
 export function MatricePermissionsTable({
@@ -21,8 +19,6 @@ export function MatricePermissionsTable({
   onEditerRole,
   onSupprimerRole,
   onChangeAcces,
-  estProjet = false,
-  matriceProjet,
 }: Props) {
   const t = useTranslations("roles");
 
@@ -37,97 +33,84 @@ export function MatricePermissionsTable({
                 {t(`modules.${code}.nom`)}
               </th>
             ))}
-            {!estProjet && <th className="px-2 py-3 text-center font-semibold whitespace-nowrap text-neutral-700 bg-neutral-50 border-b-2 border-neutral-200 min-w-[100px] pr-3 text-right">{t("actions")}</th>}
+            <th className="px-2 py-3 text-center font-semibold whitespace-nowrap text-neutral-700 bg-neutral-50 border-b-2 border-neutral-200 min-w-[100px] pr-3 text-right">{t("actions")}</th>
           </tr>
         </thead>
         <tbody>
-          {roles.map((role) => {
-            const roleProjetInfo = matriceProjet?.find((m) => m.role_id === role.id);
-
-            return (
-              <tr key={role.id} className="group border-b border-neutral-200 transition-colors hover:bg-neutral-50">
-                <td className="sticky left-0 z-1 bg-neutral-0 px-2 py-3 shadow-[1px_0_0_var(--color-neutral-200)] group-hover:bg-neutral-50">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
-                      <span>{role.libelle}</span>
-                      {role.est_systeme ? (
-                        <Badge variante="neutre">{t("systeme")}</Badge>
-                      ) : (
-                        <Badge variante="secondaire">{t("personnalise")}</Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-neutral-500">
-                      <span>{role.code}</span>
-                      <span>•</span>
-                      <span>{t("utilisateursCount", { n: role.nb_utilisateurs })}</span>
-                    </div>
+          {roles.map((role) => (
+            <tr key={role.id} className="group border-b border-neutral-200 transition-colors hover:bg-neutral-50">
+              <td className="sticky left-0 z-1 bg-neutral-0 px-2 py-3 shadow-[1px_0_0_var(--color-neutral-200)] group-hover:bg-neutral-50">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+                    <span>{role.libelle}</span>
+                    {role.est_systeme ? (
+                      <Badge variante="neutre">{t("systeme")}</Badge>
+                    ) : (
+                      <Badge variante="secondaire">{t("personnalise")}</Badge>
+                    )}
                   </div>
-                </td>
+                  <div className="flex items-center gap-2 text-xs text-neutral-500">
+                    <span>{role.code}</span>
+                    <span>•</span>
+                    <span>{t("utilisateursCount", { n: role.nb_utilisateurs })}</span>
+                  </div>
+                </div>
+              </td>
 
-                {MODULES_CCD.map((code) => {
-                  let acces: AccesModule[] = role.permissions_modules?.[code] ?? [];
-                  let estSurcharge = false;
+              {MODULES_CCD.map((code) => {
+                const acces: AccesModule[] = role.permissions_modules?.[code] ?? [];
 
-                  if (estProjet && roleProjetInfo?.modules[code]) {
-                    acces = roleProjetInfo.modules[code].acces;
-                    estSurcharge = roleProjetInfo.modules[code].est_surcharge;
-                  }
-
-                  return (
-                    <td key={code} className="p-2 text-center">
-                      <SelecteurAcces
-                        valeur={acces}
-                        estSurcharge={estSurcharge}
-                        onChange={onChangeAcces && ((nouveaux) => onChangeAcces(role.id, code, nouveaux))}
-                        libelleAria={`${role.libelle} — ${t(`modules.${code}.nom`)}`}
-                      />
-                    </td>
-                  );
-                })}
-
-                {!estProjet && (
-                  <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-1">
-                      {onEditerRole && (
-                        <Bouton
-                          variante="secondaire"
-                          taille="sm"
-                          iconeGauche={<Pencil size={14} />}
-                          disabled={role.est_systeme}
-                          onClick={() => onEditerRole(role)}
-                          aria-label={`${t("editer")} ${role.libelle}`}
-                          title={
-                            role.est_systeme
-                              ? t("systeme")
-                              : `${t("editer")} ${role.libelle}`
-                          }
-                        >
-                          {t("editer")}
-                        </Bouton>
-                      )}
-                      {onSupprimerRole && (
-                        <Bouton
-                          variante="danger"
-                          taille="sm"
-                          iconeGauche={<Trash size={14} />}
-                          disabled={role.est_systeme}
-                          onClick={() => onSupprimerRole(role)}
-                          aria-label={`${t("supprimer")} ${role.libelle}`}
-                          title={
-                            role.est_systeme
-                              ? t("systeme")
-                              : `${t("supprimer")} ${role.libelle}`
-                          }
-                        >
-                          {t("supprimer")}
-                        </Bouton>
-                      )}
-                    </div>
+                return (
+                  <td key={code} className="p-2 text-center">
+                    <SelecteurAcces
+                      valeur={acces}
+                      onChange={onChangeAcces && ((nouveaux) => onChangeAcces(role.id, code, nouveaux))}
+                      libelleAria={`${role.libelle} — ${t(`modules.${code}.nom`)}`}
+                    />
                   </td>
-                )}
-              </tr>
-            );
-          })}
+                );
+              })}
+
+              <td className="px-3 py-2 text-right whitespace-nowrap">
+                <div className="flex items-center justify-end gap-1">
+                  {onEditerRole && (
+                    <Bouton
+                      variante="secondaire"
+                      taille="sm"
+                      iconeGauche={<Pencil size={14} />}
+                      disabled={role.est_systeme}
+                      onClick={() => onEditerRole(role)}
+                      aria-label={`${t("editer")} ${role.libelle}`}
+                      title={
+                        role.est_systeme
+                          ? t("systeme")
+                          : `${t("editer")} ${role.libelle}`
+                      }
+                    >
+                      {t("editer")}
+                    </Bouton>
+                  )}
+                  {onSupprimerRole && (
+                    <Bouton
+                      variante="danger"
+                      taille="sm"
+                      iconeGauche={<Trash size={14} />}
+                      disabled={role.est_systeme}
+                      onClick={() => onSupprimerRole(role)}
+                      aria-label={`${t("supprimer")} ${role.libelle}`}
+                      title={
+                        role.est_systeme
+                          ? t("systeme")
+                          : `${t("supprimer")} ${role.libelle}`
+                      }
+                    >
+                      {t("supprimer")}
+                    </Bouton>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

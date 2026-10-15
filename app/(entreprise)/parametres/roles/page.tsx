@@ -20,6 +20,7 @@ import {
 import type { AccesModule, CreationRolePayload, ModificationRolePayload, RoleItem } from "@/features/roles";
 import { obtenirProfilMoi } from "@/features/auth/api";
 import type { ProfilUtilisateur } from "@/features/auth/api";
+import { ErreurApi } from "@/lib/api";
 
 export default function ParametresRolesPage() {
   const t = useTranslations("roles");
@@ -79,7 +80,7 @@ export default function ParametresRolesPage() {
       toast.success(t("succesCreation", { role: payload.libelle }));
       await chargerDonnees();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "");
+      toast.error(err instanceof ErreurApi && err.message ? err.message : t("erreurAction"));
     } finally {
       setActionEnCours(false);
     }
@@ -102,7 +103,7 @@ export default function ParametresRolesPage() {
       await modifierRole(roleId, { permissions_modules: permissions });
     } catch (err: unknown) {
       await chargerDonnees();
-      alert(err instanceof Error ? err.message : "");
+      toast.error(err instanceof ErreurApi && err.message ? err.message : t("erreurAction"));
     }
   }
 
@@ -117,7 +118,7 @@ export default function ParametresRolesPage() {
       toast.success(t("succesModification", { role: payload.libelle }));
       await chargerDonnees();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "");
+      toast.error(err instanceof ErreurApi && err.message ? err.message : t("erreurAction"));
     } finally {
       setActionEnCours(false);
     }
@@ -146,7 +147,7 @@ export default function ParametresRolesPage() {
       );
       await chargerDonnees();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "");
+      toast.error(err instanceof ErreurApi && err.message ? err.message : t("erreurAction"));
     } finally {
       setActionEnCours(false);
     }

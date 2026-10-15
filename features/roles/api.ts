@@ -2,16 +2,12 @@
  * API pour la gestion dynamique des rôles et des habilitations par module.
  */
 
-import { api, appeler } from "@/lib/api";
-import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
-import { accesNormalises, permissionsNormalisees } from "./regles";
-import { simulationRoles } from "./simulationRoles";
+import { api } from "@/lib/api";
+import { permissionsNormalisees } from "./regles";
 import type {
   AccesModule,
   NiveauAcces,
   PermissionsModules,
-  ProjetRoleMatrice,
-  RoleDetailItem,
   RoleItem,
 } from "./types";
 
@@ -44,31 +40,8 @@ type ChargeRole<T extends RoleItem> = Omit<T, "permissions_modules"> & {
   permissions_modules?: Record<string, ChargeAcces> | null;
 };
 
-interface ChargeProjetRoleMatrice extends Omit<ProjetRoleMatrice, "modules"> {
-  modules: Record<string, { niveau?: NiveauAcces; acces?: AccesModule[]; est_surcharge: boolean }>;
-}
-
 function versRole<T extends RoleItem>(charge: ChargeRole<T>): T {
   return { ...charge, permissions_modules: permissionsNormalisees(charge.permissions_modules) } as T;
-}
-
-function versMatriceProjet(charge: ChargeProjetRoleMatrice[]): ProjetRoleMatrice[] {
-  return charge.map((role) => ({
-    ...role,
-    modules: Object.fromEntries(
-      Object.entries(role.modules).map(([code, m]) => [
-        code,
-        { acces: accesNormalises(m.acces ?? m.niveau), est_surcharge: m.est_surcharge },
-      ]),
-    ),
-  }));
-}
-
-/** `acces: null` retire la surcharge : le module revient aux droits du rôle. */
-export interface SurchargeAccesProjet {
-  role_id: string;
-  module: string;
-  acces: AccesModule[] | null;
 }
 
 export interface SuppressionRolePayload {
@@ -92,11 +65,6 @@ export interface ResultatSuppressionRole {
 export async function listerRoles(): Promise<RoleItem[]> {
   const charge = await api.lire<ChargeRole<RoleItem>[]>("/parametres/roles/");
   return charge.map(versRole);
-}
-
-export async function obtenirRole(roleId: string): Promise<RoleDetailItem> {
-  if (SIMULATION_ACTIVE) return simulationRoles.obtenir(roleId);
-  return versRole(await api.lire<ChargeRole<RoleDetailItem>>(`/roles/${roleId}/`));
 }
 
 /**
@@ -125,25 +93,5 @@ export async function supprimerRole(
   roleId: string,
   payload: SuppressionRolePayload,
 ): Promise<ResultatSuppressionRole> {
-  if (SIMULATION_ACTIVE) return simulationRoles.supprimer(roleId, payload);
   return api.creer<ResultatSuppressionRole>(`/roles/${roleId}/supprimer/`, payload);
-}
-
-export async function obtenirMatriceProjet(projetId: string): Promise<ProjetRoleMatrice[]> {
-  if (SIMULATION_ACTIVE) return simulationRoles.obtenirMatriceProjet(projetId);
-  return versMatriceProjet(
-    await api.lire<ChargeProjetRoleMatrice[]>(`/projets/${projetId}/permissions-roles/`),
-  );
-}
-
-export async function sauvegarderMatriceProjet(
-  projetId: string,
-  surcharges: SurchargeAccesProjet[],
-): Promise<ProjetRoleMatrice[]> {
-  if (SIMULATION_ACTIVE) return simulationRoles.sauvegarderMatriceProjet(projetId, surcharges);
-  const charge = await appeler<ChargeProjetRoleMatrice[]>(`/projets/${projetId}/permissions-roles/`, {
-    methode: "PUT",
-    corps: { surcharges },
-  });
-  return versMatriceProjet(charge);
 }

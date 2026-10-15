@@ -66,11 +66,3 @@ export interface RoleDetailItem extends RoleItem {
     total: number;
   };
 }
-
-export interface ProjetRoleMatrice {
-  role_id: string;
-  code: string;
-  libelle: string;
-  est_systeme: boolean;
-  modules: Record<string, { acces: AccesModule[]; est_surcharge: boolean }>;
-}
