@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -189,7 +190,7 @@ export function TiroirCreationProjet({
       if (projet) {
         const projetModifie = await modifierProjet(
           projet.id,
-          versModificationProjet(saisie),
+          versModificationProjet(saisie, projet.peutRenommer),
         );
         onProjetModifie?.(projetModifie);
         toast.success(t("succesModification", { nom: projetModifie.nom }));
@@ -247,9 +248,14 @@ export function TiroirCreationProjet({
                         className={CHAMP}
                         maxLength={LONGUEUR_MAX_NOM}
                         placeholder={t("champNomPlaceholder")}
-                        disabled={enCours}
+                        disabled={enCours || (Boolean(projet) && !projet?.peutRenommer)}
                       />
                     </FormControl>
+                    {Boolean(projet) && !projet?.peutRenommer && (
+                      <FormDescription>
+                        {t("nomReserve")}
+                      </FormDescription>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

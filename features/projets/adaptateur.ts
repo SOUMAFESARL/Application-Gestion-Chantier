@@ -112,6 +112,7 @@ interface ChargeProjet {
   id: string;
   reference: string;
   nom: string;
+  peut_renommer?: boolean;
   description?: string;
   type_projet?: TypeProjet | null;
   /** Le maître d'ouvrage, en clair — la forme de la route livrée. */
@@ -320,6 +321,7 @@ export function versProjet(charge: ChargeProjet): Projet {
     id: charge.id,
     reference: charge.reference,
     nom: charge.nom,
+    peutRenommer: charge.peut_renommer ?? false,
     description: charge.description ?? "",
     typeProjet: charge.type_projet ?? null,
     client: versClient(charge),
@@ -405,8 +407,7 @@ function versChargeCreation(creation: CreationProjet): ChargeCreationProjet {
 
 /** La charge de `PATCH /projets/{id}/` — l'identification, sans la référence. */
 function versChargeModification(modification: ModificationProjet) {
-  return {
-    nom: modification.nom,
+  const charge: Record<string, unknown> = {
     type_projet: modification.typeProjet,
     ville: modification.ville,
     maitre_ouvrage: modification.maitreOuvrage,
@@ -414,6 +415,10 @@ function versChargeModification(modification: ModificationProjet) {
     date_debut_prevue: modification.dateDebutPrevue,
     date_fin_prevue: modification.dateFinPrevue,
   };
+  if (modification.nom !== undefined) {
+    charge.nom = modification.nom;
+  }
+  return charge;
 }
 
 /* ------------------------------------------------------------------ *

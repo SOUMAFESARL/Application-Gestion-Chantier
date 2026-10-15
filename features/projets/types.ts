@@ -62,6 +62,8 @@ export interface Projet {
   id: string;
   reference: string;
   nom: string;
+  /** Le droit de modifier le nom : réservé au DG et à l'administrateur (US 3.2). */
+  peutRenommer: boolean;
   description: string;
   /** `null` pour un projet ouvert avant que le type ne soit demandé. */
   typeProjet: TypeProjet | null;
@@ -253,7 +255,8 @@ export interface CreationProjet {
  * budget, les lots et l'équipe, qu'elle ne renvoie pas, restent inchangés.
  */
 export interface ModificationProjet {
-  nom: string;
+  /** Absent si l'utilisateur n'a pas le droit de renommer le projet (DG / AD uniquement, US 3.2). */
+  nom?: string;
   typeProjet: TypeProjet;
   ville: string;
   maitreOuvrage: string;
