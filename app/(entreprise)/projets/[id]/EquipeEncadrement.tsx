@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { initiales, lienWhatsApp } from "@/features/projets/regles";
+import { initiales, lienWhatsApp, peutRetirerDuProjet } from "@/features/projets/regles";
 import type { FonctionProjet, Intervenant, Projet } from "@/features/projets/types";
 import { afficherTelephone } from "@/features/referentiels/telephone";
 import { ABSENT } from "@/lib/format";
@@ -17,12 +17,13 @@ import { BLOC } from "../classes";
 
 interface Props {
   projet: Projet;
+  profil: { id: string; estDg: boolean; estAdministrateur: boolean } | null;
   /** Désigner ou remplacer le chef de projet — la direction. */
   peutDesigner: boolean;
   /** Ajouter et retirer les autres membres — la direction et le chef de projet. */
   peutGerer: boolean;
   onAjouter: (fonction: FonctionProjet, fonctionsAutorisees: FonctionProjet[]) => void;
-  onRetirer: (fonction: FonctionProjet, intervenant: Intervenant) => void;
+  onRetirer: (fonction: FonctionProjet, intervenant: Intervenant, affectationId: string) => void;
 }
 
 /** Les places que le compte peut pourvoir, dans l'ordre de la section. */
@@ -40,7 +41,14 @@ function fonctionsAutorisees(peutDesigner: boolean, peutGerer: boolean): Fonctio
  * budget. La désignation passe par « Ajouter un membre », qui propose le
  * chef de projet par défaut tant qu'il manque.
  */
-export function EquipeEncadrement({ projet, peutDesigner, peutGerer, onAjouter, onRetirer }: Props) {
+export function EquipeEncadrement({
+  projet,
+  profil,
+  peutDesigner,
+  peutGerer,
+  onAjouter,
+  onRetirer,
+}: Props) {
   const t = useTranslations("projets.encadrement");
   const autorisees = fonctionsAutorisees(peutDesigner, peutGerer);
   const chef = projet.chefProjet;
@@ -72,16 +80,29 @@ export function EquipeEncadrement({ projet, peutDesigner, peutGerer, onAjouter, 
           <div className="flex flex-col gap-3 rounded-lg border border-solid border-primary-200 bg-primary-50 p-4">
             <div className="flex items-start justify-between gap-2">
               <Personne intervenant={chef} principal />
-              {peutDesigner && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onAjouter("CHEF_PROJET", autorisees)}
-                >
-                  {t("changerChefProjet")}
-                </Button>
-              )}
+              <div className="flex items-center gap-1">
+                {peutDesigner && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onAjouter("CHEF_PROJET", autorisees)}
+                  >
+                    {t("changerChefProjet")}
+                  </Button>
+                )}
+                {profil && peutRetirerDuProjet(profil, projet, chef.id) && chef.affectationId && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-neutral-500 hover:text-erreur"
+                    onClick={() => onRetirer("CHEF_PROJET", chef, chef.affectationId ?? "")}
+                  >
+                    {t("retirerBouton")}
+                  </Button>
+                )}
+              </div>
             </div>
             <Coordonnees intervenant={chef} />
           </div>
@@ -98,7 +119,11 @@ export function EquipeEncadrement({ projet, peutDesigner, peutGerer, onAjouter, 
             <Ligne
               key={conducteur.id}
               intervenant={conducteur}
-              onRetirer={peutGerer ? () => onRetirer("CONDUCTEUR_TRAVAUX", conducteur) : undefined}
+              onRetirer={
+                profil && peutRetirerDuProjet(profil, projet, conducteur.id) && conducteur.affectationId
+                  ? () => onRetirer("CONDUCTEUR_TRAVAUX", conducteur, conducteur.affectationId ?? "")
+                  : undefined
+              }
             />
           ))}
         </Liste>
@@ -108,14 +133,21 @@ export function EquipeEncadrement({ projet, peutDesigner, peutGerer, onAjouter, 
 
       <Groupe titre={t("fonction.CHEF_CHANTIER")}>
         <Liste vide={projet.chefsChantier.length === 0}>
-          {projet.chefsChantier.map(({ intervenant, zone }) => (
-            <Ligne
-              key={intervenant.id}
-              intervenant={intervenant}
-              precision={zone ?? t("toutLeChantier")}
-              onRetirer={peutGerer ? () => onRetirer("CHEF_CHANTIER", intervenant) : undefined}
-            />
-          ))}
+          {projet.chefsChantier.map(({ intervenant, zone, affectationId }) => {
+            const affId = affectationId ?? intervenant.affectationId;
+            return (
+              <Ligne
+                key={intervenant.id}
+                intervenant={intervenant}
+                precision={zone ?? t("toutLeChantier")}
+                onRetirer={
+                  profil && peutRetirerDuProjet(profil, projet, intervenant.id) && affId
+                    ? () => onRetirer("CHEF_CHANTIER", intervenant, affId)
+                    : undefined
+                }
+              />
+            );
+          })}
         </Liste>
       </Groupe>
 
@@ -123,14 +155,21 @@ export function EquipeEncadrement({ projet, peutDesigner, peutGerer, onAjouter, 
 
       <Groupe titre={t("fonction.AUTRE_MEMBRE")}>
         <Liste vide={projet.autresMembres.length === 0}>
-          {projet.autresMembres.map(({ intervenant, fonction }) => (
-            <Ligne
-              key={intervenant.id}
-              intervenant={intervenant}
-              precision={t(`fonctionAutreMembre.${fonction}`)}
-              onRetirer={peutGerer ? () => onRetirer("AUTRE_MEMBRE", intervenant) : undefined}
-            />
-          ))}
+          {projet.autresMembres.map(({ intervenant, fonction, affectationId }) => {
+            const affId = affectationId ?? intervenant.affectationId;
+            return (
+              <Ligne
+                key={intervenant.id}
+                intervenant={intervenant}
+                precision={t(`fonctionAutreMembre.${fonction}`)}
+                onRetirer={
+                  profil && peutRetirerDuProjet(profil, projet, intervenant.id) && affId
+                    ? () => onRetirer("AUTRE_MEMBRE", intervenant, affId)
+                    : undefined
+                }
+              />
+            );
+          })}
         </Liste>
       </Groupe>
     </section>

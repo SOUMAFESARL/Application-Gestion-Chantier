@@ -36,14 +36,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CLE_COLLABORATEURS, listerCollaborateurs } from "@/features/invitations/adaptateur";
-import { ajouterMembreEncadrement } from "@/features/projets/adaptateur";
-import {
-  FONCTIONS_AUTRE_MEMBRE,
-  candidatsEncadrement,
-  intervenantDuCollaborateur,
-} from "@/features/projets/regles";
-import type { FonctionProjet, Projet } from "@/features/projets/types";
+import { ajouterMembreEncadrement, listerAffectables } from "@/features/projets/adaptateur";
+import { FONCTIONS_AUTRE_MEMBRE } from "@/features/projets/regles";
+import type { FonctionProjet, Intervenant, Projet } from "@/features/projets/types";
 import {
   LONGUEUR_MAX_ZONE,
   saisieEncadrementVide,
@@ -71,9 +66,8 @@ interface Props {
 
 /**
  * L'arrivée d'une personne dans l'équipe d'encadrement et de gestion d'un
- * projet : sa place, puis la personne, **parmi les utilisateurs du compte** —
- * l'encadrement se connecte, il n'y a pas de saisie libre ici comme dans les
- * équipes de terrain.
+ * projet : sa place, puis la personne, **parmi les collaborateurs affectables**
+ * — l'encadrement se connecte, il n'y a pas de saisie libre ici.
  *
  * Un chef de chantier peut préciser sa zone ou son lot ; un autre membre doit
  * dire sa fonction. Désigner un chef de projet remplace celui en place, et la
@@ -103,15 +97,26 @@ export function ModaleAjoutEncadrement({
   const fonction = useWatch({ control: form.control, name: "fonction" }) as FonctionProjet;
   const designationChef = fonction === "CHEF_PROJET";
 
-  const requeteUtilisateurs = useQuery({
-    queryKey: CLE_COLLABORATEURS,
-    queryFn: listerCollaborateurs,
+  const requeteAffectables = useQuery({
+    queryKey: ["projets", projet.id, "affectables"],
+    queryFn: ({ signal }) => listerAffectables(projet.id, signal),
     enabled: ouverte,
   });
-  const candidats = candidatsEncadrement(requeteUtilisateurs.data ?? [], projet, fonction);
+
+  const idsEnPlace = new Set([
+    ...(projet.chefProjet ? [projet.chefProjet.id] : []),
+    ...projet.conducteursTravaux.map((c) => c.id),
+    ...projet.chefsChantier.map((c) => c.intervenant.id),
+    ...projet.autresMembres.map((m) => m.intervenant.id),
+  ]);
+
+  const candidats = (requeteAffectables.data ?? []).filter(
+    (candidat) => !idsEnPlace.has(candidat.id) && candidat.role !== "DG",
+  );
+
   const options = candidats.map((candidat) => ({
     valeur: candidat.id,
-    libelle: candidat.nomComplet || candidat.email,
+    libelle: candidat.nom,
   }));
 
   function changerFonction(nouvelle: string) {
@@ -125,7 +130,16 @@ export function ModaleAjoutEncadrement({
     setErreur(null);
     const choisi = candidats.find((candidat) => candidat.id === valeurs.utilisateurId);
     if (!choisi) return;
-    const intervenant = intervenantDuCollaborateur(choisi);
+    const intervenant: Intervenant = {
+      id: choisi.id,
+      nom: "",
+      prenom: "",
+      nomComplet: choisi.nom,
+      email: "",
+      telephone: "",
+      statut: "ACTIF",
+      lienWhatsApp: null,
+    };
     try {
       onModifie(await ajouterMembreEncadrement(projet.id, versAjoutEncadrement(valeurs, intervenant)));
       toast.success(
@@ -198,7 +212,7 @@ export function ModaleAjoutEncadrement({
               </Alert>
             )}
 
-            {requeteUtilisateurs.isError && (
+            {requeteAffectables.isError && (
               <Alert variant="erreur">
                 <CircleX />
                 <AlertDescription>{t("ajout.erreurUtilisateurs")}</AlertDescription>
@@ -219,13 +233,13 @@ export function ModaleAjoutEncadrement({
                       onChange={field.onChange}
                       onBlur={field.onBlur}
                       placeholder={
-                        requeteUtilisateurs.isPending
+                        requeteAffectables.isPending
                           ? t("ajout.chargementUtilisateurs")
                           : t("ajout.utilisateurPlaceholder")
                       }
                       placeholderRecherche={t("ajout.utilisateurRecherche")}
                       aucunResultat={t("ajout.utilisateurAucun")}
-                      disabled={enCours || requeteUtilisateurs.isPending}
+                      disabled={enCours || requeteAffectables.isPending}
                     />
                   </FormControl>
                   <FormMessage />
