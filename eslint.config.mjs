@@ -330,9 +330,6 @@ const eslintConfig = defineConfig([
       // Le stock de chantier rejoué (F9) : le référentiel de démonstration,
       // des noms de fournisseurs et les messages de refus du serveur.
       "features/stocks/simulationStock.ts",
-      // La matrice de rôles de démonstration, en attendant « GET /roles/ » :
-      // des libellés et descriptions de rôles, et les messages du serveur.
-      "features/roles/simulationRoles.ts",
       // `[id]` ne s'écrit pas tel quel : pour le filtre de fichiers, les
       // crochets d'une route dynamique sont une classe de caractères — ils y
       // désignent « i ou d ». Un seul niveau de segment suffit à la désigner.

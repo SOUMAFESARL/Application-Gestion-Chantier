@@ -37,9 +37,6 @@ const TONS: Record<0 | 1 | 2 | 3, string> = {
   3: "border-succes/30 bg-succes-fond text-succes",
 };
 
-/** Une permission redéfinie au niveau du chantier porte un filet à gauche. */
-const SURCHARGE = "border-l-[3px] border-l-primary-500 font-bold";
-
 interface Props {
   valeur: AccesModule[];
   onChange?: (acces: AccesModule[]) => void;
@@ -48,7 +45,6 @@ interface Props {
    * `champ` : champ de formulaire pleine largeur, accès en toutes lettres.
    */
   variante?: "pastille" | "champ";
-  estSurcharge?: boolean;
   libelleAria?: string;
   disabled?: boolean;
   /**
@@ -67,7 +63,6 @@ export function SelecteurAcces({
   valeur,
   onChange,
   variante = "pastille",
-  estSurcharge = false,
   libelleAria,
   disabled = false,
   classeListe,
@@ -82,8 +77,8 @@ export function SelecteurAcces({
   const abrege =
     valeur.length === 0 ? t("acces.court.aucun") : valeur.map((a) => t(`acces.court.${a}`)).join(" · ");
 
-  const pastille = cn(PASTILLE, TONS[rangAccesMax(valeur)], estSurcharge && SURCHARGE);
-  const titre = estSurcharge ? `${complet} — ${t("surchargeChantier")}` : complet;
+  const pastille = cn(PASTILLE, TONS[rangAccesMax(valeur)]);
+  const titre = complet;
 
   if (!onChange) {
     return (
