@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, CheckCircle2, Clock, Eye, LoaderCircle, Pause, Play, Trash2, UserPlus } from "lucide-react";
+import { Ban, CheckCircle2, Clock, Eye, LoaderCircle, Pause, Play, Send, Trash2, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -54,6 +54,7 @@ import {
   filtrerCollaborateurs,
   initiales,
   reactivationPossible,
+  renvoiInvitationPossible,
   suppressionPossible,
   suspensionPossible,
   type FiltreCollaborateurs,
@@ -101,7 +102,7 @@ export default function PageCollaborateurs() {
   // Vide tant que le serveur ne l'a pas dit : l'indicatif proposé en dépend.
   const [pays, setPays] = useState("");
 
-  const { suspendre, reactiver, supprimer, modaux } = useGestionCollaborateur();
+  const { suspendre, reactiver, supprimer, renvoyer, modaux } = useGestionCollaborateur();
   const moiId = moi?.id ?? null;
 
   const requete = useQuery({
@@ -286,6 +287,17 @@ export default function PageCollaborateurs() {
                   <Play />
                 </Button>
               )}
+              {renvoiInvitationPossible(c, moiId) && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => renvoyer(c)}
+                  aria-label={t("actionRenvoyer", { nom })}
+                  title={t("actionRenvoyer", { nom })}
+                >
+                  <Send />
+                </Button>
+              )}
               {suppressionPossible(c, moiId) && (
                 <Button
                   variant="ghost"
@@ -303,7 +315,7 @@ export default function PageCollaborateurs() {
         },
       }),
     ]);
-  }, [t, moiId, suspendre, reactiver, supprimer]);
+  }, [t, moiId, suspendre, reactiver, supprimer, renvoyer]);
 
   if (requete.isPending) {
     return (

@@ -10,17 +10,19 @@ import {
   CLE_COLLABORATEURS,
   cleCollaborateur,
   reactiverCollaborateur,
+  renvoyerInvitation,
   supprimerCollaborateur,
   suspendreCollaborateur,
 } from "@/features/invitations/adaptateur";
-import type { Collaborateur } from "@/features/invitations/types";
+import type { Collaborateur, InvitationRenvoyee } from "@/features/invitations/types";
 import { ErreurApi } from "@/lib/api";
 
-type Geste = "suspension" | "reactivation" | "suppression";
+type Geste = "suspension" | "reactivation" | "suppression" | "renvoi";
 
 /**
- * Les trois gestes qu'on fait sur un collaborateur — le suspendre, le
- * réactiver, le supprimer — pour la liste comme pour sa fiche.
+ * Les gestes qu'on fait sur un collaborateur — le suspendre, le
+ * réactiver, le supprimer, ou renvoyer son invitation — pour la liste
+ * comme pour sa fiche.
  *
  * Même raison d'être que `useGestionProjet` : les deux écrans doivent laisser
  * **le même cache** dans le même état après coup. Chaque geste passe par une
@@ -43,6 +45,7 @@ export function useGestionCollaborateur({ onSupprime }: { onSupprime?: () => voi
   const suspendre = useCallback((c: Collaborateur) => ouvrir("suspension", c), [ouvrir]);
   const reactiver = useCallback((c: Collaborateur) => ouvrir("reactivation", c), [ouvrir]);
   const supprimer = useCallback((c: Collaborateur) => ouvrir("suppression", c), [ouvrir]);
+  const renvoyer = useCallback((c: Collaborateur) => ouvrir("renvoi", c), [ouvrir]);
 
   /** Le compte modifié est posé dans la liste et dans sa fiche. */
   function actualiser(collaborateur: Collaborateur) {
@@ -53,26 +56,63 @@ export function useGestionCollaborateur({ onSupprime }: { onSupprime?: () => voi
   }
 
   const mutation = useMutation({
-    mutationFn: async ({ geste, collaborateur }: NonNullable<typeof cible>) => {
+    mutationFn: async ({
+      geste,
+      collaborateur,
+    }: NonNullable<typeof cible>): Promise<{
+      collaborateur: Collaborateur | null;
+      renvoi?: InvitationRenvoyee;
+    }> => {
       if (geste === "suppression") {
         await supprimerCollaborateur(collaborateur.id);
-        return null;
+        return { collaborateur: null };
       }
-      return geste === "suspension"
-        ? suspendreCollaborateur(collaborateur.id)
-        : reactiverCollaborateur(collaborateur.id);
+      if (geste === "renvoi") {
+        const renvoi = await renvoyerInvitation(collaborateur.id);
+        return { collaborateur: renvoi.collaborateur, renvoi };
+      }
+      const resultat =
+        geste === "suspension"
+          ? await suspendreCollaborateur(collaborateur.id)
+          : await reactiverCollaborateur(collaborateur.id);
+      return { collaborateur: resultat };
     },
-    onSuccess: (resultat, { geste, collaborateur }) => {
-      if (resultat) {
-        actualiser(resultat);
-      } else {
+    onSuccess: ({ collaborateur: resultat, renvoi }, { geste, collaborateur }) => {
+      if (geste === "suppression") {
         cache.setQueryData<Collaborateur[]>(CLE_COLLABORATEURS, (liste) =>
           liste?.filter((c) => c.id !== collaborateur.id),
         );
         cache.removeQueries({ queryKey: cleCollaborateur(collaborateur.id), exact: true });
         onSupprime?.();
+        toast.success(t(`${geste}.succes`, { nom: collaborateur.nomComplet }));
+      } else if (geste === "renvoi" && renvoi && resultat) {
+        actualiser(resultat);
+        const actionCopier = renvoi.lienActivation
+          ? {
+              action: {
+                label: t("renvoi.copierLien"),
+                onClick: async () => {
+                  try {
+                    const urlComplete = `${window.location.origin}${renvoi.lienActivation}`;
+                    await navigator.clipboard.writeText(urlComplete);
+                    toast.success(t("renvoi.lienCopie"));
+                  } catch {
+                    toast.error(t("renvoi.copieImpossible"));
+                  }
+                },
+              },
+            }
+          : undefined;
+
+        if (renvoi.emailEnvoye) {
+          toast.success(t("renvoi.succes", { nom: collaborateur.nomComplet }), actionCopier);
+        } else {
+          toast.warning(t("renvoi.sansCourriel", { nom: collaborateur.nomComplet }), actionCopier);
+        }
+      } else if (resultat) {
+        actualiser(resultat);
+        toast.success(t(`${geste}.succes`, { nom: collaborateur.nomComplet }));
       }
-      toast.success(t(`${geste}.succes`, { nom: collaborateur.nomComplet }));
       setCible(null);
     },
     onError: (cause) => {
@@ -100,7 +140,7 @@ export function useGestionCollaborateur({ onSupprime }: { onSupprime?: () => voi
             {t("annuler")}
           </Bouton>
           <Bouton
-            variante={geste === "reactivation" ? "primaire" : "danger"}
+            variante={geste === "reactivation" || geste === "renvoi" ? "primaire" : "danger"}
             enCours={mutation.isPending}
             onClick={() => cible && mutation.mutate(cible)}
           >
@@ -114,5 +154,5 @@ export function useGestionCollaborateur({ onSupprime }: { onSupprime?: () => voi
     </Modale>
   );
 
-  return { suspendre, reactiver, supprimer, modaux };
+  return { suspendre, reactiver, supprimer, renvoyer, modaux };
 }

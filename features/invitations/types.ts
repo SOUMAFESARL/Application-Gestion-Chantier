@@ -46,3 +46,10 @@ export interface CollaborateurAjoute {
   collaborateur: Collaborateur;
   lienActivation: string | null;
 }
+
+/** Le résultat d'un renvoi : le collaborateur, son nouveau lien, et si le courriel est parti. */
+export interface InvitationRenvoyee {
+  collaborateur: Collaborateur;
+  lienActivation: string | null;
+  emailEnvoye: boolean;
+}
