@@ -34,6 +34,7 @@ import { schemaSuspension } from "@/features/administration/validations";
 import type { SaisieSuspension, ValeursSuspension } from "@/features/administration/validations";
 import { ErreurApi } from "@/lib/api";
 import { ABSENT, formaterDate, formaterMontant, nomDePays } from "@/lib/format";
+import { afficherTelephone } from "@/features/referentiels/telephone";
 import { useLibellePlan } from "@/features/plateforme/hooks";
 
 import { useAdministrateur } from "../../ContexteAdministrateur";
@@ -240,10 +241,24 @@ export function FicheClient({ id }: { id: string }) {
           <Ligne libelle={t("fiche.pays")} valeur={nomDePays(client.pays)} />
           <Ligne libelle={t("fiche.ville")} valeur={client.ville || ABSENT} />
           <Ligne libelle={t("fiche.emailContact")} valeur={client.emailContact} />
-          <Ligne
-            libelle={t("fiche.telephoneContact")}
-            valeur={client.telephoneContact || ABSENT}
-          />
+          {client.telephones && client.telephones.length > 0 ? (
+            client.telephones.map((tel, idx) => (
+              <Ligne
+                key={idx}
+                libelle={tel.libelleAffiche}
+                valeur={
+                  tel.principal
+                    ? `${afficherTelephone(tel.numero)} (${t("fiche.principal")})`
+                    : afficherTelephone(tel.numero)
+                }
+              />
+            ))
+          ) : (
+            <Ligne
+              libelle={t("fiche.telephones")}
+              valeur={client.telephoneContact ? afficherTelephone(client.telephoneContact) : ABSENT}
+            />
+          )}
           <Ligne
             libelle={t("fiche.dirigeant")}
             valeur={

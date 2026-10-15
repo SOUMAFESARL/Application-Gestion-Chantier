@@ -36,6 +36,23 @@ function signalerEntrepriseModifiee(): void {
   }
 }
 
+/** Les canaux d'un numéro — `TelephoneEntreprise.Libelle` côté Django. */
+export type LibelleTelephone =
+  | "MOBILE"
+  | "FIXE"
+  | "WHATSAPP"
+  | "STANDARD"
+  | "COMPTABILITE"
+  | "AUTRE";
+
+export interface TelephoneEntreprise {
+  /** `null` pour un numéro pas encore enregistré. */
+  id: string | null;
+  libelle: LibelleTelephone;
+  numero: string;
+  principal: boolean;
+}
+
 export interface DonneesEntreprise {
   raison_sociale: string;
   nom_commercial?: string;
@@ -50,17 +67,13 @@ export interface DonneesEntreprise {
   ville: string;
   rccm: string;
   nif: string;
-  /** Le numéro principal, obligatoire — celui que reprennent les documents. */
-  telephone_contact: string;
   /**
-   * Les numéros secondaires, facultatifs, en nombre libre — même format
-   * international que le principal. **Pas encore servis par Django** : tant
-   * que le serializer ne les déclare pas, ils sont ignorés à l'écriture et
-   * absents à la lecture, d'où le `?`.
+   * Le numéro principal, **en lecture seule** : recopie du principal, renvoyée
+   * par le serveur ; ne plus l'envoyer.
    */
-  telephones_secondaires?: string[];
-  /** Le numéro fixe (ligne du siège), facultatif. Même réserve côté serveur. */
-  telephone_fixe?: string;
+  telephone_contact?: string;
+  /** Liste complète des numéros de contact de l'entreprise (1 à 5). */
+  telephones?: TelephoneEntreprise[];
   email_contact: string;
   /**
    * Les trois variantes du logo, en **URL absolues**, en lecture seule.
@@ -131,13 +144,26 @@ export function enregistrerEntreprise(
   donnees: DonneesEntreprise,
   fichierLogo?: File | null,
 ): Promise<ReponseEntreprise> {
+  const charge: Record<string, unknown> = { ...donnees };
+  // Ne plus envoyer telephone_contact, le serveur le dérive du numéro principal
+  delete charge.telephone_contact;
+
+  if (donnees.telephones) {
+    charge.telephones = donnees.telephones.map((t) => ({
+      id: t.id,
+      libelle: t.libelle,
+      numero: t.numero,
+      principal: t.principal,
+    }));
+  }
+
   if (fichierLogo) {
     const formData = new FormData();
     formData.append("fichier_logo", fichierLogo);
-    for (const [cle, valeur] of Object.entries(donnees)) {
-      // Une liste se poste en clés répétées : `String([...])` la réduirait à
-      // une seule valeur séparée par des virgules.
-      if (Array.isArray(valeur)) {
+    for (const [cle, valeur] of Object.entries(charge)) {
+      if (cle === "telephones" && Array.isArray(valeur)) {
+        formData.append("telephones", JSON.stringify(valeur));
+      } else if (Array.isArray(valeur)) {
         for (const element of valeur) formData.append(cle, String(element));
       } else if (valeur !== undefined && valeur !== null && valeur !== "") {
         formData.append(cle, String(valeur));
@@ -149,7 +175,7 @@ export function enregistrerEntreprise(
     });
   }
 
-  return api.modifier<ReponseEntreprise>("/parametres/configuration/", donnees).then((r) => {
+  return api.modifier<ReponseEntreprise>("/parametres/configuration/", charge).then((r) => {
     signalerEntrepriseModifiee();
     return r;
   });

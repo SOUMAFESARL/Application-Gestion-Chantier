@@ -92,6 +92,13 @@ interface ChargeDirigeantClient {
   email: string;
 }
 
+interface ChargeTelephoneClient {
+  libelle: string;
+  libelle_affiche: string;
+  numero: string;
+  principal: boolean;
+}
+
 interface ChargeClient {
   id: string;
   raison_sociale: string;
@@ -101,6 +108,7 @@ interface ChargeClient {
   ville: string;
   email_contact: string;
   telephone_contact: string;
+  telephones?: ChargeTelephoneClient[];
   statut: StatutClient;
   cree_le: string;
   active_le: string | null;
@@ -361,6 +369,12 @@ function versClient(charge: ChargeClient): ClientPlateforme {
     ville: charge.ville,
     emailContact: charge.email_contact,
     telephoneContact: charge.telephone_contact,
+    telephones: (charge.telephones || []).map((t) => ({
+      libelle: t.libelle,
+      libelleAffiche: t.libelle_affiche,
+      numero: t.numero,
+      principal: Boolean(t.principal),
+    })),
     statut: charge.statut,
     creeLe: new Date(charge.cree_le),
     activeLe: charge.active_le ? new Date(charge.active_le) : null,

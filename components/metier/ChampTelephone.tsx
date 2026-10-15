@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Globe } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 
@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import {
+  CODE_INTERNATIONAL,
   PAYS_TELEPHONE,
   analyserTelephone,
   composerTelephone,
@@ -29,7 +30,7 @@ import { cn } from "@/lib/utils";
 import { Drapeau } from "./Drapeau";
 
 interface Props {
-  libelle: string;
+  libelle?: string;
   /** La valeur enregistrée — numéro international, `+2250700000000`. */
   valeur: string;
   /** Reçoit la valeur au même format. Chaîne vide quand le champ est vidé. */
@@ -43,6 +44,8 @@ interface Props {
   erreur?: string;
   aide?: string;
   disabled?: boolean;
+  /** Permet la saisie de n'importe quel indicatif international hors des 9 pays. */
+  international?: boolean;
   /** Classes ajoutées au cadre du champ — un fond, par exemple. */
   className?: string;
 }
@@ -75,6 +78,7 @@ export function ChampTelephone({
   erreur,
   aide,
   disabled = false,
+  international = false,
   className,
 }: Props) {
   const t = useTranslations("telephone");
@@ -82,8 +86,11 @@ export function ChampTelephone({
   const [listeOuverte, setListeOuverte] = useState(false);
   const idAide = `${identifiant}-aide`;
 
-  const { pays, national } = analyserTelephone(valeur, paysDefaut);
-  const { indicatif, longueurMax } = paysTelephone(pays);
+  const { pays, national } = analyserTelephone(valeur, paysDefaut, { international });
+  const estModeIntl = pays === CODE_INTERNATIONAL;
+  const { indicatif, longueurMax } = estModeIntl
+    ? { indicatif: "+", longueurMax: 15 }
+    : paysTelephone(pays);
   const enErreur = Boolean(erreur);
 
   function auChangementDePays(code: string) {
@@ -109,14 +116,16 @@ export function ChampTelephone({
     // `@container` : le champ se mesure **lui-meme**, pas la fenetre. Il vit
     // dans une colonne de formulaire qui peut etre etroite sur un grand ecran.
     <div className="@container flex w-full min-w-0 flex-col gap-1">
-      <Label htmlFor={identifiant}>
-        {libelle}
-        {required && (
-          <span className="text-erreur" aria-hidden="true">
-            *
-          </span>
-        )}
-      </Label>
+      {libelle && (
+        <Label htmlFor={identifiant}>
+          {libelle}
+          {required && (
+            <span className="text-erreur" aria-hidden="true">
+              *
+            </span>
+          )}
+        </Label>
+      )}
 
       {/* Le selecteur de pays et le numero forment **un seul champ** a l'oeil :
           une bordure commune, et le focus l'eclaire en entier. Deux champs cote
@@ -145,7 +154,11 @@ export function ChampTelephone({
               disabled={disabled}
               className="flex shrink-0 cursor-pointer items-center gap-1.5 border-0 border-r border-solid border-input bg-neutral-50 pr-2 pl-3 outline-none disabled:cursor-not-allowed @max-[260px]:px-2"
             >
-              <Drapeau code={pays} largeur={22} />
+              {estModeIntl ? (
+                <Globe className="size-5 shrink-0 text-neutral-500" aria-hidden="true" />
+              ) : (
+                <Drapeau code={pays} largeur={22} />
+              )}
               <span className="text-base whitespace-nowrap text-neutral-900 tabular-nums @max-[260px]:hidden">
                 {indicatif}
               </span>
@@ -179,6 +192,22 @@ export function ChampTelephone({
                       />
                     </CommandItem>
                   ))}
+                  {international && (
+                    <CommandItem
+                      value={`${t("autrePays")} ${CODE_INTERNATIONAL}`}
+                      onSelect={() => {
+                        auChangementDePays(CODE_INTERNATIONAL);
+                        setListeOuverte(false);
+                      }}
+                    >
+                      <Globe className="size-5 shrink-0 text-neutral-500" aria-hidden="true" />
+                      {t("autrePays")}
+                      <Check
+                        className={cn(estModeIntl ? "opacity-100" : "opacity-0", "ml-auto")}
+                        aria-hidden="true"
+                      />
+                    </CommandItem>
+                  )}
                 </CommandGroup>
               </CommandList>
             </Command>
@@ -191,7 +220,7 @@ export function ChampTelephone({
           type="tel"
           inputMode="tel"
           autoComplete="tel-national"
-          placeholder={gabaritNational(pays)}
+          placeholder={estModeIntl ? t("gabaritInternational") : gabaritNational(pays)}
           value={formaterNational(pays, national)}
           onChange={(evenement) => auChangementDeNumero(evenement.target.value)}
           disabled={disabled}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Check, ImageIcon, MapPin, Plus, Trash2, Upload, X } from "lucide-react";
+import { Building2, Check, MapPin, Plus, Trash2, Upload, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useState } from "react";
@@ -11,7 +11,14 @@ import { EnTetePage } from "@/components/layout/EnTetePage";
 import { ChampTelephone } from "@/components/metier/ChampTelephone";
 import { Drapeau } from "@/components/metier/Drapeau";
 import { ComboboxVille } from "@/components/metier/ComboboxVille";
-import { Bouton as BoutonCharte } from "@/components/ui";
+import { Badge, Bouton as BoutonCharte } from "@/components/ui";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
@@ -19,8 +26,21 @@ import {
   lireEntreprise,
   paysEntreprise,
 } from "@/features/configuration/api";
-import type { DonneesEntreprise } from "@/features/configuration/api";
-import { telephoneValide } from "@/features/referentiels/telephone";
+import type {
+  DonneesEntreprise,
+  LibelleTelephone,
+  TelephoneEntreprise,
+} from "@/features/configuration/api";
+import {
+  TELEPHONES_MAX,
+  LIBELLES_TELEPHONE,
+  telephonesInitiaux,
+  peutAjouterTelephone,
+  retirerTelephone,
+  definirPrincipal,
+  erreursTelephones,
+  erreursTelephonesServeur,
+} from "@/features/configuration/regles";
 import { ErreurApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { nomDePays } from "@/lib/format";
@@ -37,9 +57,7 @@ const VIDE: DonneesEntreprise = {
   ville: "",
   rccm: "",
   nif: "",
-  telephone_contact: "",
-  telephones_secondaires: [],
-  telephone_fixe: "",
+  telephones: [],
   email_contact: "",
 };
 
@@ -54,10 +72,17 @@ const FOND_ENREGISTRE = "bg-[var(--input-fond-pre-rempli)] hover:bg-[var(--input
 function normaliser(donnees: DonneesEntreprise) {
   return {
     ...donnees,
-    telephones_secondaires: (donnees.telephones_secondaires ?? []).filter(Boolean),
-    telephone_fixe: donnees.telephone_fixe ?? "",
+    telephones: undefined,
     retirer_logo: undefined,
   };
+}
+
+function normaliserTelephones(telephones?: TelephoneEntreprise[]) {
+  return (telephones ?? []).map((t) => ({
+    libelle: t.libelle,
+    numero: t.numero,
+    principal: t.principal,
+  }));
 }
 
 /**
@@ -98,74 +123,52 @@ function SectionCarte({
  * moment (le wizard d'onboarding qui l'enchaînait avec un premier projet et
  * une invitation d'équipe a été retiré).
  *
- * **Toujours relue au montage, jamais mise en cache locale.** L'ancienne
- * version gardait une saisie en cours dans `sessionStorage` et ne rappelait
- * `/entreprise/` que si ce brouillon était vide — ce qui pouvait laisser voir
- * une saisie partielle et périmée d'une visite précédente au lieu de l'état
- * réellement enregistré. Cet écran affiche systématiquement ce que le
- * serveur porte, et n'écrit qu'au clic sur « Enregistrer ».
- *
- * **La couleur de marque par entreprise est supprimée.** L'écran ne lit ni
- * n'envoie `couleur_primaire` : l'espace entreprise affiche l'orange des
- * jetons, comme l'administration.
- *
- * **Elle écrit dans `public`.** `entreprise_cliente` est la table de la
- * plateforme : c'est elle qui porte le `schema_name` que le middleware lit à
- * chaque requête, elle ne peut pas vivre dans le schéma qu'elle nomme
- * (T-022 §3.2).
+ * M8 & M9.
  */
 export function ConfigurationEntreprise() {
   const t = useTranslations("configuration.entreprise");
+  const tTel = useTranslations("configuration.telephones");
+  const idVille = useId();
+
   const [chargement, setChargement] = useState(true);
-  const [donnees, setDonnees] = useState<DonneesEntreprise>(VIDE);
-  const [logo, setLogo] = useState<{ nom: string; taille: number } | null>(null);
-  const [fichierLogo, setFichierLogo] = useState<File | null>(null);
-  const [apercuLogo, setApercuLogo] = useState<string | null>(null);
-  const [erreurLogo, setErreurLogo] = useState<string | null>(null);
-  const [fondNonDetoure, setFondNonDetoure] = useState(false);
-  const [erreurs, setErreurs] = useState<Record<string, string>>({});
   const [envoi, setEnvoi] = useState(false);
   const [echec, setEchec] = useState<string | null>(null);
-  const [pays, setPays] = useState("");
-  /** L'état enregistré, pour savoir si le formulaire a été modifié. */
-  const idVille = useId();
+
+  const [donnees, setDonnees] = useState<DonneesEntreprise>(VIDE);
+  // Ce qui était en base à l'arrivée — sert à colorer les champs qui n'ont
+  // pas bougé et à savoir si « Enregistrer » doit être cliquable.
   const [reference, setReference] = useState<DonneesEntreprise>(VIDE);
+  const [pays, setPays] = useState<string>("");
+
+  const [fichierLogo, setFichierLogo] = useState<File | null>(null);
+  const [apercuLogo, setApercuLogo] = useState<string | null>(null);
+  const [logo, setLogo] = useState<{ nom: string; taille: number } | null>(null);
+  const [erreurLogo, setErreurLogo] = useState<string | null>(null);
+  const [fondNonDetoure, setFondNonDetoure] = useState(false);
+
+  const [erreurs, setErreurs] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let vivant = true;
-    paysEntreprise().then((code) => {
-      if (vivant) setPays(code);
+    paysEntreprise().then((p) => {
+      if (vivant) setPays(p);
     });
-    return () => {
-      vivant = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let vivant = true;
     lireEntreprise()
-      .then((ent) => {
+      .then((entreprise) => {
         if (!vivant) return;
-        const lues: DonneesEntreprise = {
-          raison_sociale: ent.raison_sociale || "",
-          adresse: ent.adresse || "",
-          ville: ent.ville || "",
-          rccm: ent.rccm || "",
-          nif: ent.nif || "",
-          telephone_contact: ent.telephone_contact || "",
-          telephones_secondaires: ent.telephones_secondaires ?? [],
-          telephone_fixe: ent.telephone_fixe || "",
-          email_contact: ent.email_contact || "",
+        const initialises = {
+          ...entreprise,
+          telephones: telephonesInitiaux(entreprise),
         };
-        setDonnees(lues);
-        setReference(lues);
-        if (ent.logo) {
-          setApercuLogo(ent.logo);
+        setDonnees(initialises);
+        setReference(initialises);
+        if (entreprise.logo) {
+          setApercuLogo(entreprise.logo);
           setLogo({ nom: t("logoActuel"), taille: 0 });
         }
       })
-      .catch(() => {
-        // Hors-ligne ou erreur : le formulaire reste vide, modifiable quand même.
+      .catch((cause) => {
+        if (vivant) setEchec((cause as ErreurApi).message);
       })
       .finally(() => {
         if (vivant) setChargement(false);
@@ -189,20 +192,37 @@ export function ConfigurationEntreprise() {
     }
   }
 
-  const secondaires = donnees.telephones_secondaires ?? [];
+  function modifierTelephone(index: number, modifs: Partial<TelephoneEntreprise>) {
+    setDonnees((prec) => {
+      const copie = [...(prec.telephones ?? [])];
+      if (copie[index]) {
+        copie[index] = { ...copie[index], ...modifs };
+      }
+      return { ...prec, telephones: copie };
+    });
+    if ("numero" in modifs) {
+      effacerErreur(`telephones.${index}.numero`);
+    }
+    effacerErreur("telephones");
+  }
 
-  // « Enregistrer » n'est cliquable que si quelque chose a changé : un champ,
-  // un logo choisi ou retiré. Une ligne secondaire ajoutée mais vide ne compte
-  // pas — elle ne serait pas envoyée.
-  /**
-   * Fond gris (celui du champ « Pays ») sur un champ qui affiche **ce qui est enregistré** :
-   * on voit d'un coup d'œil ce qui vient de la base et ce qui reste à saisir.
-   * Dès que la valeur s'écarte de l'enregistrée, le fond retombe — le champ
-   * porte alors une saisie, plus une donnée de la base.
-   *
-   * `Champ` le reçoit en `data-pre-rempli` (règle commune de `globals.css`) :
-   * son `className` habille le bloc entier, libellé compris, pas la saisie.
-   */
+  function ajouterTelephone() {
+    const actuels = donnees.telephones ?? [];
+    if (!peutAjouterTelephone(actuels)) return;
+    setDonnees((prec) => ({
+      ...prec,
+      telephones: [
+        ...(prec.telephones ?? []),
+        {
+          id: null,
+          libelle: "MOBILE",
+          numero: "",
+          principal: (prec.telephones ?? []).length === 0,
+        },
+      ],
+    }));
+  }
+
   function estEnregistre(valeur: string | undefined, enregistree: string | undefined) {
     return Boolean(valeur) && valeur === enregistree;
   }
@@ -214,34 +234,9 @@ export function ConfigurationEntreprise() {
   const modifie =
     fichierLogo !== null ||
     donnees.retirer_logo === true ||
-    JSON.stringify(normaliser(donnees)) !== JSON.stringify(normaliser(reference));
-
-  function modifierSecondaire(index: number, numero: string) {
-    modifier(
-      "telephones_secondaires",
-      secondaires.map((ancien, i) => (i === index ? numero : ancien)),
-    );
-    effacerErreur(`telephones_secondaires.${index}`);
-  }
-
-  function ajouterSecondaire() {
-    modifier("telephones_secondaires", [...secondaires, ""]);
-  }
-
-  function retirerSecondaire(index: number) {
-    modifier(
-      "telephones_secondaires",
-      secondaires.filter((_, i) => i !== index),
-    );
-    // Les erreurs sont indexées par position : après un retrait, elles ne
-    // désignent plus le bon champ. On les efface, la prochaine soumission
-    // les recalculera.
-    setErreurs((precedentes) =>
-      Object.fromEntries(
-        Object.entries(precedentes).filter(([cle]) => !cle.startsWith("telephones_secondaires.")),
-      ),
-    );
-  }
+    JSON.stringify(normaliser(donnees)) !== JSON.stringify(normaliser(reference)) ||
+    JSON.stringify(normaliserTelephones(donnees.telephones)) !==
+      JSON.stringify(normaliserTelephones(reference.telephones));
 
   function choisirLogo(evenement: ChangeEvent<HTMLInputElement>) {
     const fichier = evenement.target.files?.[0];
@@ -249,22 +244,21 @@ export function ConfigurationEntreprise() {
 
     if (!FORMATS_LOGO.includes(fichier.type)) {
       setErreurLogo(t("logoFormatInvalide"));
-      setFichierLogo(null);
-      setApercuLogo(null);
-      setLogo(null);
       return;
     }
     if (fichier.size > TAILLE_MAX_LOGO) {
       setErreurLogo(t("logoTropLourd"));
-      setFichierLogo(null);
-      setApercuLogo(null);
-      setLogo(null);
       return;
     }
+
     setErreurLogo(null);
-    modifier("retirer_logo", false);
     setFichierLogo(fichier);
     setLogo({ nom: fichier.name, taille: fichier.size });
+    modifier("retirer_logo", false);
+
+    if (apercuLogo && apercuLogo.startsWith("blob:")) {
+      URL.revokeObjectURL(apercuLogo);
+    }
     setApercuLogo(URL.createObjectURL(fichier));
   }
 
@@ -285,20 +279,14 @@ export function ConfigurationEntreprise() {
     if (donnees.raison_sociale.trim().length < 2) trouvees.raison_sociale = t("erreurNom");
     if (!donnees.adresse.trim()) trouvees.adresse = t("erreurAdresse");
     if (!donnees.ville.trim()) trouvees.ville = t("erreurVille");
-    if (!donnees.telephone_contact.trim()) trouvees.telephone_contact = t("erreurTelephone");
-    else if (!telephoneValide(donnees.telephone_contact, pays))
-      trouvees.telephone_contact = t("erreurTelephoneIncomplet");
-    // Secondaires et fixe sont facultatifs : seul un numéro saisi est contrôlé.
-    secondaires.forEach((numero, index) => {
-      if (numero && !telephoneValide(numero, pays))
-        trouvees[`telephones_secondaires.${index}`] = t("erreurTelephoneIncomplet");
-    });
-    if (donnees.telephone_fixe && !telephoneValide(donnees.telephone_fixe, pays))
-      trouvees.telephone_fixe = t("erreurTelephoneIncomplet");
-    // Facultatif : on ne contrôle le format que d'un email réellement saisi.
+
     const email = donnees.email_contact.trim();
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       trouvees.email_contact = t("erreurEmail");
+
+    // Contrôles des téléphones
+    const erreursTel = erreursTelephones(donnees.telephones ?? [], pays);
+    Object.assign(trouvees, erreursTel);
 
     setErreurs(trouvees);
     if (Object.keys(trouvees).length > 0) return;
@@ -306,19 +294,14 @@ export function ConfigurationEntreprise() {
     setEnvoi(true);
     setEchec(null);
     try {
-      // Une ligne secondaire ajoutée puis laissée vide n'est pas un numéro.
-      const reponse = await enregistrerEntreprise(
-        { ...donnees, telephones_secondaires: secondaires.filter(Boolean) },
-        fichierLogo,
-      );
+      const reponse = await enregistrerEntreprise(donnees, fichierLogo);
       setFondNonDetoure(reponse.fond_retire === false);
-      // `couleur_primaire` n'est pas reprise : l'écran ne doit pas la renvoyer.
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { couleur_primaire, ...sansCouleur } = reponse;
       const enregistrees: DonneesEntreprise = {
         ...donnees,
         ...sansCouleur,
-        telephones_secondaires: sansCouleur.telephones_secondaires ?? secondaires.filter(Boolean),
+        telephones: reponse.telephones ?? donnees.telephones,
         retirer_logo: undefined,
       };
       setDonnees(enregistrees);
@@ -330,6 +313,12 @@ export function ConfigurationEntreprise() {
       setFichierLogo(null);
       toast.success(t("succesTitre"), { description: t("succes") });
     } catch (cause) {
+      if (cause instanceof ErreurApi && cause.details) {
+        const erreursServ = erreursTelephonesServeur(cause.details);
+        if (Object.keys(erreursServ).length > 0) {
+          setErreurs((prec) => ({ ...prec, ...erreursServ }));
+        }
+      }
       setEchec((cause as ErreurApi).message);
     } finally {
       setEnvoi(false);
@@ -362,6 +351,8 @@ export function ConfigurationEntreprise() {
     );
   }
 
+  const listeTelephones = donnees.telephones ?? [];
+
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
       {enTete}
@@ -380,52 +371,34 @@ export function ConfigurationEntreprise() {
           aide={t("sectionIdentiteAide")}
         >
           <div className="grid gap-6 md:grid-cols-[200px_1fr]">
-            {/* Logo — facultatif, il ne bloque jamais l'enregistrement. */}
+            {/* Colonne logo */}
             <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium text-foreground">{t("logo")}</span>
-              {logo ? (
-                <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-neutral-50 p-3">
-                  <div className="flex h-20 w-full items-center justify-center rounded-lg bg-neutral-0 p-2">
-                    {apercuLogo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={apercuLogo}
-                        alt=""
-                        className="max-h-full max-w-full object-contain"
-                      />
-                    ) : (
-                      <ImageIcon className="size-7 text-muted-foreground" aria-hidden="true" />
-                    )}
-                  </div>
-                  <div className="flex w-full min-w-0 flex-col items-center">
-                    <span className="w-full truncate text-center text-xs font-medium text-foreground">
-                      {logo.nom}
-                    </span>
-                    {logo.taille > 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        {t("logoTaille", {
-                          ko: Math.round(logo.taille / 1024),
-                        })}
-                      </span>
-                    )}
-                  </div>
-                  <Bouton
-                    variante="ghost"
-                    taille="sm"
-                    className="text-erreur hover:bg-erreur-fond hover:text-erreur"
+              <Label>{t("logo")}</Label>
+              {apercuLogo ? (
+                <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-neutral-0 p-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={apercuLogo}
+                    alt={logo?.nom ?? t("logo")}
+                    className="size-full object-contain"
+                  />
+                  <button
+                    type="button"
                     onClick={retirerLogo}
-                    iconeGauche={<X aria-hidden="true" />}
+                    className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-full bg-neutral-0/90 text-neutral-600 shadow-sm transition-colors hover:bg-neutral-0 hover:text-erreur"
+                    aria-label={t("logoRetirer")}
                   >
-                    {t("logoRetirer")}
-                  </Bouton>
+                    <X className="size-4" aria-hidden="true" />
+                  </button>
                 </div>
               ) : (
-                <label className="group flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border bg-neutral-50 px-4 py-6 text-center transition-colors hover:border-primary-300 hover:bg-primary-50 focus-within:border-primary focus-within:bg-primary-50">
+                <label className="group flex aspect-square w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50 p-4 text-center transition-colors hover:border-primary-400 hover:bg-primary-50/50">
                   <input
                     type="file"
                     accept="image/png,image/jpeg"
                     className="sr-only"
                     onChange={choisirLogo}
+                    disabled={envoi}
                   />
                   <span className="flex size-11 items-center justify-center rounded-full bg-neutral-0 text-primary-600 shadow-sm transition-transform group-hover:scale-105">
                     <Upload className="size-5" aria-hidden="true" />
@@ -436,17 +409,21 @@ export function ConfigurationEntreprise() {
               )}
               {erreurLogo && <p className="text-xs font-medium text-erreur">{erreurLogo}</p>}
               {fondNonDetoure && (
-                <p className="text-xs font-medium text-avertissement">{t("logoFondNonDetoure")}</p>
+                <Alerte type="avertissement">{t("logoFondNonDetoure")}</Alerte>
               )}
             </div>
 
-            <div className="grid content-start gap-4 sm:grid-cols-2">
+            {/* Colonne champs d'identification */}
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <Champ
                   libelle={t("champRaisonSociale")}
                   required
                   value={donnees.raison_sociale}
-                  data-pre-rempli={estEnregistre(donnees.raison_sociale, reference.raison_sociale)}
+                  data-pre-rempli={estEnregistre(
+                    donnees.raison_sociale,
+                    reference.raison_sociale,
+                  )}
                   erreur={erreurs.raison_sociale}
                   disabled={envoi}
                   onChange={(e) => modifier("raison_sociale", e.target.value)}
@@ -535,63 +512,135 @@ export function ConfigurationEntreprise() {
                 onChange={(e) => modifier("email_contact", e.target.value)}
               />
             </div>
-            <ChampTelephone
-              libelle={t("champTelephone")}
-              paysDefaut={pays}
-              required
-              valeur={donnees.telephone_contact}
-              className={classeEnregistre(donnees.telephone_contact, reference.telephone_contact)}
-              erreur={erreurs.telephone_contact}
-              disabled={envoi}
-              onChange={(numero) => modifier("telephone_contact", numero)}
-            />
-            <ChampTelephone
-              libelle={t("champTelephoneFixe")}
-              paysDefaut={pays}
-              valeur={donnees.telephone_fixe ?? ""}
-              className={classeEnregistre(donnees.telephone_fixe, reference.telephone_fixe)}
-              erreur={erreurs.telephone_fixe}
-              disabled={envoi}
-              onChange={(numero) => modifier("telephone_fixe", numero)}
-            />
 
-            {/* Numéros secondaires — autant que nécessaire, tous facultatifs. */}
-            {secondaires.map((numero, index) => (
-              <div key={index} className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <ChampTelephone
-                    libelle={t("champTelephoneSecondaire", { rang: index + 1 })}
-                    paysDefaut={pays}
-                    valeur={numero}
-                    className={classeEnregistre(numero, reference.telephones_secondaires?.[index])}
-                    erreur={erreurs[`telephones_secondaires.${index}`]}
-                    disabled={envoi}
-                    onChange={(valeur) => modifierSecondaire(index, valeur)}
-                  />
+            {/* Bloc Numéros de contact */}
+            <div className="flex flex-col gap-3 sm:col-span-2">
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-sm font-semibold text-foreground">
+                    {tTel("titre")}
+                  </Label>
+                  <span className="text-erreur" aria-hidden="true">
+                    *
+                  </span>
                 </div>
-                <Bouton
-                  variante="ghost"
-                  className="mt-6 text-erreur hover:bg-erreur-fond hover:text-erreur"
-                  aria-label={t("retirerTelephoneSecondaire", {
-                    rang: index + 1,
-                  })}
-                  disabled={envoi}
-                  onClick={() => retirerSecondaire(index)}
-                >
-                  <Trash2 aria-hidden="true" />
-                </Bouton>
+                <p className="text-xs text-muted-foreground">{tTel("aide")}</p>
               </div>
-            ))}
-            <div className="sm:col-span-2">
-              <BoutonCharte
-                variante="secondaire"
-                taille="sm"
-                disabled={envoi}
-                onClick={ajouterSecondaire}
-                iconeGauche={<Plus className="size-4" aria-hidden="true" />}
-              >
-                {t("ajouterTelephoneSecondaire")}
-              </BoutonCharte>
+
+              <div className="flex flex-col gap-3">
+                {listeTelephones.map((tel, index) => (
+                  <div
+                    key={index}
+                    className="flex flex-col gap-2 rounded-lg border border-border/40 p-3 sm:grid sm:grid-cols-[10rem_1fr_auto] sm:items-start sm:border-0 sm:p-0"
+                  >
+                    <div className="w-full">
+                      <Select
+                        value={tel.libelle}
+                        onValueChange={(val) =>
+                          modifierTelephone(index, { libelle: val as LibelleTelephone })
+                        }
+                        disabled={envoi}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder={tTel("libelle")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LIBELLES_TELEPHONE.map((code) => (
+                            <SelectItem key={code} value={code}>
+                              {tTel(`libelles.${code}`)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {erreurs[`telephones.${index}.libelle`] && (
+                        <p className="mt-1 text-xs font-medium text-erreur">
+                          {erreurs[`telephones.${index}.libelle`]}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <ChampTelephone
+                        paysDefaut={pays}
+                        international
+                        valeur={tel.numero}
+                        className={classeEnregistre(
+                          tel.numero,
+                          reference.telephones?.[index]?.numero,
+                        )}
+                        erreur={erreurs[`telephones.${index}.numero`]}
+                        disabled={envoi}
+                        onChange={(valeur) => modifierTelephone(index, { numero: valeur })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1 sm:pt-0">
+                      {tel.principal ? (
+                        <Badge variante="primaire">{tTel("principal")}</Badge>
+                      ) : (
+                        <Bouton
+                          type="button"
+                          variante="ghost"
+                          taille="sm"
+                          disabled={envoi}
+                          onClick={() => {
+                            setDonnees((prec) => ({
+                              ...prec,
+                              telephones: definirPrincipal(prec.telephones ?? [], index),
+                            }));
+                            effacerErreur("telephones");
+                          }}
+                        >
+                          {tTel("definirPrincipal")}
+                        </Bouton>
+                      )}
+                      <Bouton
+                        type="button"
+                        variante="ghost"
+                        className="text-erreur hover:bg-erreur-fond hover:text-erreur"
+                        aria-label={tTel("retirer")}
+                        disabled={envoi || listeTelephones.length <= 1}
+                        onClick={() => {
+                          setDonnees((prec) => ({
+                            ...prec,
+                            telephones: retirerTelephone(prec.telephones ?? [], index),
+                          }));
+                          setErreurs((precedentes) =>
+                            Object.fromEntries(
+                              Object.entries(precedentes).filter(
+                                ([cle]) => !cle.startsWith("telephones."),
+                              ),
+                            ),
+                          );
+                        }}
+                      >
+                        <Trash2 className="size-4" aria-hidden="true" />
+                      </Bouton>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-col gap-1.5 pt-1">
+                <div className="flex items-center gap-3">
+                  <BoutonCharte
+                    type="button"
+                    variante="secondaire"
+                    taille="sm"
+                    disabled={envoi || !peutAjouterTelephone(listeTelephones)}
+                    onClick={ajouterTelephone}
+                    iconeGauche={<Plus className="size-4" aria-hidden="true" />}
+                  >
+                    {tTel("ajouter")}
+                  </BoutonCharte>
+                  {listeTelephones.length >= TELEPHONES_MAX && (
+                    <span className="text-xs text-muted-foreground">{tTel("maximum")}</span>
+                  )}
+                </div>
+                {erreurs.telephones && (
+                  <p className="text-xs font-medium text-erreur">{erreurs.telephones}</p>
+                )}
+              </div>
             </div>
           </div>
         </SectionCarte>
