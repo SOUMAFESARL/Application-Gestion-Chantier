@@ -4844,6 +4844,24 @@
       "retiree": "Votre photo de profil a été retirée.",
       "formatInvalide": "Ce format n’est pas accepté.",
       "tropLourde": "Cette photo dépasse 2 Mo."
+    },
+    "motDePasse": {
+      "titre": "Mot de passe",
+      "aide": "Changer de mot de passe ferme vos autres sessions.",
+      "actuel": "Mot de passe actuel",
+      "nouveau": "Nouveau mot de passe",
+      "confirmation": "Confirmation",
+      "afficher": "Afficher le mot de passe",
+      "masquer": "Masquer le mot de passe",
+      "enregistrer": "Changer le mot de passe",
+      "enCours": "Changement…",
+      "succes": "Votre mot de passe a été modifié. Vos autres sessions ont été fermées.",
+      "erreur": "Le mot de passe n’a pas pu être changé. Réessayez.",
+      "erreurActuelRequis": "Le mot de passe actuel est requis.",
+      "erreurNouveauRequis": "Le nouveau mot de passe est requis.",
+      "erreurConfirmationRequise": "La confirmation du mot de passe est requise.",
+      "erreurIdentique": "Le nouveau mot de passe doit être différent de l’actuel.",
+      "ancienIncorrect": "L’ancien mot de passe est incorrect."
     }
   },
   "selecteurHeure": {
