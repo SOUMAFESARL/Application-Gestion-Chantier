@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { CircleX, LoaderCircle } from "lucide-react";
+import { CircleX, Info, LoaderCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
@@ -16,14 +16,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { retirerMembreEncadrement } from "@/features/projets/adaptateur";
+import { retraitDuDernierCp } from "@/features/projets/regles";
 import type { FonctionProjet, Intervenant, Projet } from "@/features/projets/types";
 import type { ErreurApi } from "@/lib/api";
 
-/** Ce qu'on s'apprête à retirer : une personne, à une place. */
+/** Ce qu'on s'apprête à retirer : une personne, à une place, via son affectation. */
 export interface RetraitEncadrement {
   projet: Projet;
   fonction: FonctionProjet;
   intervenant: Intervenant;
+  affectationId: string;
 }
 
 interface Props {
@@ -35,15 +37,14 @@ interface Props {
 
 /**
  * La confirmation du retrait d'une personne de l'encadrement. Elle quitte
- * cette place sur ce projet, pas l'entreprise : son compte reste, et ses
- * autres places dans l'équipe aussi.
+ * cette place sur ce projet, pas l'entreprise : son compte reste.
  */
 export function ModaleRetraitEncadrement({ retrait, onFermer, onModifie }: Props) {
   const t = useTranslations("projets.encadrement");
 
   const mutation = useMutation({
     mutationFn: (cible: RetraitEncadrement) =>
-      retirerMembreEncadrement(cible.projet.id, cible.fonction, cible.intervenant.id),
+      retirerMembreEncadrement(cible.projet.id, cible.affectationId),
     onSuccess: (projet, cible) => {
       onModifie(projet);
       toast.success(t("retrait.succes", { nom: cible.intervenant.nomComplet }));
@@ -54,6 +55,7 @@ export function ModaleRetraitEncadrement({ retrait, onFermer, onModifie }: Props
 
   const erreur = mutation.error as ErreurApi | null;
   const nom = retrait?.intervenant.nomComplet ?? "";
+  const estDernierCp = retrait ? retraitDuDernierCp(retrait.projet, retrait.intervenant.id) : false;
 
   // Une erreur ne doit pas resurgir au retrait suivant.
   function fermer() {
@@ -80,6 +82,20 @@ export function ModaleRetraitEncadrement({ retrait, onFermer, onModifie }: Props
               </DialogDescription>
             </DialogHeader>
 
+            <p className="m-0 text-sm text-neutral-600">
+              {t("retraitTexte", { nom })}
+            </p>
+
+            {estDernierCp && (
+              <Alert variant="avertissement">
+                <Info />
+                <AlertDescription>
+                  <p className="font-semibold">{t("dernierCpTitre", { nom })}</p>
+                  <p className="mt-1">{t("dernierCpTexte")}</p>
+                </AlertDescription>
+              </Alert>
+            )}
+
             {erreur && (
               <Alert variant="erreur">
                 <CircleX />
@@ -99,7 +115,7 @@ export function ModaleRetraitEncadrement({ retrait, onFermer, onModifie }: Props
                 aria-busy={mutation.isPending}
               >
                 {mutation.isPending && <LoaderCircle className="animate-spin" />}
-                {t("retrait.retirer")}
+                {estDernierCp ? t("retirerQuandMeme") : t("retrait.retirer")}
               </Button>
             </DialogFooter>
           </>

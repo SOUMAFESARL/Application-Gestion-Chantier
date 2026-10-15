@@ -1670,6 +1670,38 @@ export const ORDRE_FONCTIONS: FonctionProjet[] = [
   "AUTRE_MEMBRE",
 ];
 
+export const ROLE_PROJET_PAR_FONCTION: Record<FonctionProjet, "CP" | "CT" | "CC" | "VI"> = {
+  CHEF_PROJET: "CP",
+  CONDUCTEUR_TRAVAUX: "CT",
+  CHEF_CHANTIER: "CC",
+  AUTRE_MEMBRE: "VI",
+};
+
+/**
+ * Qui peut retirer quelqu'un de ce projet : DG et AD partout ; CP et CT s'ils y sont affectés ;
+ * jamais soi-même. Ne protège rien : décide d'un bouton.
+ */
+export function peutRetirerDuProjet(
+  profil: { id: string; estDg: boolean; estAdministrateur: boolean },
+  projet: Projet,
+  cibleId: string,
+): boolean {
+  if (profil.id === cibleId) {
+    return false;
+  }
+  if (profil.estDg || profil.estAdministrateur) {
+    return true;
+  }
+  const estCp = projet.chefProjet?.id === profil.id;
+  const estCt = projet.conducteursTravaux.some((ct) => ct.id === profil.id);
+  return estCp || estCt;
+}
+
+/** Retirer cette personne laisse-t-il le projet sans chef de projet ? */
+export function retraitDuDernierCp(projet: Projet, cibleId: string): boolean {
+  return projet.chefProjet?.id === cibleId;
+}
+
 /** Les fonctions que la personne tient dans l'équipe d'encadrement d'un chantier. */
 export function fonctionsDansProjet(projet: Projet, collaborateurId: string): FonctionProjet[] {
   return ORDRE_FONCTIONS.filter((fonction) =>
@@ -1761,9 +1793,10 @@ export function affectationsDuCollaborateur(
   projets: Projet[],
   collaborateurId: string,
 ): AffectationProjet[] {
-  return projets
-    .map((projet) => ({ projet, fonctions: fonctionsDansProjet(projet, collaborateurId) }))
-    .filter((affectation) => affectation.fonctions.length > 0);
+  return projets.flatMap((projet) => {
+    const fonctions = fonctionsDansProjet(projet, collaborateurId);
+    return fonctions.map((fonction) => ({ projet, fonction }));
+  });
 }
 
 /**

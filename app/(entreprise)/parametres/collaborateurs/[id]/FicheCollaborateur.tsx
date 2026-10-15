@@ -512,7 +512,7 @@ function BlocProjets({
 
 function LigneProjet({ affectation }: { affectation: AffectationProjet }) {
   const t = useTranslations("gestionCollaborateurs.fiche");
-  const { projet, fonctions } = affectation;
+  const { projet, fonction } = affectation;
   const lieu = [projet.quartier, projet.ville].filter(Boolean).join(", ");
 
   return (
@@ -529,11 +529,9 @@ function LigneProjet({ affectation }: { affectation: AffectationProjet }) {
             <span className="truncate font-semibold">{projet.nom}</span>
           </span>
           <span className="flex flex-wrap items-center gap-1.5">
-            {fonctions.map((fonction) => (
-              <Badge key={fonction} variante="secondaire">
-                {t(`fonction.${fonction}`)}
-              </Badge>
-            ))}
+            <Badge variante="secondaire">
+              {t(`fonction.${fonction}`)}
+            </Badge>
             {lieu && <span className="text-xs text-neutral-500">{lieu}</span>}
           </span>
         </div>

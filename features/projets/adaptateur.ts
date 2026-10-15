@@ -23,6 +23,7 @@ import { routesSimulees } from "@/lib/api/simulation";
 import {
   lireLotsImportes,
   ROLE_MEMBRE_PAR_DEFAUT,
+  ROLE_PROJET_PAR_FONCTION,
   STATUT_DECLARE_PAR_DEFAUT,
   statutDeReprise,
 } from "./regles";
@@ -42,7 +43,6 @@ import type {
   Equipe,
   EvenementDate,
   FonctionAutreMembre,
-  FonctionProjet,
   EquipeChantier,
   Intervenant,
   LigneImportLot,
@@ -89,6 +89,7 @@ interface ChargeIntervenant {
   telephone: string;
   statut?: "INVITE" | "ACTIF";
   lien_whatsapp?: string;
+  affectation_id?: string | null;
 }
 
 interface ChargeClient {
@@ -164,11 +165,13 @@ interface ChargeContrat {
 interface ChargeChefChantier {
   utilisateur: ChargeIntervenant;
   zone?: string | null;
+  affectation_id?: string | null;
 }
 
 interface ChargeAutreMembre {
   utilisateur: ChargeIntervenant;
   fonction: FonctionAutreMembre;
+  affectation_id?: string | null;
 }
 
 /** L'enveloppe de pagination de DRF, quand elle est activée sur la ressource. */
@@ -232,6 +235,7 @@ function versIntervenant(charge: ChargeIntervenant | null | undefined): Interven
     telephone: charge.telephone,
     statut: charge.statut ?? null,
     lienWhatsApp: charge.lien_whatsapp ?? null,
+    affectationId: charge.affectation_id ?? null,
   };
 }
 
@@ -243,12 +247,24 @@ function intervenants(charges: ChargeIntervenant[] | undefined): Intervenant[] {
 
 function versChefChantier(charge: ChargeChefChantier): ChefChantierProjet | null {
   const intervenant = versIntervenant(charge.utilisateur);
-  return intervenant ? { intervenant, zone: charge.zone || null } : null;
+  return intervenant
+    ? {
+        intervenant,
+        zone: charge.zone || null,
+        affectationId: charge.affectation_id ?? intervenant.affectationId ?? null,
+      }
+    : null;
 }
 
 function versAutreMembre(charge: ChargeAutreMembre): AutreMembreProjet | null {
   const intervenant = versIntervenant(charge.utilisateur);
-  return intervenant ? { intervenant, fonction: charge.fonction } : null;
+  return intervenant
+    ? {
+        intervenant,
+        fonction: charge.fonction,
+        affectationId: charge.affectation_id ?? intervenant.affectationId ?? null,
+      }
+    : null;
 }
 
 /**
@@ -529,34 +545,68 @@ export async function definirBudgetProjet(id: string, budgetInitial: number): Pr
 }
 
 /*
- * L'équipe d'encadrement et de gestion du projet. Routes proposées par le
- * frontend, pas encore livrées par Django (elles répondent `404` d'ici là). Chaque
- * écriture renvoie **le projet entier** : désigner un chef de projet en
- * remplace un autre, et l'écran repart de ce que le serveur a retenu.
+ * L'équipe d'encadrement et de gestion du projet. Affectations servies par
+ * Django : ajout, modification, retrait par effacement physique journalisé.
+ * Chaque écriture relit le projet entier (lireProjet).
  */
 
 export async function ajouterMembreEncadrement(
   projetId: string,
   ajout: AjoutEncadrement,
 ): Promise<Projet> {
-  return versProjet(
-    await api.creer<ChargeProjet>(`/projets/${projetId}/encadrement/`, {
-      fonction: ajout.fonction,
-      utilisateur_id: ajout.intervenant.id,
-      zone: ajout.fonction === "CHEF_CHANTIER" ? ajout.zone : undefined,
-      fonction_membre: ajout.fonction === "AUTRE_MEMBRE" ? ajout.fonctionMembre : undefined,
-    }),
-  );
+  const payload: {
+    utilisateur_id: string;
+    role_projet: string;
+    zone?: string | null;
+    fonction_membre?: string;
+  } = {
+    utilisateur_id: ajout.intervenant.id,
+    role_projet: ROLE_PROJET_PAR_FONCTION[ajout.fonction],
+  };
+
+  if (ajout.fonction === "CHEF_CHANTIER") {
+    payload.zone = ajout.zone ?? null;
+  } else if (ajout.fonction === "AUTRE_MEMBRE") {
+    payload.fonction_membre = ajout.fonctionMembre;
+  }
+
+  await api.creer(`/projets/${projetId}/affectations/`, payload);
+  return lireProjet(projetId);
 }
 
-/** Le retrait ne renvoie rien (204) : le projet est relu derrière. */
 export async function retirerMembreEncadrement(
   projetId: string,
-  fonction: FonctionProjet,
-  utilisateurId: string,
+  affectationId: string,
 ): Promise<Projet> {
-  await api.supprimer(`/projets/${projetId}/encadrement/${fonction}/${utilisateurId}/`);
+  await api.supprimer(`/projets/${projetId}/affectations/${affectationId}/?hard=true`);
   return lireProjet(projetId);
+}
+
+export async function modifierMembreEncadrement(
+  projetId: string,
+  affectationId: string,
+  modifications: { zone?: string | null; fonctionMembre?: FonctionAutreMembre },
+): Promise<Projet> {
+  const payload: { zone?: string | null; fonction_membre?: string } = {};
+  if ("zone" in modifications) {
+    payload.zone = modifications.zone ?? null;
+  }
+  if (modifications.fonctionMembre) {
+    payload.fonction_membre = modifications.fonctionMembre;
+  }
+  await api.modifier(`/projets/${projetId}/affectations/${affectationId}/`, payload);
+  return lireProjet(projetId);
+}
+
+export async function listerAffectables(
+  projetId: string,
+  signal?: AbortSignal,
+): Promise<{ id: string; nom: string; role: string }[]> {
+  const reponse = await api.lire<
+    { id: string; nom: string; role: string }[] | ChargeListe<{ id: string; nom: string; role: string }>
+  >(`/projets/${projetId}/collaborateurs-affectables/`, undefined, signal);
+  if (Array.isArray(reponse)) return reponse;
+  return reponse?.results ?? [];
 }
 
 export async function obtenirMeteo(params?: {

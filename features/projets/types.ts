@@ -39,6 +39,8 @@ export interface Intervenant {
    * contente d'un repli quand le serveur ne l'a pas fourni.
    */
   lienWhatsApp: string | null;
+  /** L'identifiant de l'affectation active qui lie la personne à ce projet. */
+  affectationId?: string | null;
 }
 
 /** Le maître d'ouvrage, tel qu'il apparaît sur la fiche chantier. */
@@ -162,12 +164,14 @@ export interface ChefChantierProjet {
   intervenant: Intervenant;
   /** « Lot 02 — Gros œuvre », « Bâtiment B »… `null` : tout le chantier. */
   zone: string | null;
+  affectationId?: string | null;
 }
 
 /** Un autre membre de l'encadrement — financier, ingénieur, documentaliste… */
 export interface AutreMembreProjet {
   intervenant: Intervenant;
   fonction: FonctionAutreMembre;
+  affectationId?: string | null;
 }
 
 /**
@@ -186,11 +190,10 @@ export interface PlanningProjet {
   dateFinPrevue: string;
 }
 
-/** Un chantier attribué à un collaborateur, et ce qu'il y fait. */
+/** Un chantier attribué à un collaborateur, et ce qu'il y fait (une personne, une fonction par projet). */
 export interface AffectationProjet {
   projet: Projet;
-  /** Au moins une : un chef de projet peut aussi y conduire les travaux. */
-  fonctions: FonctionProjet[];
+  fonction: FonctionProjet;
 }
 
 /**

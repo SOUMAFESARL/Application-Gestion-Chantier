@@ -35,6 +35,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { lireProfilLocal, obtenirProfilMoi } from "@/features/auth/api";
 import {
   AccesNonAutorise,
   peutCadrerProjet,
@@ -179,6 +180,20 @@ export function FicheProjet({ projetId }: { projetId: string }) {
   const peutSaisir = peut("projets", "saisie");
   const peutValider = peut("projets", "validation");
   const voitFinance = peut("finance");
+
+  const requeteProfil = useQuery({
+    queryKey: ["profil-moi"],
+    queryFn: obtenirProfilMoi,
+  });
+  const profilRetrait = useMemo(() => {
+    const p = requeteProfil.data ?? lireProfilLocal();
+    if (!p) return null;
+    return {
+      id: p.id,
+      estDg: Boolean(p.is_dg || p.role_global === "DG"),
+      estAdministrateur: Boolean(p.role_global === "AD" || p.role_global === "ADMIN"),
+    };
+  }, [requeteProfil.data]);
 
   // Les chiffres du serveur quand il les tient ; sinon, ceux des lots affichés.
   const synthese = useMemo(
@@ -467,11 +482,12 @@ export function FicheProjet({ projetId }: { projetId: string }) {
 
         <EquipeEncadrement
           projet={projet}
+          profil={profilRetrait}
           peutDesigner={peutDesignerChefProjet(projet, droits)}
           peutGerer={peutGererEncadrement(projet, droits)}
           onAjouter={(fonction, autorisees) => encadrer(projet, fonction, autorisees)}
-          onRetirer={(fonction, intervenant) =>
-            retirerEncadrement({ projet, fonction, intervenant })
+          onRetirer={(fonction, intervenant, affectationId) =>
+            retirerEncadrement({ projet, fonction, intervenant, affectationId })
           }
         />
       </div>
