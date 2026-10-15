@@ -1726,7 +1726,11 @@
       "refusContratFormat": "seuls les fichiers PDF sont acceptés",
       "refusContratTaille": "le fichier dépasse {taille}",
       "erreurContratFormat": "Chaque contrat doit être un PDF de taille raisonnable.",
-      "erreurContratsTropNombreux": "Joignez au plus {max} fichiers."
+      "erreurContratsTropNombreux": "Joignez au plus {max} fichiers.",
+      "nomReserve": "Seuls le Directeur Général et l’administrateur de l’entreprise peuvent renommer un projet."
+    },
+    "edition": {
+      "nomReserve": "Seuls le Directeur Général et l’administrateur de l’entreprise peuvent renommer un projet."
     },
     "titre": "Projets",
     "lotsActivites": {

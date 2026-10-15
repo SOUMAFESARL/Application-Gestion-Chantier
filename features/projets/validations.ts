@@ -178,9 +178,12 @@ export function saisieDepuisProjet(projet: Projet): SaisieProjet {
 }
 
 /** La saisie validée d'une modification, traduite en objet du domaine. */
-export function versModificationProjet(valeurs: ValeursProjet): ModificationProjet {
+export function versModificationProjet(
+  valeurs: ValeursProjet,
+  peutRenommer = true,
+): ModificationProjet {
   return {
-    nom: valeurs.nom,
+    ...(peutRenommer ? { nom: valeurs.nom } : {}),
     typeProjet: valeurs.typeProjet,
     ville: valeurs.ville,
     maitreOuvrage: valeurs.maitreOuvrage,
