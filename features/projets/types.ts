@@ -359,6 +359,8 @@ export interface EquipeChantier {
   nom: string;
   /** Le nombre de personnes de l'équipe. */
   effectif: number;
+  /** L'identifiant de la ligne d'affectation portée par l'activité. */
+  affectationId?: string;
 }
 
 /** Qui compose une équipe : des salariés de l'entreprise, ou un sous-traitant. */

@@ -125,7 +125,7 @@ export function TiroirAffectation({
   async function enregistrer(cible: string, equipe: string | null) {
     setErreur(null);
     try {
-      onAffectee(await affecterEquipe(projetId, cible, equipe));
+      onAffectee(await affecterEquipe(projetId, activite ?? cible, equipe));
       onFermer();
     } catch (err) {
       const cause = err as ErreurApi;
