@@ -7,9 +7,6 @@
  */
 
 import { api, ErreurApi } from "@/lib/api";
-import { SIMULATION_ACTIVE } from "@/lib/api/simulation";
-
-import { simulationCollaborateurs } from "./simulationCollaborateurs";
 
 import type {
   Collaborateur,
@@ -127,21 +124,15 @@ export function cleCollaborateur(id: string) {
 /**
  * Tous les collaborateurs du tenant : comptes et invitations en cours.
  *
- * La liste vient toujours du serveur. Sous `NEXT_PUBLIC_API_SIMULE`, les
- * suspensions et suppressions — dont les routes n'existent pas encore — y
- * sont rejouées par `simulationCollaborateurs.ts`.
+ * La liste vient toujours du serveur.
  */
 export async function listerCollaborateurs(): Promise<Collaborateur[]> {
   const charges = await api.lire<ChargeCollaborateur[]>(RESSOURCE);
-  const collaborateurs = charges.map(versCollaborateur);
-  return SIMULATION_ACTIVE ? simulationCollaborateurs.appliquer(collaborateurs) : collaborateurs;
+  return charges.map(versCollaborateur);
 }
 
 /** Un collaborateur dans son détail, pour sa fiche. */
 export async function lireCollaborateur(id: string): Promise<Collaborateur> {
-  if (SIMULATION_ACTIVE) {
-    return simulationCollaborateurs.lire(await listerCollaborateurs(), id);
-  }
   return versCollaborateur(await api.lire<ChargeCollaborateur>(`${RESSOURCE}${id}/`));
 }
 
@@ -150,24 +141,15 @@ export async function lireCollaborateur(id: string): Promise<Collaborateur> {
  * validations et ses affectations restent, et il se réactive d'un geste.
  */
 export async function suspendreCollaborateur(id: string): Promise<Collaborateur> {
-  if (SIMULATION_ACTIVE) {
-    return simulationCollaborateurs.suspendre(await listerCollaborateurs(), id);
-  }
   return versCollaborateur(await api.creer<ChargeCollaborateur>(`${RESSOURCE}${id}/suspendre/`, {}));
 }
 
 export async function reactiverCollaborateur(id: string): Promise<Collaborateur> {
-  if (SIMULATION_ACTIVE) {
-    return simulationCollaborateurs.reactiver(await listerCollaborateurs(), id);
-  }
   return versCollaborateur(await api.creer<ChargeCollaborateur>(`${RESSOURCE}${id}/reactiver/`, {}));
 }
 
 /** Supprime le compte, ou l'invitation — son lien d'activation cesse de valoir. */
 export async function supprimerCollaborateur(id: string): Promise<void> {
-  if (SIMULATION_ACTIVE) {
-    return simulationCollaborateurs.supprimer(await listerCollaborateurs(), id);
-  }
   await api.supprimer(`${RESSOURCE}${id}/`);
 }
 
