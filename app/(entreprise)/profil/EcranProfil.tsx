@@ -2,15 +2,16 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, KeyRound, ShieldCheck, Trash2, UserRound } from "lucide-react";
+import { Camera, Eye, EyeOff, KeyRound, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { ChampTelephone } from "@/components/metier/ChampTelephone";
+import { ChampsMotDePasse } from "@/components/metier/ChampsMotDePasse";
 import {
   Alerte,
   Bouton,
@@ -22,6 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ZonePreRemplie } from "@/components/ui/form";
 import {
   FORMATS_AVATAR,
+  changerMotDePasseMoi,
   initialesProfil,
   modifierProfilMoi,
   nomAffiche,
@@ -31,8 +33,9 @@ import {
   televerserAvatar,
 } from "@/features/auth";
 import type { ProfilUtilisateur } from "@/features/auth";
-import { schemaProfil } from "@/features/auth/validations";
+import { schemaChangementMotDePasse, schemaProfil } from "@/features/auth/validations";
 import type { SaisieProfil, ValeursProfil } from "@/features/auth/validations";
+import { useReglesMotDePasse } from "@/features/auth/reglesMotDePasse";
 import { PAYS_TELEPHONE_DEFAUT } from "@/features/referentiels/telephone";
 import { ErreurApi } from "@/lib/api";
 import { ABSENT, formaterDate, formaterDateHeure } from "@/lib/format";
@@ -105,6 +108,7 @@ export function EcranProfil() {
           <div className="flex flex-col gap-4">
             <BlocInformations profil={requete.data} />
             <BlocCompte profil={requete.data} />
+            <BlocMotDePasse />
             <BlocHabilitations profil={requete.data} />
           </div>
         </div>
@@ -438,6 +442,185 @@ function BlocCompte({ profil }: { profil: ProfilUtilisateur }) {
           </dd>
         </div>
       </dl>
+    </section>
+  );
+}
+
+type ErreursMotDePasse = Partial<Record<"actuel" | "nouveau", string>>;
+
+/**
+ * Le changement de mot de passe de l'utilisateur connecté.
+ *
+ * Mêmes règles et ergonomie que dans le back-office : double saisie, barre de
+ * robustesse connectée au référentiel serveur, et mise à jour immédiate des jetons
+ * pour éviter la déconnexion sur le poste actif.
+ */
+function BlocMotDePasse() {
+  const t = useTranslations("profil");
+  const tMotDePasse = useTranslations("motDePasse");
+  const [actuel, setActuel] = useState("");
+  const [nouveau, setNouveau] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [actuelVisible, setActuelVisible] = useState(false);
+  const [erreurs, setErreurs] = useState<ErreursMotDePasse>({});
+  const [erreur, setErreur] = useState<string | null>(null);
+
+  const { regles, complet } = useReglesMotDePasse(nouveau, confirmation);
+
+  const changement = useMutation({
+    mutationFn: () => changerMotDePasseMoi({ actuel, nouveau }),
+    onSuccess: () => {
+      setActuel("");
+      setNouveau("");
+      setConfirmation("");
+      setErreurs({});
+      setErreur(null);
+      toast.success(t("motDePasse.succes"));
+    },
+    onError: (cause) => {
+      if (cause instanceof ErreurApi) {
+        if (cause.code === "ancien_mot_de_passe_incorrect") {
+          setErreurs({ actuel: cause.message || t("motDePasse.ancienIncorrect") });
+          return;
+        }
+        if (cause.code === "mot_de_passe_identique") {
+          setErreurs({ nouveau: cause.message || t("motDePasse.identique") });
+          return;
+        }
+        const parChamp = cause.erreursParChamp;
+        if (
+          parChamp &&
+          (parChamp.actuel ||
+            parChamp.nouveau ||
+            parChamp.ancien_mot_de_passe ||
+            parChamp.nouveau_mot_de_passe)
+        ) {
+          setErreurs({
+            actuel: parChamp.actuel || parChamp.ancien_mot_de_passe,
+            nouveau: parChamp.nouveau || parChamp.nouveau_mot_de_passe,
+          });
+          return;
+        }
+        if (cause.details && typeof cause.details === "object") {
+          const det = cause.details as Record<string, unknown>;
+          if (det.nouveau_mot_de_passe) {
+            const msg = Array.isArray(det.nouveau_mot_de_passe)
+              ? String(det.nouveau_mot_de_passe[0])
+              : String(det.nouveau_mot_de_passe);
+            setErreurs({ nouveau: msg });
+            return;
+          }
+          if (det.ancien_mot_de_passe) {
+            const msg = Array.isArray(det.ancien_mot_de_passe)
+              ? String(det.ancien_mot_de_passe[0])
+              : String(det.ancien_mot_de_passe);
+            setErreurs({ actuel: msg });
+            return;
+          }
+        }
+      }
+      setErreur(messageDe(cause, t("motDePasse.erreur")));
+    },
+  });
+
+  function soumettre(evenement: FormEvent) {
+    evenement.preventDefault();
+    setErreur(null);
+
+    const verification = schemaChangementMotDePasse.safeParse({ actuel, nouveau });
+    if (!verification.success) {
+      const trouvees: ErreursMotDePasse = {};
+      for (const probleme of verification.error.issues) {
+        const champ = probleme.path[0];
+        if ((champ === "actuel" || champ === "nouveau") && !trouvees[champ]) {
+          trouvees[champ] = probleme.message;
+        }
+      }
+      setErreurs(trouvees);
+      return;
+    }
+
+    setErreurs({});
+    changement.mutate();
+  }
+
+  return (
+    <section className={CARTE}>
+      <div className="mb-4 flex items-start gap-3 border-b border-neutral-100 pb-4">
+        <span className={PASTILLE_ICONE}>
+          <KeyRound size={18} aria-hidden="true" />
+        </span>
+        <div>
+          <h2 className="mb-0.5 text-sm font-semibold text-neutral-900">
+            {t("motDePasse.titre")}
+          </h2>
+          <p className="text-sm text-neutral-600">{t("motDePasse.aide")}</p>
+        </div>
+      </div>
+
+      <form noValidate onSubmit={soumettre} className="flex flex-col" data-sans-sauvegarde>
+        <Champ
+          libelle={t("motDePasse.actuel")}
+          type={actuelVisible ? "text" : "password"}
+          autoComplete="current-password"
+          required
+          value={actuel}
+          onChange={(evenement) => {
+            setActuel(evenement.target.value);
+            if (erreurs.actuel) setErreurs({ ...erreurs, actuel: undefined });
+          }}
+          disabled={changement.isPending}
+          erreur={erreurs.actuel}
+          actionDroite={
+            <button
+              type="button"
+              className="flex cursor-pointer items-center border-0 bg-transparent p-1 text-neutral-500 hover:text-neutral-800"
+              aria-label={actuelVisible ? tMotDePasse("masquer") : tMotDePasse("afficher")}
+              onClick={() => setActuelVisible((visible) => !visible)}
+            >
+              {actuelVisible ? (
+                <EyeOff size={18} aria-hidden="true" />
+              ) : (
+                <Eye size={18} aria-hidden="true" />
+              )}
+            </button>
+          }
+        />
+
+        <ChampsMotDePasse
+          motDePasse={nouveau}
+          confirmation={confirmation}
+          onMotDePasse={(valeur) => {
+            setNouveau(valeur);
+            if (erreurs.nouveau) setErreurs({ ...erreurs, nouveau: undefined });
+          }}
+          onConfirmation={(valeur) => {
+            setConfirmation(valeur);
+          }}
+          disabled={changement.isPending}
+          regles={regles}
+        />
+        {erreurs.nouveau && <p className="mt-1 text-sm text-erreur">{erreurs.nouveau}</p>}
+
+        {erreur && (
+          <div className="mt-4 flex flex-col gap-3">
+            <Alerte type="erreur">{erreur}</Alerte>
+          </div>
+        )}
+
+        <div className="mt-4 flex justify-end">
+          <Bouton
+            type="submit"
+            variante="primaire"
+            disabled={!actuel || !complet}
+            enCours={changement.isPending}
+          >
+            {changement.isPending
+              ? t("motDePasse.enCours")
+              : t("motDePasse.enregistrer")}
+          </Bouton>
+        </div>
+      </form>
     </section>
   );
 }

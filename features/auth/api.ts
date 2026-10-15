@@ -303,3 +303,31 @@ export async function reinitialiserMotDePasse(
   }
   await api.creer<void>("/auth/mot-de-passe/reinitialiser/", corps);
 }
+
+/**
+ * Change le mot de passe de l'utilisateur connecté — `POST /auth/profil/mot-de-passe/`.
+ *
+ * **Les jetons sont réécrits avant tout le reste** : le serveur révoque tous ceux de
+ * l'utilisateur et en renvoie de neufs. Les garder, c'est rester connecté sur ce poste ; les
+ * autres sessions, elles, sont fermées — c'est le but.
+ */
+export async function changerMotDePasseMoi(demande: {
+  actuel: string;
+  nouveau: string;
+}): Promise<void> {
+  const reponse = await api.creer<{ access: string; refresh: string }>(
+    "/auth/profil/mot-de-passe/",
+    {
+      ancien_mot_de_passe: demande.actuel,
+      nouveau_mot_de_passe: demande.nouveau,
+      origine: "WEB",
+    },
+  );
+  ecrireJetonAcces(reponse.access);
+  ecrireJetonRenouvellement(reponse.refresh);
+  const profil = lireProfilLocal();
+  if (profil && profil.doit_changer_mot_de_passe) {
+    ecrireProfilLocal({ ...profil, doit_changer_mot_de_passe: false });
+  }
+}
+

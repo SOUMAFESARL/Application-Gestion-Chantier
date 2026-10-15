@@ -76,3 +76,20 @@ export const schemaProfil = z.object({
 
 export type SaisieProfil = z.input<typeof schemaProfil>;
 export type ValeursProfil = z.output<typeof schemaProfil>;
+
+/**
+ * Changement de mot de passe depuis le profil de l'utilisateur connecté.
+ */
+export const schemaChangementMotDePasse = z
+  .object({
+    actuel: z.string().min(1, { message: texte("profil.motDePasse.erreurActuelRequis") }),
+    nouveau: z.string().min(1, { message: texte("profil.motDePasse.erreurNouveauRequis") }),
+  })
+  .refine((valeurs) => valeurs.nouveau !== valeurs.actuel, {
+    path: ["nouveau"],
+    message: texte("profil.motDePasse.erreurIdentique"),
+  });
+
+export type SaisieChangementMotDePasse = z.input<typeof schemaChangementMotDePasse>;
+export type ValeursChangementMotDePasse = z.output<typeof schemaChangementMotDePasse>;
+
