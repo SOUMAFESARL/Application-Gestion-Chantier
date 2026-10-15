@@ -150,18 +150,27 @@ journalisé** ; la suppression reste coupée en production
 
 ### Lot 3 — Paramétrage et accès de l'entreprise
 
-- Rôles, collaborateurs, invitations, identité de la plateforme : retrait des
-  simulations résiduelles.
-- `permissions-roles` par projet : absent du backend, à trancher.
-- **US 2.1** — plusieurs numéros de contact par entreprise.
-- **US 2.2** — affichage du logo de l'entreprise.
-- **Servi, jamais appelé** : suspension et réactivation d'un collaborateur ;
-  liste et détail des invitations ; catalogue `/modules/` ; `/entreprise/` ;
-  changement de mot de passe du profil (`auth/profil/mot-de-passe/`) ; étapes
-  de l'assistant de configuration (`etapes/{code}/passer|valider/`,
-  `recapitulatif/`, `terminer/`) ; suite de l'inscription (`activer/`,
-  `etat/{suivi}/`, `verifier/`), à contrôler car ce domaine construit ses
-  chemins autrement.
+#### Cadrage et décisions du 14/10/2026
+
+- La suite de l'inscription n'était pas « jamais appelée » : elle est branchée ; contrôlée en F7.
+- **Non branchés, par décision** : l'assistant de configuration (retiré du produit ; ses routes `configuration/etapes/…` restent servies, sans consommateur), `/entreprise/` (doublon de `/parametres/configuration/`), la liste et le détail des invitations (la liste des collaborateurs inclut les invités).
+- `permissions-roles` par projet : **reporté**, MLD v1.7 §5.2.5.
+
+| Tâche | Contenu | État |
+|---|---|---|
+| **B1** Collaborateurs backend | Endpoints réels de suspension, réactivation, suppression logique et renvoi d'invitation avec permissions strictes (DG / ADMIN). | **Fait le 14/10/2026.** 10 tests pytest au vert, suppression des réponses `detail` brutes. |
+| **F1** Collaborateurs réels | Branchement de la liste des collaborateurs sur l'API réelle, actions de suspension / réactivation / suppression, retrait de `simulationCollaborateurs.ts`. | **Fait le 14/10/2026.** Vérifié : actions fonctionnelles, affichage cohérent, zéro erreur lint/typecheck. |
+| **B2** Suppression entreprise | Garantie de suppression d'entreprise même avec collaborateurs suspendus ou supprimés logiquement. | **Fait le 14/10/2026.** Vérifié : cascade propre au nettoyage et intégrité référentielle préservée. |
+| **F2** Renvoi d'invitation | Action de renvoi d'invitation branchée sur `POST /collaborateurs/{id}/renvoyer/` depuis la liste. | **Fait le 14/10/2026.** Vérifié : toast de confirmation, limitation de fréquence gérée. |
+| **F3** Rôles réels | Matrice des permissions de l'entreprise branchée sur l'API réelle, retrait du code mort de projet, retrait de `simulationRoles.ts`. | **Fait le 15/10/2026.** Vérifié : lecture et écriture des rôles sur le serveur, zéro simulation. |
+| **B3** Téléphones entreprise backend | Modèle `TelephoneEntreprise` multi-canaux (1 à 5 numéros), format international E.164, réconciliation intelligente et unicité. | **Fait le 15/10/2026.** 17 tests pytest au vert, migration schémas partagés exécutée. |
+| **F4** Téléphones entreprise frontend | `ChampTelephone` avec prop `international` (E.164 mondial), saisie de 1 à 5 numéros avec libellé et désignation du principal, fiche back-office. | **Fait le 15/10/2026.** Vérifié : persistance JSON et multipart, affichage back-office, 390 px responsive. |
+| **F5** Logo visible sur téléphone | Affichage de l'avatar du logo d'entreprise sur mobile (`app/(entreprise)/layout.tsx`) avec accessibilité `aria-label`. | **Fait le 15/10/2026.** Vérifié : avatar visible à 390 px, bascule nom à `md:inline`. |
+| **F6** Mot de passe profil | Changement de mot de passe utilisateur (`POST /auth/profil/mot-de-passe/`) avec mise à jour immédiate des jetons pour éviter la déconnexion. | **Fait le 15/10/2026.** Vérifié : validation Zod, barre de robustesse, erreurs par champ, jetons réécrits. |
+| **F7** Contrôle inscription | Audit comparatif champ par champ des 5 routes d'inscription et de provisionnement ; correction de commit atomique backend. | **Fait le 15/10/2026.** 35 tests pytest au vert, 0 divergence de contrat détectée. |
+| **F8** Clôture | Identité de la plateforme 100% réelle (`/plateforme/identite/`), nettoyage de `simulationParametresPublics.ts`, plan à jour. | **Fait le 15/10/2026.** Vérifié : 0 branche simulée sur l'identité, build et typage validés. |
+
+*Lot 3 fusionné dans `develop` des deux dépôts le 15/10/2026, **non poussé** : relecture et push par le développeur.*
 
 ### Lot 4 — Gestion de projet
 
