@@ -484,8 +484,8 @@ export interface SaisieActiviteDomaine {
   unite: UniteActivite | null;
   /** En centimes. */
   budget: number | null;
-  dateDebutPrevue: string | null;
-  dateFinPrevue: string | null;
+  dateDebutPrevue?: string | null;
+  dateFinPrevue?: string | null;
   responsableId: string | null;
   equipeId: string | null;
   statut: StatutDeclare;
@@ -523,4 +523,55 @@ export interface LigneImportLot {
   dateDebut: string | null;
   dateFin: string | null;
   anomalies: AnomalieImportLot[];
+}
+
+/* ------------------------------------------------------------------ *
+ * Reprogrammation des dates et historique (US 3.8, RG-11).
+ * ------------------------------------------------------------------ */
+
+/** Motif dynamique de report de dates. */
+export interface MotifReport {
+  id: string;
+  code: string;
+  libelle: string;
+  description?: string | null;
+  ordre?: number;
+}
+
+/** Ce qu'il faut fournir pour reprogrammer un projet, un lot ou une activité. */
+export interface Reprogrammation {
+  dateDebutPrevue?: string | null;
+  dateFinPrevue: string;
+  motifId: string;
+  justification: string;
+}
+
+/** Résultat synthétique renvoyé après une reprogrammation réussie. */
+export interface ResultatReprogrammation {
+  id: string;
+  typeObjet: "PROJET" | "LOT" | "ACTIVITE";
+  dateDebutPrevue: string;
+  dateFinPrevue: string;
+  dateDebutBaseline: string | null;
+  dateFinBaseline: string | null;
+  joursDeriveBaseline: number;
+  alerteDg: boolean;
+}
+
+/** Événement de report dans l'historique des dates. */
+export interface EvenementDate {
+  id: string;
+  typeObjet: "PROJET" | "LOT" | "ACTIVITE";
+  champ: string;
+  avant: string | null;
+  apres: string | null;
+  ecartJours: number | null;
+  motif: string;
+  justification: string;
+  auteur: string;
+  objet: string;
+  objetId?: string | null;
+  projetId?: string | null;
+  projetNom?: string | null;
+  le: Date;
 }

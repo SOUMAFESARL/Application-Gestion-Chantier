@@ -2,15 +2,17 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, Pencil } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Alerte } from "@/components/ui/Alerte";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
+import { HistoriqueDatesCourt } from "./HistoriqueDatesCourt";
+import { ModaleReprogrammation } from "./ModaleReprogrammation";
 import {
   Form,
   FormControl,
@@ -64,7 +66,7 @@ import {
   type ValeursActivite,
 } from "@/features/projets/validations";
 import { ErreurApi } from "@/lib/api";
-import { formaterMontant, formaterSaisieMontant } from "@/lib/format";
+import { formaterDate, formaterMontant, formaterSaisieMontant } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const FORM_ID = "form-activite";
@@ -130,7 +132,10 @@ export function TiroirActivite({
 }: Props) {
   const t = useTranslations("projets.lotsActivites.formActivite");
   const tLots = useTranslations("projets.lotsActivites");
+  const tReprog = useTranslations("projets.reprogrammation");
   const modification = !!activite;
+  const datesActiviteFigees = Boolean(activite && (activite.dateDebutPrevue || activite.dateFinPrevue));
+  const [reprogrammationOuverte, setReprogrammationOuverte] = useState(false);
 
   // Le cache des équipes est partagé avec l'écran « Équipes et affectations ».
   const equipes = useQuery({
@@ -193,6 +198,10 @@ export function TiroirActivite({
   async function soumettre(saisie: ValeursActivite) {
     try {
       const domaine = versSaisieActiviteDomaine(saisie);
+      if (datesActiviteFigees) {
+        delete domaine.dateDebutPrevue;
+        delete domaine.dateFinPrevue;
+      }
       const enregistree = activite
         ? await modifierActivite(projetId, activite.id, domaine)
         : await creerActivite(projetId, domaine);
@@ -415,6 +424,28 @@ export function TiroirActivite({
               )}
             />
 
+            {datesActiviteFigees && activite && (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-2.5">
+                <span className="text-xs text-neutral-600">
+                  {tReprog("datesActuellesFormat", {
+                    label: tReprog("datesActuelles"),
+                    debut: formaterDate(activite.dateDebutPrevue),
+                    fin: formaterDate(activite.dateFinPrevue),
+                  })}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => setReprogrammationOuverte(true)}
+                >
+                  <Pencil className="size-3.5" aria-hidden="true" />
+                  {tReprog("modifierDates")}
+                </Button>
+              </div>
+            )}
+
             <div className={RANGEE}>
               <FormField
                 control={form.control}
@@ -434,7 +465,7 @@ export function TiroirActivite({
                         auPlusTard={valeurs.dateFin || lotChoisi?.dateFin || undefined}
                         className={CHAMP}
                         placeholder={t("champDateChoisir")}
-                        disabled={enCours}
+                        disabled={enCours || datesActiviteFigees}
                       />
                     </FormControl>
                     <FormMessage />
@@ -456,7 +487,7 @@ export function TiroirActivite({
                         auPlusTard={lotChoisi?.dateFin || undefined}
                         className={CHAMP}
                         placeholder={t("champDateChoisir")}
-                        disabled={enCours}
+                        disabled={enCours || datesActiviteFigees}
                       />
                     </FormControl>
                     <FormMessage />
@@ -518,6 +549,8 @@ export function TiroirActivite({
                 </FormItem>
               )}
             />
+
+            {activite && <HistoriqueDatesCourt objet="activites" id={activite.id} />}
           </form>
         </Form>
 
@@ -536,6 +569,32 @@ export function TiroirActivite({
           </Button>
         </SheetFooter>
       </SheetContent>
+
+      {activite && datesActiviteFigees && (
+        <ModaleReprogrammation
+          ouverte={reprogrammationOuverte}
+          onFermer={() => setReprogrammationOuverte(false)}
+          objet="activites"
+          id={activite.id}
+          nomObjet={activite.libelle}
+          projetId={projetId}
+          datesActuelles={{ debut: activite.dateDebutPrevue, fin: activite.dateFinPrevue }}
+          bornesParent={
+            lotChoisi
+              ? { debutMin: lotChoisi.dateDebut, finMax: lotChoisi.dateFin }
+              : null
+          }
+          onSucces={(resultat) => {
+            form.setValue("dateDebut", resultat.dateDebutPrevue ?? "");
+            form.setValue("dateFin", resultat.dateFinPrevue);
+            onEnregistree({
+              ...activite,
+              dateDebutPrevue: resultat.dateDebutPrevue,
+              dateFinPrevue: resultat.dateFinPrevue,
+            });
+          }}
+        />
+      )}
     </Sheet>
   );
 }

@@ -46,6 +46,7 @@ import {
 import { lireProjet, lireStatistiques, listerEquipes, listerLots } from "@/features/projets/adaptateur";
 import { cleEquipes, cleLots, cleProjet, cleStatistiques } from "@/features/projets/cles";
 import { useGestionProjet } from "@/features/projets/components/GestionProjet";
+import { HistoriqueDatesProjet } from "@/features/projets/components/HistoriqueDatesProjet";
 import {
   budgetRestant,
   ecartAvancement,
@@ -475,6 +476,8 @@ export function FicheProjet({ projetId }: { projetId: string }) {
         />
       </div>
 
+      <HistoriqueDatesProjet projet={projet} />
+
       {modaux}
       {fichePdf.indicateur}
     </div>
@@ -595,7 +598,15 @@ function Detail({
  * Le geste de cadrage d'une carte, pour le chef de projet : « Définir » tant
  * que la valeur manque, « Modifier » ensuite.
  */
-function BoutonCadrage({ defini, onClick }: { defini: boolean; onClick: () => void }) {
+function BoutonCadrage({
+  defini,
+  onClick,
+  libelle,
+}: {
+  defini: boolean;
+  onClick: () => void;
+  libelle?: string;
+}) {
   const t = useTranslations("projets.cadrage");
   return (
     <Button
@@ -606,7 +617,7 @@ function BoutonCadrage({ defini, onClick }: { defini: boolean; onClick: () => vo
       onClick={onClick}
     >
       <Pencil aria-hidden="true" />
-      {defini ? t("modifier") : t("definir")}
+      {libelle ?? (defini ? t("modifier") : t("definir"))}
     </Button>
   );
 }
@@ -627,6 +638,7 @@ function NonDefini({ onDefinir }: { onDefinir?: () => void }) {
 
 function CarteCalendrier({ projet, onDefinir }: { projet: Projet; onDefinir?: () => void }) {
   const t = useTranslations("ficheProjet.calendrier");
+  const tReprog = useTranslations("projets.reprogrammation");
   const echeancier = echeancierProjet(projet);
   const depasse =
     echeancier.joursRestants !== null && echeancier.joursRestants < 0;
@@ -721,7 +733,13 @@ function CarteCalendrier({ projet, onDefinir }: { projet: Projet; onDefinir?: ()
             ? t("debutReel", { date: formaterDate(projet.dateDebutReelle) })
             : t("nonDemarre")}
         </span>
-        {onDefinir && <BoutonCadrage defini onClick={onDefinir} />}
+        {onDefinir && (
+          <BoutonCadrage
+            defini
+            onClick={onDefinir}
+            libelle={tReprog("modifierDates")}
+          />
+        )}
       </div>
     </CarteCle>
   );

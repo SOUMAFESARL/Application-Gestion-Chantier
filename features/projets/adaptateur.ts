@@ -16,6 +16,7 @@
  * la brèche que cette couche ferme.
  */
 
+import { texte } from "@/i18n/horsReact";
 import { api, type ErreurApi } from "@/lib/api";
 import { routesSimulees } from "@/lib/api/simulation";
 
@@ -39,6 +40,7 @@ import type {
   ContratProjet,
   CreationProjet,
   Equipe,
+  EvenementDate,
   FonctionAutreMembre,
   FonctionProjet,
   EquipeChantier,
@@ -49,10 +51,13 @@ import type {
   MeteoProjet,
   ModeExecutionLot,
   ModificationProjet,
+  MotifReport,
   NatureEquipe,
   PlanningProjet,
   PonderationAvancement,
   Projet,
+  Reprogrammation,
+  ResultatReprogrammation,
   RoleMembreEquipe,
   SaisieActiviteDomaine,
   SaisieMembreEquipe,
@@ -793,15 +798,20 @@ export async function listerLots(projetId: string, signal?: AbortSignal): Promis
 }
 
 function versChargeLot(creation: CreationLotProjet) {
-  return {
+  const charge: Record<string, unknown> = {
     nom: creation.nom,
     mode_execution: MODE_EXECUTION_SERVEUR[creation.modeExecution],
     type_bordereau: TYPE_BORDEREAU_SERVEUR[creation.typeBordereau],
     budget_initial_montant: creation.budget ?? null,
-    date_debut_prevue: creation.dateDebut ?? null,
-    date_fin_prevue: creation.dateFin ?? null,
     statut: STATUT_SERVEUR[creation.statut ?? STATUT_DECLARE_PAR_DEFAUT],
   };
+  if (creation.dateDebut !== undefined) {
+    charge.date_debut_prevue = creation.dateDebut;
+  }
+  if (creation.dateFin !== undefined) {
+    charge.date_fin_prevue = creation.dateFin;
+  }
+  return charge;
 }
 
 export async function creerLot(projetId: string, creation: CreationLotProjet): Promise<Lot> {
@@ -859,20 +869,23 @@ export async function importerLots(
 }
 
 function versChargeActivite(saisie: SaisieActiviteDomaine) {
-  return {
+  const charge: Record<string, unknown> = {
     lot_id: saisie.lotId,
     libelle: saisie.libelle,
     quantite_prevue: saisie.quantitePrevue,
     unite: saisie.unite,
     budget_initial_montant: saisie.budget,
-    date_debut_prevue: saisie.dateDebutPrevue,
-    date_fin_prevue: saisie.dateFinPrevue,
-    // La dépendance ne se saisit plus : un PATCH sans elle la laisse intacte.
     responsable: saisie.responsableId,
-    // Une équipe simulée n'existe pas pour le serveur : elle ne lui est pas envoyée.
     ...(EQUIPES_SIMULEES ? {} : { equipe_ids: saisie.equipeId ? [saisie.equipeId] : [] }),
     statut: STATUT_SERVEUR[saisie.statut],
   };
+  if (saisie.dateDebutPrevue !== undefined) {
+    charge.date_debut_prevue = saisie.dateDebutPrevue;
+  }
+  if (saisie.dateFinPrevue !== undefined) {
+    charge.date_fin_prevue = saisie.dateFinPrevue;
+  }
+  return charge;
 }
 
 /**
@@ -1121,3 +1134,146 @@ export async function affecterEquipe(
     }),
   );
 }
+
+/* ------------------------------------------------------------------ *
+ * Reprogrammation des dates et historique (US 3.8, RG-11).
+ * ------------------------------------------------------------------ */
+
+interface ChargeMotifReport {
+  id: string;
+  code: string;
+  libelle: string;
+  description?: string | null;
+  ordre?: number;
+}
+
+interface ChargeReprogrammationResultat {
+  id: string;
+  type_objet: "PROJET" | "LOT" | "ACTIVITE";
+  date_debut_prevue: string;
+  date_fin_prevue: string;
+  date_debut_baseline: string | null;
+  date_fin_baseline: string | null;
+  jours_derive_baseline: number;
+  alerte_dg_declenchee: boolean;
+}
+
+interface ChargeHistoriqueDate {
+  id: string;
+  type_objet: "PROJET" | "LOT" | "ACTIVITE";
+  champ: string;
+  valeur_avant: string | null;
+  valeur_apres: string | null;
+  ecart_jours: number | null;
+  motif?: ChargeMotifReport | null;
+  justification: string;
+  auteur_id?: string | null;
+  auteur_nom?: string | null;
+  auteur_email?: string | null;
+  objet_id?: string | null;
+  objet_libelle?: string | null;
+  projet_id?: string | null;
+  projet_reference?: string | null;
+  projet_nom?: string | null;
+  cree_le: string;
+}
+
+function versMotifReport(charge: ChargeMotifReport): MotifReport {
+  return {
+    id: charge.id,
+    code: charge.code,
+    libelle: charge.libelle,
+    description: charge.description ?? null,
+    ordre: charge.ordre,
+  };
+}
+
+function versResultatReprogrammation(
+  charge: ChargeReprogrammationResultat,
+): ResultatReprogrammation {
+  return {
+    id: charge.id,
+    typeObjet: charge.type_objet,
+    dateDebutPrevue: charge.date_debut_prevue,
+    dateFinPrevue: charge.date_fin_prevue,
+    dateDebutBaseline: charge.date_debut_baseline,
+    dateFinBaseline: charge.date_fin_baseline,
+    joursDeriveBaseline: charge.jours_derive_baseline,
+    alerteDg: charge.alerte_dg_declenchee,
+  };
+}
+
+function versEvenementDate(charge: ChargeHistoriqueDate): EvenementDate {
+  return {
+    id: charge.id,
+    typeObjet: charge.type_objet,
+    champ: charge.champ,
+    avant: charge.valeur_avant,
+    apres: charge.valeur_apres,
+    ecartJours: charge.ecart_jours,
+    motif: charge.motif?.libelle ?? charge.motif?.code ?? "",
+    justification: charge.justification,
+    auteur: charge.auteur_nom || charge.auteur_email || texte("projets.reprogrammation.systeme"),
+    objet: charge.objet_libelle || "",
+    objetId: charge.objet_id,
+    projetId: charge.projet_id,
+    projetNom: charge.projet_nom ?? undefined,
+    le: new Date(charge.cree_le),
+  };
+}
+
+/** La liste dynamique des motifs de report actifs. */
+export async function listerMotifsReport(signal?: AbortSignal): Promise<MotifReport[]> {
+  const charge = await api.lire<ChargeMotifReport[] | ChargeListe<ChargeMotifReport>>(
+    "/referentiels/motifs-report/",
+    undefined,
+    signal,
+  );
+  return parOrdre(aPlat(charge)).map(versMotifReport);
+}
+
+/** Reprogrammer un projet, un lot ou une activité (US 3.8, RG-11). */
+export async function reprogrammer(
+  objet: "projets" | "lots" | "activites",
+  id: string,
+  reprogrammation: Reprogrammation,
+): Promise<ResultatReprogrammation> {
+  const charge = await api.creer<ChargeReprogrammationResultat>(
+    `/${objet}/${id}/reprogrammer/`,
+    {
+      date_debut_prevue: reprogrammation.dateDebutPrevue || undefined,
+      date_fin_prevue: reprogrammation.dateFinPrevue,
+      motif_id: reprogrammation.motifId,
+      justification: reprogrammation.justification,
+    },
+  );
+  return versResultatReprogrammation(charge);
+}
+
+/** L'historique des dates pour un objet précis (projet, lot ou activité). */
+export async function lireHistoriqueDates(
+  objet: "projets" | "lots" | "activites",
+  id: string,
+  signal?: AbortSignal,
+): Promise<EvenementDate[]> {
+  const charge = await api.lire<ChargeHistoriqueDate[] | ChargeListe<ChargeHistoriqueDate>>(
+    `/${objet}/${id}/historique-dates/`,
+    undefined,
+    signal,
+  );
+  return aPlat(charge).map(versEvenementDate);
+}
+
+/** L'historique consolidé des reports d'un projet (projet, lots, activités). */
+export async function lireJournalReports(
+  projetId: string,
+  signal?: AbortSignal,
+): Promise<EvenementDate[]> {
+  const charge = await api.lire<ChargeHistoriqueDate[] | ChargeListe<ChargeHistoriqueDate>>(
+    `/projets/${projetId}/journal-reports/`,
+    undefined,
+    signal,
+  );
+  return aPlat(charge).map(versEvenementDate);
+}
+

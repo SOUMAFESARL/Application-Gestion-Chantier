@@ -53,6 +53,7 @@ import type {
   NatureEquipe,
   PlanningProjet,
   Projet,
+  Reprogrammation,
   RoleMembreEquipe,
   SaisieActiviteDomaine,
   SaisieMembreEquipe,
@@ -825,3 +826,93 @@ export type SaisieBudget = z.input<typeof schemaBudget>;
 export function versBudgetCentimes(valeurs: z.output<typeof schemaBudget>): number {
   return saisieEnCentimes(valeurs.montant) ?? 0;
 }
+
+/* ------------------------------------------------------------------ *
+ * Reprogrammation des dates (US 3.8, RG-11).
+ * ------------------------------------------------------------------ */
+
+/** Longueur minimale de la justification exigée par le serveur (RG-11). */
+export const JUSTIFICATION_MIN = 30;
+
+export interface BornesReprogrammation {
+  debutMin?: string | null;
+  finMax?: string | null;
+  typeObjet?: "PROJET" | "LOT" | "ACTIVITE";
+}
+
+/**
+ * Le schéma de validation de la reprogrammation des dates :
+ * - Date de début facultative (saisie pour modifier début et fin ensemble)
+ * - Date de fin obligatoire
+ * - Motif obligatoire
+ * - Justification obligatoire (≥ 30 caractères, RG-11)
+ * - Cohérence des dates : fin > début (projet) ou fin >= début (lot, activité)
+ * - Bornes imposées par le parent (lot borné par projet, activité par lot).
+ */
+export function schemaReprogrammation(bornes?: BornesReprogrammation) {
+  return z
+    .object({
+      dateDebut: z.string(),
+      dateFin: chaineNonVide(texte("projets.reprogrammation.erreurFinRequise")),
+      motifId: chaineNonVide(texte("projets.reprogrammation.erreurMotifRequis")),
+      justification: z
+        .string()
+        .trim()
+        .min(JUSTIFICATION_MIN, {
+          message: texte("projets.reprogrammation.erreurJustificationCourte"),
+        }),
+    })
+    .superRefine((saisie, ctx) => {
+      if (saisie.dateDebut && saisie.dateFin) {
+        if (bornes?.typeObjet === "PROJET") {
+          if (saisie.dateFin <= saisie.dateDebut) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["dateFin"],
+              message: texte("projets.tiroirCreation.erreurDatesIncoherentes"),
+            });
+          }
+        } else {
+          if (saisie.dateFin < saisie.dateDebut) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["dateFin"],
+              message: texte("projets.tiroirCreation.erreurDatesIncoherentes"),
+            });
+          }
+        }
+      }
+      if (bornes?.debutMin && saisie.dateDebut && saisie.dateDebut < bornes.debutMin) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["dateDebut"],
+          message: texte("projets.lotsActivites.formLot.erreurDebutAvantProjet", {
+            date: formaterDate(bornes.debutMin),
+          }),
+        });
+      }
+      if (bornes?.finMax && saisie.dateFin && saisie.dateFin > bornes.finMax) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["dateFin"],
+          message: texte("projets.lotsActivites.formLot.erreurFinApresProjet", {
+            date: formaterDate(bornes.finMax),
+          }),
+        });
+      }
+    });
+}
+
+export type SaisieReprogrammation = z.infer<ReturnType<typeof schemaReprogrammation>>;
+
+export function versReprogrammation(
+  saisie: SaisieReprogrammation,
+): Reprogrammation {
+  return {
+    dateDebutPrevue: saisie.dateDebut ? saisie.dateDebut : null,
+    dateFinPrevue: saisie.dateFin,
+    motifId: saisie.motifId,
+    justification: saisie.justification,
+  };
+}
+

@@ -36,7 +36,8 @@ import {
   listerLots,
 } from "@/features/projets/adaptateur";
 import { cleLots } from "@/features/projets/cles";
-import { echeancierProjet, plancherBudget } from "@/features/projets/regles";
+import { ModaleReprogrammation } from "./ModaleReprogrammation";
+import { echeancierProjet, plancherBudget, planningDefini } from "@/features/projets/regles";
 import type { Projet } from "@/features/projets/types";
 import {
   saisieDepuisPlanning,
@@ -73,8 +74,31 @@ interface Props {
  * le budget prévisionnel, qui ne se demandent plus à la création. Deux
  * formulaires distincts, chacun sa propre écriture — fixer le budget ne
  * renvoie pas les dates.
+ *
+ * Dès que le projet a ses dates, la modification passe par la
+ * reprogrammation officielle (US 3.8, RG-11).
  */
 export function ModaleCadrageProjet({ cadrage, onFermer, onModifie }: Props) {
+  if (cadrage?.objet === "planning" && planningDefini(cadrage.projet)) {
+    return (
+      <ModaleReprogrammation
+        ouverte={cadrage !== null}
+        onFermer={onFermer}
+        objet="projets"
+        id={cadrage.projet.id}
+        nomObjet={cadrage.projet.nom}
+        projetId={cadrage.projet.id}
+        datesActuelles={{
+          debut: cadrage.projet.dateDebutPrevue,
+          fin: cadrage.projet.dateFinPrevue,
+        }}
+        onSucces={() => {
+          onModifie({ ...cadrage.projet });
+        }}
+      />
+    );
+  }
+
   return (
     <Dialog open={cadrage !== null} onOpenChange={(ouvert) => !ouvert && onFermer()}>
       <DialogContent className="sm:max-w-[480px]">
