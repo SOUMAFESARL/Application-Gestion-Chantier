@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
+  Activity,
   ArrowLeft,
   ArrowRight,
   CalendarDays,
@@ -44,8 +45,22 @@ import {
   projetVisible,
   useDroits,
 } from "@/features/habilitations";
-import { lireProjet, lireStatistiques, listerEquipes, listerLots } from "@/features/projets/adaptateur";
-import { cleEquipes, cleLots, cleProjet, cleStatistiques } from "@/features/projets/cles";
+import {
+  lireHistoriqueSante,
+  lireProjet,
+  lireSanteProjet,
+  lireStatistiques,
+  listerEquipes,
+  listerLots,
+} from "@/features/projets/adaptateur";
+import {
+  cleEquipes,
+  cleHistoriqueSante,
+  cleLots,
+  cleProjet,
+  cleSanteProjet,
+  cleStatistiques,
+} from "@/features/projets/cles";
 import { useGestionProjet } from "@/features/projets/components/GestionProjet";
 import { HistoriqueDatesProjet } from "@/features/projets/components/HistoriqueDatesProjet";
 import {
@@ -59,12 +74,14 @@ import {
   niveauBudget,
   peutReprendre,
   peutSuspendre,
+  principalePenalite,
   projetModifiable,
   ratioConsommationBudget,
   syntheseLots,
+  tonSante,
 } from "@/features/projets/regles";
 import type { NiveauBudget } from "@/features/projets/regles";
-import type { Projet } from "@/features/projets/types";
+import type { BadgeSante, Projet } from "@/features/projets/types";
 import { afficherTelephone } from "@/features/referentiels/telephone";
 import {
   ABSENT,
@@ -350,11 +367,13 @@ export function FicheProjet({ projetId }: { projetId: string }) {
         />
       </div>
 
-      {/* Les trois chiffres qu'on vient chercher. */}
+      {/* Les chiffres clés : planning, budget, avancement, santé. */}
       <section
         className={cn(
           "grid gap-4 max-lg:grid-cols-1",
-          voitFinance || cadrable ? "grid-cols-3" : "grid-cols-2",
+          voitFinance || cadrable
+            ? "grid-cols-4 max-2xl:grid-cols-2"
+            : "grid-cols-3 max-xl:grid-cols-2",
         )}
       >
         <CarteCalendrier
@@ -368,6 +387,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
           />
         )}
         <CarteAvancement projet={projet} />
+        <CarteSante projet={projet} />
       </section>
 
       <div className="grid grid-cols-[2fr_1fr] items-start gap-6 max-[1100px]:grid-cols-1">
@@ -899,6 +919,192 @@ function CarteAvancement({ projet }: { projet: Projet }) {
           }
           className={TON_SANTE[sante]}
         />
+      </div>
+    </CarteCle>
+  );
+}
+
+function CourbeSante({
+  points,
+  badge,
+}: {
+  points: number[];
+  badge?: BadgeSante | string | null;
+}) {
+  if (points.length < 2) return null;
+
+  const min = 0;
+  const max = 100;
+  const width = 80;
+  const height = 30;
+  const padding = 2;
+
+  const coords = points.map((p, i) => {
+    const x = padding + (i / (points.length - 1)) * (width - 2 * padding);
+    const y = height - padding - ((p - min) / (max - min)) * (height - 2 * padding);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+
+  const couleurStroke =
+    badge === "VERT"
+      ? "stroke-succes"
+      : badge === "ORANGE"
+        ? "stroke-avertissement"
+        : badge === "ROUGE"
+          ? "stroke-erreur"
+          : "stroke-neutral-500";
+
+  return (
+    <svg
+      width={width}
+      height={height}
+      className="overflow-visible shrink-0"
+      aria-hidden="true"
+    >
+      <polyline
+        fill="none"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={couleurStroke}
+        points={coords.join(" ")}
+      />
+    </svg>
+  );
+}
+
+function CarteSante({ projet }: { projet: Projet }) {
+  const t = useTranslations("ficheProjet");
+  const requeteSante = useQuery({
+    queryKey: cleSanteProjet(projet.id),
+    queryFn: () => lireSanteProjet(projet.id),
+  });
+  const requeteHistorique = useQuery({
+    queryKey: cleHistoriqueSante(projet.id),
+    queryFn: () => lireHistoriqueSante(projet.id),
+  });
+
+  const sante = requeteSante.data;
+
+  const points = useMemo(() => {
+    const historique = requeteHistorique.data ?? [];
+    if (!historique.length) return [];
+    return [...historique].reverse().map((h) => h.score);
+  }, [requeteHistorique.data]);
+
+  const pastille: keyof typeof ICONE =
+    sante?.badge === "VERT"
+      ? "succes"
+      : sante?.badge === "ORANGE"
+        ? "avertissement"
+        : sante?.badge === "ROUGE"
+          ? "erreur"
+          : "primaire";
+
+  const mention = sante?.badge ? (
+    <Badge variante={tonSante(sante.badge)}>
+      {t(`sante.badge.${sante.badge}`)}
+    </Badge>
+  ) : (
+    <Badge variante="neutre">{t("sante.nonCalcule")}</Badge>
+  );
+
+  const penalitePrincipale = sante ? principalePenalite(sante) : "aucune";
+  const explication =
+    penalitePrincipale === "delais"
+      ? t("sante.explication", { penalite: t("sante.penaliteDelais") })
+      : penalitePrincipale === "blocages"
+        ? t("sante.explication", { penalite: t("sante.penaliteBlocages") })
+        : penalitePrincipale === "reporting"
+          ? t("sante.explication", { penalite: t("sante.penaliteReporting") })
+          : t("sante.aucunePenalite");
+
+  const estNonDemarre = sante?.etatCalcul === "NON_DEMARRE";
+  const estFige = sante?.etatCalcul === "FIGE";
+
+  return (
+    <CarteCle
+      icone={<Activity size={18} />}
+      titre={t("sante.titre")}
+      pastille={pastille}
+      mention={mention}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-neutral-500">{t("sante.titre")}</span>
+          <span
+            className={cn(
+              "text-xl font-bold tabular-nums @[17rem]:text-2xl",
+              sante?.score !== null && sante?.score !== undefined
+                ? sante.score < 50
+                  ? "text-erreur"
+                  : sante.score < 80
+                    ? "text-avertissement"
+                    : "text-neutral-900"
+                : "text-neutral-400",
+            )}
+          >
+            {sante?.score !== null && sante?.score !== undefined
+              ? t("sante.score", { score: sante.score })
+              : t("sante.nonCalcule")}
+          </span>
+        </div>
+        {points.length >= 2 && <CourbeSante points={points} badge={sante?.badge} />}
+      </div>
+
+      {estNonDemarre ? (
+        <p className="m-0 text-xs text-neutral-600">{t("sante.nonDemarre")}</p>
+      ) : estFige ? (
+        <p className="m-0 text-xs text-neutral-600">{t("sante.fige")}</p>
+      ) : sante ? (
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-baseline justify-between text-xs">
+                <span className="text-neutral-500">{t("sante.delais")}</span>
+                <span className="font-semibold tabular-nums text-neutral-800">
+                  {t("sante.points", { points: Math.round(sante.penaliteDelais) })}
+                </span>
+              </div>
+              <Jauge
+                valeur={(sante.penaliteDelais / 40) * 100}
+                className={sante.penaliteDelais > 0 ? "bg-erreur" : "bg-neutral-300"}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-baseline justify-between text-xs">
+                <span className="text-neutral-500">{t("sante.blocages")}</span>
+                <span className="font-semibold tabular-nums text-neutral-800">
+                  {t("sante.points", { points: Math.round(sante.penaliteBlocages) })}
+                </span>
+              </div>
+              <Jauge
+                valeur={(sante.penaliteBlocages / 35) * 100}
+                className={sante.penaliteBlocages > 0 ? "bg-erreur" : "bg-neutral-300"}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-baseline justify-between text-xs">
+                <span className="text-neutral-500">{t("sante.reporting")}</span>
+                <span className="font-semibold tabular-nums text-neutral-800">
+                  {t("sante.points", { points: Math.round(sante.penaliteReporting) })}
+                </span>
+              </div>
+              <Jauge
+                valeur={(sante.penaliteReporting / 25) * 100}
+                className={sante.penaliteReporting > 0 ? "bg-erreur" : "bg-neutral-300"}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className={cn(FILET, "text-xs text-neutral-600")}>
+        {sante?.score !== null && sante?.score !== undefined ? (
+          <span>{explication}</span>
+        ) : (
+          <span>{t("sante.nonDemarre")}</span>
+        )}
       </div>
     </CarteCle>
   );

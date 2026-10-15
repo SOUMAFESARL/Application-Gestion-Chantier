@@ -43,3 +43,13 @@ export function cleJournalReports(projetId: string) {
   return ["projets", projetId, "journal-reports"] as const;
 }
 
+/** La santé détaillée d'un chantier. */
+export function cleSanteProjet(projetId: string) {
+  return ["projets", projetId, "sante"] as const;
+}
+
+/** L'historique des instantanés de santé d'un chantier. */
+export function cleHistoriqueSante(projetId: string) {
+  return ["projets", projetId, "sante", "historique"] as const;
+}
+

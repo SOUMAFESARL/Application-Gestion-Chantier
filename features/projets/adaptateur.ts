@@ -42,6 +42,7 @@ import type {
   EvenementDate,
   FonctionAutreMembre,
   EquipeChantier,
+  InstantaneSante,
   Intervenant,
   LigneImportLot,
   Lot,
@@ -59,6 +60,7 @@ import type {
   RoleMembreEquipe,
   SaisieActiviteDomaine,
   SaisieMembreEquipe,
+  SanteProjet,
   StatistiquesProjet,
   StatutDeclare,
   StatutProjet,
@@ -896,20 +898,30 @@ export async function lireFichierLots(
 }
 
 /**
- * Plusieurs lots d'un coup — l'import d'un fichier. La route dédiée
- * (`lots/import/`, tout ou rien) n'est pas encore branchée : les lots sont
- * créés **un par un, dans l'ordre du fichier**, pour que les codes se
- * suivent. Un échec arrête l'import ; les lots déjà créés le restent.
+ * Import atomique de lots depuis un classeur Excel envoyé au serveur.
+ * Si le serveur rejette le fichier ou une seule ligne, aucun lot n'est créé.
  */
 export async function importerLots(
   projetId: string,
-  creations: CreationLotProjet[],
+  fichier: File,
 ): Promise<Lot[]> {
-  const crees: Lot[] = [];
-  for (const creation of creations) {
-    crees.push(await creerLot(projetId, creation));
-  }
-  return crees;
+  const donnees = new FormData();
+  donnees.append("fichier", fichier);
+  const charge = await api.creer<ChargeLot[] | ChargeListe<ChargeLot>>(
+    `/projets/${projetId}/lots/import/`,
+    donnees,
+  );
+  return aPlat(charge).map((lot) => versLot(lot, []));
+}
+
+/**
+ * Télécharge le modèle officiel Excel (.xlsx) pour l'import des lots.
+ */
+export async function telechargerModeleLots(
+  projetId: string,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  return api.telecharger(`/projets/${projetId}/lots/modele/`, undefined, signal);
 }
 
 function versChargeActivite(saisie: SaisieActiviteDomaine) {
@@ -1328,5 +1340,115 @@ export async function lireJournalReports(
     signal,
   );
   return aPlat(charge).map(versEvenementDate);
+}
+
+/* ------------------------------------------------------------------ *
+ * Santé du projet (indice de santé, décomposition et historique).
+ * ------------------------------------------------------------------ */
+
+interface ChargeSanteProjet {
+  projet_id: string;
+  statut: string;
+  etat_calcul: "NON_DEMARRE" | "ACTIF" | "FIGE";
+  score: number | null;
+  badge: "VERT" | "ORANGE" | "ROUGE" | null;
+  badge_brut: "VERT" | "ORANGE" | "ROUGE" | null;
+  avancement_physique: number;
+  avancement_temporel: number;
+  retard_pts: number;
+  seuil_retard: number;
+  penalite_delais: number;
+  blocages_critiques: number;
+  blocages_majeurs: number;
+  blocages_moderes: number;
+  penalite_blocages: number;
+  taux_reporting: number;
+  penalite_reporting: number;
+  plancher_applique: boolean;
+  formule_appliquee: string;
+  avertissements: string[];
+  calcule_le: string | null;
+}
+
+interface ChargeInstantaneSante {
+  id: string;
+  score: number;
+  badge: "VERT" | "ORANGE" | "ROUGE";
+  penalite_delais: number;
+  penalite_blocages: number;
+  penalite_reporting: number;
+  retard_pts: number;
+  avancement_physique: number;
+  avancement_temporel: number;
+  taux_reporting: number;
+  calcule_le: string;
+}
+
+function versSanteProjet(charge: ChargeSanteProjet): SanteProjet {
+  return {
+    projetId: charge.projet_id,
+    statut: charge.statut,
+    etatCalcul: charge.etat_calcul,
+    score: charge.score,
+    badge: charge.badge,
+    badgeBrut: charge.badge_brut,
+    avancementPhysique: charge.avancement_physique,
+    avancementTemporel: charge.avancement_temporel,
+    retardPts: charge.retard_pts,
+    seuilRetard: charge.seuil_retard,
+    penaliteDelais: charge.penalite_delais,
+    blocagesCritiques: charge.blocages_critiques,
+    blocagesMajeurs: charge.blocages_majeurs,
+    blocagesModeres: charge.blocages_moderes,
+    penaliteBlocages: charge.penalite_blocages,
+    tauxReporting: charge.taux_reporting,
+    penaliteReporting: charge.penalite_reporting,
+    plancherApplique: charge.plancher_applique,
+    formuleAppliquee: charge.formule_appliquee,
+    avertissements: charge.avertissements ?? [],
+    calculeLe: charge.calcule_le,
+  };
+}
+
+function versInstantaneSante(charge: ChargeInstantaneSante): InstantaneSante {
+  return {
+    id: charge.id,
+    score: charge.score,
+    badge: charge.badge,
+    penaliteDelais: charge.penalite_delais,
+    penaliteBlocages: charge.penalite_blocages,
+    penaliteReporting: charge.penalite_reporting,
+    retardPts: charge.retard_pts,
+    avancementPhysique: charge.avancement_physique,
+    avancementTemporel: charge.avancement_temporel,
+    tauxReporting: charge.taux_reporting,
+    calculeLe: charge.calcule_le,
+  };
+}
+
+/** Consultation détaillée de la santé d'un projet (score, pénalités, état). */
+export async function lireSanteProjet(
+  projetId: string,
+  signal?: AbortSignal,
+): Promise<SanteProjet> {
+  const charge = await api.lire<ChargeSanteProjet>(
+    `/projets/${projetId}/sante/detail/`,
+    undefined,
+    signal,
+  );
+  return versSanteProjet(charge);
+}
+
+/** Historique des instantanés de santé calculés pour un projet. */
+export async function lireHistoriqueSante(
+  projetId: string,
+  signal?: AbortSignal,
+): Promise<InstantaneSante[]> {
+  const charge = await api.lire<ChargeInstantaneSante[] | ChargeListe<ChargeInstantaneSante>>(
+    `/projets/${projetId}/sante/historique/`,
+    undefined,
+    signal,
+  );
+  return aPlat(charge).map(versInstantaneSante);
 }
 

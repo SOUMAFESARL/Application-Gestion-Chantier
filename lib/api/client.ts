@@ -454,6 +454,39 @@ export async function appeler<T>(chemin: string, options: Options = {}): Promise
 }
 
 /**
+ * Exécute une requête et renvoie le corps binaire (Blob).
+ * Gère les 401 et renouvellement de jeton comme `appeler`.
+ */
+export async function appelerBlob(chemin: string, options: Options = {}): Promise<Blob> {
+  let reponse: Response;
+
+  try {
+    reponse = await executer(chemin, options);
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === "AbortError") throw cause;
+    throw new ErreurApi("reseau_indisponible", texte("erreurs.reseauIndisponible"), 0);
+  }
+
+  if (
+    reponse.status === 401 &&
+    !options.sansRenouvellement &&
+    chemin !== CHEMIN_CONNEXION_ADMIN
+  ) {
+    const renouvele = await renouvellementPartage(options.espace ?? "entreprise");
+    if (renouvele) {
+      reponse = await executer(chemin, { ...options, sansRenouvellement: true });
+    }
+  }
+
+  if (!reponse.ok) {
+    const erreur = await depuisReponse(reponse);
+    throw erreur;
+  }
+
+  return await reponse.blob();
+}
+
+/**
  * L'adresse du **domaine plateforme** — schéma `public`.
  *
  * L'inscription, la facturation et l'administration de la plateforme y vivent.
@@ -485,6 +518,9 @@ export const api = {
     appeler<T>(chemin, { methode: "PATCH", corps }),
 
   supprimer: (chemin: string) => appeler<void>(chemin, { methode: "DELETE" }),
+
+  telecharger: (chemin: string, parametres?: Options["parametres"], signal?: AbortSignal) =>
+    appelerBlob(chemin, { methode: "GET", parametres, signal }),
 };
 
 /**

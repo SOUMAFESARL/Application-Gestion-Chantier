@@ -583,3 +583,50 @@ export interface EvenementDate {
   projetNom?: string | null;
   le: Date;
 }
+
+/* ------------------------------------------------------------------ *
+ * Santé du projet (indice de santé et audit).
+ * ------------------------------------------------------------------ */
+
+export type EtatCalculSante = "NON_DEMARRE" | "ACTIF" | "FIGE";
+export type BadgeSante = "VERT" | "ORANGE" | "ROUGE";
+
+/** Détail du calcul de la santé d'un projet. */
+export interface SanteProjet {
+  projetId: string;
+  statut: string;
+  etatCalcul: EtatCalculSante;
+  score: number | null;
+  badge: BadgeSante | null;
+  badgeBrut: BadgeSante | null;
+  avancementPhysique: number;
+  avancementTemporel: number;
+  retardPts: number;
+  seuilRetard: number;
+  penaliteDelais: number;
+  blocagesCritiques: number;
+  blocagesMajeurs: number;
+  blocagesModeres: number;
+  penaliteBlocages: number;
+  tauxReporting: number;
+  penaliteReporting: number;
+  plancherApplique: boolean;
+  formuleAppliquee: string;
+  avertissements: string[];
+  calculeLe: string | null;
+}
+
+/** Snapshot historique d'un calcul d'indice de santé. */
+export interface InstantaneSante {
+  id: string;
+  score: number;
+  badge: BadgeSante;
+  penaliteDelais: number;
+  penaliteBlocages: number;
+  penaliteReporting: number;
+  retardPts: number;
+  avancementPhysique: number;
+  avancementTemporel: number;
+  tauxReporting: number;
+  calculeLe: string;
+}

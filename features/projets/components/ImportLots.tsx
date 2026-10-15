@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { SheetFooter } from "@/components/ui/sheet";
 import { ZoneDepotFichiers } from "@/components/ui/zone-depot-fichiers";
-import { importerLots, lireFichierLots } from "@/features/projets/adaptateur";
+import { importerLots, lireFichierLots, telechargerModeleLots } from "@/features/projets/adaptateur";
 import {
   creationDepuisLigneImport,
   defautsManquants,
@@ -31,7 +31,6 @@ import {
   TYPES_BORDEREAU,
 } from "@/features/projets/regles";
 import type {
-  CreationLotProjet,
   LigneImportLot,
   Lot,
   ModeExecutionLot,
@@ -40,9 +39,6 @@ import type {
 import { ErreurApi } from "@/lib/api";
 import { formaterDate, formaterMontant, formaterTailleFichier } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-/** Le modèle à remplir, servi tel quel depuis `public/`. */
-const MODELE_IMPORT = "/modeles/modele-import-lots.xlsx";
 
 const CHAMP = "h-[var(--input-height-md)]";
 
@@ -95,6 +91,8 @@ export function ImportLots({
   const [lecture, setLecture] = useState(false);
   const [envoi, setEnvoi] = useState(false);
   const [tentative, setTentative] = useState(false);
+  const [erreursServeurLignes, setErreursServeurLignes] = useState<Record<string, string>>({});
+  const [telechargementModele, setTelechargementModele] = useState(false);
 
   const choisies = useMemo(
     () => (lignes ?? []).filter((ligne) => retenues.has(ligne.ligne)),
@@ -115,10 +113,30 @@ export function ImportLots({
     }
   }
 
+  async function telechargerModele() {
+    setTelechargementModele(true);
+    try {
+      const blob = await telechargerModeleLots(projetId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "modele-import-lots.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(err instanceof ErreurApi && err.message ? err.message : t("erreurGenerique"));
+    } finally {
+      setTelechargementModele(false);
+    }
+  }
+
   async function choisirFichier(nouveaux: File[]) {
     setFichiers(nouveaux);
     setLignes(null);
     setTentative(false);
+    setErreursServeurLignes({});
     const fichier = nouveaux[0];
     if (!fichier) return;
 
@@ -158,20 +176,47 @@ export function ImportLots({
 
   async function importer() {
     setTentative(true);
+    const fichier = fichiers[0];
+    if (!fichier) return;
     const creations = choisies.map((ligne) => creationDepuisLigneImport(ligne, defauts));
     if (creations.length === 0 || creations.some((creation) => creation === null)) return;
 
     setEnvoi(true);
     onOccupe(true);
+    setErreursServeurLignes({});
     try {
-      const crees = await importerLots(projetId, creations as CreationLotProjet[]);
+      const crees = await importerLots(projetId, fichier);
       onImportes(crees);
       toast.success(t("succes", { nombre: crees.length }));
       onFermer();
     } catch (err) {
-      // Les lots partent un par un : ceux créés avant l'échec sont relus.
-      onImportes([]);
-      toast.error(err instanceof ErreurApi && err.message ? err.message : t("erreurGenerique"));
+      if (err instanceof ErreurApi) {
+        const details = err.details as Record<string, unknown> | undefined;
+        if (details && typeof details === "object") {
+          if (details.fichier) {
+            toast.error(String(details.fichier));
+          }
+          if (details.lignes && typeof details.lignes === "object") {
+            const errs: Record<string, string> = {};
+            for (const [numLigne, erreurs] of Object.entries(details.lignes as Record<string, unknown>)) {
+              if (typeof erreurs === "object" && erreurs !== null) {
+                const premierMessage = Object.values(erreurs).flat()[0];
+                errs[numLigne] = String(premierMessage);
+              } else {
+                errs[numLigne] = String(erreurs);
+              }
+            }
+            setErreursServeurLignes(errs);
+            toast.error(err.message || t("erreurGenerique"));
+          } else if (!details.fichier) {
+            toast.error(err.message || t("erreurGenerique"));
+          }
+        } else {
+          toast.error(err.message || t("erreurGenerique"));
+        }
+      } else {
+        toast.error(t("erreurGenerique"));
+      }
     } finally {
       setEnvoi(false);
       onOccupe(false);
@@ -196,14 +241,15 @@ export function ImportLots({
           />
           <p className="m-0 flex flex-wrap items-center gap-x-1.5 text-xs text-neutral-500">
             {t("aideModele")}
-            <a
-              href={MODELE_IMPORT}
-              download
-              className="inline-flex items-center gap-1 font-medium text-primary-600 underline-offset-2 hover:underline"
+            <button
+              type="button"
+              onClick={() => void telechargerModele()}
+              disabled={telechargementModele}
+              className="inline-flex items-center gap-1 font-medium text-primary-600 underline-offset-2 hover:underline bg-transparent border-0 cursor-pointer p-0"
             >
               <Download className="size-3.5" aria-hidden="true" />
               {t("telechargerModele")}
-            </a>
+            </button>
           </p>
         </div>
 
@@ -275,6 +321,7 @@ export function ImportLots({
                     onBasculer={(coche) => basculer(ligne.ligne, coche)}
                     modeDefaut={modeDefaut}
                     bordereauDefaut={bordereauDefaut}
+                    erreurServeur={erreursServeurLignes[String(ligne.ligne)]}
                     disabled={envoi}
                   />
                 ))}
@@ -351,6 +398,7 @@ function LigneApercu({
   onBasculer,
   modeDefaut,
   bordereauDefaut,
+  erreurServeur,
   disabled,
 }: {
   ligne: LigneImportLot;
@@ -358,6 +406,7 @@ function LigneApercu({
   onBasculer: (coche: boolean) => void;
   modeDefaut: ModeExecutionLot | null;
   bordereauDefaut: TypeBordereau | null;
+  erreurServeur?: string | null;
   disabled: boolean;
 }) {
   const t = useTranslations("projets.lotsActivites.importLots");
@@ -407,6 +456,12 @@ function LigneApercu({
             {t(`anomalies.${anomalie}`)}
           </span>
         ))}
+        {erreurServeur && (
+          <span className="flex items-center gap-1 text-xs text-erreur font-medium">
+            <TriangleAlert className="size-3 shrink-0" aria-hidden="true" />
+            {erreurServeur}
+          </span>
+        )}
       </label>
     </li>
   );

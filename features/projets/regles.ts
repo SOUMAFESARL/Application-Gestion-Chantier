@@ -18,6 +18,7 @@ import type {
   Activite,
   AffectationProjet,
   AnomalieImportLot,
+  BadgeSante,
   CreationLotProjet,
   Equipe,
   FonctionAutreMembre,
@@ -29,6 +30,7 @@ import type {
   ModeExecutionLot,
   NatureEquipe,
   Projet,
+  SanteProjet,
   StatutActivite,
   StatutDeclare,
   StatutProjet,
@@ -38,6 +40,7 @@ import type {
   RoleMembreEquipe,
   UniteActivite,
 } from "./types";
+import type { VarianteBadge } from "@/components/ui";
 
 /**
  * À partir de combien de points de retard un chantier est-il « en retard ».
@@ -2107,4 +2110,40 @@ export function creationDepuisLigneImport(
     dateDebut: ligne.dateDebut ?? undefined,
     dateFin: ligne.dateFin ?? undefined,
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * Santé du projet : règles et décomposition.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Le ton de badge correspondant à un badge de santé opérationnel.
+ */
+export function tonSante(badge: BadgeSante | string | null | undefined): VarianteBadge {
+  switch (badge) {
+    case "VERT":
+      return "succes";
+    case "ORANGE":
+      return "avertissement";
+    case "ROUGE":
+      return "erreur";
+    default:
+      return "neutre";
+  }
+}
+
+export type TypePenaliteSante = "delais" | "blocages" | "reporting" | "aucune";
+
+/**
+ * Détermine la pénalité qui retire le plus de points dans le score de santé.
+ */
+export function principalePenalite(
+  sante: Pick<SanteProjet, "penaliteDelais" | "penaliteBlocages" | "penaliteReporting">,
+): TypePenaliteSante {
+  const { penaliteDelais, penaliteBlocages, penaliteReporting } = sante;
+  const max = Math.max(penaliteDelais, penaliteBlocages, penaliteReporting);
+  if (max <= 0) return "aucune";
+  if (penaliteDelais === max) return "delais";
+  if (penaliteBlocages === max) return "blocages";
+  return "reporting";
 }
