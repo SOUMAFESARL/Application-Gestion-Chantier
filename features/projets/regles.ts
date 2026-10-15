@@ -229,6 +229,26 @@ export function planningDefini(projet: Pick<Projet, "dateDebutPrevue" | "dateFin
   return Boolean(projet.dateDebutPrevue && projet.dateFinPrevue);
 }
 
+/** Le projet a-t-il ses deux dates — condition pour créer ou activer un lot (US 3.6). */
+export function lotCreable(projet: Pick<Projet, "dateDebutPrevue" | "dateFinPrevue">): boolean {
+  return planningDefini(projet);
+}
+
+/** Le lot a-t-il ses deux dates — condition pour créer ou activer une activité (US 3.7). */
+export function activiteCreable(lot: Pick<Lot, "dateDebut" | "dateFin">): boolean {
+  return Boolean(lot.dateDebut && lot.dateFin);
+}
+
+/** La période est-elle contenue dans celle du parent ; un parent sans dates ne borne rien. */
+export function periodeContenue(
+  enfant: { debut: string | null; fin: string | null },
+  parent: { debut: string | null; fin: string | null },
+): "AVANT" | "APRES" | null {
+  if (parent.debut && enfant.debut && enfant.debut < parent.debut) return "AVANT";
+  if (parent.fin && enfant.fin && enfant.fin > parent.fin) return "APRES";
+  return null;
+}
+
 /** Ce que les dates d'un projet disent de son délai. */
 export interface EcheancierProjet {
   /** La durée prévue, en jours calendaires, bornes comprises. */
@@ -392,16 +412,27 @@ export function datesParDefaut(maintenant: Date = new Date()): {
 }
 
 /**
+ * Les dates prévues d'un lot ou d'une activité se suivent-elles.
+ *
+ * Un lot ou une activité peut commencer et finir le même jour (une intervention
+ * ponctuelle d'une journée). Il ne peut pas finir avant d'avoir commencé.
+ */
+export function periodeCoherente(debut: string, fin: string): boolean {
+  if (!debut || !fin) return true;
+  return fin >= debut;
+}
+
+/**
  * Les dates prévues d'un chantier se suivent-elles.
  *
- * Un chantier peut commencer et finir le même jour (une intervention
- * ponctuelle) ; il ne peut pas finir avant d'avoir commencé. Les dates sont en
+ * Un chantier ne finit pas le jour où il commence (US 3.5 : début < fin
+ * reste appliqué) ; il ne peut pas finir avant d'avoir commencé. Les dates sont en
  * ISO court, dont l'ordre alphabétique est l'ordre chronologique : pas besoin
  * de passer par `Date`, et donc pas de décalage de fuseau possible.
  */
 export function datesChantierCoherentes(debut: string, fin: string): boolean {
   if (!debut || !fin) return true;
-  return fin >= debut;
+  return fin > debut;
 }
 
 /**
@@ -510,7 +541,7 @@ export function numeroLot(rang: number): string {
  * Greenwich.
  */
 export function joursOuvres(debut: string, fin: string): number | null {
-  if (!debut || !fin || !datesChantierCoherentes(debut, fin)) return null;
+  if (!debut || !fin || !periodeCoherente(debut, fin)) return null;
   const depart = Date.parse(debut);
   const arrivee = Date.parse(fin);
   if (Number.isNaN(depart) || Number.isNaN(arrivee)) return null;
@@ -1970,7 +2001,7 @@ export function lireLotsImportes(
     let dateDebut = dateCellule(cellule("dateDebut"));
     let dateFin = dateCellule(cellule("dateFin"));
     if (dateDebut === null || dateFin === null) anomalies.push("DATE_INVALIDE");
-    if (dateDebut && dateFin && !datesChantierCoherentes(dateDebut, dateFin)) {
+    if (dateDebut && dateFin && !periodeCoherente(dateDebut, dateFin)) {
       anomalies.push("DATES_INCOHERENTES");
       dateDebut = null;
       dateFin = null;

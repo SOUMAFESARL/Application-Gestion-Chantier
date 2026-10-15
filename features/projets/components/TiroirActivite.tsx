@@ -8,6 +8,7 @@ import { useMemo } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
+import { Alerte } from "@/components/ui/Alerte";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import {
@@ -46,6 +47,7 @@ import {
 } from "@/features/projets/adaptateur";
 import { cleEquipes } from "@/features/projets/cles";
 import {
+  activiteCreable,
   budgetDisponible,
   collaborateursDisponibles,
   STATUTS_DECLARES,
@@ -91,6 +93,8 @@ interface Props {
   /** Le lot présélectionné à la création. */
   lotIdInitial?: string;
   onEnregistree: (activite: Activite) => void;
+  /** Raccourci vers les dates du lot quand celui-ci n'est pas planifié (US 3.7). */
+  onDefinirDatesLot?: (lot: Lot) => void;
 }
 
 /** L'astérisque des champs obligatoires — décoratif, le schéma fait foi. */
@@ -122,6 +126,7 @@ export function TiroirActivite({
   activite,
   lotIdInitial,
   onEnregistree,
+  onDefinirDatesLot,
 }: Props) {
   const t = useTranslations("projets.lotsActivites.formActivite");
   const tLots = useTranslations("projets.lotsActivites");
@@ -273,6 +278,26 @@ export function TiroirActivite({
               )}
             />
 
+            {lotChoisi && !activiteCreable(lotChoisi) && (
+              <Alerte
+                type="information"
+                action={
+                  onDefinirDatesLot ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onDefinirDatesLot(lotChoisi)}
+                    >
+                      {tLots("definirDatesLot")}
+                    </Button>
+                  ) : undefined
+                }
+              >
+                {tLots("datesLotRequises")}
+              </Alerte>
+            )}
+
             <FormField
               control={form.control}
               name="libelle"
@@ -405,7 +430,8 @@ export function TiroirActivite({
                           if (form.getFieldState("dateFin").isTouched) void form.trigger("dateFin");
                         }}
                         onBlur={field.onBlur}
-                        auPlusTard={valeurs.dateFin}
+                        auPlusTot={lotChoisi?.dateDebut || undefined}
+                        auPlusTard={valeurs.dateFin || lotChoisi?.dateFin || undefined}
                         className={CHAMP}
                         placeholder={t("champDateChoisir")}
                         disabled={enCours}
@@ -426,7 +452,8 @@ export function TiroirActivite({
                         valeur={field.value}
                         onChange={field.onChange}
                         onBlur={field.onBlur}
-                        auPlusTot={valeurs.dateDebut}
+                        auPlusTot={valeurs.dateDebut || lotChoisi?.dateDebut || undefined}
+                        auPlusTard={lotChoisi?.dateFin || undefined}
                         className={CHAMP}
                         placeholder={t("champDateChoisir")}
                         disabled={enCours}
@@ -498,7 +525,12 @@ export function TiroirActivite({
           <Button type="button" variant="outline" onClick={onFermer} disabled={enCours}>
             {t("annuler")}
           </Button>
-          <Button type="submit" form={FORM_ID} disabled={enCours} aria-busy={enCours}>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            disabled={enCours || Boolean(lotChoisi && !activiteCreable(lotChoisi))}
+            aria-busy={enCours}
+          >
             {enCours && <LoaderCircle className="animate-spin" />}
             {modification ? t("enregistrer") : t("ajouter")}
           </Button>

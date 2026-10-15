@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui";
+import { Alerte, Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -40,6 +40,7 @@ import { creerLot, modifierLot } from "@/features/projets/adaptateur";
 import {
   budgetDisponible,
   codeLotSuivant,
+  lotCreable,
   MODES_EXECUTION_LOT,
   STATUTS_DECLARES,
   TYPES_BORDEREAU,
@@ -80,6 +81,8 @@ interface Props {
   lots: Lot[];
   /** En centimes ; `null` tant qu'il n'est pas défini — il ne borne alors rien. */
   budgetProjet: number | null;
+  /** Dates du projet parent pour borner les dates des lots. */
+  datesProjet?: { dateDebutPrevue?: string | null; dateFinPrevue?: string | null } | null;
   /** Le lot à modifier ; absent, le tiroir en ajoute. */
   lot?: Lot | null;
   onCree: (lot: Lot) => void;
@@ -109,6 +112,7 @@ export function TiroirLot({
   projetId,
   lots,
   budgetProjet,
+  datesProjet,
   lot = null,
   onCree,
   onModifie,
@@ -132,6 +136,7 @@ export function TiroirLot({
           <SaisieLot
             projetId={projetId}
             budgetProjet={budgetProjet}
+            datesProjet={datesProjet}
             lot={lot}
             lots={lots}
             onFermer={onFermer}
@@ -196,6 +201,7 @@ export function TiroirLot({
           <SaisieLot
             projetId={projetId}
             budgetProjet={budgetProjet}
+            datesProjet={datesProjet}
             lots={lots}
             onFermer={onFermer}
             onEnregistre={onCree}
@@ -206,6 +212,7 @@ export function TiroirLot({
             projetId={projetId}
             lots={lots}
             budgetProjet={budgetProjet}
+            datesProjet={datesProjet}
             onFermer={onFermer}
             onImportes={onImportes}
             onOccupe={setOccupe}
@@ -225,6 +232,7 @@ export function TiroirLot({
 function SaisieLot({
   projetId,
   budgetProjet,
+  datesProjet,
   lot = null,
   lots = [],
   onFermer,
@@ -233,6 +241,7 @@ function SaisieLot({
 }: {
   projetId: string;
   budgetProjet: number | null;
+  datesProjet?: { dateDebutPrevue?: string | null; dateFinPrevue?: string | null } | null;
   lot?: Lot | null;
   lots?: Lot[];
   onFermer: () => void;
@@ -245,8 +254,15 @@ function SaisieLot({
   const { peut } = useDroits();
   const peutVoirMontants = peut("finance");
 
+  const datesProjetDefinies =
+    !datesProjet ||
+    lotCreable({
+      dateDebutPrevue: datesProjet.dateDebutPrevue ?? null,
+      dateFinPrevue: datesProjet.dateFinPrevue ?? null,
+    });
+
   const autresLots = useMemo(() => lots.filter((l) => l.id !== lot?.id), [lots, lot]);
-  const schema = schemaLotBorne(budgetProjet, lot, autresLots);
+  const schema = schemaLotBorne(budgetProjet, lot, autresLots, datesProjet);
   const disponible = useMemo(
     () => (budgetProjet !== null ? budgetDisponible(budgetProjet, autresLots) : null),
     [budgetProjet, autresLots],
@@ -279,9 +295,19 @@ function SaisieLot({
       );
       onFermer();
     } catch (err) {
-      if (err instanceof ErreurApi && err.erreursParChamp.budget_initial_montant) {
-        form.setError("budget", { message: err.erreursParChamp.budget_initial_montant });
-        return;
+      if (err instanceof ErreurApi) {
+        if (err.erreursParChamp.budget_initial_montant) {
+          form.setError("budget", { message: err.erreursParChamp.budget_initial_montant });
+          return;
+        }
+        if (err.erreursParChamp.date_debut_prevue) {
+          form.setError("dateDebut", { message: err.erreursParChamp.date_debut_prevue });
+          return;
+        }
+        if (err.erreursParChamp.date_fin_prevue) {
+          form.setError("dateFin", { message: err.erreursParChamp.date_fin_prevue });
+          return;
+        }
       }
       const repli = lot ? t("erreurModification") : t("erreurGenerique");
       toast.error(err instanceof ErreurApi && err.message ? err.message : repli);
@@ -299,6 +325,9 @@ function SaisieLot({
           noValidate
           className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5 [scrollbar-width:thin]"
         >
+          {!lot && !datesProjetDefinies && (
+            <Alerte type="information">{tLots("datesProjetRequises")}</Alerte>
+          )}
           <FormField
             control={form.control}
             name="nom"
@@ -436,7 +465,8 @@ function SaisieLot({
                       valeur={field.value}
                       onChange={field.onChange}
                       onBlur={field.onBlur}
-                      auPlusTard={valeurs.dateFin}
+                      auPlusTot={datesProjet?.dateDebutPrevue || undefined}
+                      auPlusTard={valeurs.dateFin || datesProjet?.dateFinPrevue || undefined}
                       className={CHAMP}
                       placeholder={tCreation("champDateChoisir")}
                       disabled={enCours}
@@ -457,7 +487,8 @@ function SaisieLot({
                       valeur={field.value}
                       onChange={field.onChange}
                       onBlur={field.onBlur}
-                      auPlusTot={valeurs.dateDebut}
+                      auPlusTot={valeurs.dateDebut || datesProjet?.dateDebutPrevue || undefined}
+                      auPlusTard={datesProjet?.dateFinPrevue || undefined}
                       className={CHAMP}
                       placeholder={tCreation("champDateChoisir")}
                       disabled={enCours}
@@ -475,7 +506,12 @@ function SaisieLot({
         <Button type="button" variant="outline" onClick={onFermer} disabled={enCours}>
           {t("annuler")}
         </Button>
-        <Button type="submit" form={FORM_ID} disabled={enCours} aria-busy={enCours}>
+        <Button
+          type="submit"
+          form={FORM_ID}
+          disabled={enCours || (!lot && !datesProjetDefinies)}
+          aria-busy={enCours}
+        >
           {enCours && <LoaderCircle className="animate-spin" />}
           {lot ? t("enregistrer") : t("ajouter")}
         </Button>

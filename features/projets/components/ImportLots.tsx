@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { Alerte } from "@/components/ui/Alerte";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -22,6 +23,7 @@ import {
   defautsManquants,
   EXTENSION_IMPORT_LOTS,
   ligneRetenueParDefaut,
+  lotCreable,
   MODES_EXECUTION_LOT,
   NOMBRE_MAX_LOTS_IMPORT,
   refusFichierLots,
@@ -49,6 +51,8 @@ interface Props {
   lots: Lot[];
   /** En centimes : un lot importé ne le dépasse pas. */
   budgetProjet: number | null;
+  /** Dates du projet parent pour borner les dates des lots. */
+  datesProjet?: { dateDebutPrevue?: string | null; dateFinPrevue?: string | null } | null;
   onFermer: () => void;
   onImportes: (lots: Lot[]) => void;
   onOccupe: (occupe: boolean) => void;
@@ -63,9 +67,25 @@ interface Props {
  * bordereau), puis on importe. La lecture et l'interprétation sont dans
  * `regles.ts` (`lireLotsImportes`) : l'écran ne fait que montrer.
  */
-export function ImportLots({ projetId, lots, budgetProjet, onFermer, onImportes, onOccupe }: Props) {
+export function ImportLots({
+  projetId,
+  lots,
+  budgetProjet,
+  datesProjet,
+  onFermer,
+  onImportes,
+  onOccupe,
+}: Props) {
   const t = useTranslations("projets.lotsActivites.importLots");
+  const tLots = useTranslations("projets.lotsActivites");
   const tCreation = useTranslations("projets.tiroirCreation");
+
+  const datesProjetDefinies =
+    !datesProjet ||
+    lotCreable({
+      dateDebutPrevue: datesProjet.dateDebutPrevue ?? null,
+      dateFinPrevue: datesProjet.dateFinPrevue ?? null,
+    });
 
   const [fichiers, setFichiers] = useState<File[]>([]);
   const [lignes, setLignes] = useState<LigneImportLot[] | null>(null);
@@ -161,6 +181,9 @@ export function ImportLots({ projetId, lots, budgetProjet, onFermer, onImportes,
   return (
     <>
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5 [scrollbar-width:thin]">
+        {!datesProjetDefinies && (
+          <Alerte type="information">{tLots("datesProjetRequises")}</Alerte>
+        )}
         <div className="flex flex-col gap-2">
           <ZoneDepotFichiers
             fichiers={fichiers}
@@ -168,7 +191,7 @@ export function ImportLots({ projetId, lots, budgetProjet, onFermer, onImportes,
             accept={`${EXTENSION_IMPORT_LOTS},application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`}
             refuser={motifRefus}
             consigne={t("consigne", { taille: formaterTailleFichier(TAILLE_MAX_IMPORT_LOTS) })}
-            disabled={lecture || envoi}
+            disabled={lecture || envoi || !datesProjetDefinies}
             aria-label={t("champFichier")}
           />
           <p className="m-0 flex flex-wrap items-center gap-x-1.5 text-xs text-neutral-500">
@@ -268,7 +291,7 @@ export function ImportLots({ projetId, lots, budgetProjet, onFermer, onImportes,
         <Button
           type="button"
           onClick={() => void importer()}
-          disabled={!lignes || lecture || envoi}
+          disabled={!lignes || lecture || envoi || !datesProjetDefinies}
           aria-busy={envoi}
         >
           {envoi && <LoaderCircle className="animate-spin" />}

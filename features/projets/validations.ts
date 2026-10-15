@@ -16,7 +16,7 @@
 import { z } from "zod";
 
 import { texte } from "@/i18n/horsReact";
-import { formaterMontant, formaterSaisieMontant, saisieEnCentimes } from "@/lib/format";
+import { formaterDate, formaterMontant, formaterSaisieMontant, saisieEnCentimes } from "@/lib/format";
 import { chaineNonVide } from "@/lib/validations/champs";
 
 import {
@@ -31,9 +31,11 @@ import {
   STATUT_DECLARE_PAR_DEFAUT,
   STATUTS_DECLARES,
   UNITES_ACTIVITE,
+  activiteCreable,
   budgetDisponible,
   budgetRecevable,
   datesChantierCoherentes,
+  periodeCoherente,
   plancherBudget,
   refusContrat,
 } from "./regles";
@@ -215,7 +217,7 @@ export const schemaLot = z
     dateFin: z.string(),
   })
   .superRefine((lot, ctx) => {
-    if (!datesChantierCoherentes(lot.dateDebut, lot.dateFin)) {
+    if (!periodeCoherente(lot.dateDebut, lot.dateFin)) {
       ctx.addIssue({ code: "custom", path: ["dateFin"], message: texte("projets.tiroirCreation.erreurDatesIncoherentes") });
     }
   });
@@ -229,33 +231,54 @@ function budgetSaisi(saisie: string): number | null {
 /**
  * `schemaLot`, borné par ce que l'écran seul connaît : le budget du projet,
  * les autres lots déjà engagés (disponible), et — pour un lot existant — la
- * somme de ses activités (plancher).
+ * somme de ses activités (plancher). Borne également les dates du lot dans
+ * celles du projet (US 3.6).
  */
 export function schemaLotBorne(
   budgetProjet: number | null,
   lot: Lot | null = null,
   autresLots: { budget: number | null }[] = [],
+  datesProjet?: { dateDebutPrevue?: string | null; dateFinPrevue?: string | null } | null,
 ) {
   const plancher = lot ? plancherBudget(lot.activites) : null;
   const disponible = budgetDisponible(budgetProjet, autresLots);
   return schemaLot.superRefine((saisie, ctx) => {
     const budget = budgetSaisi(saisie.budget);
-    if (budget === null) return;
-    if (disponible !== null && budget > disponible) {
+    if (budget !== null) {
+      if (disponible !== null && budget > disponible) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["budget"],
+          message: texte("projets.lotsActivites.formLot.erreurBudgetDisponible", {
+            disponible: formaterMontant(disponible),
+            plafond: formaterMontant(budgetProjet),
+          }),
+        });
+      } else if (plancher !== null && budget < plancher) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["budget"],
+          message: texte("projets.lotsActivites.formLot.erreurBudgetPlancher", {
+            somme: formaterMontant(plancher),
+          }),
+        });
+      }
+    }
+    if (datesProjet?.dateDebutPrevue && saisie.dateDebut && saisie.dateDebut < datesProjet.dateDebutPrevue) {
       ctx.addIssue({
         code: "custom",
-        path: ["budget"],
-        message: texte("projets.lotsActivites.formLot.erreurBudgetDisponible", {
-          disponible: formaterMontant(disponible),
-          plafond: formaterMontant(budgetProjet),
+        path: ["dateDebut"],
+        message: texte("projets.lotsActivites.formLot.erreurDebutAvantProjet", {
+          date: formaterDate(datesProjet.dateDebutPrevue),
         }),
       });
-    } else if (plancher !== null && budget < plancher) {
+    }
+    if (datesProjet?.dateFinPrevue && saisie.dateFin && saisie.dateFin > datesProjet.dateFinPrevue) {
       ctx.addIssue({
         code: "custom",
-        path: ["budget"],
-        message: texte("projets.lotsActivites.formLot.erreurBudgetPlancher", {
-          somme: formaterMontant(plancher),
+        path: ["dateFin"],
+        message: texte("projets.lotsActivites.formLot.erreurFinApresProjet", {
+          date: formaterDate(datesProjet.dateFinPrevue),
         }),
       });
     }
@@ -353,7 +376,7 @@ export const schemaActivite = z
     statut: choixParmi(STATUTS_DECLARES, texte("projets.lotsActivites.erreurStatutRequis")),
   })
   .superRefine((saisie, ctx) => {
-    if (!datesChantierCoherentes(saisie.dateDebut, saisie.dateFin)) {
+    if (!periodeCoherente(saisie.dateDebut, saisie.dateFin)) {
       ctx.addIssue({ code: "custom", path: ["dateFin"], message: texte("projets.tiroirCreation.erreurDatesIncoherentes") });
     }
     // Une quantité sans unité ne se cumule avec rien : « 100 » de quoi ?
@@ -364,17 +387,18 @@ export const schemaActivite = z
 
 /**
  * `schemaActivite`, borné par le budget du lot et les autres activités :
- * ce qui reste disponible sur le lot.
+ * ce qui reste disponible sur le lot. Borne également les dates de l'activité
+ * dans celles du lot (US 3.7).
  */
 export function schemaActiviteBorne(
   budgetLot: number | null,
   autresActivites: { budget: number | null }[] = [],
+  datesLot?: { dateDebut?: string | null; dateFin?: string | null } | null,
 ) {
   const disponible = budgetDisponible(budgetLot, autresActivites);
   return schemaActivite.superRefine((saisie, ctx) => {
     const budget = budgetSaisi(saisie.budget);
-    if (budget === null) return;
-    if (disponible !== null && budget > disponible) {
+    if (budget !== null && disponible !== null && budget > disponible) {
       ctx.addIssue({
         code: "custom",
         path: ["budget"],
@@ -384,12 +408,44 @@ export function schemaActiviteBorne(
         }),
       });
     }
+    if (
+      datesLot &&
+      !activiteCreable({
+        dateDebut: datesLot.dateDebut ?? null,
+        dateFin: datesLot.dateFin ?? null,
+      })
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["lotId"],
+        message: texte("projets.lotsActivites.datesLotRequises"),
+      });
+    }
+    if (datesLot?.dateDebut && saisie.dateDebut && saisie.dateDebut < datesLot.dateDebut) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["dateDebut"],
+        message: texte("projets.lotsActivites.formActivite.erreurDebutAvantLot", {
+          date: formaterDate(datesLot.dateDebut),
+        }),
+      });
+    }
+    if (datesLot?.dateFin && saisie.dateFin && saisie.dateFin > datesLot.dateFin) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["dateFin"],
+        message: texte("projets.lotsActivites.formActivite.erreurFinApresLot", {
+          date: formaterDate(datesLot.dateFin),
+        }),
+      });
+    }
   });
 }
 
 /**
  * `schemaActivite`, borné par le budget du lot choisi et par celui du projet :
  * l'activité ne dépasse ni le disponible de son lot ni le disponible du projet.
+ * Borne également les dates de l'activité dans celles du lot choisi (US 3.7).
  */
 export function schemaActiviteBornee(
   budgetProjet: number | null,
@@ -397,10 +453,37 @@ export function schemaActiviteBornee(
   activiteId?: string,
 ) {
   return schemaActivite.superRefine((saisie, ctx) => {
-    const budget = budgetSaisi(saisie.budget);
-    if (budget === null) return;
     const lot = lots.find((candidat) => candidat.id === saisie.lotId);
     if (!lot) return;
+
+    if (!activiteCreable(lot)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["lotId"],
+        message: texte("projets.lotsActivites.datesLotRequises"),
+      });
+    }
+    if (lot.dateDebut && saisie.dateDebut && saisie.dateDebut < lot.dateDebut) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["dateDebut"],
+        message: texte("projets.lotsActivites.formActivite.erreurDebutAvantLot", {
+          date: formaterDate(lot.dateDebut),
+        }),
+      });
+    }
+    if (lot.dateFin && saisie.dateFin && saisie.dateFin > lot.dateFin) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["dateFin"],
+        message: texte("projets.lotsActivites.formActivite.erreurFinApresLot", {
+          date: formaterDate(lot.dateFin),
+        }),
+      });
+    }
+
+    const budget = budgetSaisi(saisie.budget);
+    if (budget === null) return;
 
     const autresActivites = lot.activites.filter((a) => a.id !== activiteId);
     if (lot.budget !== null) {

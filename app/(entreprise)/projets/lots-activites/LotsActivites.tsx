@@ -6,9 +6,11 @@ import { useMemo, useState } from "react";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
-import { useProjetsVisibles } from "@/features/habilitations";
+import { useDroits, useProjetsVisibles } from "@/features/habilitations";
+import { peutCadrerProjet } from "@/features/habilitations/regles";
 import { lireStatistiques, listerLots } from "@/features/projets/adaptateur";
 import { CLE_LISTE_PROJETS, cleLots, cleProjet, cleStatistiques } from "@/features/projets/cles";
+import { useGestionProjet } from "@/features/projets/components/GestionProjet";
 import { TiroirActivite } from "@/features/projets/components/TiroirActivite";
 import { ModaleSuppressionActivite } from "@/features/projets/components/ModaleSuppressionActivite";
 import { ModaleSuppressionLot } from "@/features/projets/components/ModaleSuppressionLot";
@@ -16,7 +18,7 @@ import { TiroirLot } from "@/features/projets/components/TiroirLot";
 import {
   activiteAMontrer,
   activitesDuProjet,
-  planningDefini,
+  lotCreable,
   projetOuvert,
   syntheseLots,
 } from "@/features/projets/regles";
@@ -70,8 +72,9 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
    */
   const [ouverture, setOuverture] = useState(0);
 
-  // Hors direction, le sélecteur ne propose que ses chantiers.
   const requeteProjets = useProjetsVisibles();
+  const { droits } = useDroits();
+  const { cadrer, modaux } = useGestionProjet();
   const projets = useMemo(() => requeteProjets.data ?? [], [requeteProjets.data]);
   const projetId = projetChoisi ?? projetOuvert(projets, projetInitial)?.id ?? null;
   const projet = projets.find((candidat) => candidat.id === projetId) ?? null;
@@ -259,7 +262,12 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
                 activiteChoisieId={activite?.id ?? null}
                 onChoisirActivite={setActiviteChoisie}
                 onAjouterLot={() => ouvrirTiroirLot()}
-                ajoutLotPossible={projet !== null && planningDefini(projet)}
+                ajoutLotPossible={projet !== null && lotCreable(projet)}
+                onDefinirPlanning={
+                  projet && peutCadrerProjet(projet, droits)
+                    ? () => cadrer(projet, "planning")
+                    : undefined
+                }
                 onModifierLot={ouvrirTiroirLot}
                 onSupprimerLot={setLotASupprimer}
                 onAjouterActivite={(lotId) => ouvrirTiroirActivite(null, lotId)}
@@ -290,6 +298,11 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
             activite={tiroirActivite.activite}
             lotIdInitial={tiroirActivite.lotId}
             onEnregistree={surActiviteEnregistree}
+            onDefinirDatesLot={(lot) => {
+              setTiroirActivite((etat) => ({ ...etat, ouvert: false }));
+              setOuverture((o) => o + 1);
+              ouvrirTiroirLot(lot);
+            }}
           />
           <TiroirLot
             key={`lot-${ouverture}`}
@@ -298,6 +311,11 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
             projetId={projetId}
             lots={lots}
             budgetProjet={projet?.budgetInitial ?? null}
+            datesProjet={
+              projet
+                ? { dateDebutPrevue: projet.dateDebutPrevue, dateFinPrevue: projet.dateFinPrevue }
+                : null
+            }
             lot={tiroirLot.lot}
             onCree={surLotCree}
             onModifie={surLotModifie}
@@ -313,6 +331,7 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
             onFermer={() => setActiviteASupprimer(null)}
             onSupprimee={surActiviteSupprimee}
           />
+          {modaux}
         </>
       )}
     </div>

@@ -5,11 +5,13 @@ import { useTranslations } from "next-intl";
 import { Fragment, useMemo, useState } from "react";
 import type { KeyboardEvent } from "react";
 
-import { Badge, Bouton, EtatVide, Pagination } from "@/components/ui";
+import { Alerte, Badge, Bouton, EtatVide, Pagination } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 import { MenuExport } from "@/components/ui/export-tableau";
 import type { ExportTableau } from "@/components/ui/export-tableau";
 import { FiltreTableau, RechercheTableau, TAILLE_DE_PAGE_LISTE } from "@/components/ui/tableau-liste";
 import {
+  activiteCreable,
   activitesDuProjet,
   avancementActivites,
   filtrerLots,
@@ -42,8 +44,9 @@ interface Props {
   activiteChoisieId: string | null;
   onChoisirActivite: (id: string) => void;
   onAjouterLot: () => void;
-  /** Faux tant que le projet n'a pas ses dates de début et de fin prévues (`planningDefini`). */
+  /** Faux tant que le projet n'a pas ses dates de début et de fin prévues (`lotCreable`). */
   ajoutLotPossible: boolean;
+  onDefinirPlanning?: () => void;
   onModifierLot: (lot: Lot) => void;
   onSupprimerLot: (lot: Lot) => void;
   onAjouterActivite: (lotId?: string) => void;
@@ -80,6 +83,7 @@ export function StructureLots({
   onChoisirActivite,
   onAjouterLot,
   ajoutLotPossible,
+  onDefinirPlanning,
   onModifierLot,
   onSupprimerLot,
   onAjouterActivite,
@@ -204,7 +208,7 @@ export function StructureLots({
       variante="secondaire"
       taille="sm"
       aria-label={t("actionLotLibelle")}
-      title={ajoutLotPossible ? undefined : t("lotSansPlanning")}
+      title={ajoutLotPossible ? undefined : t("datesProjetRequises")}
       iconeGauche={<Plus size={16} aria-hidden="true" />}
       onClick={onAjouterLot}
       disabled={!ajoutLotPossible}
@@ -213,12 +217,35 @@ export function StructureLots({
     </Bouton>
   );
 
+  const alertePlanning = !ajoutLotPossible && (
+    <Alerte
+      type="information"
+      action={
+        onDefinirPlanning ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onDefinirPlanning}
+          >
+            {t("definirPlanning")}
+          </Button>
+        ) : undefined
+      }
+    >
+      {t("datesProjetRequises")}
+    </Alerte>
+  );
+
+  const peutAjouterActivite = peutSaisir && lots.some(activiteCreable);
+
   if (lots.length === 0) {
     return (
       <div className={BLOC}>
+        {alertePlanning && <div className="p-4">{alertePlanning}</div>}
         <EtatVide
           titre={t("aucunLotTitre")}
-          description={peutSaisir && !ajoutLotPossible ? t("lotSansPlanning") : t("aucunLot")}
+          description={peutSaisir && !ajoutLotPossible ? t("datesProjetRequises") : t("aucunLot")}
           action={boutonLot || undefined}
         />
       </div>
@@ -227,6 +254,7 @@ export function StructureLots({
 
   return (
     <div className={cn(BLOC, "min-w-0 overflow-hidden")}>
+      {alertePlanning && <div className="p-4 pb-0">{alertePlanning}</div>}
       <div className="flex flex-wrap items-center gap-3 p-4">
         <RechercheTableau
           valeur={recherche}
@@ -252,8 +280,10 @@ export function StructureLots({
             variante="primaire"
             taille="sm"
             aria-label={t("actionActiviteLibelle")}
+            title={peutAjouterActivite ? undefined : t("datesLotRequises")}
             iconeGauche={<Plus size={16} aria-hidden="true" />}
             onClick={() => onAjouterActivite()}
+            disabled={!peutAjouterActivite}
           >
             {t("actionActivite")}
           </Bouton>
@@ -375,15 +405,27 @@ export function StructureLots({
                     <tr>
                       <td colSpan={nombreColonnes} className={cn(CELLULE, "pl-10 text-neutral-500")}>
                         {t("lotSansActivite")}{" "}
-                        {peutSaisir && (
-                          <button
-                            type="button"
-                            onClick={() => onAjouterActivite(lot.id)}
-                            className="cursor-pointer border-0 bg-transparent p-0 font-medium text-primary-600 underline-offset-2 hover:underline"
-                          >
-                            {t("ajouterDansLot")}
-                          </button>
-                        )}
+                        {peutSaisir &&
+                          (activiteCreable(lot) ? (
+                            <button
+                              type="button"
+                              onClick={() => onAjouterActivite(lot.id)}
+                              className="cursor-pointer border-0 bg-transparent p-0 font-medium text-primary-600 underline-offset-2 hover:underline"
+                            >
+                              {t("ajouterDansLot")}
+                            </button>
+                          ) : (
+                            <span className="inline-flex items-center gap-2">
+                              <span className="text-neutral-400">{t("datesLotRequises")}</span>
+                              <button
+                                type="button"
+                                onClick={() => onModifierLot(lot)}
+                                className="cursor-pointer border-0 bg-transparent p-0 font-medium text-primary-600 underline-offset-2 hover:underline"
+                              >
+                                {t("definirDatesLot")}
+                              </button>
+                            </span>
+                          ))}
                       </td>
                     </tr>
                   )}
