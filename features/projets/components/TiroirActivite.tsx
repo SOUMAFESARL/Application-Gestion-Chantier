@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { LoaderCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -12,6 +13,7 @@ import { Combobox } from "@/components/ui/combobox";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -34,6 +36,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useDroits } from "@/features/habilitations";
 import { CLE_COLLABORATEURS, listerCollaborateurs } from "@/features/invitations/adaptateur";
 import {
   creerActivite,
@@ -43,6 +46,7 @@ import {
 } from "@/features/projets/adaptateur";
 import { cleEquipes } from "@/features/projets/cles";
 import {
+  budgetDisponible,
   collaborateursDisponibles,
   STATUTS_DECLARES,
   UNITES_ACTIVITE,
@@ -58,7 +62,7 @@ import {
   type ValeursActivite,
 } from "@/features/projets/validations";
 import { ErreurApi } from "@/lib/api";
-import { formaterSaisieMontant } from "@/lib/format";
+import { formaterMontant, formaterSaisieMontant } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const FORM_ID = "form-activite";
@@ -144,13 +148,29 @@ export function TiroirActivite({
    */
   const form = useForm<SaisieActivite, unknown, ValeursActivite>({
     // Le budget ne dépasse ni celui du lot choisi, ni celui du projet.
-    resolver: zodResolver(schemaActiviteBornee(budgetProjet, lots)),
+    resolver: zodResolver(schemaActiviteBornee(budgetProjet, lots, activite?.id)),
     defaultValues: activite ? saisieDepuisActivite(activite) : saisieActiviteVide(lotIdInitial),
     mode: "onTouched",
   });
 
   const valeurs = useWatch({ control: form.control }) as SaisieActivite;
   const enCours = form.formState.isSubmitting;
+  const { peut } = useDroits();
+  const peutVoirMontants = peut("finance");
+  const lotChoisi = useMemo(() => lots.find((l) => l.id === valeurs.lotId), [lots, valeurs.lotId]);
+  const autresActivites = useMemo(
+    () => (lotChoisi ? lotChoisi.activites.filter((a) => a.id !== activite?.id) : []),
+    [lotChoisi, activite],
+  );
+  const disponible = useMemo(
+    () => (lotChoisi?.budget != null ? budgetDisponible(lotChoisi.budget, autresActivites) : null),
+    [lotChoisi, autresActivites],
+  );
+  const aideDisponible =
+    peutVoirMontants && disponible !== null
+      ? t("aideDisponible", { montant: formaterMontant(disponible) })
+      : null;
+
   // Un compte désactivé n'est plus proposé — sauf s'il est déjà le responsable.
   const responsables = collaborateursDisponibles(
     collaborateurs.data ?? [],
@@ -364,6 +384,7 @@ export function TiroirActivite({
                       disabled={enCours}
                     />
                   </FormControl>
+                  {aideDisponible && <FormDescription>{aideDisponible}</FormDescription>}
                   <FormMessage />
                 </FormItem>
               )}

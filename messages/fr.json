@@ -1864,6 +1864,9 @@
         "erreurBudgetInvalide": "Saisissez un montant en francs, par exemple 2 500 000.",
         "erreurBudgetDepasseLot": "Le budget de l'activité ne peut pas dépasser celui du lot ({montant}).",
         "erreurBudgetDepasseProjet": "Le budget de l'activité ne peut pas dépasser celui du projet ({montant}).",
+        "erreurBudgetDisponible": "Il reste {disponible} sur le budget du lot ({plafond}).",
+        "erreurBudgetDisponibleProjet": "Il reste {disponible} sur le budget du projet ({plafond}).",
+        "aideDisponible": "Disponible : {montant}",
         "succesCreation": "Activité {code} « {libelle} » ajoutée.",
         "succesModification": "Activité {code} « {libelle} » modifiée."
       },
@@ -1889,6 +1892,9 @@
         "erreurBudgetInvalide": "Saisissez un montant en francs, par exemple 25 000 000.",
         "erreurBudgetDepasseProjet": "Le budget du lot ne peut pas dépasser celui du projet ({montant}).",
         "erreurBudgetSousActivites": "Le budget du lot ne peut pas être inférieur à celui de l'une de ses activités ({montant}).",
+        "erreurBudgetDisponible": "Il reste {disponible} sur le budget du projet ({plafond}).",
+        "erreurBudgetPlancher": "Le budget du lot ne peut pas être inférieur à la somme de ses activités ({somme}).",
+        "aideDisponible": "Disponible : {montant}",
         "succes": "Lot {code} « {nom} » ajouté.",
         "titreModification": "Modifier le lot",
         "sousTitreModification": "Son code et ses activités ne changent pas.",
@@ -1909,7 +1915,8 @@
         "critique": "Chemin critique",
         "oui": "Oui",
         "non": "Non",
-        "budgetLot": "Budget du lot (FCFA)"
+        "budgetLot": "Budget du lot (FCFA)",
+        "budgetActivite": "Budget de l’activité (FCFA)"
       },
       "importLots": {
         "titre": "Importer des lots",
@@ -2286,6 +2293,8 @@
       "erreurDateFinRequise": "La date de fin prévisionnelle est requise.",
       "erreurBudgetRequis": "Le montant prévisionnel est requis.",
       "erreurBudgetInvalide": "Saisissez un montant entier supérieur à zéro, sans décimales.",
+      "erreurBudgetPlancher": "Le budget du projet ne peut pas être inférieur à la somme de ses lots ({somme}).",
+      "aideSommeLots": "Somme des lots : {somme}",
       "erreurGenerique": "L'enregistrement a échoué. Réessayez.",
       "annuler": "Annuler",
       "enregistrer": "Enregistrer",

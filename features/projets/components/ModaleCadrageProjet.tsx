@@ -1,9 +1,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import { CircleX, LoaderCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import type { ReactNode } from "react";
@@ -21,6 +22,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -28,20 +30,30 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { SelecteurDate } from "@/components/ui/SelecteurDate";
-import { definirBudgetProjet, definirPlanningProjet } from "@/features/projets/adaptateur";
-import { echeancierProjet } from "@/features/projets/regles";
+import {
+  definirBudgetProjet,
+  definirPlanningProjet,
+  listerLots,
+} from "@/features/projets/adaptateur";
+import { cleLots } from "@/features/projets/cles";
+import { echeancierProjet, plancherBudget } from "@/features/projets/regles";
 import type { Projet } from "@/features/projets/types";
 import {
   saisieDepuisPlanning,
-  schemaBudget,
+  schemaBudgetProjet,
   schemaPlanning,
   versBudgetCentimes,
   versPlanningProjet,
   type SaisieBudget,
   type SaisiePlanning,
 } from "@/features/projets/validations";
-import type { ErreurApi } from "@/lib/api";
-import { centimesEnFrancs, formaterDuree, formaterSaisieMontant } from "@/lib/format";
+import { ErreurApi } from "@/lib/api";
+import {
+  centimesEnFrancs,
+  formaterDuree,
+  formaterMontant,
+  formaterSaisieMontant,
+} from "@/lib/format";
 
 const FORM_ID = "form-cadrage";
 const CHAMP = "h-[var(--input-height-md)]";
@@ -184,8 +196,16 @@ function FormulaireBudget({ projet, onFermer, onModifie }: PropsFormulaire) {
   const t = useTranslations("projets.cadrage");
   const [erreur, setErreur] = useState<string | null>(null);
 
+  const requeteLots = useQuery({
+    queryKey: cleLots(projet.id),
+    queryFn: ({ signal }) => listerLots(projet.id, signal),
+  });
+  const lots = useMemo(() => requeteLots.data ?? [], [requeteLots.data]);
+  const plancher = useMemo(() => plancherBudget(lots), [lots]);
+  const schema = useMemo(() => schemaBudgetProjet(plancher), [plancher]);
+
   const form = useForm<SaisieBudget>({
-    resolver: zodResolver(schemaBudget),
+    resolver: zodResolver(schema),
     defaultValues: {
       montant:
         projet.budgetInitial === null
@@ -203,7 +223,11 @@ function FormulaireBudget({ projet, onFermer, onModifie }: PropsFormulaire) {
       toast.success(t("budget.succes"));
       onFermer();
     } catch (err) {
-      setErreur((err as ErreurApi).message || t("erreurGenerique"));
+      if (err instanceof ErreurApi && err.erreursParChamp.budget_initial_montant) {
+        form.setError("montant", { message: err.erreursParChamp.budget_initial_montant });
+        return;
+      }
+      setErreur(err instanceof ErreurApi ? err.message : t("erreurGenerique"));
     }
   }
 
@@ -238,6 +262,11 @@ function FormulaireBudget({ projet, onFermer, onModifie }: PropsFormulaire) {
                     disabled={enCours}
                   />
                 </FormControl>
+                {plancher !== null && (
+                  <FormDescription>
+                    {t("aideSommeLots", { somme: formaterMontant(plancher) })}
+                  </FormDescription>
+                )}
                 <FormMessage />
               </FormItem>
             )}

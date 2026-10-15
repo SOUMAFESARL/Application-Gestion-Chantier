@@ -25,6 +25,7 @@ import {
   ABSENT,
   formaterDate,
   formaterJourMoisNumerique,
+  formaterMontant,
   formaterMontantCourt,
   formaterQuantite,
 } from "@/lib/format";
@@ -84,13 +85,14 @@ export function StructureLots({
   onAjouterActivite,
 }: Props) {
   const t = useTranslations("projets.lotsActivites");
-  // Créer un lot ou une activité, c'est saisir dans « projets ».
-  const peutSaisir = useDroits().peut("projets", "saisie");
+  const { peut } = useDroits();
+  const peutSaisir = peut("projets", "saisie");
+  const peutVoirMontants = peut("finance");
   const [replies, setReplies] = useState<Set<string>>(() => new Set());
 
   const [page, setPage] = useState(0);
-  // Une colonne d'actions, pour qui peut modifier ou supprimer un lot.
-  const nombreColonnes = peutSaisir ? 7 : 6;
+  // Colonnes de base (5) + actions éventuelles + budget éventuel.
+  const nombreColonnes = 5 + (peutSaisir ? 1 : 0) + (peutVoirMontants ? 1 : 0);
 
   const lotsFiltres = useMemo(() => filtrerLots(lots, recherche, statut), [lots, recherche, statut]);
   const filtreActif = recherche.trim() !== "" || statut !== "";
@@ -165,14 +167,23 @@ export function StructureLots({
           entete: t("export.fin"),
           valeur: (activite) => (activite.dateFinPrevue ? formaterDate(activite.dateFinPrevue) : null),
         },
-        {
-          // Le budget est celui du lot, répété sur chacune de ses activités.
-          entete: t("export.budgetLot"),
-          valeur: (activite) => {
-            const budget = lotsParId.get(activite.lotId)?.budget ?? null;
-            return budget === null ? null : Math.round(budget / 100);
-          },
-        },
+        ...(peutVoirMontants
+          ? [
+              {
+                // Le budget est celui du lot, répété sur chacune de ses activités.
+                entete: t("export.budgetLot"),
+                valeur: (activite: Activite) => {
+                  const budget = lotsParId.get(activite.lotId)?.budget ?? null;
+                  return budget === null ? null : Math.round(budget / 100);
+                },
+              },
+              {
+                entete: t("export.budgetActivite"),
+                valeur: (activite: Activite) =>
+                  activite.budget === null ? null : Math.round(activite.budget / 100),
+              },
+            ]
+          : []),
         { entete: t("export.avancement"), valeur: (activite) => activite.avancement },
         {
           entete: t("colonnes.statut"),
@@ -185,7 +196,7 @@ export function StructureLots({
         },
       ],
     }),
-    [t, lotsParId],
+    [t, lotsParId, peutVoirMontants],
   );
 
   const boutonLot = peutSaisir && (
@@ -262,9 +273,11 @@ export function StructureLots({
               <th scope="col" className={ENTETE}>
                 {t("colonnes.dates")}
               </th>
-              <th scope="col" className={cn(ENTETE, "text-right")}>
-                {t("colonnes.budget")}
-              </th>
+              {peutVoirMontants && (
+                <th scope="col" className={cn(ENTETE, "text-right")}>
+                  {t("colonnes.budget")}
+                </th>
+              )}
               <th scope="col" className={ENTETE}>
                 {t("colonnes.avancement")}
               </th>
@@ -323,9 +336,11 @@ export function StructureLots({
                     <td className={cn(CELLULE, "whitespace-nowrap text-neutral-500")}>
                       <Periode debut={periode.debut} fin={periode.fin} />
                     </td>
-                    <td className={cn(CELLULE, "text-right font-semibold whitespace-nowrap tabular-nums text-neutral-900")}>
-                      {formaterMontantCourt(lot.budget, { avecDevise: false })}
-                    </td>
+                    {peutVoirMontants && (
+                      <td className={cn(CELLULE, "text-right font-semibold whitespace-nowrap tabular-nums text-neutral-900")}>
+                        {formaterMontantCourt(lot.budget, { avecDevise: false })}
+                      </td>
+                    )}
                     <td className={CELLULE}>
                       <Avancement valeur={avancement} />
                     </td>
@@ -379,6 +394,7 @@ export function StructureLots({
                         key={activite.id}
                         activite={activite}
                         avecActions={peutSaisir}
+                        avecBudget={peutVoirMontants}
                         choisie={activite.id === activiteChoisieId}
                         onChoisir={() => onChoisirActivite(activite.id)}
                         onTouche={(evenement) => surToucheLigne(evenement, activite.id)}
@@ -412,12 +428,14 @@ export function StructureLots({
 function LigneActivite({
   activite,
   avecActions,
+  avecBudget,
   choisie,
   onChoisir,
   onTouche,
 }: {
   activite: Activite;
   avecActions: boolean;
+  avecBudget: boolean;
   choisie: boolean;
   onChoisir: () => void;
   onTouche: (evenement: KeyboardEvent<HTMLTableRowElement>) => void;
@@ -453,8 +471,11 @@ function LigneActivite({
       <td className={cn(CELLULE, "whitespace-nowrap text-neutral-700")}>
         <Periode debut={activite.dateDebutPrevue} fin={activite.dateFinPrevue} />
       </td>
-      {/* Le budget se lit sur la ligne du lot : une activité n'en porte pas. */}
-      <td className={CELLULE} />
+      {avecBudget && (
+        <td className={cn(CELLULE, "text-right whitespace-nowrap tabular-nums text-neutral-700")}>
+          {activite.budget === null ? "" : formaterMontant(activite.budget)}
+        </td>
+      )}
       <td className={CELLULE}>
         <Avancement valeur={activite.avancement} />
       </td>
