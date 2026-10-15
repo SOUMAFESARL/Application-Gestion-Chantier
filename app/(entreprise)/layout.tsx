@@ -825,7 +825,9 @@ export default function LayoutApp({ children }: LayoutAppProps) {
               </div>
             )}
 
-            {/* Le logo et le nom de l'entreprise connectée. Le logo est celui
+            {/* Le logo et le nom de l'entreprise connectée, visible à toutes les
+                largeurs ; le nom n'apparaît qu'à partir de `md`, l'avatar seul
+                suffit à reconnaître son entreprise sur téléphone. Le logo est celui
                 téléversé à la configuration (`logo_1x` / `logo`, les deux
                 densités d'écran), posé dans un avatar rond. `object-contain`
                 plutôt que `cover` : un logo large serait rogné par le cercle,
@@ -835,8 +837,9 @@ export default function LayoutApp({ children }: LayoutAppProps) {
             {entreprise ? (
               <Link
                 href="/parametres/configuration"
-                className="hidden items-center gap-2 rounded-full px-2 py-1 text-sm font-medium text-foreground no-underline hover:bg-accent hover:no-underline md:flex"
+                className="flex items-center gap-2 rounded-full px-1 py-1 text-sm font-medium text-foreground no-underline hover:bg-accent hover:no-underline md:px-2"
                 title={entreprise.nom_commercial || entreprise.raison_sociale}
+                aria-label={entreprise.nom_commercial || entreprise.raison_sociale}
               >
                 <Avatar
                   key={entreprise.logo_1x || entreprise.logo || "sans-logo"}
@@ -858,12 +861,15 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                     {(entreprise.nom_commercial || entreprise.raison_sociale).charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <span className="max-w-32 truncate">
+                <span className="hidden max-w-32 truncate md:inline">
                   {entreprise.nom_commercial || entreprise.raison_sociale}
                 </span>
               </Link>
             ) : (
-              <div className="hidden h-7 w-24 animate-pulse rounded-full bg-muted md:block" aria-hidden="true" />
+              <div
+                className="block size-8 animate-pulse rounded-full bg-muted md:h-7 md:w-24"
+                aria-hidden="true"
+              />
             )}
 
             <Button type="button" variant="ghost" size="icon" aria-label={t("notifications")} asChild>
