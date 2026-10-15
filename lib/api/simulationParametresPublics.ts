@@ -1,7 +1,6 @@
 /**
- * Les paramètres publics de la plateforme (tarifs, identité), rejoués sans serveur pour
- * l'**espace entreprise** en mode démonstration — `GET /plateforme/tarifs/` et
- * `GET /plateforme/identite/`.
+ * Les paramètres publics de la plateforme (tarifs), rejoués sans serveur pour
+ * l'**espace entreprise** en mode démonstration — `GET /plateforme/tarifs/`.
  *
  * Extraits de l'ancienne simulation du back-office, supprimée au lot 2 : le back-office
  * appelle toujours le serveur. Ce fichier disparaîtra avec la simulation de l'abonnement
@@ -29,14 +28,8 @@ export interface ChargeTarifPlan {
   avantages: ChargeAvantagePlan[];
 }
 
-export interface ChargeIdentitePlateforme {
-  nom: string;
-  logo_url: string | null;
-}
-
 interface ParametresPlateforme {
   tarifs: ChargeTarifPlan[];
-  identite: ChargeIdentitePlateforme;
 }
 
 const CLE_PARAMETRES = "ccd.simulation.plateforme.parametres.v1";
@@ -100,7 +93,6 @@ function parametresInitiaux(): ParametresPlateforme {
       limite_stockage_go: plan.limite_stockage_go,
       avantages: AVANTAGES_INITIAUX[plan.code],
     })),
-    identite: { nom: "CCD Digital", logo_url: null },
   };
 }
 
@@ -110,7 +102,7 @@ function lireParametres(): ParametresPlateforme {
     const brut = window.localStorage.getItem(CLE_PARAMETRES);
     if (brut) {
       const parametres = JSON.parse(brut) as ParametresPlateforme;
-      parametres.tarifs = parametres.tarifs.map((tarif) => {
+      parametres.tarifs = (parametres.tarifs ?? []).map((tarif) => {
         const catalogue = PLANS_DISPONIBLES.find((plan) => plan.code === tarif.plan_code);
         return {
           ...tarif,
@@ -140,15 +132,11 @@ function lireParametres(): ParametresPlateforme {
 
 /**
  * Les paramètres publics de la plateforme, lus sans jeton par l'espace
- * entreprise — `GET /plateforme/tarifs/` et `GET /plateforme/identite/`.
+ * entreprise — `GET /plateforme/tarifs/`.
  */
 export const simulationParametresPublics = {
   async lireTarifs(): Promise<ChargeTarifPlan[]> {
     return attendre(lireParametres().tarifs, 300);
-  },
-
-  async lireIdentite(): Promise<ChargeIdentitePlateforme> {
-    return attendre(lireParametres().identite, 200);
   },
 
   /** Lecture synchrone, pour la souscription simulée qui facture le prix affiché. */

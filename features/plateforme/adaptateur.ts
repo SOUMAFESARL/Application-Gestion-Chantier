@@ -60,13 +60,11 @@ export async function lireTarifs(signal?: AbortSignal): Promise<TarifPlan[]> {
 
 /** `GET /plateforme/identite/` — le nom et le logo de la plateforme. */
 export async function lireIdentite(signal?: AbortSignal): Promise<IdentitePlateforme> {
-  const charge: ChargeIdentitePlateforme = SIMULATION_ACTIVE
-    ? await simulationParametresPublics.lireIdentite()
-    : await apiPlateforme.lire<ChargeIdentitePlateforme>(
-        "/plateforme/identite/",
-        undefined,
-        signal,
-      );
+  const charge = await apiPlateforme.lire<ChargeIdentitePlateforme>(
+    "/plateforme/identite/",
+    undefined,
+    signal,
+  );
 
   return { nom: charge.nom, logo: charge.logo_url };
 }
