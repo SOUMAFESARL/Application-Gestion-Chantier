@@ -62,6 +62,9 @@ import type {
   PermissionPlateforme,
   ApercuSuppression,
   ResultatSuppression,
+  DemandeRoleSysteme,
+  PorteeRoleSysteme,
+  RoleSysteme,
 } from "./types";
 
 /* ------------------------------------------------------------------ *
@@ -1297,3 +1300,39 @@ export async function supprimerClientDefinitivement(
 }
 
 
+/* ------------------------------------------------------------------ *
+ * Rôles système (gabarits propagés à toutes les entreprises)
+ * ------------------------------------------------------------------ */
+
+interface ChargeRoleSysteme {
+  id: string;
+  code: string;
+  libelle: string;
+  description: string;
+  portee: PorteeRoleSysteme;
+  modules: string[];
+  protege: boolean;
+}
+
+/** `GET /admins/roles-systeme/`. */
+export async function listerRolesSysteme(signal?: AbortSignal): Promise<RoleSysteme[]> {
+  return apiAdministration.lire<ChargeRoleSysteme[]>("/admins/roles-systeme/", undefined, signal);
+}
+
+/** `POST /admins/roles-systeme/` — créé puis propagé à toutes les entreprises. */
+export async function creerRoleSysteme(demande: DemandeRoleSysteme): Promise<RoleSysteme> {
+  return apiAdministration.creer<ChargeRoleSysteme>("/admins/roles-systeme/", demande);
+}
+
+/** `PATCH /admins/roles-systeme/{id}/` — le code reste. */
+export async function modifierRoleSysteme(
+  id: string,
+  demande: Omit<DemandeRoleSysteme, "code">,
+): Promise<RoleSysteme> {
+  return apiAdministration.modifier<ChargeRoleSysteme>(`/admins/roles-systeme/${id}/`, demande);
+}
+
+/** `DELETE /admins/roles-systeme/{id}/` — il devient personnalisé dans chaque entreprise. */
+export async function supprimerRoleSysteme(id: string): Promise<void> {
+  await apiAdministration.supprimer(`/admins/roles-systeme/${id}/`);
+}

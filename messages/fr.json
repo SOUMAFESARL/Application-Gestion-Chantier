@@ -347,7 +347,8 @@
       "titreIdentite": "Nom et logo — Administration",
       "titreMessagerie": "Messagerie — Administration",
       "titreJournal": "Journal de la plateforme — Administration",
-      "titrePermissions": "Permissions — Administration"
+      "titrePermissions": "Permissions — Administration",
+      "titreRolesSysteme": "Rôles système — Administration"
     },
     "motDePasseOublie": {
       "accroche": "Indiquez votre adresse professionnelle : un lien de réinitialisation vous y sera envoyé.",
@@ -379,6 +380,7 @@
       "parametrageComptes": "Comptes administrateurs",
       "parametrageModules": "Modules & accès",
       "parametragePermissions": "Permissions",
+      "parametrageRolesSysteme": "Rôles système",
       "parametrageTarifs": "Tarifs abonnements",
       "parametrageIdentite": "Paramètres globaux",
       "parametrageMessagerie": "Messagerie"
@@ -645,6 +647,40 @@
         "titre": "Catalogue des permissions",
         "description": "Les droits fins que les rôles des entreprises peuvent porter, et les modules qui les portent."
       },
+      "rolesSysteme": {
+        "titre": "Rôles système",
+        "description": "Les rôles proposés à toutes les entreprises. Une création ou un changement de libellé s’applique partout ; les modules ne valent que pour les entreprises à venir.",
+        "nomFichier": "roles-systeme",
+        "vide": "Aucun rôle système.",
+        "nouveau": "Nouveau rôle système",
+        "colonneRole": "Rôle",
+        "colonnePortee": "Portée",
+        "colonneModules": "Modules",
+        "colonneType": "Type",
+        "socle": "Socle",
+        "ajoute": "Ajouté",
+        "portee": {
+          "ENTREPRISE": "Toute l’entreprise",
+          "PROJET": "Chantiers affectés"
+        },
+        "code": "Code",
+        "aideCode": "Lettres, chiffres et _ ; il ne change plus ensuite.",
+        "libelle": "Libellé",
+        "champDescription": "Description",
+        "titreCreation": "Nouveau rôle système",
+        "titreModification": "Modifier le rôle système",
+        "aideModification": "Le libellé et la description sont réécrits dans toutes les entreprises. Les modules ne s’appliquent qu’aux entreprises à venir : les réglages faits par chaque entreprise sont conservés.",
+        "titreSuppression": "Supprimer le rôle système",
+        "confirmationSuppression": "« {role} » sera retiré du catalogue. Dans chaque entreprise, il deviendra un rôle personnalisé : personne ne perd ses droits.",
+        "modifier": "Modifier",
+        "supprimer": "Supprimer",
+        "annuler": "Annuler",
+        "enregistrer": "Enregistrer",
+        "succesCreation": "Rôle système créé et propagé aux entreprises.",
+        "succesModification": "Rôle système modifié.",
+        "succesSuppression": "Rôle système supprimé.",
+        "erreur": "L’opération a échoué. Réessayez."
+      },
       "tarifs": {
         "titre": "Tarifs affichés aux entreprises",
         "prixMensuel": "Prix mensuel (FCFA TTC)",
@@ -858,7 +894,11 @@
         "ECHEC_CONNEXION_SUPER_ADMIN": "Échec de connexion administrateur",
         "INSCRIPTION_APPROUVEE": "Inscription entreprise approuvée",
         "INSCRIPTION_REFUSEE": "Inscription entreprise refusée",
-        "REINITIALISATION_MOT_DE_PASSE_ADMIN": "Demande de réinitialisation de mot de passe"
+        "REINITIALISATION_MOT_DE_PASSE_ADMIN": "Demande de réinitialisation de mot de passe",
+        "CREATION_ROLE_SYSTEME": "Création d’un rôle système",
+        "MODIFICATION_ROLE_SYSTEME": "Modification d’un rôle système",
+        "SUPPRESSION_ROLE_SYSTEME": "Suppression d’un rôle système",
+        "PROPAGATION_ROLES_SYSTEME": "Propagation des rôles système"
       }
     },
     "permissions": {

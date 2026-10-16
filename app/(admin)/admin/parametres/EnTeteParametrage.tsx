@@ -12,6 +12,7 @@ export type SectionParametrage =
   | "comptes"
   | "modules"
   | "permissions"
+  | "rolesSysteme"
   | "tarifs"
   | "identite"
   | "messagerie";
