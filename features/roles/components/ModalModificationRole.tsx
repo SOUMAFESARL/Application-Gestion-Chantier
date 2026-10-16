@@ -41,6 +41,14 @@ interface Props {
   onEnregistrer: (roleId: string, data: ModificationRolePayload) => Promise<void>;
   onFermer: () => void;
   enCours?: boolean;
+  /**
+   * Le serveur demande de confirmer un changement de portée (409). La confirmation se fait
+   * **dans** le tiroir : une `Modale` ouverte par-dessus restait sous lui, et le tiroir rend le
+   * reste de la page inerte — personne ne pouvait ni confirmer ni annuler.
+   */
+  confirmationPortee?: { personnes: number; versEntreprise: boolean } | null;
+  onConfirmerPortee?: () => void;
+  onAnnulerPortee?: () => void;
 }
 
 /** L'astérisque des champs obligatoires. */
@@ -61,6 +69,9 @@ export function ModalModificationRole({
   onEnregistrer,
   onFermer,
   enCours = false,
+  confirmationPortee = null,
+  onConfirmerPortee,
+  onAnnulerPortee,
 }: Props) {
   const t = useTranslations("roles");
   const { estDirection } = useDroits();
@@ -73,6 +84,8 @@ export function ModalModificationRole({
   if (!role) return null;
 
   const autoriseChangerPortee = peutChangerPortee(role, { estDirection });
+  // La saisie se fige pendant l'enregistrement et pendant la confirmation de portée.
+  const fige = enCours || confirmationPortee !== null;
   const codesHors = codesHorsCatalogue(codesDuRole(role), catalogue);
   const permsHorsPerimetre = role.modules
     .flatMap((m) => m.permissions)
@@ -127,7 +140,9 @@ export function ModalModificationRole({
       <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-[560px]">
         <SheetHeader className="border-b border-neutral-200 py-5 pr-14 pl-6">
           <SheetTitle className="text-lg font-medium text-neutral-900">{titre}</SheetTitle>
-          <SheetDescription>{t("sousTitreModification")}</SheetDescription>
+          <SheetDescription>
+            {gestes.modifiable ? t("sousTitreModification") : t("sousTitreConsultation")}
+          </SheetDescription>
         </SheetHeader>
 
         <div className={`flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5 ${ASCENSEUR_FIN}`}>
@@ -162,7 +177,7 @@ export function ModalModificationRole({
                 value={libelle}
                 placeholder={t("placeholderIntitule")}
                 onChange={(e) => setLibelle(e.target.value)}
-                disabled={!gestes.modifiable || enCours}
+                disabled={!gestes.modifiable || fige}
                 className={INDICATIF_LEGER}
                 aria-invalid={Boolean(erreurs.libelle)}
               />
@@ -187,7 +202,7 @@ export function ModalModificationRole({
               rows={2}
               placeholder={t("placeholderDescription")}
               onChange={(e) => setDescription(e.target.value)}
-              disabled={!gestes.modifiable || enCours}
+              disabled={!gestes.modifiable || fige}
               className={INDICATIF_LEGER}
             />
           </div>
@@ -198,7 +213,7 @@ export function ModalModificationRole({
               <RadioGroup
                 value={portee}
                 onValueChange={(val) => setPortee(val as PorteeRole)}
-                disabled={enCours}
+                disabled={fige}
                 className="gap-2"
               >
                 <div className="flex items-start gap-2">
@@ -236,8 +251,8 @@ export function ModalModificationRole({
             <EditeurPermissions
               catalogue={catalogue}
               codes={codes}
-              onChange={gestes.matriceModifiable && !enCours ? setCodes : undefined}
-              disabled={!gestes.matriceModifiable || enCours}
+              onChange={gestes.matriceModifiable && !fige ? setCodes : undefined}
+              disabled={!gestes.matriceModifiable || fige}
             />
           </div>
 
@@ -257,16 +272,44 @@ export function ModalModificationRole({
           )}
         </div>
 
-        <SheetFooter className="flex-row justify-end gap-3 border-t border-neutral-200 px-6 py-4">
-          <Bouton variante="secondaire" onClick={onFermer} disabled={enCours}>
-            {t("annuler")}
-          </Bouton>
-          {gestes.modifiable && (
-            <Bouton variante="primaire" onClick={valider} enCours={enCours}>
-              {t("enregistrer")}
+        {confirmationPortee ? (
+          <SheetFooter className="flex-col gap-3 border-t border-neutral-200 px-6 py-4">
+            <p className="m-0 text-sm font-semibold text-neutral-900">
+              {t("confirmationPortee.titre", { role: libelle.trim() || role.libelle })}
+            </p>
+            <p className="m-0 text-sm text-neutral-700">
+              {t("confirmationPortee.personnes", { n: confirmationPortee.personnes })}
+            </p>
+            {confirmationPortee.versEntreprise ? (
+              <Alerte type="avertissement">{t("confirmationPortee.avertissementEntreprise")}</Alerte>
+            ) : (
+              <Alerte type="information">{t("confirmationPortee.infoProjet")}</Alerte>
+            )}
+            <div className="flex flex-row justify-end gap-3">
+              <Bouton variante="secondaire" onClick={onAnnulerPortee} disabled={enCours}>
+                {t("annuler")}
+              </Bouton>
+              <Bouton
+                variante={confirmationPortee.versEntreprise ? "danger" : "primaire"}
+                onClick={onConfirmerPortee}
+                enCours={enCours}
+              >
+                {t("confirmationPortee.bouton")}
+              </Bouton>
+            </div>
+          </SheetFooter>
+        ) : (
+          <SheetFooter className="flex-row justify-end gap-3 border-t border-neutral-200 px-6 py-4">
+            <Bouton variante="secondaire" onClick={onFermer} disabled={enCours}>
+              {t("annuler")}
             </Bouton>
-          )}
-        </SheetFooter>
+            {gestes.modifiable && (
+              <Bouton variante="primaire" onClick={valider} enCours={enCours}>
+                {t("enregistrer")}
+              </Bouton>
+            )}
+          </SheetFooter>
+        )}
       </SheetContent>
     </Sheet>
   );

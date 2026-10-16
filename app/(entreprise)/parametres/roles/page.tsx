@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { EnTetePage } from "@/components/layout/EnTetePage";
-import { Alerte, Bouton, EtatChargement, EtatErreur, Modale } from "@/components/ui";
+import { Alerte, Bouton, EtatChargement, EtatErreur } from "@/components/ui";
 import { useDroits } from "@/features/habilitations";
 import {
   colonnesDeMatrice,
@@ -263,7 +263,13 @@ export default function ParametresRolesPage() {
         gestes={gestesSurRole(roleAEditer, { estDirection }, catalogue)}
         enCours={actionEnCours}
         onEnregistrer={handleModificationRole}
-        onFermer={() => setRoleAEditer(null)}
+        onFermer={() => {
+          setConfirmationPortee(null);
+          setRoleAEditer(null);
+        }}
+        confirmationPortee={confirmationPortee}
+        onConfirmerPortee={handleConfirmerChangementPortee}
+        onAnnulerPortee={() => setConfirmationPortee(null)}
       />
 
       <ModalReassignationRole
@@ -274,49 +280,6 @@ export default function ParametresRolesPage() {
         onConfirmer={handleConfirmationSuppression}
         onFermer={() => setRoleASupprimer(null)}
       />
-
-      {confirmationPortee && (
-        <Modale
-          ouverte={Boolean(confirmationPortee)}
-          titre={t("confirmationPortee.titre", {
-            role: confirmationPortee.payload.libelle ?? roleAEditer?.libelle ?? "",
-          })}
-          onFermer={() => !actionEnCours && setConfirmationPortee(null)}
-          actions={
-            <>
-              <Bouton
-                variante="secondaire"
-                onClick={() => setConfirmationPortee(null)}
-                disabled={actionEnCours}
-              >
-                {t("annuler")}
-              </Bouton>
-              <Bouton
-                variante={confirmationPortee.versEntreprise ? "danger" : "primaire"}
-                onClick={handleConfirmerChangementPortee}
-                enCours={actionEnCours}
-              >
-                {t("confirmationPortee.bouton")}
-              </Bouton>
-            </>
-          }
-        >
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-neutral-700">
-              {t("confirmationPortee.personnes", { n: confirmationPortee.personnes })}
-            </p>
-            {confirmationPortee.versEntreprise ? (
-              <Alerte type="avertissement">
-                {t("confirmationPortee.avertissementEntreprise")}
-              </Alerte>
-            ) : (
-              <Alerte type="information">
-                {t("confirmationPortee.infoProjet")}
-              </Alerte>
-            )}
-          </div>
-        </Modale>
-      )}
     </div>
   );
 }
