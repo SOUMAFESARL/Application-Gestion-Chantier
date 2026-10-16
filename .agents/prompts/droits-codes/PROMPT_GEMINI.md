@@ -21,6 +21,15 @@ Lectures obligatoires : `AGENTS.md` (backend), `CLAUDE.md` (frontend), puis ce f
 
 Un droit = un **code de permission** (`projets.creer`, `chantier.valider`…). Rien d'autre.
 
+> **Précision du développeur, 16/10/2026 — ce n'est pas un point à discuter :** « Enlever toute la
+> logique concernant les niveaux. On est sur les permissions uniquement. Les permissions sont fonction
+> des modules. Les niveaux ne servent à rien. Même si les tests des lots 1 à 4 en dépendent, tu les
+> modifies pour qu'ils tiennent compte de la nouvelle façon de travailler. »
+>
+> Cette phrase **vaut accord écrit** pour modifier les tests d'acceptation `tests/acceptation/lot1` à
+> `lot4` **dans la seule mesure** où ils testent des niveaux. Ne rien garder « par prudence » : un
+> niveau laissé quelque part est un défaut.
+
 ## 2. Ce qui est déjà fait (par Claude) — à ne pas refaire
 
 Branche frontend **`feature/droits-codes-seuls`**, commit `8d06823`, **non fusionnée, non poussée** :
@@ -79,34 +88,98 @@ grep -rnE "AccesModule|ACCES_MODULE|NiveauAcces|accesNormalises|permissionsNorma
 
 ### 3.2 Backend — branche `fix/droits-sans-niveaux` (à créer depuis `develop`)
 
-**Règle absolue** : la CI ne déploie que si `tests/acceptation/lot1` à `lot4` passent (177 tests
-aujourd'hui). **Ces tests ne se modifient jamais sans l'accord écrit du développeur.**
+**But : il ne reste plus un seul niveau dans le backend.** Le droit effectif d'un rôle est la liste
+des permissions cochées (`RoleModulePermission.permissions_catalogue`), rien d'autre — c'est déjà ce
+que lit `permissions_effectives` (`apps/core/droits.py`).
 
-1. Champs « niveau » exposés par l'API (le frontend ne les lit plus) :
-   `niveau` et alias `lecture/LECTURE/saisie/…` dans `permissions_modules` des rôles
-   (`apps/accounts/serializers/role.py`), `habilitations` du profil, `niveaux_supportes` et
-   `acces_par_defaut` de `GET /modules/` (`apps/referentiels/views/module.py`), `acces_par_defaut` du
-   back-office (`apps/platform_admin/serializers/modules.py`).
-   **Avant de retirer un champ**, chercher s'il est lu par un test d'acceptation :
-   ```bash
-   grep -rn "niveau\|niveaux_supportes\|acces_par_defaut\|habilitations\|permissions_modules" tests/acceptation/lot1 tests/acceptation/lot2 tests/acceptation/lot3 tests/acceptation/lot4
-   ```
-   - s'il est lu par l'un d'eux : **ne pas le retirer**, le noter dans le compte rendu ;
-   - sinon : le retirer de la réponse, et adapter les tests unitaires (`apps/*/tests`) qui le lisaient.
-   Ne **pas** toucher au modèle ni aux migrations (`RoleModulePermission.niveau` reste en base) :
-   on retire seulement ce que l'API expose.
-2. Adresse du frontend : dans `config/settings/base.py` (l. ~460), remplacer
-   `"https://app-chantier.soumafe.com"` (adresse qui n'existe plus) par
-   `"https://gchantier.soumafe.com"`, et la même chaîne dans
-   `apps/accounts/tests/test_plateforme.py` (l. 138 et 144).
-3. Tests, un à la fois (la machine manque de mémoire) :
-   ```powershell
-   .\.venv\Scripts\python.exe -m pytest tests/acceptation/lot1 tests/acceptation/lot2 tests/acceptation/lot3 tests/acceptation/lot4 -q -p no:cacheprovider
-   .\.venv\Scripts\python.exe -m pytest apps/platform_admin/tests apps/accounts/tests/test_droits_b1.py apps/accounts/tests/test_plateforme.py -q -p no:cacheprovider
-   ```
-   177 passent pour le premier, tout passe pour le second. Sinon : **s'arrêter**.
-   Si PostgreSQL tombe (« connection timeout ») : `Start-Service postgresql-x64-16`.
-4. `ruff check` sur les fichiers touchés : aucune erreur **nouvelle**.
+#### a) Inventaire (à faire en premier, à recopier dans le compte rendu)
+
+```bash
+grep -rnE "niveau|NiveauAcces|niveaux_supportes|acces_par_defaut|_calculer_niveau|LECTURE|ECRITURE|VALIDATION|SUPPRESSION|\"lecture\"|\"saisie\"|\"validation\"|habilitations" apps config tests --include=*.py | grep -v "/migrations/"
+```
+
+Classer chaque résultat : **niveau d'accès d'une permission** (à supprimer) ou **autre sens**
+(« niveau » d'un blocage de chantier, de santé, de vigilance budgétaire… : ne pas toucher).
+
+#### b) Ce qui disparaît
+
+1. **Le modèle** : le champ `RoleModulePermission.niveau` (`apps/accounts/models/role.py`) et l'énumération
+   `NiveauAcces` (`apps/core/enums.py`) s'ils ne servent plus qu'aux niveaux.
+   - Migration : `.\.venv\Scripts\python.exe manage.py makemigrations accounts` (une seule migration,
+     nommée `suppression_niveaux`). `apps.accounts` est **à la fois partagée et tenant** : la migration
+     s'applique à tous les schémas par `migrate_schemas` — en local :
+     `.\.venv\Scripts\python.exe manage.py migrate_schemas`. En production, `passenger_wsgi.py`
+     l'applique au démarrage.
+   - Aucune migration de données n'est nécessaire : on supprime une colonne ; les permissions cochées
+     restent.
+2. **Les calculs et alias** : `_calculer_niveau_scalaire`, la traduction « lecture → `.lire`, saisie →
+   `.ecrire`, validation → `.valider` » de `_normaliser_permissions_modules`
+   (`apps/accounts/services/roles.py`) — l'API des rôles n'accepte plus que **des codes** :
+   `permissions: string[]` (liste complète), ou `permissions_modules: {module: [codes]}`. Un alias
+   `lecture`/`saisie`/`validation` reçu → **400** « Permission inconnue : « lecture ». » (même message
+   que le catalogue, `apps/platform_admin/services/catalogue.py`).
+3. **Les matrices par défaut des rôles système** : là où elles s'écrivent en niveaux
+   (`initialiser_roles_par_defaut`, tables `{"projets": 2, …}` dans `apps/accounts/services/roles.py`),
+   les réécrire en **listes de codes**, en gardant exactement les droits effectifs actuels (relever les
+   codes que chaque rôle système détient aujourd'hui avant de réécrire, par la base locale `demo`, et
+   les recopier).
+4. **Les vérifications par niveau** : tout `rmp.niveau == …`, `niveau >= …` dans le code de droits
+   (ex. `apps/core/permissions.py` vers la l. 421) devient une vérification de codes.
+5. **L'API** :
+   - rôles (`apps/accounts/serializers/role.py`) : plus de `niveau` dans `modules[]`, plus d'alias dans
+     `permissions_modules` (seulement des codes) ;
+   - profil (`apps/accounts/services/profil.py`, `serializers/profil.py`) : plus de `habilitations` ;
+     `permissions` (codes) et `portee` restent ;
+   - `GET /modules/` (`apps/referentiels/views/module.py`, `serializers/module.py`) : plus de
+     `niveaux_supportes` ni `acces_par_defaut` ;
+   - back-office (`apps/platform_admin/serializers/modules.py`) : plus de champ `acces_par_defaut`
+     (ni en entrée, ni en sortie).
+6. **L'ancien référentiel en niveaux** : les permissions `LECTURE`, `ECRITURE`, `VALIDATION`,
+   `SUPPRESSION` (`accounts.Permission` et leurs lignes supprimées logiquement dans
+   `catalogue.CataloguePermission`) ne sont plus créées par aucune graine ni commande
+   (`initialiser_permissions_par_defaut`, commandes de `management/`). Ne pas supprimer les lignes
+   existantes en base (suppression logique déjà faite) ; supprimer le code qui les crée ou les lit.
+
+#### c) Les tests
+
+- **Tests d'acceptation `tests/acceptation/lot1` à `lot4`** (accord du développeur, §1) : pour chaque
+  test qui vérifie un niveau (ex. `lot1/test_migration_niveaux.py`, assertions sur `niveau`,
+  `habilitations`, `niveaux_supportes`, alias), le réécrire pour vérifier **la même règle en codes**
+  (la bonne liste de codes pour le bon rôle). Un test qui ne vérifiait **que** le calcul des niveaux
+  se supprime, et le compte rendu le dit, fichier et nom du test.
+  Ne toucher à **aucune autre** assertion de ces fichiers.
+  Si un fichier `verifier_verrouillage.py` contrôle l'empreinte des tests (lot9 en a un), mettre à
+  jour l'empreinte du fichier modifié, et le dire.
+- Tests unitaires (`apps/*/tests`) qui lisent un niveau : même traitement.
+- Ajouter un test : `POST /parametres/roles/` avec `permissions_modules: {"projets": ["lecture"]}`
+  → 400 ; avec `permissions: ["projets.lire", "projets.creer"]` → 201 et exactement ces deux codes.
+
+#### d) Adresse du frontend
+
+Dans `config/settings/base.py` (l. ~460), remplacer `"https://app-chantier.soumafe.com"` (adresse qui
+n'existe pas) par `"https://gchantier.soumafe.com"`, et la même chaîne dans
+`apps/accounts/tests/test_plateforme.py` (l. 138 et 144).
+
+#### e) Vérifications backend (une commande lourde à la fois)
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/acceptation/lot1 tests/acceptation/lot2 tests/acceptation/lot3 tests/acceptation/lot4 -q -p no:cacheprovider
+.\.venv\Scripts\python.exe -m pytest apps/platform_admin/tests apps/accounts/tests -q -p no:cacheprovider
+```
+
+- Acceptation : **tout passe** (le nombre peut baisser si des tests de niveaux ont été supprimés :
+  donner l'ancien et le nouveau total).
+- `apps/accounts/tests` : 25 échecs existaient **avant** ce chantier (tests de rôles anciens). Relever
+  la liste des échecs sur `develop` **avant** de commencer, et n'en ajouter **aucun**.
+- Refaire l'inventaire du §3.2 a) : il ne doit plus rester que des « autres sens ».
+- `ruff check` sur les fichiers touchés : aucune erreur nouvelle.
+- Si PostgreSQL tombe (« connection timeout ») : `Start-Service postgresql-x64-16`.
+
+#### f) Frontend, conséquence
+
+Le frontend de la branche `feature/droits-codes-seuls` ne lit déjà plus aucun de ces champs. Après le
+backend, relancer le frontend en local et refaire les vérifications du §3.3 contre le **nouveau**
+backend.
 
 ### 3.3 Vérification à l'écran (obligatoire avant tout push)
 
@@ -135,19 +208,23 @@ par dépôt ; fusion `--no-ff` dans `develop` ; branche supprimée après fusion
 
 1. Frontend : `npm run lint`, `npx tsc --noEmit`, puis `npm run build` (seul, la machine manque de
    mémoire ; `NODE_OPTIONS=--max-old-space-size=3072`). Tout à zéro erreur.
-2. Fusionner : backend `fix/droits-sans-niveaux` → `develop` ; frontend
-   `feature/droits-codes-seuls` → `develop`.
-3. **Un push sur `develop` déploie en production** (backend : tests lot1-4 puis cPanel ; frontend :
-   lint, typage, build puis cPanel, ~10 min). Pousser **le backend d'abord** :
+2. Fusionner : frontend `feature/droits-codes-seuls` → `develop` ; backend
+   `fix/droits-sans-niveaux` → `develop`.
+3. **Un push sur `develop` déploie en production** (frontend : lint, typage, build puis cPanel,
+   ~10 min ; backend : tests lot1-4 puis cPanel, la migration s'applique au démarrage).
+   **Pousser le FRONTEND d'abord** : le frontend en production aujourd'hui lit encore `niveau` et
+   `habilitations` ; si le backend partait en premier, l'écran des rôles et le profil seraient faux
+   pendant le déploiement. Le nouveau frontend, lui, fonctionne déjà avec l'ancien backend.
    ```bash
    git push origin develop
    gh run list --branch develop --limit 1
    gh run watch <id> --exit-status
    ```
-   Attendre « success » sur tous les jobs. **Si un job échoue : ne pas pousser le frontend**, lire
-   `gh run view <id> --log-failed`, corriger, recommencer.
-4. Puis le frontend, même suivi. Le `develop` local du frontend contient aussi deux commits de
-   documentation non poussés (`50fef05`, `b592b90`) : ils partent avec, c'est voulu.
+   Attendre « success » sur tous les jobs. **Si un job échoue : ne pas pousser le backend**, lire
+   `gh run view <id> --log-failed`, corriger, recommencer. Le `develop` local du frontend contient
+   aussi deux commits de documentation non poussés (`50fef05`, `b592b90`) : ils partent avec, c'est
+   voulu.
+4. Puis le backend, même suivi.
 5. Vérifier la production :
    - backend : `https://api-chantier.soumafe.com/api/v1/schema/` répond 200 ;
    - frontend : `https://gchantier.soumafe.com/` s'ouvre ; se connecter avec un compte réel fourni
@@ -169,7 +246,7 @@ par dépôt ; fusion `--no-ff` dans `develop` ; branche supprimée après fusion
 ## 6. Compte rendu final (dans le chat)
 
 - ce qui a été retiré côté back-office et côté backend, fichier par fichier ;
-- les champs backend **gardés** parce qu'un test d'acceptation les lit ;
+- l'inventaire du §3.2 a) avant et après ; les tests d'acceptation modifiés ou supprimés, fichier par fichier, avec la raison ;
 - les sorties : tests d'acceptation (`N passed`), lint, typage, build ;
 - les identifiants des runs CI et leur conclusion, backend et frontend ;
 - les vérifications à l'écran **réellement faites** (compte, largeur) ;
