@@ -59,7 +59,10 @@ export function TableauDeBordDirection() {
    * modules : l'argent pour qui lit « finance », les signatures pour qui y
    * valide, la sécurité pour qui lit « qhse ».
    */
-  const { estDirection, peut, peutCode, voitMontants } = useDroits();
+  const { estDirection, peutCode, voitMontants } = useDroits();
+  const valideFinance = peutCode("finance.valider");
+  const voitFinance = peutCode("finance.lire");
+  const voitQhse = peutCode("qhse.lire");
   const projetsVisibles = useProjetsVisibles();
   const visibles = useMemo(
     () =>
@@ -125,15 +128,15 @@ export function TableauDeBordDirection() {
 
       <IndicateursDirection chantiers={donnees.chantiers} />
 
-      <div className={cn("grid items-start gap-6", peut("finance", "validation") && "lg:grid-cols-2")}>
+      <div className={cn("grid items-start gap-6", valideFinance && "lg:grid-cols-2")}>
         <ChantiersAttention chantiers={donnees.chantiers} />
-        {peut("finance", "validation") && <ValidationsEnAttente validations={donnees.validations} />}
+        {valideFinance && <ValidationsEnAttente validations={donnees.validations} />}
       </div>
 
       <BlocsStock />
 
-      <div className={cn("grid items-start gap-6", peut("finance") && voitMontants && "lg:grid-cols-3")}>
-        {peut("finance") && voitMontants && (
+      <div className={cn("grid items-start gap-6", voitFinance && voitMontants && "lg:grid-cols-3")}>
+        {voitFinance && voitMontants && (
           <div className="lg:col-span-2">
             <GraphiqueBudgets chantiers={donnees.chantiers} />
           </div>
@@ -143,11 +146,11 @@ export function TableauDeBordDirection() {
 
       <PanneauPortefeuille chantiers={donnees.chantiers} />
 
-      <div className={cn("grid items-start gap-6", peut("qhse") && "lg:grid-cols-3")}>
+      <div className={cn("grid items-start gap-6", voitQhse && "lg:grid-cols-3")}>
         <div className="lg:col-span-2">
           <EcheancesAVenir echeances={donnees.echeances} />
         </div>
-        {peut("qhse") && <SyntheseQhse qhse={donnees.qhse} />}
+        {voitQhse && <SyntheseQhse qhse={donnees.qhse} />}
       </div>
 
       {tiroir}

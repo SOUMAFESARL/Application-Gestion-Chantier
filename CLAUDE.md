@@ -90,7 +90,7 @@ They never overlap, and the separation is structural rather than conditional:
 - **Two shells.** `app/(admin)/admin/layout.tsx` shares nothing with
   `app/(entreprise)/layout.tsx`, which loads subscription, company, weather and the
   client's white-label colour — none of which a platform agent has.
-- **Two permission models.** `features/roles` (12 BTP modules × 4 levels) is
+- **Two permission models.** `features/roles` (permissions per BTP module) is
   intra-tenant; `RoleAdministrateur` (`SUPERVISEUR` / `SUPPORT`) is the
   platform's. Do not merge them.
 

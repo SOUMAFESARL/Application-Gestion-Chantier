@@ -23,8 +23,8 @@ import type { CodePlan as CodePlanCatalogue } from "@/features/abonnement/types"
  *
  * Deux rôles, et la frontière est l'écriture : le support consulte pour
  * répondre à une demande, le superviseur suspend, réactive et change un plan.
- * **Ce n'est pas le RBAC des entreprises** (`features/roles`), qui découpe
- * douze modules BTP en quatre niveaux : ces deux modèles n'ont aucun point
+ * **Ce n'est pas le RBAC des entreprises** (`features/roles`), qui accorde
+ * des permissions par module : ces deux modèles n'ont aucun point
  * commun et ne doivent pas se rejoindre un jour « pour factoriser ».
  */
 export type RoleAdministrateur = "SUPERVISEUR" | "SUPPORT";

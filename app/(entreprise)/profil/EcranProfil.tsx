@@ -37,6 +37,7 @@ import { schemaChangementMotDePasse, schemaProfil } from "@/features/auth/valida
 import type { SaisieProfil, ValeursProfil } from "@/features/auth/validations";
 import { useReglesMotDePasse } from "@/features/auth/reglesMotDePasse";
 import { PAYS_TELEPHONE_DEFAUT } from "@/features/referentiels/telephone";
+import { CLE_MODULES_ENTREPRISE, listerModulesEntreprise } from "@/features/roles";
 import { ErreurApi } from "@/lib/api";
 import { ABSENT, formaterDate, formaterDateHeure } from "@/lib/format";
 
@@ -109,7 +110,7 @@ export function EcranProfil() {
             <BlocInformations profil={requete.data} />
             <BlocCompte profil={requete.data} />
             <BlocMotDePasse />
-            <BlocHabilitations profil={requete.data} />
+            <BlocHabilitations />
           </div>
         </div>
       )}
@@ -626,13 +627,17 @@ function BlocMotDePasse() {
 }
 
 /**
- * Les droits effectifs, en lecture : module et niveau. Le libellé du niveau
- * vient du serveur ; le nom du module, du catalogue des rôles.
+ * Les droits effectifs, en lecture : les permissions accordées, module par
+ * module. `GET /modules/` ne sert à chacun que les permissions qu'il détient,
+ * avec leurs libellés : c'est exactement la liste à montrer.
  */
-function BlocHabilitations({ profil }: { profil: ProfilUtilisateur }) {
+function BlocHabilitations() {
   const t = useTranslations("profil");
-  const tRoles = useTranslations("roles");
-  const habilitations = Object.entries(profil.habilitations ?? {});
+  const requete = useQuery({
+    queryKey: CLE_MODULES_ENTREPRISE,
+    queryFn: ({ signal }) => listerModulesEntreprise(signal),
+  });
+  const modules = (requete.data ?? []).filter((m) => m.permissions.length > 0);
 
   return (
     <section className={CARTE}>
@@ -650,21 +655,23 @@ function BlocHabilitations({ profil }: { profil: ProfilUtilisateur }) {
         </div>
       </div>
 
-      {habilitations.length === 0 ? (
+      {requete.isPending ? (
+        <EtatChargement />
+      ) : requete.isError ? (
+        <EtatErreur onReessayer={() => void requete.refetch()} />
+      ) : modules.length === 0 ? (
         <p className="text-sm text-neutral-600">{t("aucuneHabilitation")}</p>
       ) : (
         <dl className="grid gap-x-8 sm:grid-cols-2">
-          {habilitations.map(([module, habilitation]) => (
+          {modules.map((module) => (
             <div
-              key={module}
+              key={module.code}
               className={`${LIGNE_DEFINITION} border-b border-neutral-100`}
             >
-              <dt className={LIGNE_LIBELLE}>
-                {tRoles.has(`modules.${module}.nom`)
-                  ? tRoles(`modules.${module}.nom`)
-                  : module}
-              </dt>
-              <dd className={LIGNE_VALEUR}>{habilitation.libelle}</dd>
+              <dt className={LIGNE_LIBELLE}>{module.libelle}</dt>
+              <dd className={LIGNE_VALEUR}>
+                {module.permissions.map((p) => p.libelle).join(", ")}
+              </dd>
             </div>
           ))}
         </dl>

@@ -1,15 +1,14 @@
 /**
- * API pour la gestion dynamique des rôles et des habilitations par module.
+ * API des rôles : un rôle est une liste de codes de permission.
  *
- * Écriture : le client envoie la liste complète des permissions (`permissions: string[]`).
- * Le serveur recalcule les niveaux de chaque module et enregistre les droits.
+ * Écriture : le client envoie la liste complète des codes (`permissions: string[]`).
+ * Le serveur sert encore un `niveau` et des alias par module : ils ne sont pas lus.
  */
 
 import { api } from "@/lib/api";
 import type {
   ModuleCatalogue,
   ModuleRole,
-  NiveauAcces,
   PermissionCatalogue,
   PorteeRole,
   RoleItem,
@@ -19,7 +18,7 @@ export interface CreationRolePayload {
   code: string;
   libelle: string;
   description: string;
-  portee: PorteeRole; // F5 le fait choisir ; ici, toujours "PROJET"
+  portee: PorteeRole;
   permissions: string[];
 }
 
@@ -28,8 +27,9 @@ export interface ModificationRolePayload {
   description?: string;
   /** La liste complète : elle remplace toute la matrice. Absente : la matrice ne change pas. */
   permissions?: string[];
-  portee?: PorteeRole; // F5
-  confirmer?: boolean; // F5
+  portee?: PorteeRole;
+  /** Confirme un changement de portée que le serveur a fait confirmer (409). */
+  confirmer?: boolean;
 }
 
 interface ChargePermissionCatalogue {
@@ -88,7 +88,6 @@ export interface ChargeModuleRole {
   module_description?: string;
   module_icone?: string;
   module_ordre?: number;
-  niveau?: number;
   permissions?: PermissionCatalogue[];
 }
 
@@ -106,10 +105,6 @@ function versRole<T extends RoleItem>(charge: ChargeRole<T>): T {
   const modules: ModuleRole[] = modulesBruts
     .filter((m) => (m.module_code || "").toLowerCase() !== "administration")
     .map((m) => {
-      const niv =
-        typeof m.niveau === "number" && m.niveau >= 0 && m.niveau <= 3
-          ? (m.niveau as NiveauAcces)
-          : 0;
       return {
         moduleId: m.module_id,
         code: (m.module_code || "").toLowerCase(),
@@ -117,7 +112,6 @@ function versRole<T extends RoleItem>(charge: ChargeRole<T>): T {
         description: m.module_description ?? "",
         icone: m.module_icone ?? "box",
         ordre: m.module_ordre ?? 0,
-        niveau: niv,
         permissions: (m.permissions ?? []).map((p) => ({
           ...p,
           code: p.code.toLowerCase(),

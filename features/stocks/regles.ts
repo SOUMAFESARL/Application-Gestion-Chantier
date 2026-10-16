@@ -7,7 +7,7 @@
  * n'est pas encore en stock.
  */
 
-import { fonctionsSurProjet, peut } from "@/features/habilitations/regles";
+import { fonctionsSurProjet, peutCode } from "@/features/habilitations/regles";
 import type { Droits } from "@/features/habilitations/types";
 import type { Projet } from "@/features/projets/types";
 
@@ -594,15 +594,15 @@ export function gestesStock(droits: Droits | null, projet: Projet): GestesStock 
   const fonctions = fonctionsSurProjet(projet, droits);
   const conducteur = fonctions.includes("CONDUCTEUR_TRAVAUX");
   const chefProjet = fonctions.includes("CHEF_PROJET");
-  const saisieAchats = !direction && peut(droits, "achats", "saisie");
-  const saisieStock = !direction && peut(droits, "stocks", "saisie");
-  const validationStock = peut(droits, "stocks", "validation");
+  const saisieAchats = !direction && peutCode(droits, "achats.ecrire");
+  const saisieStock = !direction && peutCode(droits, "stocks.ecrire");
+  const validationStock = peutCode(droits, "stocks.valider");
   const magasinier = saisieStock && !conducteur && !chefProjet;
 
   return {
-    voirDemandes: peut(droits, "achats", "saisie") || peut(droits, "achats", "validation"),
+    voirDemandes: peutCode(droits, "achats.ecrire") || peutCode(droits, "achats.valider"),
     emettreDemande: saisieAchats,
-    emettreCommande: peut(droits, "achats", "validation"),
+    emettreCommande: peutCode(droits, "achats.valider"),
     cloturerCommande: saisieAchats,
     saisirReception: magasinier,
     deposerJustificatif: saisieStock,
@@ -634,9 +634,9 @@ export function gestesCumules(droits: Droits | null, projets: readonly Projet[])
 function base(droits: Droits | null): Partial<GestesStock> {
   if (!droits) return {};
   return {
-    voirDemandes: peut(droits, "achats", "saisie") || peut(droits, "achats", "validation"),
-    emettreCommande: peut(droits, "achats", "validation"),
-    gererReferentiel: droits.estDirection || peut(droits, "stocks", "validation"),
+    voirDemandes: peutCode(droits, "achats.ecrire") || peutCode(droits, "achats.valider"),
+    emettreCommande: peutCode(droits, "achats.valider"),
+    gererReferentiel: droits.estDirection || peutCode(droits, "stocks.valider"),
   };
 }
 

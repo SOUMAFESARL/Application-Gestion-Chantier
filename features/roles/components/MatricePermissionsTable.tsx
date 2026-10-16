@@ -3,10 +3,13 @@
 import { Eye, Pencil, Trash, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 import { useTranslations } from "next-intl";
 import { Badge, Bouton } from "@/components/ui";
-import { accesDepuisNiveau } from "../regles";
+import { cn } from "@/lib/utils";
+import { permissionsDuModule } from "../regles";
 import type { ColonneMatrice, gestesSurRole } from "../regles";
 import type { RoleItem } from "../types";
-import { SelecteurAcces } from "./SelecteurAcces";
+
+/** Une cellule : le nombre de permissions accordées, plus marqué dès qu'il y en a une. */
+const PASTILLE = "inline-flex items-center rounded-sm border px-2 py-1 text-xs font-medium whitespace-nowrap";
 
 interface Props {
   roles: RoleItem[];
@@ -94,22 +97,23 @@ export function MatricePermissionsTable({
                 </td>
 
                 {colonnes.map((col) => {
-                  const modRole = role.modules?.find(
-                    (m) => m.code.toLowerCase() === col.code.toLowerCase(),
-                  );
-                  const niveau = modRole?.niveau ?? 0;
-                  const valeur = accesDepuisNiveau(niveau);
-                  const libelles = (modRole?.permissions ?? []).map((p) => p.libelle);
+                  const libelles = permissionsDuModule(role, col.code).map((p) => p.libelle);
                   const titreCellule =
                     libelles.length > 0 ? libelles.join(", ") : t("aucunePermission");
 
                   return (
                     <td key={col.code} className="p-2 text-center" title={titreCellule}>
-                      <SelecteurAcces
-                        valeur={valeur}
-                        titre={titreCellule}
-                        libelleAria={`${role.libelle} — ${col.libelle}`}
-                      />
+                      <span
+                        aria-label={`${role.libelle} — ${col.libelle} : ${titreCellule}`}
+                        className={cn(
+                          PASTILLE,
+                          libelles.length > 0
+                            ? "border-secondary-200 bg-secondary-50 text-secondary-700"
+                            : "border-neutral-200 bg-neutral-100 text-neutral-600",
+                        )}
+                      >
+                        {t("nbPermissions", { n: libelles.length })}
+                      </span>
                     </td>
                   );
                 })}

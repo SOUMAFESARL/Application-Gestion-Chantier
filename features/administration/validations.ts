@@ -162,7 +162,7 @@ const DESCRIPTION_MODULE_MAX = 240;
  *
  * Libellé et description sont requis : un module sans description est un
  * module dont personne, côté entreprise, ne comprend ce qu'il couvre au
- * moment d'y attribuer des droits. L'accès par défaut, lui, peut être vide.
+ * moment d'y attribuer des droits.
  */
 export const schemaModule = z.object({
   libelle: chaineNonVide(texte("administration.parametres.modules.erreurLibelleRequis")).max(

@@ -8,30 +8,18 @@
 
 import { fonctionsDansProjet, projetModifiable } from "@/features/projets/regles";
 import type { FonctionProjet, Projet } from "@/features/projets/types";
-import { ACCES_MODULE, MODULES_CCD } from "@/features/roles/types";
 
-import type { AccesModule, CodeModule, ConditionAcces, Droits } from "./types";
+import type { ConditionAcces, Droits } from "./types";
 
-/** Tous les accès sur tous les modules, tous les chantiers : le DG. */
+/** Tous les droits, tous les chantiers : le DG. */
 export function droitsDirection(): Droits {
-  const permissions: Record<string, AccesModule[]> = {};
-  for (const code of MODULES_CCD) permissions[code] = [...ACCES_MODULE];
-  return { estDirection: true, codes: [], permissions, portee: { type: "TOUS" } };
-}
-
-/**
- * Le compte a-t-il cet accès sur ce module ? La direction a tout. Un module
- * que la matrice ne cite pas n'accorde rien : un droit ne se devine pas.
- */
-export function peut(droits: Droits | null, module: CodeModule, acces: AccesModule = "lecture"): boolean {
-  if (!droits) return false;
-  if (droits.estDirection) return true;
-  return droits.permissions[module]?.includes(acces) ?? false;
+  return { estDirection: true, codes: [], portee: { type: "TOUS" } };
 }
 
 /**
  * Le compte détient-il ce code ? La direction a tout. Recopie `a_permission`
  * (`apps/core/droits.py`) : la liste du profil est déjà celle que le serveur applique.
+ * Un code absent n'accorde rien : un droit ne se devine pas.
  */
 export function peutCode(droits: Droits | null, code: string): boolean {
   if (!droits) return false;
@@ -51,46 +39,12 @@ export function peutSurProjet(droits: Droits | null, code: string, projet: Proje
   return fonctionsSurProjet(projet, droits).length > 0;
 }
 
-/**
- * Les accès d'un module, lus dans les codes — la même correspondance que le serveur
- * (`_normaliser_permissions_modules`, `apps/accounts/services/roles.py`) :
- * - lecture    ← `{module}.lire`
- * - saisie     ← `{module}.ecrire` ou `{module}.rediger`
- * - validation ← `{module}.valider`, et `projets.changer_statut` pour le module projets
- * Renvoie `null` si aucun code ne commence par `{module}.` : l'appelant se replie alors sur le niveau.
- */
-export function accesDepuisCodes(module: string, codes: readonly string[]): AccesModule[] | null {
-  const modPref = `${module.toLowerCase()}.`;
-  const codesDuModule = codes.filter((c) => c.toLowerCase().startsWith(modPref));
-  if (codesDuModule.length === 0) return null;
-
-  const acces = new Set<AccesModule>();
-  const codesSet = new Set(codesDuModule.map((c) => c.toLowerCase()));
-
-  if (codesSet.has(`${modPref}lire`)) {
-    acces.add("lecture");
-  }
-  if (codesSet.has(`${modPref}ecrire`) || codesSet.has(`${modPref}rediger`)) {
-    acces.add("saisie");
-  }
-  if (codesSet.has(`${modPref}valider`)) {
-    acces.add("validation");
-  }
-  if (module.toLowerCase() === "projets" && codesSet.has("projets.changer_statut")) {
-    acces.add("validation");
-  }
-
-  return ACCES_MODULE.filter((a) => acces.has(a));
-}
-
 export function satisfait(droits: Droits | null, condition: ConditionAcces): boolean {
   switch (condition.type) {
     case "TOUS":
       return droits !== null;
     case "DIRECTION":
       return droits?.estDirection ?? false;
-    case "MODULE":
-      return peut(droits, condition.module, condition.acces);
     case "PERMISSION":
       return peutCode(droits, condition.code);
   }
@@ -98,40 +52,38 @@ export function satisfait(droits: Droits | null, condition: ConditionAcces): boo
 
 const TOUS: ConditionAcces = { type: "TOUS" };
 const DIRECTION: ConditionAcces = { type: "DIRECTION" };
-function lecture(module: CodeModule): ConditionAcces {
-  return { type: "MODULE", module, acces: "lecture" };
-}
-function saisie(module: CodeModule): ConditionAcces {
-  return { type: "MODULE", module, acces: "saisie" };
-}
 function permission(code: string): ConditionAcces {
   return { type: "PERMISSION", code };
 }
 
 /**
- * Le module dont relève chaque écran de l'espace entreprise, par préfixe
- * d'URL. Le préfixe le plus long l'emporte. Une route absente de la table
- * n'est ouverte qu'à la direction : un écran nouveau reste fermé tant qu'on
- * n'a pas dit à quel module il appartient.
+ * Le code de permission qu'exige chaque écran de l'espace entreprise, par
+ * préfixe d'URL. Le préfixe le plus long l'emporte. Une route absente de la
+ * table n'est ouverte qu'à la direction : un écran nouveau reste fermé tant
+ * qu'on n'a pas dit quel droit l'ouvre.
+ *
+ * Les modules que le catalogue du serveur n'a pas encore (finance, achats,
+ * stocks…) gardent le code qu'ils auront (`finance.lire`) : personne ne le
+ * détient aujourd'hui, l'écran reste à la direction.
  */
 export const CONDITIONS_ROUTES: readonly (readonly [string, ConditionAcces])[] = [
   ["/tableau-de-bord", TOUS],
   ["/notifications", TOUS],
   ["/profil", TOUS],
-  ["/projets", lecture("projets")],
-  ["/planning", lecture("projets")],
-  ["/rapports", lecture("chantier")],
+  ["/projets", permission("projets.lire")],
+  ["/planning", permission("projets.lire")],
+  ["/rapports", permission("chantier.lire")],
   // Rédiger le rapport journalier : le chef de chantier (SFD F2 §3.2).
-  ["/rapports/saisie", saisie("chantier")],
-  ["/finance", lecture("finance")],
-  ["/achats", lecture("achats")],
-  ["/stocks", lecture("stocks")],
-  ["/rh", lecture("rh")],
-  ["/equipements", lecture("equipements")],
-  ["/qhse", lecture("qhse")],
-  ["/contrats", lecture("contrats")],
-  ["/tiers", lecture("tiers")],
-  ["/documents", lecture("ged")],
+  ["/rapports/saisie", permission("chantier.rediger")],
+  ["/finance", permission("finance.lire")],
+  ["/achats", permission("achats.lire")],
+  ["/stocks", permission("stocks.lire")],
+  ["/rh", permission("rh.lire")],
+  ["/equipements", permission("equipements.lire")],
+  ["/qhse", permission("qhse.lire")],
+  ["/contrats", permission("contrats.lire")],
+  ["/tiers", permission("tiers.lire")],
+  ["/documents", permission("ged.lire")],
   ["/parametres/collaborateurs", permission("administration.collaborateurs_voir")],
   ["/parametres/roles", permission("administration.roles_gerer")],
   ["/parametres", DIRECTION],
@@ -201,12 +153,17 @@ export function estChefDuProjet(projet: Projet, droits: Droits | null): boolean 
 }
 
 /**
- * Rédiger le rapport journalier : l'accès « saisie » du journal de chantier.
- * La direction, qui a tous les accès, y entre aussi : le formulaire lui est
+ * Rédiger le rapport journalier : `chantier.rediger` (`PeutRedigerRapports`).
+ * La direction, qui a tous les droits, y entre aussi : le formulaire lui est
  * montré (demande du 05/10, pour que le backend voie l'écran de saisie).
  */
 export function peutRedigerJournal(droits: Droits | null): boolean {
-  return peut(droits, "chantier", "saisie");
+  return peutCode(droits, "chantier.rediger");
+}
+
+/** Relancer un chef de chantier en retard : `chantier.valider` (`JournalRelancerView`). */
+export function peutRelancerJournal(droits: Droits | null): boolean {
+  return peutCode(droits, "chantier.valider");
 }
 
 /**
@@ -225,7 +182,7 @@ export function estRedacteurJournal(droits: Droits | null): boolean {
  * décision du 14/10/2026, appliquée de la même façon par le serveur :
  *
  * - un rapport **soumis** attend le **conducteur de travaux** du chantier,
- *   qui tient l'accès « validation » du journal ;
+ *   qui tient `chantier.valider` ;
  * - un rapport **validé par le CT** attend le **chef de projet** du chantier.
  *
  * Le directeur général ne signe pas : il ne tient aucune fonction de
@@ -263,10 +220,10 @@ export function personneQuiSigne(
 
 /**
  * Ce compte tient-il cette étape du circuit sur ce chantier ? La fonction sur
- * le chantier, et l'accès qui va avec : « validation » du journal pour le
- * conducteur de travaux, « saisie » pour le chef de projet — les mêmes
- * gabarits que le serveur. Sert au rapport (`etapeASigner`) comme à la
- * synthèse périodique.
+ * le chantier, et le code qui va avec : `chantier.valider` pour le conducteur
+ * de travaux, `chantier.rediger` pour le chef de projet — comme le serveur
+ * (`apps/chantier/views/journal.py`). Sert au rapport (`etapeASigner`) comme à
+ * la synthèse périodique.
  */
 export function tientEtape(
   etape: "CT" | "CP",
@@ -276,8 +233,8 @@ export function tientEtape(
 ): boolean {
   if (!projet || !collaborateurId) return false;
   const fonctions = fonctionsDansProjet(projet, collaborateurId);
-  if (etape === "CT") return fonctions.includes("CONDUCTEUR_TRAVAUX") && peut(droits, "chantier", "validation");
-  return fonctions.includes("CHEF_PROJET") && peut(droits, "chantier", "saisie");
+  if (etape === "CT") return fonctions.includes("CONDUCTEUR_TRAVAUX") && peutCode(droits, "chantier.valider");
+  return fonctions.includes("CHEF_PROJET") && peutCode(droits, "chantier.rediger");
 }
 
 /**

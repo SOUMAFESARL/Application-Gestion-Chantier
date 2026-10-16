@@ -35,9 +35,9 @@ const DEMANDES_AFFICHEES = 5;
  * Rien pour qui n'a ni l'un ni l'autre : le bloc ne se lit même pas.
  */
 export function BlocsStock() {
-  const { estDirection, peut } = useDroits();
-  const commande = peut("achats", "validation");
-  const encadrement = !estDirection && peut("stocks");
+  const { estDirection, peutCode } = useDroits();
+  const commande = peutCode("achats.valider");
+  const encadrement = !estDirection && peutCode("stocks.lire");
   if (!commande && !encadrement) return null;
   return <Contenu commande={commande} encadrement={encadrement} />;
 }
