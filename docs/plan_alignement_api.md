@@ -255,7 +255,7 @@ Le backend savait déjà tout faire (matrice dynamique, portée, B-08, catalogue
 
 #### Reste ouvert
 
-- **Un projet à deux chefs de projet n'en montre qu'un** : le serveur expose un seul `chef_projet` ; un CP affecté mais non montré ne voit pas le projet dans sa liste (le filtre de l'écran lit l'encadrement) et ses gestes sur ce projet lui sont refusés. Cas réel en local sur CHANT-2026-001 (deux CP depuis le lot 4). Défaut antérieur au chantier ; à traiter avec l'encadrement (exposer tous les CP).
+- **Donnée locale incohérente** : CHANT-2026-001 (`demo`, local) a deux affectations CP actives, créées en base hors du service. Le produit n'admet qu'un CP par projet (`apps/projets/services/affectations.py` désactive l'ancien à chaque désignation) : il suffit de désactiver l'affectation en trop. Ce n'est pas un défaut du code.
 - **Abonnement et configuration de l'entreprise réservés au DG (D4)** : à rouvrir si l'AD doit y accéder (`administration.abonnement_voir`, `administration.factures_voir`).
 - **Modèles de rôles (`ModeleRole`) sans API (R10)**.
 - **Option `supprimer_collaborateurs` non exposée (R6)**.
