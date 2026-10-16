@@ -280,17 +280,25 @@ export function tientEtape(
   return fonctions.includes("CHEF_PROJET") && peut(droits, "chantier", "saisie");
 }
 
-/** Désigner (ou remplacer) le chef de projet : un acte de direction. */
+/**
+ * Désigner (ou remplacer) le chef de projet : acte de portée entreprise (décision du 14/10/2026).
+ * Recopie la règle serveur (`projets.affecter_membres` et portée entreprise, le CP ne se désigne pas un successeur).
+ */
 export function peutDesignerChefProjet(projet: Projet, droits: Droits | null): boolean {
-  return projetModifiable(projet) && (droits?.estDirection ?? false);
+  if (!droits) return false;
+  return (
+    projetModifiable(projet) &&
+    (droits.estDirection || (peutCode(droits, "projets.affecter_membres") && droits.portee.type === "TOUS"))
+  );
 }
 
 /**
- * Compléter l'équipe d'encadrement — conducteurs, chefs de chantier, autres
- * membres : la direction, ou le chef de projet du chantier, qui en a la main.
+ * Compléter l'équipe d'encadrement (CT, CC, autres membres) : le code `projets.affecter_membres`
+ * sur ce chantier (règle D-08, `GardePermissionProjet`).
  */
 export function peutGererEncadrement(projet: Projet, droits: Droits | null): boolean {
-  return projetModifiable(projet) && ((droits?.estDirection ?? false) || estChefDuProjet(projet, droits));
+  if (!droits) return false;
+  return projetModifiable(projet) && peutSurProjet(droits, "projets.affecter_membres", projet);
 }
 
 /**

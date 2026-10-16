@@ -8,7 +8,7 @@ import { Badge, Bouton } from "@/components/ui";
 import { Separator } from "@/components/ui/separator";
 import { useDroits } from "@/features/habilitations";
 import { activitesDuProjet, quantiteRealisee, statutActivite } from "@/features/projets/regles";
-import type { Activite, Lot } from "@/features/projets/types";
+import type { Activite, Lot, Projet } from "@/features/projets/types";
 import { formaterMontant, formaterQuantite } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,7 @@ import { BADGE_STATUT, BLOC, PANNEAU_COLLE } from "./classes";
 import { Periode, Quantite } from "./StructureLots";
 
 interface Props {
+  projet?: Projet | null;
   activite: Activite | null;
   lot: Lot | null;
   lots: Lot[];
@@ -30,9 +31,10 @@ interface Props {
  * qu'on lit en descendant la liste. L'avancement ne se saisit pas ici : il
  * remonte du journal de chantier.
  */
-export function PanneauActivite({ activite, lot, lots, onModifier, onSupprimer }: Props) {
+export function PanneauActivite({ projet, activite, lot, lots, onModifier, onSupprimer }: Props) {
   const t = useTranslations("projets.lotsActivites");
-  const peutSaisir = useDroits().peut("projets", "saisie");
+  const { peutSurProjet } = useDroits();
+  const peutSaisir = projet ? peutSurProjet("projets.ecrire", projet) : false;
 
   if (!activite || !lot) {
     return (

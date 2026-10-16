@@ -66,9 +66,7 @@ interface Props {
 export function FicheEquipe({ projetId, equipeId }: Props) {
   const t = useTranslations("projets.equipesAffectations");
   const tFiche = useTranslations("projets.equipesAffectations.fiche");
-  const { droits, peut } = useDroits();
-  // Gérer les membres d'une équipe, c'est saisir dans « chantier ».
-  const peutSaisir = peut("chantier", "saisie");
+  const { droits, peutSurProjet } = useDroits();
   const clientRequetes = useQueryClient();
 
   const [criteres, setCriteres] = useState<CriteresMembres>(CRITERES_MEMBRES_VIDES);
@@ -89,6 +87,8 @@ export function FicheEquipe({ projetId, equipeId }: Props) {
     queryFn: ({ signal }) => listerProjets(signal),
   });
   const projet = requeteProjets.data?.find((candidat) => candidat.id === projetId) ?? null;
+  // Gérer les membres d'une équipe appelle /projets/${projetId}/equipes/${equipeId}/membres/ -> projets.gerer_equipes
+  const peutGererEquipes = projet ? peutSurProjet("projets.gerer_equipes", projet) : false;
 
   const equipes = useMemo(() => requete.data ?? [], [requete.data]);
   const rang = equipes.findIndex((candidate) => candidate.id === equipeId);
@@ -157,7 +157,7 @@ export function FicheEquipe({ projetId, equipeId }: Props) {
           header: tFiche("colonnes.actions"),
           meta: { classe: BORD_DROIT_TABLEAU },
           cell: ({ row }) => {
-            if (!peutSaisir) return null;
+            if (!peutGererEquipes) return null;
             const nom = t("nomComplet", { prenom: row.original.prenom, nom: row.original.nom });
             return (
               <span className="inline-flex gap-1">
@@ -185,7 +185,7 @@ export function FicheEquipe({ projetId, equipeId }: Props) {
           },
         }),
       ]),
-    [t, tFiche, equipe?.chef?.id, peutSaisir],
+    [t, tFiche, equipe?.chef?.id, peutGererEquipes],
   );
 
   /** Prénom et nom séparés : le fichier se retrie seul. */
@@ -270,7 +270,7 @@ export function FicheEquipe({ projetId, equipeId }: Props) {
         cleCriteres={`${criteres.recherche}|${criteres.role}`}
         exporter={exporter}
         actions={
-          peutSaisir && (
+          peutGererEquipes && (
             <Bouton
               variante="primaire"
               taille="sm"
