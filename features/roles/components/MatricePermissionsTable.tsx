@@ -65,7 +65,12 @@ export function MatricePermissionsTable({
                       ) : (
                         <Badge variante="secondaire">{t("personnalise")}</Badge>
                       )}
-                      {/* Emplacement badge portée (F5) */}
+                      <Badge
+                        variante={role.portee === "ENTREPRISE" ? "secondaire" : "neutre"}
+                        title={t(`portee.aide.${role.portee}`)}
+                      >
+                        {t(`portee.${role.portee}`)}
+                      </Badge>
                       {role.avertissements && role.avertissements.length > 0 && (
                         <span
                           title={t("avertissementPresent")}

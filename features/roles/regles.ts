@@ -2,6 +2,7 @@
  * Règles pures du domaine Rôles — zéro React.
  */
 
+import { ErreurApi } from "@/lib/api";
 import { ACCES_MODULE, MODULES_CCD } from "./types";
 import type {
   AccesModule,
@@ -312,3 +313,29 @@ export function colonnesDeMatrice(
     (a, b) => a.ordre - b.ordre || a.code.localeCompare(b.code),
   );
 }
+
+/**
+ * Le nombre de personnes touchées si l'erreur est la demande de confirmation d'un changement de
+ * portée ; `null` pour toute autre erreur. Le serveur l'envoie en nombre, `ErreurApi.details` le
+ * type en chaîne : `Number(...)`.
+ */
+export function personnesTouchees(erreur: unknown): number | null {
+  if (!(erreur instanceof ErreurApi)) return null;
+  if (erreur.code !== "confirmation_requise") return null;
+
+  const brute = (erreur.details as Record<string, unknown> | undefined)?.personnes_touchees;
+  if (brute === undefined || brute === null) return 0;
+  const n = Number(Array.isArray(brute) ? brute[0] : brute);
+  return Number.isNaN(n) ? 0 : n;
+}
+
+/** Changer la portée de ce rôle : la direction seule, jamais le rôle DG. */
+export function peutChangerPortee(
+  role: RoleItem | null | undefined,
+  compte: { estDirection: boolean },
+): boolean {
+  if (!role) return false;
+  if (role.code.toUpperCase() === "DG") return false;
+  return compte.estDirection;
+}
+

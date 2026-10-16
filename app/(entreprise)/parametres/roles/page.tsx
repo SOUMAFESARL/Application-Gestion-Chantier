@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { EnTetePage } from "@/components/layout/EnTetePage";
-import { Alerte, Bouton, EtatChargement, EtatErreur } from "@/components/ui";
+import { Alerte, Bouton, EtatChargement, EtatErreur, Modale } from "@/components/ui";
 import { useDroits } from "@/features/habilitations";
 import {
   colonnesDeMatrice,
@@ -19,6 +19,7 @@ import {
   ModalNouveauRole,
   ModalReassignationRole,
   modifierRole,
+  personnesTouchees,
   supprimerRole,
 } from "@/features/roles";
 import type {
@@ -28,6 +29,13 @@ import type {
   RoleItem,
 } from "@/features/roles";
 import { ErreurApi } from "@/lib/api";
+
+interface ConfirmationPortee {
+  roleId: string;
+  payload: ModificationRolePayload;
+  personnes: number;
+  versEntreprise: boolean;
+}
 
 export default function ParametresRolesPage() {
   const t = useTranslations("roles");
@@ -41,6 +49,7 @@ export default function ParametresRolesPage() {
   const [roleAEditer, setRoleAEditer] = useState<RoleItem | null>(null);
   const [roleASupprimer, setRoleASupprimer] = useState<RoleItem | null>(null);
   const [actionEnCours, setActionEnCours] = useState(false);
+  const [confirmationPortee, setConfirmationPortee] = useState<ConfirmationPortee | null>(null);
 
   const chargerDonnees = useCallback(async () => {
     try {
@@ -103,6 +112,37 @@ export default function ParametresRolesPage() {
       await modifierRole(roleId, payload);
       setRoleAEditer(null);
       toast.success(t("succesModification", { role: payload.libelle ?? "" }));
+      await chargerDonnees();
+    } catch (err: unknown) {
+      const touches = personnesTouchees(err);
+      if (touches !== null) {
+        setConfirmationPortee({
+          roleId,
+          payload,
+          personnes: touches,
+          versEntreprise: payload.portee === "ENTREPRISE",
+        });
+        return;
+      }
+      toast.error(err instanceof ErreurApi && err.message ? err.message : t("erreurAction"));
+    } finally {
+      setActionEnCours(false);
+    }
+  }
+
+  async function handleConfirmerChangementPortee() {
+    if (!confirmationPortee) return;
+    setActionEnCours(true);
+    try {
+      await modifierRole(confirmationPortee.roleId, {
+        ...confirmationPortee.payload,
+        confirmer: true,
+      });
+      setConfirmationPortee(null);
+      setRoleAEditer(null);
+      toast.success(
+        t("succesModification", { role: confirmationPortee.payload.libelle ?? "" }),
+      );
       await chargerDonnees();
     } catch (err: unknown) {
       toast.error(err instanceof ErreurApi && err.message ? err.message : t("erreurAction"));
@@ -234,6 +274,49 @@ export default function ParametresRolesPage() {
         onConfirmer={handleConfirmationSuppression}
         onFermer={() => setRoleASupprimer(null)}
       />
+
+      {confirmationPortee && (
+        <Modale
+          ouverte={Boolean(confirmationPortee)}
+          titre={t("confirmationPortee.titre", {
+            role: confirmationPortee.payload.libelle ?? roleAEditer?.libelle ?? "",
+          })}
+          onFermer={() => !actionEnCours && setConfirmationPortee(null)}
+          actions={
+            <>
+              <Bouton
+                variante="secondaire"
+                onClick={() => setConfirmationPortee(null)}
+                disabled={actionEnCours}
+              >
+                {t("annuler")}
+              </Bouton>
+              <Bouton
+                variante={confirmationPortee.versEntreprise ? "danger" : "primaire"}
+                onClick={handleConfirmerChangementPortee}
+                enCours={actionEnCours}
+              >
+                {t("confirmationPortee.bouton")}
+              </Bouton>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-neutral-700">
+              {t("confirmationPortee.personnes", { n: confirmationPortee.personnes })}
+            </p>
+            {confirmationPortee.versEntreprise ? (
+              <Alerte type="avertissement">
+                {t("confirmationPortee.avertissementEntreprise")}
+              </Alerte>
+            ) : (
+              <Alerte type="information">
+                {t("confirmationPortee.infoProjet")}
+              </Alerte>
+            )}
+          </div>
+        </Modale>
+      )}
     </div>
   );
 }

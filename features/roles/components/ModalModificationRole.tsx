@@ -13,10 +13,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
+import { useDroits } from "@/features/habilitations";
 import type { ModificationRolePayload } from "../api";
-import { codesDuRole, codesHorsCatalogue } from "../regles";
-import type { ModuleCatalogue, RoleItem } from "../types";
+import { codesDuRole, codesHorsCatalogue, peutChangerPortee } from "../regles";
+import type { ModuleCatalogue, PorteeRole, RoleItem } from "../types";
 import { EditeurPermissions } from "./EditeurPermissions";
 
 /** Ascenseur fin, dans le ton du contenu qu'il défile — même recette que `sidebar.tsx`. */
@@ -61,13 +63,16 @@ export function ModalModificationRole({
   enCours = false,
 }: Props) {
   const t = useTranslations("roles");
+  const { estDirection } = useDroits();
   const [libelle, setLibelle] = useState(role?.libelle ?? "");
   const [description, setDescription] = useState(role?.description ?? "");
+  const [portee, setPortee] = useState<PorteeRole>(() => role?.portee ?? "PROJET");
   const [codes, setCodes] = useState<string[]>(() => (role ? codesDuRole(role) : []));
   const [erreurs, setErreurs] = useState<Record<string, string>>({});
 
   if (!role) return null;
 
+  const autoriseChangerPortee = peutChangerPortee(role, { estDirection });
   const codesHors = codesHorsCatalogue(codesDuRole(role), catalogue);
   const permsHorsPerimetre = role.modules
     .flatMap((m) => m.permissions)
@@ -104,6 +109,10 @@ export function ModalModificationRole({
 
     if (gestes.matriceModifiable) {
       payload.permissions = codes;
+    }
+
+    if (portee !== role.portee) {
+      payload.portee = portee;
     }
 
     await onEnregistrer(role.id, payload);
@@ -182,6 +191,45 @@ export function ModalModificationRole({
               className={INDICATIF_LEGER}
             />
           </div>
+
+          {autoriseChangerPortee ? (
+            <div className="flex flex-col gap-2">
+              <Label className="font-normal">{t("champPortee")}</Label>
+              <RadioGroup
+                value={portee}
+                onValueChange={(val) => setPortee(val as PorteeRole)}
+                disabled={enCours}
+                className="gap-2"
+              >
+                <div className="flex items-start gap-2">
+                  <RadioGroupItem value="PROJET" id="modif-role-portee-projet" className="mt-0.5" />
+                  <div className="flex flex-col">
+                    <Label htmlFor="modif-role-portee-projet" className="font-medium cursor-pointer">
+                      {t("portee.PROJET")}
+                    </Label>
+                    <span className="text-xs text-neutral-500">{t("portee.aide.PROJET")}</span>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <RadioGroupItem value="ENTREPRISE" id="modif-role-portee-entreprise" className="mt-0.5" />
+                  <div className="flex flex-col">
+                    <Label htmlFor="modif-role-portee-entreprise" className="font-medium cursor-pointer">
+                      {t("portee.ENTREPRISE")}
+                    </Label>
+                    <span className="text-xs text-neutral-500">{t("portee.aide.ENTREPRISE")}</span>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <Label className="font-normal">{t("champPortee")}</Label>
+              <div className="flex flex-col gap-0.5 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2">
+                <span className="text-sm font-medium text-neutral-900">{t(`portee.${role.portee}`)}</span>
+                <span className="text-xs text-neutral-500">{t(`portee.aide.${role.portee}`)}</span>
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col gap-2">
             <Label className="font-normal">{t("matriceDroitsTitre")}</Label>
