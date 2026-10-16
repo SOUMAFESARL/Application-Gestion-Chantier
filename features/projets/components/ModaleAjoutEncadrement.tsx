@@ -37,9 +37,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ajouterMembreEncadrement, listerAffectables } from "@/features/projets/adaptateur";
-import { FONCTIONS_AUTRE_MEMBRE } from "@/features/projets/regles";
 import type { FonctionProjet, Intervenant, Projet } from "@/features/projets/types";
 import {
+  fonctionDuRole,
   LONGUEUR_MAX_ZONE,
   saisieEncadrementVide,
   schemaAjoutEncadrement,
@@ -69,9 +69,11 @@ interface Props {
  * projet : sa place, puis la personne, **parmi les collaborateurs affectables**
  * — l'encadrement se connecte, il n'y a pas de saisie libre ici.
  *
- * Un chef de chantier peut préciser sa zone ou son lot ; un autre membre doit
- * dire sa fonction. Désigner un chef de projet remplace celui en place, et la
- * modale le dit avant qu'on valide.
+ * **Le rôle d'abord, puis la personne parmi ceux qui ont ce rôle** : la liste des
+ * rôles est celle des rôles de portée Projet que portent les collaborateurs
+ * affectables — tout rôle créé plus tard y apparaît sans changer ce code
+ * (décision du 16/10/2026). Un chef de chantier peut préciser sa zone ;
+ * désigner un chef de projet remplace celui en place, et la modale le dit.
  *
  * L'écran la remonte à chaque ouverture (`key`) : elle repart toujours vierge.
  */
@@ -94,8 +96,9 @@ export function ModaleAjoutEncadrement({
     mode: "onSubmit",
   });
   const enCours = form.formState.isSubmitting;
-  const fonction = useWatch({ control: form.control, name: "fonction" }) as FonctionProjet;
-  const designationChef = fonction === "CHEF_PROJET";
+  const role = useWatch({ control: form.control, name: "role" }) ?? "";
+  const fonction = fonctionDuRole(role);
+  const designationChef = role !== "" && fonction === "CHEF_PROJET";
 
   const requeteAffectables = useQuery({
     queryKey: ["projets", projet.id, "affectables"],
@@ -110,20 +113,34 @@ export function ModaleAjoutEncadrement({
     ...projet.autresMembres.map((m) => m.intervenant.id),
   ]);
 
-  const candidats = (requeteAffectables.data ?? []).filter(
-    (candidat) => !idsEnPlace.has(candidat.id) && candidat.role !== "DG",
+  const libres = (requeteAffectables.data ?? []).filter(
+    (candidat) => !idsEnPlace.has(candidat.id) && candidat.roleCode !== "DG",
   );
+
+  // Les rôles proposés : ceux des collaborateurs affectables, dans la limite des places
+  // que le compte peut pourvoir (CP, CT, CC ont la leur ; tout autre rôle relève de
+  // « autre membre »).
+  const roles = [
+    ...new Map(
+      libres
+        .filter((candidat) => fonctionsAutorisees.includes(fonctionDuRole(candidat.roleCode)))
+        .map((candidat) => [candidat.roleCode, candidat.role || candidat.roleCode]),
+    ).entries(),
+  ].sort((a, b) => a[1].localeCompare(b[1]));
+
+  // Règle du 16/10/2026 : seuls les collaborateurs qui ont le rôle choisi, quel qu'il soit.
+  const candidats = libres.filter((candidat) => candidat.roleCode === role);
 
   const options = candidats.map((candidat) => ({
     valeur: candidat.id,
     libelle: candidat.nom,
   }));
 
-  function changerFonction(nouvelle: string) {
-    form.setValue("fonction", nouvelle, { shouldValidate: true });
-    // La personne choisie pour une place ne l'est pas forcément pour une autre.
+  function changerRole(nouveau: string) {
+    form.setValue("role", nouveau, { shouldValidate: true });
+    // La personne choisie pour un rôle ne l'a pas forcément pour un autre.
     form.setValue("utilisateurId", "");
-    form.clearErrors(["utilisateurId", "fonctionMembre"]);
+    form.clearErrors(["utilisateurId"]);
   }
 
   async function soumettre(valeurs: ValeursAjoutEncadrement) {
@@ -143,7 +160,7 @@ export function ModaleAjoutEncadrement({
     try {
       onModifie(await ajouterMembreEncadrement(projet.id, versAjoutEncadrement(valeurs, intervenant)));
       toast.success(
-        t(valeurs.fonction === "CHEF_PROJET" ? "ajout.succesChefProjet" : "ajout.succes", {
+        t(fonctionDuRole(valeurs.role) === "CHEF_PROJET" ? "ajout.succesChefProjet" : "ajout.succes", {
           nom: intervenant.nomComplet,
         }),
       );
@@ -176,32 +193,30 @@ export function ModaleAjoutEncadrement({
               </Alert>
             )}
 
-            {fonctionsAutorisees.length > 1 && (
-              <FormField
-                control={form.control}
-                name="fonction"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("ajout.champFonction")}</FormLabel>
-                    <Select value={field.value} onValueChange={changerFonction} disabled={enCours}>
-                      <FormControl>
-                        <SelectTrigger className={cn(CHAMP, "w-full bg-card")} onBlur={field.onBlur}>
-                          <SelectValue placeholder={t("ajout.selectionner")} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {fonctionsAutorisees.map((place) => (
-                          <SelectItem key={place} value={place}>
-                            {t(`fonctionUnitaire.${place}`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
+            <FormField
+              control={form.control}
+              name="role"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("ajout.champFonction")}</FormLabel>
+                  <Select value={field.value} onValueChange={changerRole} disabled={enCours}>
+                    <FormControl>
+                      <SelectTrigger className={cn(CHAMP, "w-full bg-card")} onBlur={field.onBlur}>
+                        <SelectValue placeholder={t("ajout.selectionner")} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {roles.map(([code, libelle]) => (
+                        <SelectItem key={code} value={code}>
+                          {libelle}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {designationChef && projet.chefProjet && (
               <Alert variant="avertissement">
@@ -270,32 +285,6 @@ export function ModaleAjoutEncadrement({
               />
             )}
 
-            {fonction === "AUTRE_MEMBRE" && (
-              <FormField
-                control={form.control}
-                name="fonctionMembre"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("ajout.champFonctionMembre")}</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange} disabled={enCours}>
-                      <FormControl>
-                        <SelectTrigger className={cn(CHAMP, "w-full bg-card")} onBlur={field.onBlur}>
-                          <SelectValue placeholder={t("ajout.selectionner")} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {FONCTIONS_AUTRE_MEMBRE.map((fonctionMembre) => (
-                          <SelectItem key={fonctionMembre} value={fonctionMembre}>
-                            {t(`fonctionAutreMembre.${fonctionMembre}`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
           </form>
         </Form>
 

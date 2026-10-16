@@ -155,13 +155,17 @@ export function EquipeEncadrement({
 
       <Groupe titre={t("fonction.AUTRE_MEMBRE")}>
         <Liste vide={projet.autresMembres.length === 0}>
-          {projet.autresMembres.map(({ intervenant, fonction, affectationId }) => {
+          {projet.autresMembres.map(({ intervenant, fonction, roleCode, roleLibelle, affectationId }) => {
             const affId = affectationId ?? intervenant.affectationId;
             return (
               <Ligne
                 key={intervenant.id}
                 intervenant={intervenant}
-                precision={t(`fonctionAutreMembre.${fonction}`)}
+                precision={
+                  roleCode === "VI" || !roleLibelle
+                    ? t(`fonctionAutreMembre.${fonction}`)
+                    : roleLibelle
+                }
                 onRetirer={
                   profil && peutRetirerDuProjet(profil, projet, intervenant.id) && affId
                     ? () => onRetirer("AUTRE_MEMBRE", intervenant, affId)

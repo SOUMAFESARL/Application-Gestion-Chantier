@@ -245,7 +245,7 @@ export function FicheClient({ id }: { id: string }) {
             client.telephones.map((tel, idx) => (
               <Ligne
                 key={idx}
-                libelle={tel.libelleAffiche}
+                libelle={tel.nom ? `${tel.libelleAffiche} · ${tel.nom}` : tel.libelleAffiche}
                 valeur={
                   tel.principal
                     ? `${afficherTelephone(tel.numero)} (${t("fiche.principal")})`

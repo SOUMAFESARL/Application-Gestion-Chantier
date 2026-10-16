@@ -75,10 +75,7 @@ export function EditeurPermissions({
                         lectureSeule ? "cursor-default" : "cursor-pointer",
                       )}
                     >
-                      <span className="flex items-center gap-1.5 font-medium text-neutral-800">
-                        {perm.libelle}
-                        <span className="font-mono text-neutral-400">{perm.code}</span>
-                      </span>
+                      <span className="font-medium text-neutral-800">{perm.libelle}</span>
                       {/* Le catalogue sert souvent une description identique au libellé. */}
                       {perm.description && perm.description !== perm.libelle && (
                         <span className="mt-0.5 text-neutral-500">{perm.description}</span>

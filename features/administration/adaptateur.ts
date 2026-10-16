@@ -62,6 +62,11 @@ import type {
   PermissionPlateforme,
   ApercuSuppression,
   ResultatSuppression,
+  DemandeRoleSysteme,
+  PorteeRoleSysteme,
+  RoleSysteme,
+  CategorieReferentielPlateforme,
+  EntreeReferentielPlateforme,
 } from "./types";
 
 /* ------------------------------------------------------------------ *
@@ -95,6 +100,7 @@ interface ChargeDirigeantClient {
 interface ChargeTelephoneClient {
   libelle: string;
   libelle_affiche: string;
+  nom?: string;
   numero: string;
   principal: boolean;
 }
@@ -398,6 +404,7 @@ function versClient(charge: ChargeClient): ClientPlateforme {
     telephones: (charge.telephones || []).map((t) => ({
       libelle: t.libelle,
       libelleAffiche: t.libelle_affiche,
+      nom: t.nom ?? "",
       numero: t.numero,
       principal: Boolean(t.principal),
     })),
@@ -1295,3 +1302,86 @@ export async function supprimerClientDefinitivement(
 }
 
 
+/* ------------------------------------------------------------------ *
+ * Rôles système (gabarits propagés à toutes les entreprises)
+ * ------------------------------------------------------------------ */
+
+interface ChargeRoleSysteme {
+  id: string;
+  code: string;
+  libelle: string;
+  description: string;
+  portee: PorteeRoleSysteme;
+  modules: string[];
+  protege: boolean;
+}
+
+/** `GET /admins/roles-systeme/`. */
+export async function listerRolesSysteme(signal?: AbortSignal): Promise<RoleSysteme[]> {
+  return apiAdministration.lire<ChargeRoleSysteme[]>("/admins/roles-systeme/", undefined, signal);
+}
+
+/** `POST /admins/roles-systeme/` — créé puis propagé à toutes les entreprises. */
+export async function creerRoleSysteme(demande: DemandeRoleSysteme): Promise<RoleSysteme> {
+  return apiAdministration.creer<ChargeRoleSysteme>("/admins/roles-systeme/", demande);
+}
+
+/** `PATCH /admins/roles-systeme/{id}/` — le code reste. */
+export async function modifierRoleSysteme(
+  id: string,
+  demande: Omit<DemandeRoleSysteme, "code">,
+): Promise<RoleSysteme> {
+  return apiAdministration.modifier<ChargeRoleSysteme>(`/admins/roles-systeme/${id}/`, demande);
+}
+
+/** `DELETE /admins/roles-systeme/{id}/` — il devient personnalisé dans chaque entreprise. */
+export async function supprimerRoleSysteme(id: string): Promise<void> {
+  await apiAdministration.supprimer(`/admins/roles-systeme/${id}/`);
+}
+
+/* ------------------------------------------------------------------ *
+ * Référentiels de la plateforme (types de projet, noms de lot)
+ * ------------------------------------------------------------------ */
+
+/** `GET /admins/referentiels/{categorie}/`. */
+export async function listerReferentielPlateforme(
+  categorie: CategorieReferentielPlateforme,
+  signal?: AbortSignal,
+): Promise<EntreeReferentielPlateforme[]> {
+  return apiAdministration.lire<EntreeReferentielPlateforme[]>(
+    `/admins/referentiels/${categorie}/`,
+    undefined,
+    signal,
+  );
+}
+
+/** `POST /admins/referentiels/{categorie}/` — proposé aussitôt à toutes les entreprises. */
+export async function ajouterReferentielPlateforme(
+  categorie: CategorieReferentielPlateforme,
+  saisie: { libelle: string; groupe: string },
+): Promise<EntreeReferentielPlateforme> {
+  return apiAdministration.creer<EntreeReferentielPlateforme>(
+    `/admins/referentiels/${categorie}/`,
+    saisie,
+  );
+}
+
+/** `PATCH /admins/referentiels/{categorie}/{id}/` — libellé et groupe ; le code reste. */
+export async function modifierReferentielPlateforme(
+  categorie: CategorieReferentielPlateforme,
+  id: string,
+  saisie: { libelle: string; groupe: string },
+): Promise<EntreeReferentielPlateforme> {
+  return apiAdministration.modifier<EntreeReferentielPlateforme>(
+    `/admins/referentiels/${categorie}/${id}/`,
+    saisie,
+  );
+}
+
+/** `DELETE /admins/referentiels/{categorie}/{id}/` — les projets existants gardent leur valeur. */
+export async function supprimerReferentielPlateforme(
+  categorie: CategorieReferentielPlateforme,
+  id: string,
+): Promise<void> {
+  await apiAdministration.supprimer(`/admins/referentiels/${categorie}/${id}/`);
+}

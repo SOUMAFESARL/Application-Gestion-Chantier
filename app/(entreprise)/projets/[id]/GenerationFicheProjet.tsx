@@ -22,7 +22,7 @@ import { lireEntreprise } from "@/features/configuration/api";
 import { useIdentitePlateforme } from "@/features/plateforme/hooks";
 import { listerEquipes, listerLots } from "@/features/projets/adaptateur";
 import { cleEquipes, cleLots } from "@/features/projets/cles";
-import { libelleTypeProjet } from "@/features/projets/regles";
+import { REFERENTIEL_TYPES_PROJET, useReferentiel } from "@/features/projets/referentiels";
 import type { Projet } from "@/features/projets/types";
 import { chargerImagePdf, genererDocumentPdf } from "@/lib/export/documentPdf";
 
@@ -66,6 +66,7 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
   const t = useTranslations("ficheProjet.pdf");
   const tProjets = useTranslations("projets");
   const tMarque = useTranslations("marque");
+  const { libelle: libelleType } = useReferentiel(REFERENTIEL_TYPES_PROJET);
   const client = useQueryClient();
   const identite = useIdentitePlateforme().data;
 
@@ -108,7 +109,7 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
         marque: identite?.nom || tMarque("nom"),
         libelles: {
           typeProjet: (type) =>
-            libelleTypeProjet(type, (code) => tProjets(`tiroirCreation.typeProjet.${code}`)),
+            libelleType(type),
           statutProjet: (statut) => tProjets(`statut.${statut}`),
           modeExecution: (mode) => tProjets(`tiroirCreation.modeExecution.${mode}`),
           typeBordereau: (type) => tProjets(`tiroirCreation.typeBordereau.${type}`),

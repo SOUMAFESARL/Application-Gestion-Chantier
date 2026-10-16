@@ -202,6 +202,7 @@ export interface AbonnementClient {
 export interface TelephoneClient {
   libelle: string;
   libelleAffiche: string;
+  nom: string;
   numero: string;
   principal: boolean;
 }
@@ -504,3 +505,40 @@ export interface ResultatSuppression {
   sauvegarde: string;
 }
 
+
+/** La portée d'un rôle : toute l'entreprise, ou les seuls chantiers où l'on est affecté. */
+export type PorteeRoleSysteme = "ENTREPRISE" | "PROJET";
+
+/** Un rôle système — gabarit de la plateforme, recopié dans chaque entreprise. */
+export interface RoleSysteme {
+  id: string;
+  code: string;
+  libelle: string;
+  description: string;
+  portee: PorteeRoleSysteme;
+  /** Codes des modules du gabarit — appliqués aux seules entreprises à venir. */
+  modules: string[];
+  /** Rôle du socle (DG, CP, CT…) : modifiable, jamais supprimable. */
+  protege: boolean;
+}
+
+export interface DemandeRoleSysteme {
+  code: string;
+  libelle: string;
+  description: string;
+  portee: PorteeRoleSysteme;
+  modules: string[];
+}
+
+/** Les référentiels de la plateforme, proposés à toutes les entreprises. */
+export const CATEGORIES_REFERENTIEL_PLATEFORME = ["types-projet", "lots"] as const;
+
+export type CategorieReferentielPlateforme = (typeof CATEGORIES_REFERENTIEL_PLATEFORME)[number];
+
+export interface EntreeReferentielPlateforme {
+  id: string;
+  code: string;
+  libelle: string;
+  /** Le titre de groupe — le corps d'état d'un lot. */
+  groupe: string;
+}

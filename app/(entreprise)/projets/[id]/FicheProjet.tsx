@@ -70,7 +70,6 @@ import {
   effectifProjet,
   estEnRetard,
   largeurJauge,
-  libelleTypeProjet,
   niveauBudget,
   peutReprendre,
   peutSuspendre,
@@ -80,6 +79,7 @@ import {
   syntheseLots,
   tonSante,
 } from "@/features/projets/regles";
+import { REFERENTIEL_TYPES_PROJET, useReferentiel } from "@/features/projets/referentiels";
 import type { NiveauBudget } from "@/features/projets/regles";
 import type { BadgeSante, Projet } from "@/features/projets/types";
 import { afficherTelephone } from "@/features/referentiels/telephone";
@@ -164,6 +164,7 @@ const FILET = "mt-auto border-0 border-t border-solid border-neutral-900/10 pt-3
 export function FicheProjet({ projetId }: { projetId: string }) {
   const t = useTranslations("ficheProjet");
   const tProjets = useTranslations("projets");
+  const { libelle: libelleType } = useReferentiel(REFERENTIEL_TYPES_PROJET);
 
   const requete = useQuery({
     queryKey: cleProjet(projetId),
@@ -296,7 +297,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
             <span className="mt-1 flex flex-wrap items-center gap-2">
               {projet.typeProjet && (
                 <Badge variante="neutre">
-                  {libelleTypeProjet(projet.typeProjet, (code) => tProjets(`tiroirCreation.typeProjet.${code}`))}
+                  {libelleType(projet.typeProjet)}
                 </Badge>
               )}
               <Badge variante={TON_STATUT[projet.statut]}>
@@ -400,7 +401,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
               </Information>
               <Information libelle={t("informations.type")}>
                 {projet.typeProjet
-                  ? libelleTypeProjet(projet.typeProjet, (code) => tProjets(`tiroirCreation.typeProjet.${code}`))
+                  ? libelleType(projet.typeProjet)
                   : t("informations.nonRenseigne")}
               </Information>
               <Information libelle={t("informations.maitreOuvrage")}>

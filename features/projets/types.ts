@@ -171,6 +171,9 @@ export interface ChefChantierProjet {
 export interface AutreMembreProjet {
   intervenant: Intervenant;
   fonction: FonctionAutreMembre;
+  /** Le rôle tenu sur le projet : VI (ancien « autre membre ») ou tout rôle de portée Projet. */
+  roleCode: string;
+  roleLibelle: string;
   affectationId?: string | null;
 }
 
@@ -182,7 +185,8 @@ export interface AutreMembreProjet {
 export type AjoutEncadrement =
   | { fonction: "CHEF_PROJET" | "CONDUCTEUR_TRAVAUX"; intervenant: Intervenant }
   | { fonction: "CHEF_CHANTIER"; intervenant: Intervenant; zone: string | null }
-  | { fonction: "AUTRE_MEMBRE"; intervenant: Intervenant; fonctionMembre: FonctionAutreMembre };
+  /** Tout autre rôle de portée Projet, par son code (QSE, VI…) — décision du 16/10/2026. */
+  | { fonction: "AUTRE_MEMBRE"; intervenant: Intervenant; roleCode: string };
 
 /** Le planning contractuel, fixé par le chef de projet après la création. */
 export interface PlanningProjet {

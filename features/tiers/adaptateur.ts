@@ -9,26 +9,42 @@
 
 import { api } from "@/lib/api";
 
-import type { TiersOption } from "./types";
+import type { RoleTiers, TiersOption } from "./types";
 
 interface ChargeTiers {
   id: string;
   raison_sociale: string;
 }
 
+/** La clé de cache d'une liste de tiers, filtrée ou non par rôle. */
+export const cleTiers = (role?: RoleTiers) => ["tiers", role ?? "tous"] as const;
+
 /**
- * Les tiers proposables comme maître d'ouvrage.
- *
- * La liste est renvoyée **vide** en cas d'échec plutôt que de lever : le
- * choix du client n'est qu'une partie du formulaire de création, et une
- * panne de cette lecture ne doit pas empêcher d'ouvrir la modale. C'est à
- * l'appelant de décider quoi afficher à la place.
+ * Les tiers, filtrés par rôle si `role` est donné — `CLIENT_MOA` pour les
+ * maîtres d'ouvrage, `MAITRE_OEUVRE` pour les maîtres d'œuvre.
  */
-export async function listerTiers(): Promise<TiersOption[]> {
-  const charges = await api.lire<ChargeTiers[]>("/tiers/");
+export async function listerTiers(
+  role?: RoleTiers,
+  signal?: AbortSignal,
+): Promise<TiersOption[]> {
+  const charges = await api.lire<ChargeTiers[]>("/tiers/", role ? { role } : undefined, signal);
   if (!Array.isArray(charges)) return [];
   return charges.map((charge) => ({
     id: charge.id,
     raisonSociale: charge.raison_sociale,
   }));
+}
+
+/** Crée un tiers avec un seul rôle : l'ajout rapide depuis un formulaire. */
+export async function creerTiers(saisie: {
+  raisonSociale: string;
+  telephone: string;
+  role: RoleTiers;
+}): Promise<TiersOption> {
+  const charge = await api.creer<ChargeTiers>("/tiers/", {
+    raison_sociale: saisie.raisonSociale.trim(),
+    telephone: saisie.telephone,
+    roles: [saisie.role],
+  });
+  return { id: charge.id, raisonSociale: charge.raison_sociale };
 }

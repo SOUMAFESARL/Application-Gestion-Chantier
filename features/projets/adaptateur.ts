@@ -164,6 +164,8 @@ interface ChargeChefChantier {
 interface ChargeAutreMembre {
   utilisateur: ChargeIntervenant;
   fonction: FonctionAutreMembre;
+  role_code?: string;
+  role_libelle?: string;
   affectation_id?: string | null;
 }
 
@@ -255,6 +257,8 @@ function versAutreMembre(charge: ChargeAutreMembre): AutreMembreProjet | null {
     ? {
         intervenant,
         fonction: charge.fonction,
+        roleCode: charge.role_code ?? "VI",
+        roleLibelle: charge.role_libelle ?? "",
         affectationId: charge.affectation_id ?? intervenant.affectationId ?? null,
       }
     : null;
@@ -551,16 +555,15 @@ export async function ajouterMembreEncadrement(
     utilisateur_id: string;
     role_projet: string;
     zone?: string | null;
-    fonction_membre?: string;
   } = {
     utilisateur_id: ajout.intervenant.id,
-    role_projet: ROLE_PROJET_PAR_FONCTION[ajout.fonction],
+    // Le rôle tenu sur le projet est celui de la plateforme, quel qu'il soit.
+    role_projet:
+      ajout.fonction === "AUTRE_MEMBRE" ? ajout.roleCode : ROLE_PROJET_PAR_FONCTION[ajout.fonction],
   };
 
   if (ajout.fonction === "CHEF_CHANTIER") {
     payload.zone = ajout.zone ?? null;
-  } else if (ajout.fonction === "AUTRE_MEMBRE") {
-    payload.fonction_membre = ajout.fonctionMembre;
   }
 
   await api.creer(`/projets/${projetId}/affectations/`, payload);
@@ -594,12 +597,15 @@ export async function modifierMembreEncadrement(
 export async function listerAffectables(
   projetId: string,
   signal?: AbortSignal,
-): Promise<{ id: string; nom: string; role: string }[]> {
-  const reponse = await api.lire<
-    { id: string; nom: string; role: string }[] | ChargeListe<{ id: string; nom: string; role: string }>
-  >(`/projets/${projetId}/collaborateurs-affectables/`, undefined, signal);
-  if (Array.isArray(reponse)) return reponse;
-  return reponse?.results ?? [];
+): Promise<{ id: string; nom: string; role: string; roleCode: string }[]> {
+  type Charge = { id: string; nom: string; role: string; role_code?: string };
+  const reponse = await api.lire<Charge[] | ChargeListe<Charge>>(
+    `/projets/${projetId}/collaborateurs-affectables/`,
+    undefined,
+    signal,
+  );
+  const charges = Array.isArray(reponse) ? reponse : (reponse?.results ?? []);
+  return charges.map(({ role_code, ...reste }) => ({ ...reste, roleCode: role_code ?? "" }));
 }
 
 export async function obtenirMeteo(params?: {

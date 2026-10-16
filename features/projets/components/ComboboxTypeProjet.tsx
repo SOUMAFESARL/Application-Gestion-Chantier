@@ -1,10 +1,9 @@
 "use client";
 
-import { useTranslations } from "next-intl";
 import type { ComponentProps } from "react";
 
-import { Combobox, type OptionCombobox } from "@/components/ui/combobox";
-import { TYPES_PROJET } from "@/features/projets/regles";
+import { REFERENTIEL_TYPES_PROJET } from "../referentiels";
+import { ComboboxReferentiel } from "./ComboboxReferentiel";
 
 interface Props extends Omit<ComponentProps<"button">, "value" | "onChange" | "children"> {
   valeur: string;
@@ -12,31 +11,11 @@ interface Props extends Omit<ComponentProps<"button">, "value" | "onChange" | "c
 }
 
 /**
- * Le type d'un projet, en combobox — même fonctionnement que `ComboboxVille` :
- * on choisit un type prédéfini, ou on tape le sien dans la recherche et le
- * combobox propose de l'utiliser tel quel. Un type prédéfini s'enregistre par
- * son code, un type libre par son libellé (voir `libelleTypeProjet`).
+ * Le type d'un projet, choisi dans le référentiel `types-projet` (plateforme
+ * et entreprise) et enregistré par son code. Un type absent s'ajoute sur place.
  *
  * Il ne porte ni libellé ni message : c'est `FormItem` qui les pose.
  */
-export function ComboboxTypeProjet({ valeur, onChange, ...props }: Props) {
-  const t = useTranslations("projets.tiroirCreation");
-
-  const options: OptionCombobox[] = TYPES_PROJET.map((type) => ({
-    valeur: type,
-    libelle: t(`typeProjet.${type}`),
-  }));
-
-  return (
-    <Combobox
-      options={options}
-      valeur={valeur}
-      onChange={onChange}
-      placeholder={t("selectionner")}
-      placeholderRecherche={t("rechercherType")}
-      aucunResultat={t("aucunTypeTrouve")}
-      libelleSaisieLibre={(saisie) => t("utiliserType", { saisie })}
-      {...props}
-    />
-  );
+export function ComboboxTypeProjet(props: Props) {
+  return <ComboboxReferentiel categorie={REFERENTIEL_TYPES_PROJET} valeurPar="code" {...props} />;
 }

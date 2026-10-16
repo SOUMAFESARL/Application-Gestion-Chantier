@@ -56,6 +56,15 @@ export function Modale({
   const boite = useRef<HTMLDivElement>(null);
   const origine = useRef<HTMLElement | null>(null);
 
+  // `onFermer` change d'identité à chaque rendu du parent (une fonction
+  // déclarée dans son corps). En dépendance de l'effet, il le relançait à
+  // chaque frappe : le nettoyage rendait le focus, puis l'effet le reposait
+  // sur le premier focusable — le curseur quittait le champ saisi.
+  const fermeture = useRef(onFermer);
+  useEffect(() => {
+    fermeture.current = onFermer;
+  });
+
   const pieger = useCallback((evenement: KeyboardEvent) => {
     if (evenement.key !== "Tab" || !boite.current) return;
 
@@ -82,9 +91,9 @@ export function Modale({
     boite.current?.querySelector<HTMLElement>(FOCUSABLES)?.focus();
 
     const surTouche = (evenement: KeyboardEvent) => {
-      if (evenement.key === "Escape" && onFermer) {
+      if (evenement.key === "Escape" && fermeture.current) {
         evenement.stopPropagation();
-        onFermer();
+        fermeture.current();
         return;
       }
       pieger(evenement);
@@ -99,7 +108,7 @@ export function Modale({
       document.body.style.overflow = debordement;
       origine.current?.focus();
     };
-  }, [ouverte, onFermer, pieger]);
+  }, [ouverte, pieger]);
 
   if (!ouverte) return null;
 
