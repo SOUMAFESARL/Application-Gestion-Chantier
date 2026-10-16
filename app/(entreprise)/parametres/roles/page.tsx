@@ -11,7 +11,6 @@ import {
   colonnesDeMatrice,
   creerRole,
   gestesSurRole,
-  LegendeAcces,
   listerModulesEntreprise,
   listerRoles,
   MatricePermissionsTable,
@@ -203,12 +202,7 @@ export default function ParametresRolesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* En-tête, alertes et légende restent sous la barre du haut (`h-16`)
-          pendant que la matrice défile : la légende sert à lire chaque
-          cellule. Les marges négatives reprennent le padding du `<main>` pour
-          que le fond couvre toute la largeur. Pas sous `md` : sur téléphone,
-          le bloc mangerait l'écran. */}
-      <div className="flex flex-col gap-6 bg-background md:sticky md:top-16 md:z-30 md:-mx-6 md:-mt-6 md:px-6 md:pt-6 md:pb-4">
+      <div className="flex flex-col gap-6">
         <EnTetePage
           titre={t("titre")}
           description={t("sousTitre")}
@@ -230,11 +224,6 @@ export default function ParametresRolesPage() {
             {t("perimetreNonDg")}
           </Alerte>
         )}
-
-        <div className="flex flex-wrap items-center gap-4 rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3 text-xs">
-          <span style={{ fontWeight: "var(--font-weight-semibold)" }}>{t("legendeTitre")}</span>
-          <LegendeAcces />
-        </div>
       </div>
 
       <MatricePermissionsTable

@@ -14,8 +14,8 @@ import { listerProjets } from "@/features/projets/adaptateur";
 import { CLE_LISTE_PROJETS } from "@/features/projets/cles";
 import type { Projet } from "@/features/projets/types";
 
-import { peut, peutCode, peutSurProjet, peutVoirMontants, projetsVisibles, routeAutorisee } from "../regles";
-import type { AccesModule, CodeModule, Droits } from "../types";
+import { peutCode, peutSurProjet, peutVoirMontants, projetsVisibles, routeAutorisee } from "../regles";
+import type { Droits } from "../types";
 
 /**
  * `undefined` : aucun fournisseur (un écran rendu hors de la coquille).
@@ -33,16 +33,12 @@ export function FournisseurDroits({ droits, children }: { droits: Droits | null;
 }
 
 /**
- * Le **seul** point de lecture des droits pour un écran. On y demande « puis-je
- * *saisie* dans *projets* ? », jamais « suis-je chef de chantier ? » : un rôle
- * est une donnée que le DG renomme à volonté.
+ * Le **seul** point de lecture des droits pour un écran. On y demande « ai-je
+ * `projets.creer` ? », jamais « suis-je chef de chantier ? » : un rôle est une
+ * donnée que le DG renomme à volonté.
  */
 export function useDroits() {
   const droits = useContext(ContexteDroits) ?? null;
-  const peutFaire = useCallback(
-    (module: CodeModule, acces: AccesModule = "lecture") => peut(droits, module, acces),
-    [droits],
-  );
   const peutFaireCode = useCallback((code: string) => peutCode(droits, code), [droits]);
   const peutFaireSurProjet = useCallback(
     (code: string, projet: Projet) => peutSurProjet(droits, code, projet),
@@ -53,25 +49,16 @@ export function useDroits() {
     /** `false` tant que les droits ne sont pas connus. */
     connus: droits !== null,
     estDirection: droits?.estDirection ?? false,
-    peut: peutFaire,
     peutCode: peutFaireCode,
     peutSurProjet: peutFaireSurProjet,
     voitMontants: peutVoirMontants(droits),
   };
 }
 
-/** Ne rend son contenu que si le compte a l'accès. Sinon, rien : un geste interdit est masqué. */
-export function SiDroit({
-  module,
-  acces = "lecture",
-  children,
-}: {
-  module: CodeModule;
-  acces?: AccesModule;
-  children: ReactNode;
-}) {
-  const { peut: peutFaire } = useDroits();
-  return peutFaire(module, acces) ? <>{children}</> : null;
+/** Ne rend son contenu que si le compte a le code. Sinon, rien : un geste interdit est masqué. */
+export function SiDroit({ code, children }: { code: string; children: ReactNode }) {
+  const { peutCode: peutFaireCode } = useDroits();
+  return peutFaireCode(code) ? <>{children}</> : null;
 }
 
 /** L'écran montré à la place d'une page que le compte ne peut pas ouvrir. */

@@ -1,77 +1,12 @@
 /**
  * Règles pures du domaine Rôles — zéro React.
+ *
+ * Un rôle, c'est une liste de **codes de permission** (`projets.creer`…), rien
+ * d'autre : ni niveau, ni accès lecture / saisie / validation.
  */
 
 import { ErreurApi } from "@/lib/api";
-import { ACCES_MODULE, MODULES_CCD } from "./types";
-import type {
-  AccesModule,
-  ModuleCatalogue,
-  NiveauAcces,
-  PermissionsModules,
-  Raccourci,
-  RoleItem,
-} from "./types";
-
-/**
- * Les accès équivalents à un niveau cumulatif de l'ancien format : le niveau
- * 2 (Saisie) comprend la lecture, le niveau 3 comprend tout.
- */
-export function accesDepuisNiveau(niveau: NiveauAcces): AccesModule[] {
-  return ACCES_MODULE.slice(0, niveau);
-}
-
-/**
- * Les accès d'un module, quel que soit le format reçu : un niveau (format
- * actuel du serveur) ou une liste (format cible). Toute autre valeur vaut
- * « Aucun » — un droit illisible ne s'accorde pas par défaut.
- */
-export function accesNormalises(valeur: unknown): AccesModule[] {
-  if (typeof valeur === "number") {
-    return valeur >= 0 && valeur <= 3 ? accesDepuisNiveau(valeur as NiveauAcces) : [];
-  }
-  if (Array.isArray(valeur)) {
-    return ACCES_MODULE.filter((acces) => valeur.includes(acces));
-  }
-  return [];
-}
-
-/** Les douze modules, chacun avec ses accès normalisés. */
-export function permissionsNormalisees(brutes: Record<string, unknown> | null | undefined): PermissionsModules {
-  const permissions: PermissionsModules = {};
-  for (const code of MODULES_CCD) {
-    permissions[code] = accesNormalises(brutes?.[code]);
-  }
-  return permissions;
-}
-
-/**
- * Coche ou décoche un accès. « Aucun » exclut tout le reste : le cocher vide
- * la liste, cocher un autre accès le décoche. Décocher « Aucun » seul ne fait
- * rien — il resterait un module sans accès et sans « Aucun » coché.
- *
- * L'ordre de `ACCES_MODULE` est conservé, pour une charge utile stable.
- */
-export function basculerAcces(
-  acces: AccesModule[],
-  cible: AccesModule | "aucun",
-  coche: boolean,
-): AccesModule[] {
-  if (cible === "aucun") return coche ? [] : acces;
-  const suivants = coche ? [...acces, cible] : acces.filter((a) => a !== cible);
-  return ACCES_MODULE.filter((a) => suivants.includes(a));
-}
-
-/**
- * Le rang de l'accès le plus élevé (0 à 3). Ne décide d'aucun droit : il ne
- * sert qu'à choisir le ton d'affichage d'une cellule.
- */
-export function rangAccesMax(acces: AccesModule[]): 0 | 1 | 2 | 3 {
-  return ACCES_MODULE.reduce<0 | 1 | 2 | 3>(
-    (rang, a, i) => (acces.includes(a) ? ((i + 1) as 1 | 2 | 3) : rang),
-    0,
-  );
-}
+import type { ModuleCatalogue, PermissionCatalogue, RoleItem } from "./types";
 
 /** Les codes accordés au rôle, tous modules confondus, triés, sans doublon. */
 export function codesDuRole(role: RoleItem): string[] {
@@ -84,108 +19,10 @@ export function codesDuRole(role: RoleItem): string[] {
   return Array.from(codes).sort();
 }
 
-/**
- * Un code « de base » : celui qu'un raccourci coche. La correspondance du serveur
- * (`_normaliser_permissions_modules`) :
- *   lecture ← `.lire` ; saisie ← `.ecrire`, `.rediger` ; validation ← `.valider`, `projets.changer_statut`.
- */
-export function accesDuCode(code: string): AccesModule | null {
-  const c = code.toLowerCase();
-  if (c.endsWith(".lire")) return "lecture";
-  if (c.endsWith(".ecrire") || c.endsWith(".rediger")) return "saisie";
-  if (c.endsWith(".valider") || c === "projets.changer_statut") return "validation";
-  return null;
-}
-
-/**
- * Les codes de base qu'un raccourci coche sur ce module — cumulatif, comme les anciens niveaux :
- * « saisie » = lecture + saisie ; « validation » = les trois ; « aucun » = rien.
- * Seuls les codes **présents dans le catalogue du module** sont rendus.
- */
-export function codesDuRaccourci(module: ModuleCatalogue, raccourci: Raccourci): string[] {
-  if (raccourci === "aucun") return [];
-
-  const accesAutorises: AccesModule[] =
-    raccourci === "lecture"
-      ? ["lecture"]
-      : raccourci === "saisie"
-        ? ["lecture", "saisie"]
-        : ["lecture", "saisie", "validation"];
-
-  const codes: string[] = [];
-  for (const perm of module.permissions) {
-    const acc = accesDuCode(perm.code);
-    if (acc && accesAutorises.includes(acc)) {
-      codes.push(perm.code.toLowerCase());
-    }
-  }
-  return codes.sort();
-}
-
-/**
- * Applique un raccourci aux codes du rôle :
- * - « aucun » retire tous les codes du module (de base et fins) ;
- * - les autres remplacent les codes de base du module par ceux du raccourci et laissent les
- *   codes fins (`projets.creer`, `projets.voir_montants`…) tels qu'ils sont.
- * Renvoie une liste triée, sans doublon.
- */
-export function appliquerRaccourci(
-  codes: string[],
-  module: ModuleCatalogue,
-  raccourci: Raccourci,
-): string[] {
-  const codesModuleCatalogue = new Set(module.permissions.map((p) => p.code.toLowerCase()));
-  const ensemble = new Set(codes.map((c) => c.toLowerCase()));
-
-  if (raccourci === "aucun") {
-    // Retire TOUS les codes du module
-    for (const c of codesModuleCatalogue) {
-      ensemble.delete(c);
-    }
-    return Array.from(ensemble).sort();
-  }
-
-  // Remplacer les codes de base du module par ceux du raccourci
-  for (const p of module.permissions) {
-    const c = p.code.toLowerCase();
-    const acc = accesDuCode(c);
-    if (acc !== null) {
-      // C'est un code de base, on le retire d'abord
-      ensemble.delete(c);
-    }
-  }
-
-  // Ajouter ceux du raccourci
-  const nouveauxDeBase = codesDuRaccourci(module, raccourci);
-  for (const c of nouveauxDeBase) {
-    ensemble.add(c);
-  }
-
-  return Array.from(ensemble).sort();
-}
-
-/**
- * Le raccourci que les codes **de base** du module réalisent exactement, ou `null` (une
- * combinaison libre). Les codes fins (`projets.creer`…) n'entrent pas dans la comparaison : un
- * raccourci ne les touche pas. « Aucun » : plus aucun code du module, fin ou de base.
- *
- * Quand deux raccourcis cochent les mêmes codes (Pilotage n'a que `pilotage.lire` : lecture,
- * saisie et validation y reviennent au même), le plus bas l'emporte.
- */
-export function raccourciCourant(codes: string[], module: ModuleCatalogue): Raccourci | null {
-  const codesDuModule = codes
-    .map((c) => c.toLowerCase())
-    .filter((c) => module.permissions.some((p) => p.code.toLowerCase() === c));
-
-  if (codesDuModule.length === 0) return "aucun";
-
-  const deBase = new Set(codesDuModule.filter((c) => accesDuCode(c) !== null));
-  for (const r of ["lecture", "saisie", "validation"] as const) {
-    const attendus = codesDuRaccourci(module, r);
-    if (attendus.length === deBase.size && attendus.every((c) => deBase.has(c))) return r;
-  }
-
-  return null;
+/** Les permissions accordées au rôle sur ce module (vide si aucune), dans l'ordre du serveur. */
+export function permissionsDuModule(role: RoleItem, codeModule: string): PermissionCatalogue[] {
+  const trouve = role.modules.find((m) => m.code.toLowerCase() === codeModule.toLowerCase());
+  return trouve?.permissions ?? [];
 }
 
 /** Coche ou décoche une permission. Triée, sans doublon. */

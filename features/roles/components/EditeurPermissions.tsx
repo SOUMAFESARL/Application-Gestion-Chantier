@@ -1,12 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Bouton, EtatVide } from "@/components/ui";
+import { EtatVide } from "@/components/ui";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { appliquerRaccourci, basculerCode, raccourciCourant } from "../regles";
+import { basculerCode } from "../regles";
 import type { ModuleCatalogue } from "../types";
-import { RACCOURCIS } from "../types";
 
 interface Props {
   catalogue: ModuleCatalogue[];
@@ -16,7 +15,8 @@ interface Props {
 }
 
 /**
- * Éditeur de permissions par module du catalogue avec 4 raccourcis (Aucun, Lecture, Saisie, Validation).
+ * L'éditeur des droits d'un rôle : une case par permission du catalogue, module
+ * par module. Ce qui est coché est ce qui part au serveur, rien d'autre.
  */
 export function EditeurPermissions({
   catalogue,
@@ -25,7 +25,6 @@ export function EditeurPermissions({
   disabled = false,
 }: Props) {
   const t = useTranslations("roles.editeur");
-  const tRaccourcis = useTranslations("roles.raccourcis");
   const lectureSeule = !onChange || disabled;
   const codesEnsemble = new Set(codes.map((c) => c.toLowerCase()));
 
@@ -38,40 +37,15 @@ export function EditeurPermissions({
       <p className="m-0 text-xs text-neutral-500">{t("aide")}</p>
 
       {catalogue.map((module) => {
-        const courant = raccourciCourant(codes, module);
-
         return (
           <div
             key={module.id || module.code}
             className="rounded-md border border-neutral-200 p-4 flex flex-col gap-3"
           >
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h4 className="m-0 text-sm font-semibold text-neutral-900">{module.libelle}</h4>
-                {module.description && (
-                  <p className="m-0 mt-0.5 text-xs text-neutral-500">{module.description}</p>
-                )}
-              </div>
-
-              {!lectureSeule && (
-                <div className="flex flex-wrap items-center gap-1">
-                  {RACCOURCIS.map((raccourci) => {
-                    const estActif = courant === raccourci;
-                    return (
-                      <Bouton
-                        key={raccourci}
-                        type="button"
-                        taille="sm"
-                        variante={estActif ? "primaire" : "secondaire"}
-                        aria-pressed={estActif}
-                        disabled={disabled}
-                        onClick={() => onChange(appliquerRaccourci(codes, module, raccourci))}
-                      >
-                        {tRaccourcis(raccourci)}
-                      </Bouton>
-                    );
-                  })}
-                </div>
+            <div>
+              <h4 className="m-0 text-sm font-semibold text-neutral-900">{module.libelle}</h4>
+              {module.description && (
+                <p className="m-0 mt-0.5 text-xs text-neutral-500">{module.description}</p>
               )}
             </div>
 

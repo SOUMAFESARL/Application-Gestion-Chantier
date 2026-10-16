@@ -2450,21 +2450,10 @@
     "utiliserSaisie": "Utiliser « {saisie} »"
   },
   "roles": {
-    "acces": {
-      "aucun": "Aucun",
-      "court": {
-        "aucun": "—",
-        "lecture": "L",
-        "saisie": "S",
-        "validation": "V"
-      },
-      "lecture": "Lecture",
-      "saisie": "Saisie",
-      "validation": "Validation"
-    },
     "actions": "Actions",
     "annuler": "Annuler",
     "aucunePermission": "Aucune permission",
+    "nbPermissions": "{n, plural, =0 {Aucune} one {# permission} other {# permissions}}",
     "avertissementPresent": "Point à vérifier : ouvrez le rôle.",
     "avertissements": {
       "inconnu": "Le serveur signale un point à vérifier sur ce rôle ({code}).",
@@ -2495,7 +2484,7 @@
     "creer": "Créer le rôle",
     "editer": "Éditer",
     "editeur": {
-      "aide": "Cochez permission par permission, ou partez d’un raccourci. Un raccourci ne retire pas les permissions particulières (créer, voir les montants…) ; « Aucun » retire tout le module.",
+      "aide": "Cochez les permissions que ce rôle accorde. Chaque module a les siennes ; ce qui est coché est exactement ce que le rôle permet.",
       "catalogueVide": "Vous ne détenez aucune permission que vous puissiez accorder."
     },
     "enregistrer": "Enregistrer",
@@ -2511,60 +2500,9 @@
       "roleDg": "Le rôle Directeur Général ne se modifie pas : il a toujours tous les droits.",
       "roleSysteme": "Ce rôle système ne se modifie que par le Directeur Général."
     },
-    "legendeTitre": "Légende des accès :",
     "matriceDroitsTitre": "Matrice des droits par module",
     "modifier": "Modifier",
     "module": "Module",
-    "modules": {
-      "achats": {
-        "description": "Demandes d’achat et bons de commande",
-        "nom": "Achats"
-      },
-      "chantier": {
-        "description": "Rapports journaliers, avancement et pointages",
-        "nom": "Suivi Chantier"
-      },
-      "contrats": {
-        "description": "Sous-traitance et avenants",
-        "nom": "Contrats"
-      },
-      "equipements": {
-        "description": "Engins, maintenance et affectations",
-        "nom": "Matériel"
-      },
-      "finance": {
-        "description": "Bons de paiement, situations et dépenses",
-        "nom": "Finance"
-      },
-      "ged": {
-        "description": "Plans, PV et classeurs documentaires",
-        "nom": "Documents (GED)"
-      },
-      "pilotage": {
-        "description": "Indicateurs de performance et tableaux de bord",
-        "nom": "Pilotage BI"
-      },
-      "projets": {
-        "description": "Fiches projets, lots et activités",
-        "nom": "Projets"
-      },
-      "qhse": {
-        "description": "Incidents sécurité et non-conformités",
-        "nom": "QHSE"
-      },
-      "rh": {
-        "description": "Pointage des ouvriers et main d’œuvre",
-        "nom": "Ressources Humaines"
-      },
-      "stocks": {
-        "description": "Entrées, sorties et inventaires chantier",
-        "nom": "Stocks"
-      },
-      "tiers": {
-        "description": "Clients, fournisseurs et bureaux de contrôle",
-        "nom": "Parties Prenantes"
-      }
-    },
     "nouveauRole": "Nouveau rôle",
     "perimetreNonDg": "Vous accordez seulement les permissions que vous détenez vous-même. Les rôles système se modifient par le Directeur Général.",
     "personnalise": "Personnalisé",
@@ -2578,12 +2516,6 @@
         "ENTREPRISE": "Voit et agit sur tous les chantiers, sans y être affecté.",
         "PROJET": "Voit et agit seulement sur les chantiers où il est affecté."
       }
-    },
-    "raccourcis": {
-      "aucun": "Aucun",
-      "lecture": "Lecture",
-      "saisie": "Saisie",
-      "validation": "Validation"
     },
     "role": "Rôle",
     "sousTitre": "Personnalisez les rôles de votre entreprise et configurez la matrice d’accès. Ces habilitations constituent le standard par défaut appliqué à l’ensemble de vos chantiers.",

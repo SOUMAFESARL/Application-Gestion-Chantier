@@ -59,9 +59,10 @@ export interface ProfilUtilisateur {
   statut?: string;
   double_authentification_active?: boolean;
   entreprise?: EntrepriseProfil;
-  /** Les droits effectifs, par module : le libellé du niveau est rendu par le serveur. */
-  habilitations?: Record<string, HabilitationModule>;
-  /** Les droits effectifs, code par code (`projets.creer`…) : la liste exacte que le serveur applique. */
+  /**
+   * Les droits effectifs, code par code (`projets.creer`…) : la liste exacte que le serveur
+   * applique. Le serveur sert aussi `habilitations` (un niveau par module) : il n'est pas lu.
+   */
   permissions?: string[];
   /** `ENTREPRISE` : tous les chantiers de l'entreprise ; `PROJET` : ceux où la personne est affectée. */
   portee?: "ENTREPRISE" | "PROJET";
@@ -75,11 +76,6 @@ export interface EntrepriseProfil {
   raison_sociale: string;
   schema_name: string;
   logo_url: string | null;
-}
-
-export interface HabilitationModule {
-  libelle: string;
-  niveau: number;
 }
 
 /** Ce que `PATCH /auth/profil/` accepte de l'utilisateur lui-même. */

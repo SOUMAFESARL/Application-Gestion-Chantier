@@ -3,14 +3,11 @@
  *
  * **Un rôle est une donnée, pas du code.** Le DG crée, renomme et règle ses
  * rôles dans `/parametres/roles` ; un écran ne connaît donc jamais un code ou
- * un libellé de rôle. Il ne connaît que des `Droits` : pour chaque module, les
- * accès accordés, et une seule exception nommée — la direction.
+ * un libellé de rôle. Il ne connaît que des `Droits` : les codes de permission
+ * accordés, et une seule exception nommée — la direction.
  */
 
 import type { FonctionProjet } from "@/features/projets/types";
-import type { AccesModule, CodeModule, PermissionsModules } from "@/features/roles/types";
-
-export type { AccesModule, CodeModule };
 
 /**
  * Les chantiers qu'un compte voit : tous (direction et rôles de portée ENTREPRISE),
@@ -40,8 +37,6 @@ export interface Droits {
    * serveur les applique. Vide pour la direction, qui a tout (voir `peutCode`).
    */
   codes: readonly string[];
-  /** Les accès de son rôle, module par module. Un module absent vaut « aucun ». */
-  permissions: PermissionsModules;
   portee: PorteeProjets;
 }
 
@@ -49,5 +44,4 @@ export interface Droits {
 export type ConditionAcces =
   | { type: "TOUS" }
   | { type: "DIRECTION" }
-  | { type: "MODULE"; module: CodeModule; acces: AccesModule }
   | { type: "PERMISSION"; code: string };

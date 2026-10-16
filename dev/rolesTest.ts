@@ -5,63 +5,56 @@
 import type { PorteeProjets } from "@/features/habilitations/types";
 import type { FonctionProjet, Projet } from "@/features/projets/types";
 import { listerRoles } from "@/features/roles/api";
-import { accesDepuisNiveau, rangAccesMax } from "@/features/roles/regles";
-import type { AccesModule, ModuleRole, NiveauAcces, RoleItem } from "@/features/roles/types";
-import { MODULES_CCD } from "@/features/roles/types";
+import type { ModuleRole, RoleItem } from "@/features/roles/types";
 
 /**
  * Les rôles proposés par « Voir en tant que… » — OUTIL DE DÉVELOPPEMENT.
  *
  * `GET /parametres/roles/` revient vide tant que le backend n'a pas semé les
- * rôles de l'entreprise : l'outil n'avait alors rien à incarner. Ces sept
- * rôles comblent le trou **dans l'outil seulement** — l'écran
- * `/parametres/roles` n'en voit aucun (clé de cache distincte), et un rôle du
- * serveur portant le même code l'emporte toujours sur sa version en dur.
+ * rôles de l'entreprise : l'outil n'avait alors rien à incarner. Ces rôles
+ * comblent le trou **dans l'outil seulement** — l'écran `/parametres/roles`
+ * n'en voit aucun (clé de cache distincte), et un rôle du serveur portant le
+ * même code l'emporte toujours sur sa version en dur.
  *
- * Les niveaux (0 aucun → 3 validation) sont une hypothèse de travail, à
- * aligner sur le paramétrage réel dès qu'il existe.
+ * Chaque rôle est une liste de codes de permission. Ceux des modules que le
+ * serveur n'a pas encore (`stocks.valider`, `achats.ecrire`…) sont une
+ * hypothèse de travail, à aligner sur le catalogue réel dès qu'il existe.
  */
 
 export const CLE_ROLES_INCARNABLES = ["test", "incarnation", "roles"] as const;
 
-function partout(niveau: NiveauAcces): Record<string, NiveauAcces> {
-  return Object.fromEntries(MODULES_CCD.map((code) => [code, niveau]));
+/** Lire, écrire et valider sur chacun de ces modules. */
+function toutSur(...modules: string[]): string[] {
+  return modules.flatMap((m) => [`${m}.lire`, `${m}.ecrire`, `${m}.valider`]);
 }
 
-function codesDepuisAcces(module: string, acces: AccesModule[]): string[] {
-  const codes: string[] = [];
-  if (acces.includes("lecture")) codes.push(`${module}.lire`);
-  if (acces.includes("saisie")) codes.push(`${module}.ecrire`);
-  if (acces.includes("validation")) codes.push(`${module}.valider`);
-  return codes;
-}
+const TOUS_LES_MODULES = [
+  "projets", "chantier", "finance", "achats", "stocks", "rh",
+  "equipements", "qhse", "contrats", "tiers", "ged", "pilotage",
+];
 
-function roleTest(
-  code: string,
-  libelle: string,
-  permissions: Record<string, NiveauAcces | AccesModule[]>,
-): RoleItem {
-  const modules: ModuleRole[] = Object.entries(permissions).map(([modCode, val], idx) => {
-    const acces = Array.isArray(val) ? val : accesDepuisNiveau(val);
-    const niveau = rangAccesMax(acces);
-    const codes = codesDepuisAcces(modCode, acces);
-    return {
-      moduleId: `mod-${modCode}`,
-      code: modCode,
-      libelle: modCode.charAt(0).toUpperCase() + modCode.slice(1),
+/** Un rôle de test : ses codes, rangés par module (le préfixe du code). */
+function roleTest(code: string, libelle: string, codes: string[]): RoleItem {
+  const parModule = new Map<string, string[]>();
+  for (const c of codes) {
+    const prefixe = c.split(".")[0];
+    parModule.set(prefixe, [...(parModule.get(prefixe) ?? []), c]);
+  }
+  const modules: ModuleRole[] = [...parModule.entries()].map(([modCode, codesModule], idx) => ({
+    moduleId: `mod-${modCode}`,
+    code: modCode,
+    libelle: modCode.charAt(0).toUpperCase() + modCode.slice(1),
+    description: "",
+    icone: "",
+    ordre: idx + 1,
+    permissions: codesModule.map((c, i) => ({
+      id: `perm-${c}`,
+      code: c,
+      libelle: c,
       description: "",
-      icone: "",
-      ordre: idx + 1,
-      niveau,
-      permissions: codes.map((c, i) => ({
-        id: `perm-${c}`,
-        code: c,
-        libelle: c,
-        description: "",
-        ordre: i + 1,
-      })),
-    };
-  });
+      ordre: i + 1,
+    })),
+  }));
 
   return {
     id: `test-${code}`,
@@ -78,76 +71,56 @@ function roleTest(
 }
 
 const ROLES_EN_DUR: RoleItem[] = [
-  // Incarné, le DG garde tous les accès mais n'est plus « la direction » :
+  // Incarné, le DG garde tous les droits mais n'est plus « la direction » :
   // Paramètres et Abonnement lui restent fermés, comme à tout rôle.
-  roleTest("DG", "Directeur général", partout(3)),
-  roleTest("ADMINISTRATEUR", "Administrateur", partout(3)),
+  roleTest("DG", "Directeur général", toutSur(...TOUS_LES_MODULES)),
+  roleTest("ADMINISTRATEUR", "Administrateur", toutSur(...TOUS_LES_MODULES)),
   /*
-   * Le stock (F9 v1.2, matrice §3.2) : des listes d'accès plutôt qu'un niveau,
-   * car les accès y sont indépendants — le chef de projet valide le stock sans
-   * le saisir. `achats` porte la DA (saisie) et le BC (validation) ; `stocks`,
-   * le terrain (saisie) et sa validation. Voir docs/PLAN_F9_STOCK.md §3.
+   * Le stock (F9 v1.2, matrice §3.2) : `achats` porte la DA (écrire) et le BC
+   * (valider) ; `stocks`, le terrain (écrire) et sa validation — indépendants :
+   * le chef de projet valide le stock sans le saisir. Voir docs/PLAN_F9_STOCK.md §3.
    */
-  roleTest("DIRECTEUR_OPERATIONS", "Directeur des opérations", {
-    projets: 1,
-    chantier: 1,
-    finance: 1,
+  roleTest("DIRECTEUR_OPERATIONS", "Directeur des opérations", [
+    "projets.lire", "chantier.lire", "finance.lire",
     // Reçoit les DA, émet les BC (standard ou commande directe).
-    achats: ["lecture", "validation"],
-    stocks: ["lecture"],
-    tiers: 1,
-    ged: 1,
-    pilotage: 1,
-  }),
-  roleTest("CHEF_PROJET", "Chef de projet", {
-    projets: 3,
-    chantier: 3,
-    finance: 2,
+    "achats.lire", "achats.valider",
+    "stocks.lire", "tiers.lire", "ged.lire", "pilotage.lire",
+  ]),
+  roleTest("CHEF_PROJET", "Chef de projet", [
+    "projets.lire", "projets.ecrire", "projets.changer_statut",
+    "chantier.lire", "chantier.rediger", "chantier.valider",
+    "finance.lire", "finance.ecrire",
     // Émet et modifie ses DA, clôture un BC partiel.
-    achats: ["lecture", "saisie"],
+    "achats.lire", "achats.ecrire",
     // Valide les BRV équipements (2ᵉ niveau), les inventaires, les transferts inter-chantiers.
-    stocks: ["lecture", "validation"],
-    rh: 1,
-    equipements: 2,
-    qhse: 2,
-    contrats: 1,
-    tiers: 1,
-    ged: 2,
-    pilotage: 1,
-  }),
-  roleTest("CONDUCTEUR_TRAVAUX", "Conducteur des travaux", {
-    projets: 1,
-    chantier: 3,
+    "stocks.lire", "stocks.valider",
+    "rh.lire", "equipements.lire", "equipements.ecrire", "qhse.lire", "qhse.ecrire",
+    "contrats.lire", "tiers.lire", "ged.lire", "ged.ecrire", "pilotage.lire",
+  ]),
+  roleTest("CONDUCTEUR_TRAVAUX", "Conducteur des travaux", [
+    "projets.lire",
+    "chantier.lire", "chantier.rediger", "chantier.valider",
     // Lit les BC ; ne voit pas les DA.
-    achats: ["lecture"],
+    "achats.lire",
     // Valide les BRV (1ᵉʳ niveau), dépose le BL, mouvements manuels, transferts inter-lots.
-    stocks: ["lecture", "saisie", "validation"],
-    rh: 2,
-    equipements: 2,
-    qhse: 3,
-    tiers: 1,
-    ged: 1,
-  }),
-  roleTest("MAGASINIER", "Magasinier", {
-    projets: 1,
-    chantier: 1,
+    "stocks.lire", "stocks.ecrire", "stocks.valider",
+    "rh.lire", "rh.ecrire", "equipements.lire", "equipements.ecrire",
+    "qhse.lire", "qhse.ecrire", "qhse.valider", "tiers.lire", "ged.lire",
+  ]),
+  roleTest("MAGASINIER", "Magasinier", [
+    "projets.lire", "chantier.lire",
     // Émet ses DA, clôture un BC partiel.
-    achats: ["lecture", "saisie"],
+    "achats.lire", "achats.ecrire",
     // Réceptionne, photographie le BL, mouvements manuels, inventaires.
-    stocks: ["lecture", "saisie"],
-    equipements: 1,
-    ged: 1,
-  }),
-  roleTest("CHEF_CHANTIER", "Chef de chantier", {
-    projets: 1,
-    chantier: 2,
+    "stocks.lire", "stocks.ecrire",
+    "equipements.lire", "ged.lire",
+  ]),
+  roleTest("CHEF_CHANTIER", "Chef de chantier", [
+    "projets.lire", "chantier.lire", "chantier.rediger",
     // Consulte le stock : il le consomme par son rapport (F2), sans le gérer.
-    stocks: ["lecture"],
-    rh: 1,
-    equipements: 1,
-    qhse: 2,
-    ged: 1,
-  }),
+    "stocks.lire",
+    "rh.lire", "equipements.lire", "qhse.lire", "qhse.ecrire", "ged.lire",
+  ]),
 ];
 
 /**
