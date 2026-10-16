@@ -45,6 +45,9 @@ import { LIGNE_DEFINITION, LIGNE_LIBELLE, LIGNE_VALEUR } from "../tons";
 
 const colonne = aideColonnes<EntreeJournalPlateforme>();
 
+/** Le sélecteur de date à la taille des filtres de la barre d'outils. */
+const CHAMP_DATE = "h-[var(--button-height-sm)] min-w-0 text-sm sm:w-40";
+
 export function JournalPlateforme() {
   const t = useTranslations("administration");
   const [filtres, setFiltres] = useState<FiltresJournalPlateforme>(filtresJournalVides);
@@ -267,29 +270,35 @@ export function JournalPlateforme() {
                 libelle={t("journal.filtres.recherche")}
                 placeholder={t("journal.filtres.recherchePlaceholder")}
               />
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium text-neutral-600">
-                  {t("journal.filtres.du")}
-                </span>
-                <SelecteurDate
-                  valeur={filtres.du}
-                  onChange={(du) => setFiltres((f) => ({ ...f, du }))}
-                  placeholder={t("journal.filtres.du")}
-                  auPlusTard={filtres.au || undefined}
-                  aria-label={t("journal.filtres.du")}
-                />
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium text-neutral-600">
-                  {t("journal.filtres.au")}
-                </span>
-                <SelecteurDate
-                  valeur={filtres.au}
-                  onChange={(au) => setFiltres((f) => ({ ...f, au }))}
-                  placeholder={t("journal.filtres.au")}
-                  auPlusTot={filtres.du || undefined}
-                  aria-label={t("journal.filtres.au")}
-                />
+              {/* Les deux bornes restent ensemble : côte à côte sur
+                  téléphone, chacune à la hauteur des autres filtres. */}
+              <div className="flex w-full items-center gap-3 sm:w-auto">
+                <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
+                  <span className="shrink-0 text-xs font-medium text-neutral-600">
+                    {t("journal.filtres.du")}
+                  </span>
+                  <SelecteurDate
+                    valeur={filtres.du}
+                    onChange={(du) => setFiltres((f) => ({ ...f, du }))}
+                    placeholder={t("journal.filtres.du")}
+                    auPlusTard={filtres.au || undefined}
+                    aria-label={t("journal.filtres.du")}
+                    className={CHAMP_DATE}
+                  />
+                </div>
+                <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
+                  <span className="shrink-0 text-xs font-medium text-neutral-600">
+                    {t("journal.filtres.au")}
+                  </span>
+                  <SelecteurDate
+                    valeur={filtres.au}
+                    onChange={(au) => setFiltres((f) => ({ ...f, au }))}
+                    placeholder={t("journal.filtres.au")}
+                    auPlusTot={filtres.du || undefined}
+                    aria-label={t("journal.filtres.au")}
+                    className={CHAMP_DATE}
+                  />
+                </div>
               </div>
               <FiltreTableau
                 valeur={filtres.agentId}
