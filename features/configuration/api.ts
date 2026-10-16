@@ -49,6 +49,8 @@ export interface TelephoneEntreprise {
   /** `null` pour un numéro pas encore enregistré. */
   id: string | null;
   libelle: LibelleTelephone;
+  /** Facultatif, libre : à qui ou à quel service mène le numéro (MLD v1.8). */
+  nom: string;
   numero: string;
   principal: boolean;
 }
@@ -152,6 +154,7 @@ export function enregistrerEntreprise(
     charge.telephones = donnees.telephones.map((t) => ({
       id: t.id,
       libelle: t.libelle,
+      nom: t.nom.trim(),
       numero: t.numero,
       principal: t.principal,
     }));

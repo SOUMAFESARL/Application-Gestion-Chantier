@@ -1025,6 +1025,8 @@
       "titre": "Numéros de contact",
       "aide": "Jusqu’à cinq numéros. Le principal figure sur les factures et les documents.",
       "libelle": "Usage",
+      "nom": "Nom du contact (facultatif)",
+      "nomPlaceholder": "Nom (ex. : Service achats)",
       "libelles": {
         "MOBILE": "Mobile",
         "FIXE": "Fixe",

@@ -30,6 +30,7 @@ export function telephonesInitiaux(
     const liste = entreprise.telephones.map((t) => ({
       id: t.id ?? null,
       libelle: t.libelle,
+      nom: t.nom ?? "",
       numero: t.numero || "",
       principal: Boolean(t.principal),
     }));
@@ -44,6 +45,7 @@ export function telephonesInitiaux(
       {
         id: null,
         libelle: "MOBILE",
+        nom: "",
         numero: entreprise.telephone_contact.trim(),
         principal: true,
       },
@@ -54,6 +56,7 @@ export function telephonesInitiaux(
     {
       id: null,
       libelle: "MOBILE",
+      nom: "",
       numero: "",
       principal: true,
     },

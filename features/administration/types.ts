@@ -202,6 +202,7 @@ export interface AbonnementClient {
 export interface TelephoneClient {
   libelle: string;
   libelleAffiche: string;
+  nom: string;
   numero: string;
   principal: boolean;
 }

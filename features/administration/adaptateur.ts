@@ -95,6 +95,7 @@ interface ChargeDirigeantClient {
 interface ChargeTelephoneClient {
   libelle: string;
   libelle_affiche: string;
+  nom?: string;
   numero: string;
   principal: boolean;
 }
@@ -398,6 +399,7 @@ function versClient(charge: ChargeClient): ClientPlateforme {
     telephones: (charge.telephones || []).map((t) => ({
       libelle: t.libelle,
       libelleAffiche: t.libelle_affiche,
+      nom: t.nom ?? "",
       numero: t.numero,
       principal: Boolean(t.principal),
     })),

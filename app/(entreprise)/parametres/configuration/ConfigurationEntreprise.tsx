@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
@@ -80,6 +81,7 @@ function normaliser(donnees: DonneesEntreprise) {
 function normaliserTelephones(telephones?: TelephoneEntreprise[]) {
   return (telephones ?? []).map((t) => ({
     libelle: t.libelle,
+    nom: t.nom.trim(),
     numero: t.numero,
     principal: t.principal,
   }));
@@ -216,6 +218,7 @@ export function ConfigurationEntreprise() {
         {
           id: null,
           libelle: "MOBILE",
+          nom: "",
           numero: "",
           principal: (prec.telephones ?? []).length === 0,
         },
@@ -531,7 +534,7 @@ export function ConfigurationEntreprise() {
                 {listeTelephones.map((tel, index) => (
                   <div
                     key={index}
-                    className="flex flex-col gap-2 rounded-lg border border-border/40 p-3 sm:grid sm:grid-cols-[10rem_1fr_auto] sm:items-start sm:border-0 sm:p-0"
+                    className="flex flex-col gap-2 rounded-lg border border-border/40 p-3 sm:grid sm:grid-cols-[10rem_1fr] sm:items-start lg:grid-cols-[10rem_12rem_1fr_auto] lg:border-0 lg:p-0"
                   >
                     <div className="w-full">
                       <Select
@@ -559,7 +562,25 @@ export function ConfigurationEntreprise() {
                       )}
                     </div>
 
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0">
+                      <Input
+                        value={tel.nom}
+                        maxLength={60}
+                        placeholder={tTel("nomPlaceholder")}
+                        aria-label={tTel("nom")}
+                        aria-invalid={Boolean(erreurs[`telephones.${index}.nom`])}
+                        className={classeEnregistre(tel.nom, reference.telephones?.[index]?.nom)}
+                        disabled={envoi}
+                        onChange={(e) => modifierTelephone(index, { nom: e.target.value })}
+                      />
+                      {erreurs[`telephones.${index}.nom`] && (
+                        <p className="mt-1 text-xs font-medium text-erreur">
+                          {erreurs[`telephones.${index}.nom`]}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1 sm:col-span-2 lg:col-span-1">
                       <ChampTelephone
                         paysDefaut={pays}
                         international
@@ -574,7 +595,7 @@ export function ConfigurationEntreprise() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-end gap-2 pt-1 sm:pt-0">
+                    <div className="flex items-center justify-end gap-2 pt-1 sm:col-span-2 lg:col-span-1 lg:pt-0">
                       {tel.principal ? (
                         <Badge variante="primaire">{tTel("principal")}</Badge>
                       ) : (
