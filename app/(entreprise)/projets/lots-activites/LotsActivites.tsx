@@ -254,6 +254,7 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
             >
               <StructureLots
                 key={projetId}
+                projet={projet}
                 lots={lots}
                 recherche={recherche}
                 onRecherche={setRecherche}
@@ -273,6 +274,7 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
                 onAjouterActivite={(lotId) => ouvrirTiroirActivite(null, lotId)}
               />
               <PanneauActivite
+                projet={projet}
                 activite={activite}
                 lot={lotDeActivite}
                 lots={lots}

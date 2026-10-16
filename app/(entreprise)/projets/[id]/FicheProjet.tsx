@@ -193,9 +193,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
   const { modifier, basculerSuspension, supprimer, encadrer, retirerEncadrement, cadrer, modaux } =
     useGestionProjet(() => router.replace("/projets"));
   const fichePdf = useGenerationFicheProjet(requete.data);
-  const { droits, peut } = useDroits();
-  const peutSaisir = peut("projets", "saisie");
-  const peutValider = peut("projets", "validation");
+  const { droits, peut, peutSurProjet } = useDroits();
   const voitFinance = peut("finance");
 
   const requeteProfil = useQuery({
@@ -266,6 +264,10 @@ export function FicheProjet({ projetId }: { projetId: string }) {
     );
   }
 
+  const peutModifierProjet = peutSurProjet("projets.ecrire", projet);
+  const peutChangerStatutProjet = peutSurProjet("projets.changer_statut", projet);
+  const peutResilierProjet = peutSurProjet("projets.resilier_archiver", projet);
+
   return (
     <div className="flex w-full flex-col gap-6">
       {retour}
@@ -318,7 +320,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="bottom" align="end" className="min-w-48">
-                {peutSaisir && projetModifiable(projet) && (
+                {peutModifierProjet && projetModifiable(projet) && (
                   <DropdownMenuItem onSelect={() => modifier(projet)}>
                     <Pencil aria-hidden="true" />
                     {t("modifier")}
@@ -328,10 +330,10 @@ export function FicheProjet({ projetId }: { projetId: string }) {
                   <Printer aria-hidden="true" />
                   {t("exporterPdf")}
                 </DropdownMenuItem>
-                {peutValider && (peutSuspendre(projet) || peutReprendre(projet)) && (
+                {peutChangerStatutProjet && (peutSuspendre(projet) || peutReprendre(projet)) && (
                   <DropdownMenuSeparator />
                 )}
-                {peutValider && peutSuspendre(projet) && (
+                {peutChangerStatutProjet && peutSuspendre(projet) && (
                   <DropdownMenuItem
                     onSelect={() => basculerSuspension(projet)}
                     className="text-avertissement focus:text-avertissement"
@@ -340,7 +342,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
                     {t("suspendre")}
                   </DropdownMenuItem>
                 )}
-                {peutValider && peutReprendre(projet) && (
+                {peutChangerStatutProjet && peutReprendre(projet) && (
                   <DropdownMenuItem
                     onSelect={() => basculerSuspension(projet)}
                     className="text-succes focus:text-succes"
@@ -349,7 +351,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
                     {t("reprendre")}
                   </DropdownMenuItem>
                 )}
-                {peutValider && (
+                {peutResilierProjet && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem

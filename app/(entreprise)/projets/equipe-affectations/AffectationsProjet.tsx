@@ -23,7 +23,7 @@ import {
 } from "@/features/projets/regles";
 import type { CriteresAffectations } from "@/features/projets/regles";
 import { useDroits } from "@/features/habilitations";
-import type { Activite, Equipe, Lot } from "@/features/projets/types";
+import type { Activite, Equipe, Lot, Projet } from "@/features/projets/types";
 import { ABSENT, formaterDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +34,7 @@ import { pastilleEquipe } from "./classes";
 const colonne = aideColonnes<Activite>();
 
 interface Props {
+  projet?: Projet | null;
   lots: Lot[];
   equipes: Equipe[];
   onNouvelle: () => void;
@@ -45,11 +46,12 @@ interface Props {
  * tient — ou « À affecter ». Le filtre d'équipe propose aussi « À affecter »,
  * la question qu'on pose le plus souvent à cette liste.
  */
-export function AffectationsProjet({ lots, equipes, onNouvelle, onModifier }: Props) {
+export function AffectationsProjet({ projet, lots, equipes, onNouvelle, onModifier }: Props) {
   const t = useTranslations("projets.equipesAffectations");
   const tLots = useTranslations("projets.lotsActivites");
-  // Affecter une équipe à une activité, c'est saisir dans « chantier ».
-  const peutSaisir = useDroits().peut("chantier", "saisie");
+  const { peutSurProjet } = useDroits();
+  // Affecter une équipe à une activité appelle /equipes/affectations/ -> projets.gerer_equipes
+  const peutAffecter = projet ? peutSurProjet("projets.gerer_equipes", projet) : false;
   const [criteres, setCriteres] = useState<CriteresAffectations>(CRITERES_AFFECTATIONS_VIDES);
 
   const lignes = useMemo(() => filtrerAffectations(lots, criteres), [lots, criteres]);
@@ -121,7 +123,7 @@ export function AffectationsProjet({ lots, equipes, onNouvelle, onModifier }: Pr
         header: t("colonnes.actions"),
         meta: { classe: BORD_DROIT_TABLEAU },
         cell: ({ row }) => {
-          if (!peutSaisir) return null;
+          if (!peutAffecter) return null;
           const libelle = row.original.equipe
             ? t("actionReaffecter", { code: row.original.code })
             : t("actionAffecterActivite", { code: row.original.code });
@@ -139,7 +141,7 @@ export function AffectationsProjet({ lots, equipes, onNouvelle, onModifier }: Pr
         },
       }),
     ]);
-  }, [t, tLots, equipes, onModifier, peutSaisir]);
+  }, [t, tLots, equipes, onModifier, peutAffecter]);
 
   /** Le lot et les dates complètes en plus de l'écran : le fichier se relit seul. */
   const exporter = useMemo<ExportTableau<Activite>>(() => {
@@ -189,7 +191,7 @@ export function AffectationsProjet({ lots, equipes, onNouvelle, onModifier }: Pr
       cleCriteres={`${criteres.recherche}|${criteres.lotId}|${criteres.equipeId}`}
       exporter={exporter}
       actions={
-        peutSaisir && (
+        peutAffecter && (
           <Bouton
             variante="primaire"
             taille="sm"

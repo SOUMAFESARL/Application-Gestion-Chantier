@@ -15,7 +15,7 @@ import {
   nomAbrege,
 } from "@/features/projets/regles";
 import { useDroits } from "@/features/habilitations";
-import type { Equipe, Lot, NatureEquipe } from "@/features/projets/types";
+import type { Equipe, Lot, NatureEquipe, Projet } from "@/features/projets/types";
 import { cn } from "@/lib/utils";
 
 import { BLOC } from "../classes";
@@ -26,6 +26,7 @@ import { lienFicheEquipe } from "./liens";
 const AVATARS_VISIBLES = 5;
 
 interface Props {
+  projet?: Projet | null;
   equipes: Equipe[];
   lots: Lot[];
   onConstituer: () => void;
@@ -43,16 +44,24 @@ interface Props {
  * deux valeurs et « toutes », chacune avec son compte — c'est une lecture
  * autant qu'un filtre.
  */
-export function EquipesProjet({ equipes, lots, onConstituer, onMembres, onAffecter }: Props) {
+export function EquipesProjet({
+  projet,
+  equipes,
+  lots,
+  onConstituer,
+  onMembres,
+  onAffecter,
+}: Props) {
   const t = useTranslations("projets.equipesAffectations");
   const [nature, setNature] = useState<NatureEquipe | "">("");
-  // Constituer une équipe, gérer ses membres, l'affecter : saisir dans « chantier ».
-  const peutSaisir = useDroits().peut("chantier", "saisie");
+  const { peutSurProjet } = useDroits();
+  // Constituer une équipe, gérer ses membres, l'affecter appellent /equipes/… -> projets.gerer_equipes
+  const peutGererEquipes = projet ? peutSurProjet("projets.gerer_equipes", projet) : false;
 
   const comptes = useMemo(() => compterEquipesParNature(equipes), [equipes]);
   const visibles = useMemo(() => filtrerEquipes(equipes, nature), [equipes, nature]);
 
-  const boutonConstituer = peutSaisir && (
+  const boutonConstituer = peutGererEquipes && (
     <Bouton
       variante="primaire"
       taille="sm"
@@ -115,6 +124,7 @@ export function EquipesProjet({ equipes, lots, onConstituer, onMembres, onAffect
               equipe={equipe}
               rang={equipes.indexOf(equipe)}
               lots={lots}
+              peutGererEquipes={peutGererEquipes}
               onMembres={() => onMembres(equipe)}
               onAffecter={() => onAffecter(equipe)}
             />
@@ -129,6 +139,7 @@ function CarteEquipe({
   equipe,
   rang,
   lots,
+  peutGererEquipes,
   onMembres,
   onAffecter,
 }: {
@@ -136,11 +147,11 @@ function CarteEquipe({
   /** Le rang de l'équipe dans le chantier — il fixe sa pastille. */
   rang: number;
   lots: Lot[];
+  peutGererEquipes: boolean;
   onMembres: () => void;
   onAffecter: () => void;
 }) {
   const t = useTranslations("projets.equipesAffectations");
-  const peutSaisir = useDroits().peut("chantier", "saisie");
   const enCours = activitesEnCoursEquipe(equipe.id, lots);
   const caches = Math.max(equipe.membres.length - AVATARS_VISIBLES, 0);
 
@@ -209,7 +220,7 @@ function CarteEquipe({
           : t("aucuneActiviteEnCours")}
       </p>
 
-      {peutSaisir && (
+      {peutGererEquipes && (
       <div className="relative z-10 flex flex-wrap gap-2 self-start">
         <Bouton
           variante="secondaire"

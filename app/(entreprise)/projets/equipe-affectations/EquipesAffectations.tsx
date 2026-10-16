@@ -58,6 +58,7 @@ export function EquipesAffectations({ projetInitial }: { projetInitial?: string 
   const requeteProjets = useProjetsVisibles();
   const projets = useMemo(() => requeteProjets.data ?? [], [requeteProjets.data]);
   const projetId = projetChoisi ?? projetOuvert(projets, projetInitial)?.id ?? null;
+  const projet = projets.find((candidat) => candidat.id === projetId) ?? null;
 
   const requeteLots = useQuery({
     queryKey: cleLots(projetId ?? ""),
@@ -165,6 +166,7 @@ export function EquipesAffectations({ projetInitial }: { projetInitial?: string 
           {!chargement && !echec && onglet === "equipes" && (
             <div role="tabpanel" id="panneau-equipes" aria-labelledby="onglet-equipes">
               <EquipesProjet
+                projet={projet}
                 equipes={equipes}
                 lots={lots}
                 onConstituer={ouvrirConstitution}
@@ -178,6 +180,7 @@ export function EquipesAffectations({ projetInitial }: { projetInitial?: string 
             <div role="tabpanel" id="panneau-affectations" aria-labelledby="onglet-affectations">
               <AffectationsProjet
                 key={projetId}
+                projet={projet}
                 lots={lots}
                 equipes={equipes}
                 onNouvelle={() => ouvrirAffectation({})}

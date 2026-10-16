@@ -59,7 +59,7 @@ export function TableauDeBordDirection() {
    * modules : l'argent pour qui lit « finance », les signatures pour qui y
    * valide, la sécurité pour qui lit « qhse ».
    */
-  const { estDirection, peut } = useDroits();
+  const { estDirection, peut, peutCode } = useDroits();
   const projetsVisibles = useProjetsVisibles();
   const visibles = useMemo(
     () =>
@@ -68,7 +68,7 @@ export function TableauDeBordDirection() {
         : new Set(projetsVisibles.data.map((projet) => projet.id)),
     [estDirection, projetsVisibles.data],
   );
-  const peutCreer = peut("projets", "saisie");
+  const peutCreer = peutCode("projets.creer");
 
   const ouvrirCreation = peutCreer ? () => setTiroirOuvert(true) : undefined;
 

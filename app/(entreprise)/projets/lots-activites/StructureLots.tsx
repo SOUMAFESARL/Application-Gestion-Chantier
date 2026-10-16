@@ -22,7 +22,7 @@ import {
   statutsActivitesPresents,
 } from "@/features/projets/regles";
 import { useDroits } from "@/features/habilitations";
-import type { Activite, Lot, StatutActivite } from "@/features/projets/types";
+import type { Activite, Lot, Projet, StatutActivite } from "@/features/projets/types";
 import {
   ABSENT,
   formaterDate,
@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { BADGE_STATUT, BLOC, CERCLE_PISTE, CERCLE_REMPLI } from "./classes";
 
 interface Props {
+  projet?: Projet | null;
   lots: Lot[];
   recherche: string;
   onRecherche: (recherche: string) => void;
@@ -74,6 +75,7 @@ const ENTETE =
  * pendant un filtre — un résultat caché dans un lot replié serait perdu.
  */
 export function StructureLots({
+  projet,
   lots,
   recherche,
   onRecherche,
@@ -89,8 +91,8 @@ export function StructureLots({
   onAjouterActivite,
 }: Props) {
   const t = useTranslations("projets.lotsActivites");
-  const { peut } = useDroits();
-  const peutSaisir = peut("projets", "saisie");
+  const { peut, peutSurProjet } = useDroits();
+  const peutSaisir = projet ? peutSurProjet("projets.ecrire", projet) : false;
   const peutVoirMontants = peut("finance");
   const [replies, setReplies] = useState<Set<string>>(() => new Set());
 

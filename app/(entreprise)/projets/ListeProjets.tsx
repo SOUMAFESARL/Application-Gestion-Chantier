@@ -97,9 +97,8 @@ export function ListeProjets() {
 
   // Hors direction, seulement ses chantiers ; les gestes selon les accès du module.
   const requete = useProjetsVisibles();
-  const { peut } = useDroits();
-  const peutSaisir = peut("projets", "saisie");
-  const peutValider = peut("projets", "validation");
+  const { peutCode, peutSurProjet } = useDroits();
+  const peutCreer = peutCode("projets.creer");
 
   // Le repli tient dans un `useMemo` : un `?? []` rend un tableau neuf à
   // chaque rendu, donc recalcule les trois dérivations qui en dépendent.
@@ -280,70 +279,76 @@ export function ListeProjets() {
           id: "actions",
           header: t("colonneActions"),
           meta: { classe: BORD_DROIT_TABLEAU },
-          cell: ({ row }) => (
-            <span className="flex items-center gap-1">
-              <Button variant="ghost" size="icon-sm" asChild>
-                <Link
-                  href={`/projets/${row.original.id}`}
-                  aria-label={t("actionConsulter", { nom: row.original.nom })}
-                  title={t("actionConsulter", { nom: row.original.nom })}
-                >
-                  <Eye />
-                </Link>
-              </Button>
-              {peutSaisir && (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => modifier(row.original)}
-                  disabled={!projetModifiable(row.original)}
-                  aria-label={t("actionModifier", { nom: row.original.nom })}
-                  title={t("actionModifier", { nom: row.original.nom })}
-                >
-                  <Pencil />
+          cell: ({ row }) => {
+            const projetLigne = row.original;
+            const peutEcrire = peutSurProjet("projets.ecrire", projetLigne);
+            const peutChangerStatut = peutSurProjet("projets.changer_statut", projetLigne);
+            const peutResilier = peutSurProjet("projets.resilier_archiver", projetLigne);
+            return (
+              <span className="flex items-center gap-1">
+                <Button variant="ghost" size="icon-sm" asChild>
+                  <Link
+                    href={`/projets/${projetLigne.id}`}
+                    aria-label={t("actionConsulter", { nom: projetLigne.nom })}
+                    title={t("actionConsulter", { nom: projetLigne.nom })}
+                  >
+                    <Eye />
+                  </Link>
                 </Button>
-              )}
-              {peutValider && peutSuspendre(row.original) && (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => basculerSuspension(row.original)}
-                  aria-label={t("actionSuspendre", { nom: row.original.nom })}
-                  title={t("actionSuspendre", { nom: row.original.nom })}
-                  className="text-avertissement hover:text-avertissement"
-                >
-                  <Pause />
-                </Button>
-              )}
-              {peutValider && peutReprendre(row.original) && (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => basculerSuspension(row.original)}
-                  aria-label={t("actionReprendre", { nom: row.original.nom })}
-                  title={t("actionReprendre", { nom: row.original.nom })}
-                  className="text-succes hover:text-succes"
-                >
-                  <Play />
-                </Button>
-              )}
-              {peutValider && (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => supprimer(row.original)}
-                  aria-label={t("actionSupprimer", { nom: row.original.nom })}
-                  title={t("actionSupprimer", { nom: row.original.nom })}
-                  className="text-erreur hover:text-erreur"
-                >
-                  <Trash2 />
-                </Button>
-              )}
-            </span>
-          ),
+                {peutEcrire && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => modifier(projetLigne)}
+                    disabled={!projetModifiable(projetLigne)}
+                    aria-label={t("actionModifier", { nom: projetLigne.nom })}
+                    title={t("actionModifier", { nom: projetLigne.nom })}
+                  >
+                    <Pencil />
+                  </Button>
+                )}
+                {peutChangerStatut && peutSuspendre(projetLigne) && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => basculerSuspension(projetLigne)}
+                    aria-label={t("actionSuspendre", { nom: projetLigne.nom })}
+                    title={t("actionSuspendre", { nom: projetLigne.nom })}
+                    className="text-avertissement hover:text-avertissement"
+                  >
+                    <Pause />
+                  </Button>
+                )}
+                {peutChangerStatut && peutReprendre(projetLigne) && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => basculerSuspension(projetLigne)}
+                    aria-label={t("actionReprendre", { nom: projetLigne.nom })}
+                    title={t("actionReprendre", { nom: projetLigne.nom })}
+                    className="text-succes hover:text-succes"
+                  >
+                    <Play />
+                  </Button>
+                )}
+                {peutResilier && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => supprimer(projetLigne)}
+                    aria-label={t("actionSupprimer", { nom: projetLigne.nom })}
+                    title={t("actionSupprimer", { nom: projetLigne.nom })}
+                    className="text-erreur hover:text-erreur"
+                  >
+                    <Trash2 />
+                  </Button>
+                )}
+              </span>
+            );
+          },
         }),
       ]),
-    [t, modifier, basculerSuspension, supprimer, peutSaisir, peutValider],
+    [t, modifier, basculerSuspension, supprimer, peutSurProjet],
   );
 
   return (
@@ -360,7 +365,7 @@ export function ListeProjets() {
       {requete.isSuccess &&
         (projets.length === 0 ? (
           // Un écran vide sans issue est un cul-de-sac : l'action y est reprise.
-          <EtatVide titre={t("aucunTitre")} description={t("aucun")} action={peutSaisir ? boutonNouveau : undefined} />
+          <EtatVide titre={t("aucunTitre")} description={t("aucun")} action={peutCreer ? boutonNouveau : undefined} />
         ) : (
           <>
             {/*
@@ -399,7 +404,7 @@ export function ListeProjets() {
               onReinitialiser={() => setCriteres(CRITERES_VIDES)}
               cleCriteres={`${criteres.recherche}|${criteres.statut}|${criteres.chefProjetId}`}
               exporter={exporter}
-              actions={peutSaisir ? boutonNouveauCompact : undefined}
+              actions={peutCreer ? boutonNouveauCompact : undefined}
               outils={
                 <>
                   <RechercheTableau
