@@ -308,3 +308,12 @@ export function peutGererEncadrement(projet: Projet, droits: Droits | null): boo
 export function peutCadrerProjet(projet: Projet, droits: Droits | null): boolean {
   return projetModifiable(projet) && estChefDuProjet(projet, droits);
 }
+
+/**
+ * Voir et saisir les montants (budgets, coûts) : le code `projets.voir_montants`.
+ * Recopie `peut_voir_montants` (`apps/core/droits.py`, règle E-11) : le serveur retire les
+ * montants des réponses faites aux autres — un 0 affiché serait faux.
+ */
+export function peutVoirMontants(droits: Droits | null): boolean {
+  return peutCode(droits, "projets.voir_montants");
+}

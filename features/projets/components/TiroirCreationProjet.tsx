@@ -33,6 +33,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ZoneDepotFichiers } from "@/components/ui/zone-depot-fichiers";
 import { paysEntreprise } from "@/features/configuration/api";
+import { useDroits } from "@/features/habilitations";
 import { creerProjet, modifierProjet } from "@/features/projets/adaptateur";
 import {
   FORMAT_CONTRAT,
@@ -133,6 +134,7 @@ export function TiroirCreationProjet({
   onProjetModifie,
 }: Props) {
   const t = useTranslations("projets.tiroirCreation");
+  const { voitMontants } = useDroits();
   const modification = projet !== undefined;
 
   // Vide tant que le serveur ne l'a pas dit : la liste des villes en dépend,
@@ -197,7 +199,12 @@ export function TiroirCreationProjet({
         onFermer();
         return;
       }
-      const projetCree = await creerProjet(versCreationProjet(saisie));
+      const projetCree = await creerProjet(
+        versCreationProjet({
+          ...saisie,
+          budget: voitMontants ? saisie.budget : "",
+        }),
+      );
       reinitialiser();
       onProjetCree?.(projetCree);
       toast.success(t("succesCreation", { nom: projetCree.nom }));
@@ -368,7 +375,9 @@ export function TiroirCreationProjet({
             </div>
 
             <TitreSection>
-              {modification ? t("sectionCalendrier") : t("sectionCalendrierBudget")}
+              {modification || !voitMontants
+                ? t("sectionCalendrier")
+                : t("sectionCalendrierBudget")}
             </TitreSection>
 
             <div className={RANGEE_TROIS}>
@@ -443,30 +452,32 @@ export function TiroirCreationProjet({
             {!modification && (
               <>
                 <div className={RANGEE}>
-                  <FormField
-                    control={form.control}
-                    name="budget"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t("champBudget")}</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            onChange={(evenement) =>
-                              field.onChange(
-                                formaterSaisieMontant(evenement.target.value),
-                              )
-                            }
-                            className={cn(CHAMP, "tabular-nums")}
-                            inputMode="numeric"
-                            placeholder={t("champBudgetPlaceholder")}
-                            disabled={enCours}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {voitMontants && (
+                    <FormField
+                      control={form.control}
+                      name="budget"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t("champBudget")}</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              onChange={(evenement) =>
+                                field.onChange(
+                                  formaterSaisieMontant(evenement.target.value),
+                                )
+                              }
+                              className={cn(CHAMP, "tabular-nums")}
+                              inputMode="numeric"
+                              placeholder={t("champBudgetPlaceholder")}
+                              disabled={enCours}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                   <FormField
                     control={form.control}
                     name="description"

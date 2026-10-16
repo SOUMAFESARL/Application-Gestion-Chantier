@@ -1988,6 +1988,7 @@ export function lireLotsImportes(
   feuille: unknown[][],
   lotsExistants: Lot[],
   budgetProjet: number | null,
+  voitMontants: boolean = true,
 ): LigneImportLot[] {
   const rangEntete = feuille
     .slice(0, 10)
@@ -2028,11 +2029,14 @@ export function lireLotsImportes(
       return colonne === undefined ? undefined : ligne[colonne];
     };
 
-    let budget = budgetCellule(cellule("budget"));
-    if (budget === null) anomalies.push("BUDGET_INVALIDE");
-    else if (plafondBudgetDepasse(budget ?? null, { projet: budgetProjet })) {
-      anomalies.push("BUDGET_DEPASSE_PROJET");
-      budget = null;
+    let budget: number | null | undefined = undefined;
+    if (voitMontants) {
+      budget = budgetCellule(cellule("budget"));
+      if (budget === null) anomalies.push("BUDGET_INVALIDE");
+      else if (plafondBudgetDepasse(budget ?? null, { projet: budgetProjet })) {
+        anomalies.push("BUDGET_DEPASSE_PROJET");
+        budget = null;
+      }
     }
     let dateDebut = dateCellule(cellule("dateDebut"));
     let dateFin = dateCellule(cellule("dateFin"));

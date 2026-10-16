@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
+import { useDroits } from "@/features/habilitations";
 import {
   indicateurBudget,
   indicateurMarge,
@@ -59,6 +60,7 @@ interface Tuile {
  */
 export function IndicateursDirection({ chantiers }: { chantiers: LigneChantier[] }) {
   const t = useTranslations("tableauDeBord.indicateurs");
+  const { voitMontants } = useDroits();
 
   const portefeuille = indicateurPortefeuille(chantiers);
   const sante = indicateurSante(chantiers);
@@ -71,11 +73,16 @@ export function IndicateursDirection({ chantiers }: { chantiers: LigneChantier[]
       cle: "actifs",
       libelle: t("actifs"),
       valeur: portefeuille.actifs,
-      detail: t("detailActifs", {
-        montant: formaterMontantCourt(portefeuille.carnetCommandes),
-        enAttente: portefeuille.enAttente,
-        suspendus: portefeuille.suspendus,
-      }),
+      detail: voitMontants
+        ? t("detailActifs", {
+            montant: formaterMontantCourt(portefeuille.carnetCommandes),
+            enAttente: portefeuille.enAttente,
+            suspendus: portefeuille.suspendus,
+          })
+        : t("detailActifsSansMontant", {
+            enAttente: portefeuille.enAttente,
+            suspendus: portefeuille.suspendus,
+          }),
       fond: "secondaire",
       niveau: null,
     },
@@ -113,35 +120,45 @@ export function IndicateursDirection({ chantiers }: { chantiers: LigneChantier[]
       fond: fond(niveaux.sante),
       niveau: niveaux.sante,
     },
-    {
-      cle: "budget",
-      libelle: t("budget"),
-      valeur:
-        budget.tauxConsommation === null
-          ? t("sansDonnee")
-          : t("pourcent", { valeur: budget.tauxConsommation }),
-      detail: t("detailBudget", {
-        consomme: formaterMontantCourt(budget.consommeTotal),
-        total: formaterMontantCourt(budget.budgetTotal),
-      }),
-      alerte: t("depassements", { n: budget.depassements }),
-      fond: fond(niveaux.budget),
-      niveau: niveaux.budget,
-    },
-    {
-      cle: "marge",
-      libelle: t("marge"),
-      valeur:
-        marge.taux === null ? t("sansDonnee") : t("pourcent", { valeur: marge.taux }),
-      detail: t("detailMarge", { montant: formaterMontantCourt(marge.montant) }),
-      alerte: t("margesNegatives", { n: marge.negatives }),
-      fond: fond(niveaux.marge),
-      niveau: niveaux.marge,
-    },
+    ...(voitMontants
+      ? [
+          {
+            cle: "budget",
+            libelle: t("budget"),
+            valeur:
+              budget.tauxConsommation === null
+                ? t("sansDonnee")
+                : t("pourcent", { valeur: budget.tauxConsommation }),
+            detail: t("detailBudget", {
+              consomme: formaterMontantCourt(budget.consommeTotal),
+              total: formaterMontantCourt(budget.budgetTotal),
+            }),
+            alerte: t("depassements", { n: budget.depassements }),
+            fond: fond(niveaux.budget),
+            niveau: niveaux.budget,
+          },
+          {
+            cle: "marge",
+            libelle: t("marge"),
+            valeur:
+              marge.taux === null ? t("sansDonnee") : t("pourcent", { valeur: marge.taux }),
+            detail: t("detailMarge", { montant: formaterMontantCourt(marge.montant) }),
+            alerte: t("margesNegatives", { n: marge.negatives }),
+            fond: fond(niveaux.marge),
+            niveau: niveaux.marge,
+          },
+        ]
+      : []),
   ];
 
   return (
-    <section aria-label={t("aria")} className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <section
+      aria-label={t("aria")}
+      className={cn(
+        "grid grid-cols-1 gap-3 sm:grid-cols-2",
+        voitMontants && "xl:grid-cols-4",
+      )}
+    >
       {tuiles.map((tuile) => (
         <Indicateur
           key={tuile.cle}

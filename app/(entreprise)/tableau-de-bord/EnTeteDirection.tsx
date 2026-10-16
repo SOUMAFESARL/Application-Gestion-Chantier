@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { lireProfilLocal } from "@/features/auth/api";
+import { useDroits } from "@/features/habilitations";
 import {
   chantiersSuivis,
   syntheseDirection,
@@ -40,6 +41,13 @@ const COLONNES_EXPORT = [
   "indiceSante",
 ] as const;
 
+const COLONNES_BUDGETAIRES = new Set([
+  "budgetInitial",
+  "budgetConsomme",
+  "montantMarche",
+  "marge",
+]);
+
 /** Le profil local ne change pas pendant que l'écran est ouvert. */
 const sansAbonnement = () => () => {};
 const lirePrenom = () => lireProfilLocal()?.prenom?.trim() || null;
@@ -63,6 +71,7 @@ interface Props {
  */
 export function EnTeteDirection({ donnees, onNouveauProjet }: Props) {
   const t = useTranslations("tableauDeBord");
+  const { voitMontants } = useDroits();
   // Le stockage local n'existe pas au rendu serveur : `null` côté serveur,
   // le prénom une fois hydraté, sans divergence d'hydratation.
   const prenom = useSyncExternalStore(sansAbonnement, lirePrenom, () => null);
@@ -71,10 +80,14 @@ export function EnTeteDirection({ donnees, onNouveauProjet }: Props) {
 
   function exporterPortefeuille() {
     const lignes = trierParCriticite(chantiersSuivis(donnees.chantiers));
-    const contenu = versCsv([
-      COLONNES_EXPORT.map((colonne) => t(`export.${colonne}`)),
-      ...lignes.map(valeursExportPortefeuille),
-    ]);
+    const indicesRetenus = COLONNES_EXPORT.map((colonne, i) => ({ colonne, i }))
+      .filter(({ colonne }) => voitMontants || !COLONNES_BUDGETAIRES.has(colonne));
+    const entetes = indicesRetenus.map(({ colonne }) => t(`export.${colonne}`));
+    const lignesCsv = lignes.map((chantier) => {
+      const valeurs = valeursExportPortefeuille(chantier);
+      return indicesRetenus.map(({ i }) => valeurs[i]);
+    });
+    const contenu = versCsv([entetes, ...lignesCsv]);
     telechargerCsv(
       contenu,
       t("actions.nomFichier", { date: new Date().toISOString().slice(0, 10) }),

@@ -35,6 +35,7 @@ import {
   definirPlanningProjet,
   listerLots,
 } from "@/features/projets/adaptateur";
+import { useDroits } from "@/features/habilitations";
 import { cleLots } from "@/features/projets/cles";
 import { ModaleReprogrammation } from "./ModaleReprogrammation";
 import { echeancierProjet, plancherBudget, planningDefini } from "@/features/projets/regles";
@@ -79,6 +80,12 @@ interface Props {
  * reprogrammation officielle (US 3.8, RG-11).
  */
 export function ModaleCadrageProjet({ cadrage, onFermer, onModifie }: Props) {
+  const { voitMontants } = useDroits();
+
+  if (cadrage?.objet === "budget" && !voitMontants) {
+    return null;
+  }
+
   if (cadrage?.objet === "planning" && planningDefini(cadrage.projet)) {
     return (
       <ModaleReprogrammation

@@ -59,7 +59,7 @@ export function TableauDeBordDirection() {
    * modules : l'argent pour qui lit « finance », les signatures pour qui y
    * valide, la sécurité pour qui lit « qhse ».
    */
-  const { estDirection, peut, peutCode } = useDroits();
+  const { estDirection, peut, peutCode, voitMontants } = useDroits();
   const projetsVisibles = useProjetsVisibles();
   const visibles = useMemo(
     () =>
@@ -132,8 +132,8 @@ export function TableauDeBordDirection() {
 
       <BlocsStock />
 
-      <div className={cn("grid items-start gap-6", peut("finance") && "lg:grid-cols-3")}>
-        {peut("finance") && (
+      <div className={cn("grid items-start gap-6", peut("finance") && voitMontants && "lg:grid-cols-3")}>
+        {peut("finance") && voitMontants && (
           <div className="lg:col-span-2">
             <GraphiqueBudgets chantiers={donnees.chantiers} />
           </div>

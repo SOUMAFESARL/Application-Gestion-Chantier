@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { SheetFooter } from "@/components/ui/sheet";
 import { ZoneDepotFichiers } from "@/components/ui/zone-depot-fichiers";
+import { useDroits } from "@/features/habilitations";
 import { importerLots, lireFichierLots, telechargerModeleLots } from "@/features/projets/adaptateur";
 import {
   creationDepuisLigneImport,
@@ -75,6 +76,9 @@ export function ImportLots({
   const t = useTranslations("projets.lotsActivites.importLots");
   const tLots = useTranslations("projets.lotsActivites");
   const tCreation = useTranslations("projets.tiroirCreation");
+  const tProjets = useTranslations("projets");
+  const { voitMontants } = useDroits();
+  const messageBudgetIgnore = tProjets("import.budgetIgnore");
 
   const datesProjetDefinies =
     !datesProjet ||
@@ -142,7 +146,7 @@ export function ImportLots({
 
     setLecture(true);
     try {
-      const lues = await lireFichierLots(fichier, lots, budgetProjet);
+      const lues = await lireFichierLots(fichier, lots, budgetProjet, voitMontants);
       if (lues.length === 0) {
         toast.error(t("aucunLotTrouve"));
         setFichiers([]);
@@ -323,9 +327,15 @@ export function ImportLots({
                     bordereauDefaut={bordereauDefaut}
                     erreurServeur={erreursServeurLignes[String(ligne.ligne)]}
                     disabled={envoi}
+                    voitMontants={voitMontants}
                   />
                 ))}
               </ul>
+              {!voitMontants && (
+                <p className="m-0 text-xs text-neutral-500">
+                  {messageBudgetIgnore}
+                </p>
+              )}
             </section>
           </>
         )}
@@ -400,6 +410,7 @@ function LigneApercu({
   bordereauDefaut,
   erreurServeur,
   disabled,
+  voitMontants = true,
 }: {
   ligne: LigneImportLot;
   cochee: boolean;
@@ -408,6 +419,7 @@ function LigneApercu({
   bordereauDefaut: TypeBordereau | null;
   erreurServeur?: string | null;
   disabled: boolean;
+  voitMontants?: boolean;
 }) {
   const t = useTranslations("projets.lotsActivites.importLots");
   const tCreation = useTranslations("projets.tiroirCreation");
@@ -419,7 +431,7 @@ function LigneApercu({
     t("numeroLigne", { numero: ligne.ligne }),
     mode ? tCreation(`modeExecution.${mode}`) : t("modeAChoisir"),
     bordereau ? tCreation(`typeBordereau.${bordereau}`) : t("bordereauAChoisir"),
-    ligne.budget !== null ? formaterMontant(ligne.budget) : null,
+    voitMontants && ligne.budget !== null ? formaterMontant(ligne.budget) : null,
     ligne.dateDebut || ligne.dateFin
       ? t("periode", { debut: formaterDate(ligne.dateDebut), fin: formaterDate(ligne.dateFin) })
       : null,

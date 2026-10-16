@@ -91,9 +91,9 @@ export function StructureLots({
   onAjouterActivite,
 }: Props) {
   const t = useTranslations("projets.lotsActivites");
-  const { peut, peutSurProjet } = useDroits();
+  const { peutSurProjet, voitMontants } = useDroits();
   const peutSaisir = projet ? peutSurProjet("projets.ecrire", projet) : false;
-  const peutVoirMontants = peut("finance");
+  const peutVoirMontants = voitMontants;
   const [replies, setReplies] = useState<Set<string>>(() => new Set());
 
   const [page, setPage] = useState(0);

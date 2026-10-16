@@ -848,9 +848,11 @@ function versChargeLot(creation: CreationLotProjet) {
     nom: creation.nom,
     mode_execution: MODE_EXECUTION_SERVEUR[creation.modeExecution],
     type_bordereau: TYPE_BORDEREAU_SERVEUR[creation.typeBordereau],
-    budget_initial_montant: creation.budget ?? null,
     statut: STATUT_SERVEUR[creation.statut ?? STATUT_DECLARE_PAR_DEFAUT],
   };
+  if (creation.budget !== undefined) {
+    charge.budget_initial_montant = creation.budget;
+  }
   if (creation.dateDebut !== undefined) {
     charge.date_debut_prevue = creation.dateDebut;
   }
@@ -891,10 +893,11 @@ export async function lireFichierLots(
   fichier: File,
   lotsExistants: Lot[],
   budgetProjet: number | null,
+  voitMontants: boolean = true,
 ): Promise<LigneImportLot[]> {
   const { readSheet } = await import("read-excel-file/browser");
   const feuille = await readSheet(fichier);
-  return lireLotsImportes(feuille as unknown[][], lotsExistants, budgetProjet);
+  return lireLotsImportes(feuille as unknown[][], lotsExistants, budgetProjet, voitMontants);
 }
 
 /**
@@ -930,10 +933,12 @@ function versChargeActivite(saisie: SaisieActiviteDomaine) {
     libelle: saisie.libelle,
     quantite_prevue: saisie.quantitePrevue,
     unite: saisie.unite,
-    budget_initial_montant: saisie.budget,
     responsable: saisie.responsableId,
     statut: STATUT_SERVEUR[saisie.statut],
   };
+  if (saisie.budget !== undefined) {
+    charge.budget_initial_montant = saisie.budget;
+  }
   if (saisie.dateDebutPrevue !== undefined) {
     charge.date_debut_prevue = saisie.dateDebutPrevue;
   }
