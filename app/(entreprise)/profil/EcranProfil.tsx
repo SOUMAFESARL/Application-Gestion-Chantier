@@ -14,6 +14,7 @@ import { ChampTelephone } from "@/components/metier/ChampTelephone";
 import { ChampsMotDePasse } from "@/components/metier/ChampsMotDePasse";
 import {
   Alerte,
+  Badge,
   Bouton,
   Champ,
   EtatChargement,
@@ -662,15 +663,18 @@ function BlocHabilitations() {
       ) : modules.length === 0 ? (
         <p className="text-sm text-neutral-600">{t("aucuneHabilitation")}</p>
       ) : (
-        <dl className="grid gap-x-8 sm:grid-cols-2">
+        <dl className="divide-y divide-neutral-100">
           {modules.map((module) => (
-            <div
-              key={module.code}
-              className={`${LIGNE_DEFINITION} border-b border-neutral-100`}
-            >
-              <dt className={LIGNE_LIBELLE}>{module.libelle}</dt>
-              <dd className={LIGNE_VALEUR}>
-                {module.permissions.map((p) => p.libelle).join(", ")}
+            <div key={module.code} className="py-3 first:pt-0 last:pb-0">
+              <dt className="mb-2 text-sm font-medium text-neutral-900">
+                {module.libelle}
+              </dt>
+              <dd className="flex flex-wrap gap-1.5">
+                {module.permissions.map((p) => (
+                  <Badge key={p.code} variante="primaire">
+                    {p.libelle}
+                  </Badge>
+                ))}
               </dd>
             </div>
           ))}
