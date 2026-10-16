@@ -16,7 +16,7 @@ import type { AccesModule, CodeModule, ConditionAcces, Droits } from "./types";
 export function droitsDirection(): Droits {
   const permissions: Record<string, AccesModule[]> = {};
   for (const code of MODULES_CCD) permissions[code] = [...ACCES_MODULE];
-  return { estDirection: true, permissions, portee: { type: "TOUS" } };
+  return { estDirection: true, codes: [], permissions, portee: { type: "TOUS" } };
 }
 
 /**
@@ -29,6 +29,60 @@ export function peut(droits: Droits | null, module: CodeModule, acces: AccesModu
   return droits.permissions[module]?.includes(acces) ?? false;
 }
 
+/**
+ * Le compte détient-il ce code ? La direction a tout. Recopie `a_permission`
+ * (`apps/core/droits.py`) : la liste du profil est déjà celle que le serveur applique.
+ */
+export function peutCode(droits: Droits | null, code: string): boolean {
+  if (!droits) return false;
+  if (droits.estDirection) return true;
+  return droits.codes.includes(code.toLowerCase());
+}
+
+/**
+ * Ce geste sur ce chantier : le code, **et** une portée « entreprise » ou une fonction tenue sur
+ * le chantier. Recopie `GardePermissionProjet` (`apps/core/permissions.py`, règle D-08).
+ */
+export function peutSurProjet(droits: Droits | null, code: string, projet: Projet): boolean {
+  if (!droits) return false;
+  if (droits.estDirection) return true;
+  if (!peutCode(droits, code)) return false;
+  if (droits.portee.type === "TOUS") return true;
+  return fonctionsSurProjet(projet, droits).length > 0;
+}
+
+/**
+ * Les accès d'un module, lus dans les codes — la même correspondance que le serveur
+ * (`_normaliser_permissions_modules`, `apps/accounts/services/roles.py`) :
+ * - lecture    ← `{module}.lire`
+ * - saisie     ← `{module}.ecrire` ou `{module}.rediger`
+ * - validation ← `{module}.valider`, et `projets.changer_statut` pour le module projets
+ * Renvoie `null` si aucun code ne commence par `{module}.` : l'appelant se replie alors sur le niveau.
+ */
+export function accesDepuisCodes(module: string, codes: readonly string[]): AccesModule[] | null {
+  const modPref = `${module.toLowerCase()}.`;
+  const codesDuModule = codes.filter((c) => c.toLowerCase().startsWith(modPref));
+  if (codesDuModule.length === 0) return null;
+
+  const acces = new Set<AccesModule>();
+  const codesSet = new Set(codesDuModule.map((c) => c.toLowerCase()));
+
+  if (codesSet.has(`${modPref}lire`)) {
+    acces.add("lecture");
+  }
+  if (codesSet.has(`${modPref}ecrire`) || codesSet.has(`${modPref}rediger`)) {
+    acces.add("saisie");
+  }
+  if (codesSet.has(`${modPref}valider`)) {
+    acces.add("validation");
+  }
+  if (module.toLowerCase() === "projets" && codesSet.has("projets.changer_statut")) {
+    acces.add("validation");
+  }
+
+  return ACCES_MODULE.filter((a) => acces.has(a));
+}
+
 export function satisfait(droits: Droits | null, condition: ConditionAcces): boolean {
   switch (condition.type) {
     case "TOUS":
@@ -37,6 +91,8 @@ export function satisfait(droits: Droits | null, condition: ConditionAcces): boo
       return droits?.estDirection ?? false;
     case "MODULE":
       return peut(droits, condition.module, condition.acces);
+    case "PERMISSION":
+      return peutCode(droits, condition.code);
   }
 }
 
@@ -47,6 +103,9 @@ function lecture(module: CodeModule): ConditionAcces {
 }
 function saisie(module: CodeModule): ConditionAcces {
   return { type: "MODULE", module, acces: "saisie" };
+}
+function permission(code: string): ConditionAcces {
+  return { type: "PERMISSION", code };
 }
 
 /**
@@ -73,6 +132,8 @@ export const CONDITIONS_ROUTES: readonly (readonly [string, ConditionAcces])[] =
   ["/contrats", lecture("contrats")],
   ["/tiers", lecture("tiers")],
   ["/documents", lecture("ged")],
+  ["/parametres/collaborateurs", permission("administration.collaborateurs_voir")],
+  ["/parametres/roles", permission("administration.roles_gerer")],
   ["/parametres", DIRECTION],
   ["/abonnement", DIRECTION],
 ];

@@ -48,6 +48,29 @@ export const MODULES_CCD = [
 
 export type CodeModule = (typeof MODULES_CCD)[number];
 
+export type PorteeRole = "ENTREPRISE" | "PROJET";
+
+/** Une permission du catalogue, telle que le serveur la décrit. */
+export interface PermissionCatalogue {
+  id: string;
+  code: string;
+  libelle: string;
+  description: string;
+  ordre: number;
+}
+
+/** Un module de la matrice d'un rôle : son niveau (calculé par le serveur) et ses permissions accordées. */
+export interface ModuleRole {
+  moduleId: string;
+  code: string;
+  libelle: string;
+  description: string;
+  icone: string;
+  ordre: number;
+  niveau: NiveauAcces;
+  permissions: PermissionCatalogue[];
+}
+
 export interface RoleItem {
   id: string;
   code: string;
@@ -56,6 +79,9 @@ export interface RoleItem {
   est_systeme: boolean;
   est_actif: boolean;
   nb_utilisateurs: number;
+  portee: PorteeRole;
+  avertissements: string[];
+  modules: ModuleRole[];
   permissions_modules: PermissionsModules;
 }
 

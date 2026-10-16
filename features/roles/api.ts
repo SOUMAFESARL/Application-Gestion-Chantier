@@ -6,8 +6,11 @@ import { api } from "@/lib/api";
 import { permissionsNormalisees } from "./regles";
 import type {
   AccesModule,
+  ModuleRole,
   NiveauAcces,
+  PermissionCatalogue,
   PermissionsModules,
+  PorteeRole,
   RoleItem,
 } from "./types";
 
@@ -36,12 +39,56 @@ export interface ModificationRolePayload {
 /** Un module tel que le serveur le renvoie : un niveau aujourd'hui, une liste demain. */
 type ChargeAcces = NiveauAcces | AccesModule[];
 
-type ChargeRole<T extends RoleItem> = Omit<T, "permissions_modules"> & {
+export interface ChargeModuleRole {
+  module_id: string;
+  module_code: string;
+  module_libelle: string;
+  module_description?: string;
+  module_icone?: string;
+  module_ordre?: number;
+  niveau?: number;
+  permissions?: PermissionCatalogue[];
+}
+
+type ChargeRole<T extends RoleItem> = Omit<
+  T,
+  "permissions_modules" | "portee" | "avertissements" | "modules"
+> & {
   permissions_modules?: Record<string, ChargeAcces> | null;
+  portee?: PorteeRole;
+  avertissements?: string[];
+  modules?: ChargeModuleRole[];
 };
 
 function versRole<T extends RoleItem>(charge: ChargeRole<T>): T {
-  return { ...charge, permissions_modules: permissionsNormalisees(charge.permissions_modules) } as T;
+  const modulesBruts = charge.modules ?? [];
+  const modules: ModuleRole[] = modulesBruts
+    .filter((m) => (m.module_code || "").toLowerCase() !== "administration")
+    .map((m) => {
+      const niv =
+        typeof m.niveau === "number" && m.niveau >= 0 && m.niveau <= 3
+          ? (m.niveau as NiveauAcces)
+          : 0;
+      return {
+        moduleId: m.module_id,
+        code: m.module_code,
+        libelle: m.module_libelle,
+        description: m.module_description ?? "",
+        icone: m.module_icone ?? "box",
+        ordre: m.module_ordre ?? 0,
+        niveau: niv,
+        permissions: m.permissions ?? [],
+      };
+    })
+    .sort((a, b) => a.ordre - b.ordre || a.code.localeCompare(b.code));
+
+  return {
+    ...charge,
+    portee: charge.portee ?? "PROJET",
+    avertissements: charge.avertissements ?? [],
+    modules,
+    permissions_modules: permissionsNormalisees(charge.permissions_modules),
+  } as T;
 }
 
 export interface SuppressionRolePayload {
