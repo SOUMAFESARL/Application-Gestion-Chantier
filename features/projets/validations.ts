@@ -20,11 +20,10 @@ import { formaterDate, formaterMontant, formaterSaisieMontant, saisieEnCentimes 
 import { chaineNonVide } from "@/lib/validations/champs";
 
 import {
-  FONCTIONS_AUTRE_MEMBRE,
   MODES_EXECUTION_LOT,
   NATURES_EQUIPE,
-  ORDRE_FONCTIONS,
   ROLE_MEMBRE_PAR_DEFAUT,
+  ROLE_PROJET_PAR_FONCTION,
   ROLES_MEMBRE_EQUIPE,
   TYPES_BORDEREAU,
   NOMBRE_MAX_CONTRATS,
@@ -45,7 +44,7 @@ import type {
   CreationEquipe,
   CreationLotProjet,
   CreationProjet,
-  FonctionAutreMembre,
+  FonctionProjet,
   Intervenant,
   Lot,
   ModeExecutionLot,
@@ -723,33 +722,29 @@ export const LONGUEUR_MAX_ZONE = 80;
  * chef de chantier, la fonction précise que pour un autre membre — où elle
  * est exigée : « autre » ne dit pas ce que la personne vient faire.
  */
-export const schemaAjoutEncadrement = z
-  .object({
-    fonction: choixParmi(ORDRE_FONCTIONS, texte("projets.encadrement.ajout.erreurFonctionRequise")),
-    utilisateurId: chaineNonVide(texte("projets.encadrement.ajout.erreurUtilisateurRequis")),
-    zone: z.string().trim().max(LONGUEUR_MAX_ZONE, {
-      message: texte("projets.encadrement.ajout.erreurZoneTropLongue"),
-    }),
-    fonctionMembre: z.string(),
-  })
-  .superRefine((saisie, ctx) => {
-    if (
-      saisie.fonction === "AUTRE_MEMBRE" &&
-      !FONCTIONS_AUTRE_MEMBRE.includes(saisie.fonctionMembre as FonctionAutreMembre)
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["fonctionMembre"],
-        message: texte("projets.encadrement.ajout.erreurFonctionMembreRequise"),
-      });
-    }
-  });
+export const schemaAjoutEncadrement = z.object({
+  // Le code du rôle de portée Projet choisi (CP, CT, CC, QSE…) : la liste est dynamique.
+  role: chaineNonVide(texte("projets.encadrement.ajout.erreurFonctionRequise")),
+  utilisateurId: chaineNonVide(texte("projets.encadrement.ajout.erreurUtilisateurRequis")),
+  zone: z.string().trim().max(LONGUEUR_MAX_ZONE, {
+    message: texte("projets.encadrement.ajout.erreurZoneTropLongue"),
+  }),
+});
 
 export type SaisieAjoutEncadrement = z.input<typeof schemaAjoutEncadrement>;
 export type ValeursAjoutEncadrement = z.output<typeof schemaAjoutEncadrement>;
 
-export function saisieEncadrementVide(fonction: string): SaisieAjoutEncadrement {
-  return { fonction, utilisateurId: "", zone: "", fonctionMembre: "" };
+/** La place d'un rôle : CP, CT et CC ont la leur, tout autre rôle va aux « autres membres ». */
+export function fonctionDuRole(role: string): FonctionProjet {
+  const place = (Object.keys(ROLE_PROJET_PAR_FONCTION) as FonctionProjet[]).find(
+    (fonction) => fonction !== "AUTRE_MEMBRE" && ROLE_PROJET_PAR_FONCTION[fonction] === role,
+  );
+  return place ?? "AUTRE_MEMBRE";
+}
+
+export function saisieEncadrementVide(fonction: FonctionProjet): SaisieAjoutEncadrement {
+  const role = fonction === "AUTRE_MEMBRE" ? "" : ROLE_PROJET_PAR_FONCTION[fonction];
+  return { role, utilisateurId: "", zone: "" };
 }
 
 /** La saisie validée, avec la personne choisie dans la liste des utilisateurs du compte. */
@@ -757,15 +752,11 @@ export function versAjoutEncadrement(
   valeurs: ValeursAjoutEncadrement,
   intervenant: Intervenant,
 ): AjoutEncadrement {
-  switch (valeurs.fonction) {
+  switch (fonctionDuRole(valeurs.role)) {
     case "CHEF_CHANTIER":
       return { fonction: "CHEF_CHANTIER", intervenant, zone: valeurs.zone || null };
     case "AUTRE_MEMBRE":
-      return {
-        fonction: "AUTRE_MEMBRE",
-        intervenant,
-        fonctionMembre: valeurs.fonctionMembre as FonctionAutreMembre,
-      };
+      return { fonction: "AUTRE_MEMBRE", intervenant, roleCode: valeurs.role };
     case "CONDUCTEUR_TRAVAUX":
       return { fonction: "CONDUCTEUR_TRAVAUX", intervenant };
     default:
