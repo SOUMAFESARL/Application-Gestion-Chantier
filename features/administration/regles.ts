@@ -901,3 +901,22 @@ export function confirmationSuppressionValide(saisie: string, slug: string): boo
   return saisie.trim().toLowerCase() === slug.toLowerCase();
 }
 
+/** Le module d'un code de permission : son préfixe (`projets.lire` → `projets`), ou `null`. */
+export function moduleDuCode(code: string): string | null {
+  const parts = code.trim().toLowerCase().split(".");
+  if (parts.length >= 2 && parts[0]) {
+    return parts[0];
+  }
+  return null;
+}
+
+/** Le module du catalogue qui porte ce préfixe, s'il existe. */
+export function moduleDeLaPermission(
+  code: string,
+  modules: ModulePlateforme[],
+): ModulePlateforme | null {
+  const prefixe = moduleDuCode(code);
+  if (!prefixe) return null;
+  return modules.find((m) => m.code.toLowerCase() === prefixe) ?? null;
+}
+

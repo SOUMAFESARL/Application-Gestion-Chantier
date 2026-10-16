@@ -378,10 +378,9 @@ export const schemaPermission = z.object({
   ),
   libelle: chaineNonVide(texte("administration.permissions.erreurLibelleRequis")).max(100),
   description: z.string().trim(),
-  modules: z.array(z.string()),
 });
 
-export const schemaModificationPermission = schemaPermission.omit({ code: true, modules: true });
+export const schemaModificationPermission = schemaPermission.omit({ code: true });
 
 export type SaisiePermission = z.input<typeof schemaPermission>;
 export type ValeursPermission = z.output<typeof schemaPermission>;

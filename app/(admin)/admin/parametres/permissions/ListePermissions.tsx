@@ -2,10 +2,10 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Settings2, Trash2 } from "lucide-react";
+import { Link2, Pencil, Plus, Trash2, Unlink2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import {
@@ -30,6 +30,8 @@ import {
   CRITERES_PERMISSIONS_VIDES,
   criteresPermissionsActifs,
   filtrerPermissions,
+  moduleDeLaPermission,
+  moduleDuCode,
   modulesPresentsDansPermissions,
   peutParametrerPlateforme,
   trierPermissions,
@@ -38,6 +40,7 @@ import type {
   CriteresPermissions,
   DemandePermission,
   ModulePermission,
+  ModulePlateforme,
   PermissionPlateforme,
 } from "@/features/administration";
 import {
@@ -73,7 +76,8 @@ const ID_FORM_MODIFICATION = "form-permission-modification";
 type Action =
   | { type: "creer" }
   | { type: "modifier"; permission: PermissionPlateforme }
-  | { type: "modules"; permission: PermissionPlateforme }
+  | { type: "rattacher"; permission: PermissionPlateforme; module: ModulePlateforme }
+  | { type: "detacher"; permission: PermissionPlateforme; moduleLibelle: string }
   | { type: "desactiver"; permission: PermissionPlateforme }
   | { type: "supprimer"; permission: PermissionPlateforme }
   | null;
@@ -90,10 +94,6 @@ export function ListePermissions() {
   const [action, setAction] = useState<Action>(null);
   const [erreurAction, setErreurAction] = useState<string | null>(null);
 
-  // Pour la modale de changement de modules
-  const [modulesChoisis, setModulesChoisis] = useState<string[]>([]);
-  // Pour la modale de création (modules sélectionnés)
-  const [modulesCreation, setModulesCreation] = useState<string[]>([]);
   // Pour la modale de suppression définitive
   const [codeConfirmation, setCodeConfirmation] = useState("");
 
@@ -133,9 +133,27 @@ export function ListePermissions() {
       code: "",
       libelle: "",
       description: "",
-      modules: [],
     },
   });
+
+  const codeSaisi = useWatch({
+    control: formulaireCreation.control,
+    name: "code",
+  });
+  const prefixeSaisi = moduleDuCode(codeSaisi ?? "");
+  const moduleDeduit = useMemo(() => {
+    if (!prefixeSaisi) return null;
+    return (
+      modulesCatalogue.find(
+        (m) => m.code.toLowerCase() === prefixeSaisi.toLowerCase(),
+      ) ?? null
+    );
+  }, [prefixeSaisi, modulesCatalogue]);
+
+  const codeBienForme = /^[a-z0-9_]+(\.[a-z0-9_]+)+$/.test(
+    codeSaisi?.trim() ?? "",
+  );
+  const prefixeInconnu = codeBienForme && !moduleDeduit && Boolean(prefixeSaisi);
 
   const formulaireModification = useForm<
     SaisieModificationPermission,
@@ -153,8 +171,6 @@ export function ListePermissions() {
     setAction(null);
     setErreurAction(null);
     setCodeConfirmation("");
-    setModulesChoisis([]);
-    setModulesCreation([]);
     formulaireCreation.reset();
     formulaireModification.reset();
   }
@@ -362,62 +378,107 @@ export function ListePermissions() {
           id: "actions",
           header: t("permissions.colonnes.actions"),
           meta: { classe: BORD_DROIT_TABLEAU },
-          cell: ({ row }) => (
-            <div className="flex items-center gap-1">
-              <Bouton
-                variante="ghost"
-                taille="sm"
-                disabled={!peutAgir}
-                onClick={() => {
-                  setErreurAction(null);
-                  formulaireModification.reset({
-                    libelle: row.original.libelle,
-                    description: row.original.description,
-                  });
-                  setAction({
-                    type: "modifier",
-                    permission: row.original,
-                  });
-                }}
-                aria-label={t("permissions.actions.modifier")}
-              >
-                <Pencil size={15} aria-hidden="true" />
-              </Bouton>
-              <Bouton
-                variante="ghost"
-                taille="sm"
-                disabled={!peutAgir}
-                onClick={() => {
-                  setErreurAction(null);
-                  setModulesChoisis(row.original.modules.map((m) => m.code));
-                  setAction({
-                    type: "modules",
-                    permission: row.original,
-                  });
-                }}
-                aria-label={t("permissions.actions.modules")}
-              >
-                <Settings2 size={15} aria-hidden="true" />
-              </Bouton>
-              <Bouton
-                variante="ghost"
-                taille="sm"
-                disabled={!peutAgir}
-                onClick={() => {
-                  setErreurAction(null);
-                  setCodeConfirmation("");
-                  setAction({
-                    type: "supprimer",
-                    permission: row.original,
-                  });
-                }}
-                aria-label={t("permissions.actions.supprimer")}
-                className="text-erreur hover:bg-erreur-fond hover:text-erreur"
-              >
-                <Trash2 size={15} aria-hidden="true" />
-              </Bouton>
-            </div>
-          ),
+          cell: ({ row }) => {
+            const perm = row.original;
+            const modOfficiel = moduleDeLaPermission(
+              perm.code,
+              modulesCatalogue,
+            );
+            const estRattachee = perm.modules.length > 0;
+
+            return (
+              <div className="flex items-center gap-1">
+                <Bouton
+                  variante="ghost"
+                  taille="sm"
+                  disabled={!peutAgir}
+                  onClick={() => {
+                    setErreurAction(null);
+                    formulaireModification.reset({
+                      libelle: perm.libelle,
+                      description: perm.description,
+                    });
+                    setAction({
+                      type: "modifier",
+                      permission: perm,
+                    });
+                  }}
+                  aria-label={t("permissions.actions.modifier")}
+                >
+                  <Pencil size={15} aria-hidden="true" />
+                </Bouton>
+
+                {!estRattachee && modOfficiel && (
+                  <Bouton
+                    variante="ghost"
+                    taille="sm"
+                    disabled={!peutAgir}
+                    onClick={() => {
+                      setErreurAction(null);
+                      setAction({
+                        type: "rattacher",
+                        permission: perm,
+                        module: modOfficiel,
+                      });
+                    }}
+                    aria-label={t("permissions.rattacher", {
+                      module: modOfficiel.libelle,
+                    })}
+                    title={t("permissions.rattacher", {
+                      module: modOfficiel.libelle,
+                    })}
+                  >
+                    <Link2 size={15} aria-hidden="true" />
+                  </Bouton>
+                )}
+
+                {estRattachee && (
+                  <Bouton
+                    variante="ghost"
+                    taille="sm"
+                    disabled={!peutAgir}
+                    onClick={() => {
+                      setErreurAction(null);
+                      const libelleModule =
+                        perm.modules.map((m) => m.libelle).join(", ") ||
+                        (modOfficiel?.libelle ?? "");
+                      setAction({
+                        type: "detacher",
+                        permission: perm,
+                        moduleLibelle: libelleModule,
+                      });
+                    }}
+                    aria-label={t("permissions.detacher", {
+                      module: perm.modules.map((m) => m.libelle).join(", "),
+                    })}
+                    title={t("permissions.detacher", {
+                      module: perm.modules.map((m) => m.libelle).join(", "),
+                    })}
+                  >
+                    <Unlink2 size={15} aria-hidden="true" />
+                  </Bouton>
+                )}
+
+                <Bouton
+                  variante="ghost"
+                  taille="sm"
+                  disabled={!peutAgir}
+                  onClick={() => {
+                    setErreurAction(null);
+                    setCodeConfirmation("");
+                    setAction({
+                      type: "supprimer",
+                      permission: perm,
+                    });
+                  }}
+                  aria-label={t("permissions.actions.supprimer")}
+                  className="text-erreur hover:bg-erreur-fond hover:text-erreur"
+                >
+                  <Trash2 size={15} aria-hidden="true" />
+                </Bouton>
+              </div>
+            );
+          },
         }),
       ]),
     [
@@ -426,6 +487,7 @@ export function ListePermissions() {
       activation,
       desactivation.isPending,
       formulaireModification,
+      modulesCatalogue,
     ],
   );
 
@@ -496,7 +558,6 @@ export function ListePermissions() {
                 code: "",
                 libelle: "",
                 description: "",
-                modules: [],
               });
               setAction({ type: "creer" });
             }}
@@ -509,7 +570,7 @@ export function ListePermissions() {
             <RechercheTableau
               valeur={criteres.recherche}
               onChangement={(recherche) =>
-                setCriteres({ ...criteres, recherche })
+                setCriteres((c) => ({ ...c, recherche }))
               }
               libelle={t("permissions.filtres.recherche")}
               placeholder={t("permissions.filtres.recherchePlaceholder")}
@@ -517,7 +578,7 @@ export function ListePermissions() {
             <FiltreTableau
               valeur={criteres.module}
               onChangement={(module) =>
-                setCriteres({ ...criteres, module })
+                setCriteres((c) => ({ ...c, module }))
               }
               libelle={t("permissions.filtres.module")}
               libelleTous={t("permissions.filtres.moduleTous")}
@@ -529,10 +590,10 @@ export function ListePermissions() {
             <FiltreTableau
               valeur={criteres.etat}
               onChangement={(etat) =>
-                setCriteres({
-                  ...criteres,
+                setCriteres((c) => ({
+                  ...c,
                   etat: etat as CriteresPermissions["etat"],
-                })
+                }))
               }
               libelle={t("permissions.filtres.etat")}
               libelleTous={t("permissions.filtres.etatTous")}
@@ -565,6 +626,7 @@ export function ListePermissions() {
               variante="primaire"
               type="submit"
               form={ID_FORM_CREATION}
+              disabled={!moduleDeduit}
               enCours={creation.isPending}
             >
               {t("permissions.creerConfirmer")}
@@ -576,8 +638,14 @@ export function ListePermissions() {
           id={ID_FORM_CREATION}
           noValidate
           onSubmit={formulaireCreation.handleSubmit((valeurs) => {
+            if (!moduleDeduit) return;
             setErreurAction(null);
-            creation.mutate({ ...valeurs, modules: modulesCreation });
+            creation.mutate({
+              code: valeurs.code,
+              libelle: valeurs.libelle,
+              description: valeurs.description,
+              modules: [moduleDeduit.code],
+            });
           })}
           className="flex flex-col gap-4"
         >
@@ -587,16 +655,33 @@ export function ListePermissions() {
 
           {erreurAction && <Alerte type="erreur">{erreurAction}</Alerte>}
 
-          <Champ
-            libelle={t("permissions.champs.code")}
-            taille="md"
-            required
-            placeholder={t("permissions.placeholderCode")}
-            aide={t("permissions.codeAide")}
-            erreur={erreursCreation.code?.message}
-            disabled={creation.isPending}
-            {...formulaireCreation.register("code")}
-          />
+          <div>
+            <Champ
+              libelle={t("permissions.champs.code")}
+              taille="md"
+              required
+              placeholder={t("permissions.placeholderCode")}
+              aide={t("permissions.codeAide")}
+              erreur={erreursCreation.code?.message}
+              disabled={creation.isPending}
+              {...formulaireCreation.register("code")}
+            />
+            {moduleDeduit && (
+              <p className="text-xs text-neutral-600 mt-1">
+                {t("permissions.moduleDeduit", {
+                  libelle: moduleDeduit.libelle,
+                  code: moduleDeduit.code,
+                })}
+              </p>
+            )}
+            {prefixeInconnu && (
+              <p className="text-xs text-erreur mt-1">
+                {t("permissions.moduleInconnu", {
+                  code: prefixeSaisi ?? "",
+                })}
+              </p>
+            )}
+          </div>
 
           <Champ
             libelle={t("permissions.champs.libelle")}
@@ -618,37 +703,6 @@ export function ListePermissions() {
               disabled={creation.isPending}
               {...formulaireCreation.register("description")}
             />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-semibold text-neutral-800">
-              {t("permissions.champs.modules")}
-            </span>
-            <div className="flex flex-col gap-2 max-h-48 overflow-y-auto rounded-md border border-neutral-200 p-3">
-              {modulesCatalogue.map((mod) => (
-                <label
-                  key={mod.id}
-                  className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer"
-                >
-                  <Checkbox
-                    checked={modulesCreation.includes(mod.code)}
-                    onCheckedChange={(coche) => {
-                      if (coche) {
-                        setModulesCreation((actuels) => [...actuels, mod.code]);
-                      } else {
-                        setModulesCreation((actuels) =>
-                          actuels.filter((c) => c !== mod.code),
-                        );
-                      }
-                    }}
-                  />
-                  <span>{mod.libelle}</span>
-                  <span className="font-mono text-xs text-neutral-500">
-                    ({mod.code})
-                  </span>
-                </label>
-              ))}
-            </div>
           </div>
         </form>
       </Modale>
@@ -722,13 +776,14 @@ export function ListePermissions() {
         )}
       </Modale>
 
-      {/* Modale de changement des modules */}
+      {/* Modale de confirmation de rattachement */}
       <Modale
-        ouverte={action?.type === "modules"}
+        ouverte={action?.type === "rattacher"}
         titre={
-          action?.type === "modules"
-            ? t("permissions.modulesTitre", {
+          action?.type === "rattacher"
+            ? t("permissions.rattacherTitre", {
                 code: action.permission.code,
+                module: action.module.libelle,
               })
             : ""
         }
@@ -742,55 +797,76 @@ export function ListePermissions() {
               variante="primaire"
               enCours={affectationModules.isPending}
               onClick={() => {
-                if (action?.type === "modules") {
+                if (action?.type === "rattacher") {
                   setErreurAction(null);
                   affectationModules.mutate({
                     id: action.permission.id,
-                    modules: modulesChoisis,
+                    modules: [action.module.code],
                   });
                 }
               }}
             >
-              {t("permissions.modulesConfirmer")}
+              {t("permissions.rattacherConfirmer")}
             </Bouton>
           </>
         }
       >
-        {action?.type === "modules" && (
+        {action?.type === "rattacher" && (
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2 max-h-60 overflow-y-auto rounded-md border border-neutral-200 p-3">
-              {modulesCatalogue.map((mod) => {
-                const estCoche = modulesChoisis.includes(mod.code);
-                return (
-                  <label
-                    key={mod.id}
-                    className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer"
-                  >
-                    <Checkbox
-                      checked={estCoche}
-                      onCheckedChange={(coche) => {
-                        if (coche) {
-                          setModulesChoisis((m) => [...m, mod.code]);
-                        } else {
-                          setModulesChoisis((m) =>
-                            m.filter((c) => c !== mod.code),
-                          );
-                        }
-                      }}
-                    />
-                    <span>{mod.libelle}</span>
-                    <span className="font-mono text-xs text-neutral-500">
-                      ({mod.code})
-                    </span>
-                  </label>
-                );
+            <Alerte type="information">
+              {t("permissions.rattacherTexte", {
+                code: action.permission.code,
+                module: action.module.libelle,
               })}
-            </div>
+            </Alerte>
+            {erreurAction && <Alerte type="erreur">{erreurAction}</Alerte>}
+          </div>
+        )}
+      </Modale>
 
-            <p className="text-xs text-neutral-600">
-              {t("permissions.modulesTexte")}
-            </p>
-
+      {/* Modale de confirmation de détachement */}
+      <Modale
+        ouverte={action?.type === "detacher"}
+        titre={
+          action?.type === "detacher"
+            ? t("permissions.detacherTitre", {
+                code: action.permission.code,
+                module: action.moduleLibelle,
+              })
+            : ""
+        }
+        onFermer={fermer}
+        actions={
+          <>
+            <Bouton variante="ghost" onClick={fermer}>
+              {t("permissions.annuler")}
+            </Bouton>
+            <Bouton
+              variante="danger"
+              enCours={affectationModules.isPending}
+              onClick={() => {
+                if (action?.type === "detacher") {
+                  setErreurAction(null);
+                  affectationModules.mutate({
+                    id: action.permission.id,
+                    modules: [],
+                  });
+                }
+              }}
+            >
+              {t("permissions.detacherConfirmer")}
+            </Bouton>
+          </>
+        }
+      >
+        {action?.type === "detacher" && (
+          <div className="flex flex-col gap-4">
+            <Alerte type="avertissement">
+              {t("permissions.detacherTexte", {
+                code: action.permission.code,
+                module: action.moduleLibelle,
+              })}
+            </Alerte>
             {erreurAction && <Alerte type="erreur">{erreurAction}</Alerte>}
           </div>
         )}
@@ -881,6 +957,9 @@ export function ListePermissions() {
               {t("permissions.supprimerTexte", {
                 code: action.permission.code,
               })}
+            </p>
+            <p className="text-sm font-medium text-neutral-800">
+              {t("permissions.suppressionRoles")}
             </p>
 
             <Champ
