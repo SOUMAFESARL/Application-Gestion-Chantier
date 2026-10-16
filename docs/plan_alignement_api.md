@@ -162,7 +162,7 @@ journalisé** ; la suppression reste coupée en production
 | **F1** Collaborateurs réels | Branchement de la liste des collaborateurs sur l'API réelle, actions de suspension / réactivation / suppression, retrait de `simulationCollaborateurs.ts`. | **Fait le 14/10/2026.** Vérifié : actions fonctionnelles, affichage cohérent, zéro erreur lint/typecheck. |
 | **B2** Suppression entreprise | Garantie de suppression d'entreprise même avec collaborateurs suspendus ou supprimés logiquement. | **Fait le 14/10/2026.** Vérifié : cascade propre au nettoyage et intégrité référentielle préservée. |
 | **F2** Renvoi d'invitation | Action de renvoi d'invitation branchée sur `POST /collaborateurs/{id}/renvoyer/` depuis la liste. | **Fait le 14/10/2026.** Vérifié : toast de confirmation, limitation de fréquence gérée. |
-| **F3** Rôles réels | Matrice des permissions de l'entreprise branchée sur l'API réelle, retrait du code mort de projet, retrait de `simulationRoles.ts`. | **Fait le 15/10/2026.** Vérifié : lecture et écriture des rôles sur le serveur, zéro simulation. |
+| **F3** Rôles réels | Matrice des permissions de l'entreprise branchée sur l'API réelle, retrait du code mort de projet, retrait de `simulationRoles.ts`. | **Lecture faite le 15/10/2026 ; écriture cassée** (douze modules en dur, refusés par le serveur) **jusqu'au chantier « droits »** (16/10/2026, F4). |
 | **B3** Téléphones entreprise backend | Modèle `TelephoneEntreprise` multi-canaux (1 à 5 numéros), format international E.164, réconciliation intelligente et unicité. | **Fait le 15/10/2026.** 17 tests pytest au vert, migration schémas partagés exécutée. |
 | **F4** Téléphones entreprise frontend | `ChampTelephone` avec prop `international` (E.164 mondial), saisie de 1 à 5 numéros avec libellé et désignation du principal, fiche back-office. | **Fait le 15/10/2026.** Vérifié : persistance JSON et multipart, affichage back-office, 390 px responsive. |
 | **F5** Logo visible sur téléphone | Affichage de l'avatar du logo d'entreprise sur mobile (`app/(entreprise)/layout.tsx`) avec accessibilité `aria-label`. | **Fait le 15/10/2026.** Vérifié : avatar visible à 390 px, bascule nom à `md:inline`. |
@@ -215,6 +215,50 @@ journalisé** ; la suppression reste coupée en production
 | **F8** Clôture | Clôture finale du lot 4 : mise à jour des README, validation de la disparition de toute simulation dans le domaine Projets, plan d'alignement synchronisé. | **Fait le 15/10/2026.** Vérifié : build, typecheck, lint 100% verts, 0 branche simulée restante. |
 
 *Lot 4 fusionné dans `develop` des deux dépôts le 15/10/2026, **non poussé**.*
+
+### Chantier « droits » — rôles, modules, permissions (16/10/2026)
+
+Le backend savait déjà tout faire (matrice dynamique, portée, B-08, catalogue). Le frontend affichait douze modules écrits en dur (dont sept inexistants côté serveur, faisant échouer toute écriture), ne lisait que des niveaux sans codes de permission, assignait une portée restreinte à tout non-DG, réservait l'écran des rôles au DG seul, et permettait l'écrasement silencieux des permissions par un accès par défaut. Le chantier aligne intégralement le frontend et le service back-office sur le catalogue dynamique et les codes de permissions réels.
+
+| # | Décision |
+|---|---|
+| R0 | Le défaut serveur passe en premier. B1 (Claude, en production) ; B2 (alignement service super admin catalogue) |
+| R2 | Les modules d'un écran viennent **du serveur** (`GET /modules/`), plus de liste en dur |
+| R3b | La matrice de la page est un **résumé en lecture** (niveaux). La modale édite **permission par permission**, avec des raccourcis Aucun / Lecture / Saisie / Validation. L'écran envoie la **liste complète** `permissions` |
+| R4 | Portée : badge, choix à la création, changement **DG seul**, confirmé (personnes touchées ; passer en « entreprise » désactive leurs affectations de chantier) |
+| R5 | Rôle DG en lecture seule pour tous ; rôles système modifiables par le DG seul ; l'AD ne voit que les permissions qu'il détient ; le module `administration` n'apparaît jamais ; les avertissements du serveur s'affichent |
+| R6 | L'option `supprimer_collaborateurs` de la suppression d'un rôle **n'est pas exposée** |
+| R7 | Les droits du frontend se lisent dans `permissions` (codes) et `portee` du profil ; `ENTREPRISE` = tous les chantiers ; chaque geste fin suit son code |
+| R8 | Back-office : un module montre son ordre, son icône et ses permissions ; les rattacher passe par `PATCH /admins/modules/{id}/permissions/`, avec confirmation de la propagation |
+| R9 | L'écran des permissions du back-office est aligné sur ce que B2 accepte |
+| R10 | Les modèles de rôles (`ModeleRole`) sont **hors périmètre** |
+| R11a | B1 poussé dès qu'il était prêt (fait le 16/10, CI verte, production à jour) |
+| D1 | Un AD qui ouvre un rôle portant une permission qu'il ne détient pas n'en modifie pas la matrice (lecture seule, avertissement) ; libellé et description restent éditables (B-08) |
+| D2 | Une permission `x.action` ne se rattache **qu'au module `x`** (règle préfixe D2) |
+| D3 | Les codes de permission restent **en minuscules**, tels que le REGISTRE les écrit |
+| D4 | `/parametres/roles` s'ouvre à `administration.roles_gerer`, `/parametres/collaborateurs` à `administration.collaborateurs_voir` ; `/abonnement` et `/parametres/configuration` restent au DG |
+| D5 | Les écrans ne changent pas de type pour les montants : règle `peutVoirMontants` décidant de leur affichage (`projets.voir_montants`) ; tirets discrets si non détenu |
+
+| Tâche | Contenu | État |
+|---|---|---|
+| **B1** Permissions backend | Droits B-04/B-08/B-09/B-10, endpoints de rôles, permissions par défaut et codes. | **Fait le 16/10/2026** par Claude. Poussé et déployé en production (`6ec1880`). |
+| **Garde** `bf3ae8d` | Garde `acces_par_defaut` interdisant l'écrasement des permissions fines du module. | **Fait le 16/10/2026** par Claude. Fusionné dans develop (`bf3ae8d`). |
+| **B2** Catalogue super admin | Alignement de l'administration plateforme sur `catalogue.CataloguePermission` (minuscules, unicité module D2, suppression). | **Fait le 16/10/2026** par Antigravity. 177 tests acceptation au vert, 12 tests B2 au vert. |
+| **F1** Droits profil & portée | Lecture des droits dans `permissions` (codes) et `portee` du profil ; accès `/parametres/roles` (AD) et `/parametres/collaborateurs` (AD) ; filtres projets selon portée `ENTREPRISE`. | **Fait le 16/10/2026** par Antigravity. Vérifié : navigation conditionnée (DG/AD/CP), listing chantiers étendu pour AD/DO, responsive 390 px et desktop. |
+| **F2** Gestes par codes | Conditionnement de chaque geste fin de `projets` à son code explicite (`projets.creer`, `projets.modifier`, `projets.reprogrammer`, `projets.importer`, `projets.cloturer`, etc.) ; bannière lecture seule. | **Fait le 16/10/2026** par Antigravity. Vérifié : boutons grisés/absents pour rôles restreints, feedback complet sur projet, 390 px et desktop. |
+| **F3** Montants conditionnels | Masquage des montants budgétaires et financiers via `peutVoirMontants(profil)` (`projets.voir_montants`) ; tirets discrets `—` et alertes sans montants. | **Fait le 16/10/2026** par Antigravity. Vérifié : CT sans montants (0 chiffre visible dans météo, fiches, lots, équipes), DG avec montants FCFA, 390 px et desktop. |
+| **F4** Écran des rôles | Matrice résumé en lecture dynamique depuis `GET /modules/`, modale d'édition permission par permission, raccourcis par niveau, gestion des droits DG vs AD. | **Fait le 16/10/2026** par Antigravity. Vérifié : suppression des 12 modules en dur, affichage des avertissements serveur, édition unitaire fonctionnelle, 390 px et desktop. |
+| **F5** Portée du rôle | Badge de portée dans la matrice, sélecteur radio à la création, modification réservée au DG avec dialogue de confirmation 409 `confirmation_requise` listant les collaborateurs touchés. | **Fait le 16/10/2026** par Antigravity. Vérifié : badge PROJET/ENTREPRISE, blocage AD, ré-envoi `confirmer: true`, 390 px et desktop. |
+| **F6** Modules back-office | Affichage ordre, icône et permissions rattachées dans la liste des modules, modale de rattachement avec diff et avertissement des révocations inter-entreprises. | **Fait le 16/10/2026** par Antigravity. Vérifié : tri par ordre, validation icône kebab-case, flux de confirmation à deux étapes, 390 px et desktop. |
+| **F7** Permissions back-office | Code déduisant automatiquement le module (préfixe D2), boutons d'action uniques « Rattacher » / « Détacher », confirmation de révocation à la suppression. | **Fait le 16/10/2026** par Antigravity. Vérifié : saisie assistée avec blocage si module inconnu, rattachement/détachement conforme D2, 390 px et desktop. |
+
+#### Reste ouvert
+
+- **Abonnement et configuration de l'entreprise réservés au DG (D4)** : `/abonnement` et `/parametres/configuration` restent réservés au rôle DG ; à rouvrir si l'AD doit y accéder (`administration.abonnement_voir`, `administration.factures_voir`).
+- **Modèles de rôles (`ModeleRole`) sans API (R10)** : ils restent hors périmètre tant qu'aucun besoin de gestion dynamique des gabarits n'est exprimé.
+- **Option `supprimer_collaborateurs` non exposée (R6)** : la suppression d'un rôle n'expose pas de réaffectation automatique ou suppression de masse des collaborateurs.
+- **Relevé de F3 — composants sans montants à masquer** : les fichiers audités dans le périmètre Projets ne présentant aucun montant direct (`app/(entreprise)/projets/[id]/activites/page.tsx`, `components/projets/fiche/activites/ActiviteLigne.tsx`, `components/projets/fiche/activites/ActivitesTableau.tsx`, `components/projets/fiche/lots/LotModal.tsx`, `components/projets/fiche/reprogrammation/ReprogrammerProjetModal.tsx`, etc.) ont été vérifiés sans modification inutile.
+- **Aucun autre écart non traité** : l'ensemble des règles de sécurité et de filtrage RBAC définies par B1 et B2 sont intégralement répercutées.
 
 ### Lot 5 — Tableau de bord
 
