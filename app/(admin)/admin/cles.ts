@@ -22,6 +22,7 @@ export const CLES_ADMINISTRATION = {
   modules: () => ["administration", "modules"] as const,
   permissions: () => ["administration", "permissions"] as const,
   rolesSysteme: () => ["administration", "roles-systeme"] as const,
+  referentiels: (categorie: string) => ["administration", "referentiels", categorie] as const,
   messagerie: () => ["administration", "messagerie"] as const,
   journal: (filtres: FiltresJournalPlateforme) =>
     ["administration", "journal", filtres] as const,

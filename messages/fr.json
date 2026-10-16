@@ -348,7 +348,8 @@
       "titreMessagerie": "Messagerie — Administration",
       "titreJournal": "Journal de la plateforme — Administration",
       "titrePermissions": "Permissions — Administration",
-      "titreRolesSysteme": "Rôles système — Administration"
+      "titreRolesSysteme": "Rôles système — Administration",
+      "titreReferentiels": "Référentiels — Administration"
     },
     "motDePasseOublie": {
       "accroche": "Indiquez votre adresse professionnelle : un lien de réinitialisation vous y sera envoyé.",
@@ -381,6 +382,7 @@
       "parametrageModules": "Modules & accès",
       "parametragePermissions": "Permissions",
       "parametrageRolesSysteme": "Rôles système",
+      "parametrageReferentiels": "Référentiels",
       "parametrageTarifs": "Tarifs abonnements",
       "parametrageIdentite": "Paramètres globaux",
       "parametrageMessagerie": "Messagerie"
@@ -647,6 +649,38 @@
         "titre": "Catalogue des permissions",
         "description": "Les droits fins que les rôles des entreprises peuvent porter, et les modules qui les portent."
       },
+      "referentiels": {
+        "titre": "Référentiels",
+        "description": "Les types de projet et les noms de lot proposés à toutes les entreprises. Elles peuvent y ajouter les leurs, mais pas supprimer ceux d’ici.",
+        "types-projet": {
+          "titre": "Types de projet",
+          "nomFichier": "types-projet",
+          "vide": "Aucun type de projet.",
+          "ajouter": "Ajouter un type de projet",
+          "aideGroupe": "Facultatif : un titre pour regrouper les types dans la liste."
+        },
+        "lots": {
+          "titre": "Noms de lot",
+          "nomFichier": "noms-de-lot",
+          "vide": "Aucun nom de lot.",
+          "ajouter": "Ajouter un nom de lot",
+          "aideGroupe": "Le corps d’état, titre du groupe dans la liste (ex. : Lots architecturaux)."
+        },
+        "colonneLibelle": "Libellé",
+        "colonneGroupe": "Groupe",
+        "colonneCode": "Code",
+        "rechercher": "Rechercher",
+        "modifier": "Modifier",
+        "supprimer": "Supprimer",
+        "annuler": "Annuler",
+        "enregistrer": "Enregistrer",
+        "titreModification": "Modifier l’entrée",
+        "titreSuppression": "Retirer de la liste",
+        "confirmationSuppression": "« {libelle} » ne sera plus proposé aux entreprises. Les projets et les lots qui l’utilisent le gardent.",
+        "succes": "Liste mise à jour pour toutes les entreprises.",
+        "succesSuppression": "Entrée retirée de la liste.",
+        "erreur": "L’opération a échoué. Réessayez."
+      },
       "rolesSysteme": {
         "titre": "Rôles système",
         "description": "Les rôles proposés à toutes les entreprises. Une création ou un changement de libellé s’applique partout ; les modules ne valent que pour les entreprises à venir.",
@@ -898,7 +932,10 @@
         "CREATION_ROLE_SYSTEME": "Création d’un rôle système",
         "MODIFICATION_ROLE_SYSTEME": "Modification d’un rôle système",
         "SUPPRESSION_ROLE_SYSTEME": "Suppression d’un rôle système",
-        "PROPAGATION_ROLES_SYSTEME": "Propagation des rôles système"
+        "PROPAGATION_ROLES_SYSTEME": "Propagation des rôles système",
+        "AJOUT_REFERENTIEL": "Ajout à un référentiel",
+        "MODIFICATION_REFERENTIEL": "Modification d’un référentiel",
+        "SUPPRESSION_REFERENTIEL": "Retrait d’un référentiel"
       }
     },
     "permissions": {
@@ -2426,6 +2463,37 @@
       "enregistrer": "Enregistrer",
       "enregistrementEnCours": "Enregistrement…"
     },
+    "referentiels": {
+      "selectionner": "Sélectionner…",
+      "rechercher": "Rechercher ou saisir…",
+      "aucun": "Aucun résultat.",
+      "ajouter": "Ajouter « {saisie} » à la liste",
+      "groupeEntreprise": "Ajoutés par l’entreprise",
+      "erreurAjout": "L’ajout à la liste a échoué. Réessayez.",
+      "gestion": {
+        "titrePage": "Listes de l’entreprise",
+        "descriptionPage": "Les types de projet et les noms de lot proposés dans les formulaires. Vos ajouts sont proposés à tous vos collaborateurs ; ceux de la plateforme ne se retirent pas.",
+        "titre": {
+          "types-projet": "Types de projet",
+          "lots": "Noms de lot"
+        },
+        "placeholder": {
+          "types-projet": "Nouveau type de projet",
+          "lots": "Nouveau nom de lot"
+        },
+        "aide": "Plateforme : proposé à toutes les entreprises, verrouillé. Les autres sont les vôtres.",
+        "aidePlateforme": "Défini par la plateforme : il ne se retire pas.",
+        "plateforme": "Plateforme",
+        "ajouter": "Ajouter",
+        "retirer": "Retirer",
+        "annuler": "Annuler",
+        "titreRetrait": "Retirer de la liste",
+        "confirmationRetrait": "« {libelle} » ne sera plus proposé. Les projets et les lots qui l’utilisent le gardent.",
+        "succesAjout": "Ajouté à la liste.",
+        "succesRetrait": "Retiré de la liste.",
+        "erreur": "L’opération a échoué. Réessayez."
+      }
+    },
     "reprogrammation": {
       "titre": "Modifier les dates",
       "titreObjet": "Modifier les dates : {objet}",
@@ -3589,6 +3657,7 @@
       "chargementEntreprise": "Chargement…",
       "collaborateurs": "Collaborateurs",
       "configuration": "Configuration",
+      "listes": "Listes",
       "contrats": "Contrats",
       "deconnexion": "Se déconnecter",
       "descContrats": "Sous-traitance & marchés",

@@ -13,6 +13,7 @@ export type SectionParametrage =
   | "modules"
   | "permissions"
   | "rolesSysteme"
+  | "referentiels"
   | "tarifs"
   | "identite"
   | "messagerie";

@@ -529,3 +529,16 @@ export interface DemandeRoleSysteme {
   portee: PorteeRoleSysteme;
   modules: string[];
 }
+
+/** Les référentiels de la plateforme, proposés à toutes les entreprises. */
+export const CATEGORIES_REFERENTIEL_PLATEFORME = ["types-projet", "lots"] as const;
+
+export type CategorieReferentielPlateforme = (typeof CATEGORIES_REFERENTIEL_PLATEFORME)[number];
+
+export interface EntreeReferentielPlateforme {
+  id: string;
+  code: string;
+  libelle: string;
+  /** Le titre de groupe — le corps d'état d'un lot. */
+  groupe: string;
+}

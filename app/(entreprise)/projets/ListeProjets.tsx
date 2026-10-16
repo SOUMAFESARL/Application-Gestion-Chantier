@@ -30,7 +30,6 @@ import {
   echeanceDepassee,
   filtrerProjets,
   largeurJauge,
-  libelleTypeProjet,
   niveauAvancement,
   nomAbrege,
   ORDRE_STATUTS,
@@ -40,6 +39,7 @@ import {
   statutsPresents,
   valeursExportProjet,
 } from "@/features/projets/regles";
+import { REFERENTIEL_TYPES_PROJET, useReferentiel } from "@/features/projets/referentiels";
 import type { CriteresProjets, NiveauAvancement } from "@/features/projets/regles";
 import type { Projet, StatutProjet } from "@/features/projets/types";
 import { ABSENT, couleurIndiceSante, formaterDate, formaterMillions, formaterMontant } from "@/lib/format";
@@ -90,6 +90,7 @@ const colonne = aideColonnes<Projet>();
 
 export function ListeProjets() {
   const t = useTranslations("projets");
+  const { libelle: libelleType } = useReferentiel(REFERENTIEL_TYPES_PROJET);
   const clientRequetes = useQueryClient();
   const [tiroirOuvert, setTiroirOuvert] = useState(false);
   const [criteres, setCriteres] = useState<CriteresProjets>(CRITERES_VIDES);
@@ -167,7 +168,7 @@ export function ListeProjets() {
     const libelles = {
       statut: (statut: StatutProjet) => t(`statut.${statut}`),
       typeProjet: (type: NonNullable<Projet["typeProjet"]>) =>
-        libelleTypeProjet(type, (code) => t(`tiroirCreation.typeProjet.${code}`)),
+        libelleType(type),
       formaterDate,
     };
     const colonnes = COLONNES_EXPORT_PROJETS.map((cle, rang) => ({ cle, rang }))
@@ -181,7 +182,7 @@ export function ListeProjets() {
       nomFichier: t("export.nomFichier"),
       colonnes,
     };
-  }, [t, voitMontants]);
+  }, [t, voitMontants, libelleType]);
 
   const colonnes = useMemo(
     () =>
@@ -212,7 +213,7 @@ export function ListeProjets() {
             const type = getValue();
             return type ? (
               <Badge variante="neutre">
-                {libelleTypeProjet(type, (code) => t(`tiroirCreation.typeProjet.${code}`))}
+                {libelleType(type)}
               </Badge>
             ) : (
               <span className="text-neutral-500">{ABSENT}</span>
@@ -355,7 +356,7 @@ export function ListeProjets() {
           },
         }),
       ]),
-    [t, modifier, basculerSuspension, supprimer, peutSurProjet, voitMontants],
+    [t, modifier, basculerSuspension, supprimer, peutSurProjet, voitMontants, libelleType],
   );
 
   return (

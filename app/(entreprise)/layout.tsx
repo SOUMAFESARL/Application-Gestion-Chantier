@@ -22,6 +22,7 @@ import {
   Sun,
   Tag,
   Truck,
+  ListChecks,
   UserRound,
   Users,
 } from "lucide-react";
@@ -347,6 +348,7 @@ export default function LayoutApp({ children }: LayoutAppProps) {
   const estSurCollaborateurs = pathname.startsWith("/parametres/collaborateurs");
   const estSurRoles = pathname.startsWith("/parametres/roles");
   const estSurConfigurationEntreprise = pathname.startsWith("/parametres/configuration");
+  const estSurListes = pathname.startsWith("/parametres/listes");
 
   const roleLibelle = profil
     ? profil.is_dg
@@ -667,6 +669,7 @@ export default function LayoutApp({ children }: LayoutAppProps) {
               ouverte. */}
           {(voit("/parametres/collaborateurs") ||
             voit("/parametres/roles") ||
+            voit("/parametres/listes") ||
             voit("/parametres/configuration")) && (
             <SidebarGroup>
               <SidebarGroupLabel>{t("parametres")}</SidebarGroupLabel>
@@ -688,6 +691,16 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                         <Link href="/parametres/roles">
                           <ShieldCheck />
                           <span>{t("roles")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {voit("/parametres/listes") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={estSurListes} tooltip={t("listes")}>
+                        <Link href="/parametres/listes">
+                          <ListChecks />
+                          <span>{t("listes")}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

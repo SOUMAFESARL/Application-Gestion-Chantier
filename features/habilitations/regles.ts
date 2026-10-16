@@ -86,6 +86,7 @@ export const CONDITIONS_ROUTES: readonly (readonly [string, ConditionAcces])[] =
   ["/documents", permission("ged.lire")],
   ["/parametres/collaborateurs", permission("administration.collaborateurs_voir")],
   ["/parametres/roles", permission("administration.roles_gerer")],
+  ["/parametres/listes", permission("projets.creer")],
   ["/parametres", DIRECTION],
   ["/abonnement", DIRECTION],
 ];

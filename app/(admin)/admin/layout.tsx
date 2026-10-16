@@ -76,6 +76,7 @@ const SOUS_MENU_PARAMETRAGE = [
   { href: "/admin/parametres/modules", cle: "parametrageModules" },
   { href: "/admin/parametres/permissions", cle: "parametragePermissions" },
   { href: "/admin/parametres/roles", cle: "parametrageRolesSysteme" },
+  { href: "/admin/parametres/referentiels", cle: "parametrageReferentiels" },
   { href: "/admin/parametres/tarifs", cle: "parametrageTarifs" },
   { href: "/admin/parametres/globaux", cle: "parametrageIdentite" },
   { href: "/admin/parametres/messagerie", cle: "parametrageMessagerie" },

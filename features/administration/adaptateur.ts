@@ -65,6 +65,8 @@ import type {
   DemandeRoleSysteme,
   PorteeRoleSysteme,
   RoleSysteme,
+  CategorieReferentielPlateforme,
+  EntreeReferentielPlateforme,
 } from "./types";
 
 /* ------------------------------------------------------------------ *
@@ -1335,4 +1337,51 @@ export async function modifierRoleSysteme(
 /** `DELETE /admins/roles-systeme/{id}/` — il devient personnalisé dans chaque entreprise. */
 export async function supprimerRoleSysteme(id: string): Promise<void> {
   await apiAdministration.supprimer(`/admins/roles-systeme/${id}/`);
+}
+
+/* ------------------------------------------------------------------ *
+ * Référentiels de la plateforme (types de projet, noms de lot)
+ * ------------------------------------------------------------------ */
+
+/** `GET /admins/referentiels/{categorie}/`. */
+export async function listerReferentielPlateforme(
+  categorie: CategorieReferentielPlateforme,
+  signal?: AbortSignal,
+): Promise<EntreeReferentielPlateforme[]> {
+  return apiAdministration.lire<EntreeReferentielPlateforme[]>(
+    `/admins/referentiels/${categorie}/`,
+    undefined,
+    signal,
+  );
+}
+
+/** `POST /admins/referentiels/{categorie}/` — proposé aussitôt à toutes les entreprises. */
+export async function ajouterReferentielPlateforme(
+  categorie: CategorieReferentielPlateforme,
+  saisie: { libelle: string; groupe: string },
+): Promise<EntreeReferentielPlateforme> {
+  return apiAdministration.creer<EntreeReferentielPlateforme>(
+    `/admins/referentiels/${categorie}/`,
+    saisie,
+  );
+}
+
+/** `PATCH /admins/referentiels/{categorie}/{id}/` — libellé et groupe ; le code reste. */
+export async function modifierReferentielPlateforme(
+  categorie: CategorieReferentielPlateforme,
+  id: string,
+  saisie: { libelle: string; groupe: string },
+): Promise<EntreeReferentielPlateforme> {
+  return apiAdministration.modifier<EntreeReferentielPlateforme>(
+    `/admins/referentiels/${categorie}/${id}/`,
+    saisie,
+  );
+}
+
+/** `DELETE /admins/referentiels/{categorie}/{id}/` — les projets existants gardent leur valeur. */
+export async function supprimerReferentielPlateforme(
+  categorie: CategorieReferentielPlateforme,
+  id: string,
+): Promise<void> {
+  await apiAdministration.supprimer(`/admins/referentiels/${categorie}/${id}/`);
 }
