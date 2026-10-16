@@ -164,28 +164,25 @@ export function appliquerRaccourci(
   return Array.from(ensemble).sort();
 }
 
-/** Le raccourci que les codes du module réalisent exactement, ou `null` (une combinaison libre). */
+/**
+ * Le raccourci que les codes **de base** du module réalisent exactement, ou `null` (une
+ * combinaison libre). Les codes fins (`projets.creer`…) n'entrent pas dans la comparaison : un
+ * raccourci ne les touche pas. « Aucun » : plus aucun code du module, fin ou de base.
+ *
+ * Quand deux raccourcis cochent les mêmes codes (Pilotage n'a que `pilotage.lire` : lecture,
+ * saisie et validation y reviennent au même), le plus bas l'emporte.
+ */
 export function raccourciCourant(codes: string[], module: ModuleCatalogue): Raccourci | null {
-  const codesDuModuleActifs = new Set(
-    codes
-      .map((c) => c.toLowerCase())
-      .filter((c) => module.permissions.some((p) => p.code.toLowerCase() === c)),
-  );
+  const codesDuModule = codes
+    .map((c) => c.toLowerCase())
+    .filter((c) => module.permissions.some((p) => p.code.toLowerCase() === c));
 
-  // Si aucun code du module n'est actif
-  if (codesDuModuleActifs.size === 0) {
-    return "aucun";
-  }
+  if (codesDuModule.length === 0) return "aucun";
 
-  // Tester chacun des autres raccourcis
-  for (const r of ["validation", "saisie", "lecture"] as const) {
+  const deBase = new Set(codesDuModule.filter((c) => accesDuCode(c) !== null));
+  for (const r of ["lecture", "saisie", "validation"] as const) {
     const attendus = codesDuRaccourci(module, r);
-    if (
-      attendus.length === codesDuModuleActifs.size &&
-      attendus.every((c) => codesDuModuleActifs.has(c))
-    ) {
-      return r;
-    }
+    if (attendus.length === deBase.size && attendus.every((c) => deBase.has(c))) return r;
   }
 
   return null;

@@ -105,14 +105,11 @@ export interface DemandeCreationAdministrateur {
  *
  * **Le catalogue, pas le droit d'accès.** Le back-office décrit ici ce que le
  * produit contient ; ce qu'un utilisateur peut y faire se décide dans chaque
- * entreprise, par ses rôles (`features/roles`), avec le vocabulaire fixe
- * lecture / saisie / validation.
+ * entreprise, par ses rôles (`features/roles`), permission par permission.
  *
- * `accesParDefaut` n'y déroge pas : c'est une **valeur de départ**, dans ce
- * même vocabulaire, que le serveur pose sur les rôles non système d'une
- * entreprise quand le module lui arrive (ou quand elle crée un rôle). Chaque
- * entreprise la change ensuite comme elle l'entend ; la modifier ici ne
- * réécrit pas les rôles existants.
+ * Les permissions **rattachées** au module (`permissions`) sont celles que les
+ * entreprises peuvent accorder. En rattacher une ne l'accorde à personne ; en
+ * retirer une la retire de tous les rôles, dans toutes les entreprises.
  *
  * `code` est l'identifiant stable que le serveur et les rôles des entreprises
  * utilisent (`projets`, `finance`…) : dérivé du libellé à la création, il ne

@@ -105,7 +105,8 @@ export function EditeurPermissions({
                         {perm.libelle}
                         <span className="font-mono text-neutral-400">{perm.code}</span>
                       </span>
-                      {perm.description && (
+                      {/* Le catalogue sert souvent une description identique au libellé. */}
+                      {perm.description && perm.description !== perm.libelle && (
                         <span className="mt-0.5 text-neutral-500">{perm.description}</span>
                       )}
                     </label>
