@@ -26,7 +26,6 @@ import {
   ErreurApi,
   lireJetonRenouvellement,
 } from "@/lib/api";
-import { accesNormalises } from "@/features/roles/regles";
 import { texte } from "@/i18n/horsReact";
 
 import { PLAFOND_JOURNAL } from "./regles";
@@ -47,6 +46,7 @@ import type {
   ModuleClient,
   ModulePlateforme,
   PageJournalPlateforme,
+  PermissionDuModule,
   PointEvolutionAbonnements,
   ProfilAdministrateur,
   ReglageMessagerie,
@@ -186,12 +186,22 @@ interface ChargeCompteAdministrateur {
   derniere_connexion: string | null;
 }
 
+interface ChargePermissionDuModule {
+  id: string;
+  code: string;
+  libelle: string;
+  description?: string;
+  ordre?: number;
+}
+
 interface ChargeModule {
   id: string;
   code: string;
   libelle: string;
   description: string;
-  acces_par_defaut: string[];
+  ordre?: number;
+  icone?: string;
+  permissions?: ChargePermissionDuModule[];
   statut: StatutModule;
   cree_le: string;
 }
@@ -314,14 +324,29 @@ function versCompte(charge: ChargeCompteAdministrateur): CompteAdministrateur {
   };
 }
 
+function versPermissionDuModule(charge: ChargePermissionDuModule): PermissionDuModule {
+  return {
+    id: charge.id,
+    code: charge.code,
+    libelle: charge.libelle,
+    description: charge.description ?? "",
+    ordre: charge.ordre ?? 0,
+  };
+}
+
 function versModule(charge: ChargeModule): ModulePlateforme {
+  const permissions = (charge.permissions ?? [])
+    .map(versPermissionDuModule)
+    .sort((a, b) => a.ordre - b.ordre || a.code.localeCompare(b.code));
+
   return {
     id: charge.id,
     code: charge.code,
     libelle: charge.libelle,
     description: charge.description,
-    // Un accès que le front ne connaît pas ne s'accorde pas par défaut.
-    accesParDefaut: accesNormalises(charge.acces_par_defaut),
+    ordre: charge.ordre ?? 0,
+    icone: charge.icone ?? "box",
+    permissions,
     statut: charge.statut,
     creeLe: new Date(charge.cree_le),
   };
@@ -331,7 +356,8 @@ function corpsModule(demande: DemandeModule) {
   return {
     libelle: demande.libelle,
     description: demande.description,
-    acces_par_defaut: demande.accesParDefaut,
+    ordre: demande.ordre,
+    icone: demande.icone,
   };
 }
 
@@ -704,6 +730,23 @@ export async function modifierModule(
   const corps = corpsModule(demande);
 
   const charge = await apiAdministration.modifier<ChargeModule>(`/admins/modules/${id}/`, corps);
+
+  return versModule(charge);
+}
+
+/**
+ * `PATCH /admins/modules/{id}/permissions/` — la liste **complète** des codes rattachés.
+ * Retirer un code le retire de tous les rôles de toutes les entreprises ; en ajouter un ne
+ * l'accorde à personne (B2).
+ */
+export async function rattacherPermissionsModule(
+  id: string,
+  codes: string[],
+): Promise<ModulePlateforme> {
+  const charge = await apiAdministration.modifier<ChargeModule>(
+    `/admins/modules/${id}/permissions/`,
+    { permissions: codes },
+  );
 
   return versModule(charge);
 }

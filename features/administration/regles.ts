@@ -627,12 +627,47 @@ export function filtrerModules(
   });
 }
 
-/** Les modules actifs d'abord, puis par libellé. */
+/** Les modules actifs d'abord, puis par ordre puis par libellé. */
 export function trierModules(modules: ModulePlateforme[]): ModulePlateforme[] {
   return [...modules].sort((a, b) => {
     if (a.statut !== b.statut) return a.statut === "ACTIF" ? -1 : 1;
-    return a.libelle.localeCompare(b.libelle, "fr");
+    return a.ordre - b.ordre || a.libelle.localeCompare(b.libelle, "fr");
   });
+}
+
+/**
+ * Les permissions du catalogue qui peuvent se rattacher à ce module : celles dont le code commence
+ * par `{module.code}.` (B2, D2), qu'elles y soient rattachées ou non.
+ */
+export function permissionsRattachables(
+  module: ModulePlateforme,
+  catalogue: PermissionPlateforme[],
+): PermissionPlateforme[] {
+  const prefixe = `${module.code.toLowerCase()}.`;
+  return catalogue
+    .filter((p) => p.code.toLowerCase().startsWith(prefixe))
+    .sort((a, b) => a.ordre - b.ordre || a.code.localeCompare(b.code));
+}
+
+/** Ce qu'un nouvel ensemble de codes change : à ajouter, à retirer. */
+export function differenceRattachement(
+  module: ModulePlateforme,
+  codes: string[],
+): { ajoutes: string[]; retires: string[] } {
+  const actuels = new Set(module.permissions.map((p) => p.code.toLowerCase()));
+  const cibles = new Set(codes.map((c) => c.toLowerCase()));
+
+  const ajoutes = codes
+    .map((c) => c.toLowerCase())
+    .filter((c) => !actuels.has(c))
+    .sort();
+
+  const retires = module.permissions
+    .map((p) => p.code.toLowerCase())
+    .filter((c) => !cibles.has(c))
+    .sort();
+
+  return { ajoutes, retires };
 }
 
 /** Les formats de logo acceptés : ceux qu'un navigateur affiche sans surprise. */

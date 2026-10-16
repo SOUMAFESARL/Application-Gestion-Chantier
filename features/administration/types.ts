@@ -17,7 +17,6 @@
  */
 
 import type { CodePlan as CodePlanCatalogue } from "@/features/abonnement/types";
-import type { AccesModule } from "@/features/roles/types";
 
 /**
  * Ce qu'un agent de la plateforme a le droit de faire.
@@ -122,13 +121,24 @@ export interface DemandeCreationAdministrateur {
  */
 export type StatutModule = "ACTIF" | "INACTIF";
 
+/** Une permission rattachée à un module du catalogue. */
+export interface PermissionDuModule {
+  id: string;
+  code: string;
+  libelle: string;
+  description: string;
+  ordre: number;
+}
+
 export interface ModulePlateforme {
   id: string;
   code: string;
   libelle: string;
   description: string;
-  /** Vide : « Aucun » — le module arrive fermé, chaque entreprise l'ouvre. */
-  accesParDefaut: AccesModule[];
+  ordre: number;
+  /** Nom d'une icône Lucide (`folder-kanban`) : le serveur le garde, les écrans clients le lisent. */
+  icone: string;
+  permissions: PermissionDuModule[];
   statut: StatutModule;
   creeLe: Date;
 }
@@ -137,7 +147,8 @@ export interface ModulePlateforme {
 export interface DemandeModule {
   libelle: string;
   description: string;
-  accesParDefaut: AccesModule[];
+  ordre: number;
+  icone: string;
 }
 
 /**
