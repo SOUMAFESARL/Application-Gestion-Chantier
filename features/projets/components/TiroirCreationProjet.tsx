@@ -54,6 +54,7 @@ import {
   type SaisieProjet,
   type ValeursProjet,
 } from "@/features/projets/validations";
+import { ComboboxTiers } from "@/features/tiers/components/ComboboxTiers";
 import type { ErreurApi } from "@/lib/api";
 import { formaterDuree, formaterSaisieMontant, formaterTailleFichier } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -343,10 +344,13 @@ export function TiroirCreationProjet({
                       {t("champMaitreOuvrage")} <Requis />
                     </FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
+                      <ComboboxTiers
+                        role="CLIENT_MOA"
+                        paysDefaut={pays}
+                        valeur={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
                         className={CHAMP}
-                        placeholder={t("champMaitreOuvragePlaceholder")}
                         disabled={enCours}
                       />
                     </FormControl>
@@ -361,10 +365,13 @@ export function TiroirCreationProjet({
                   <FormItem>
                     <FormLabel>{t("champMaitreOeuvre")}</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
+                      <ComboboxTiers
+                        role="MAITRE_OEUVRE"
+                        paysDefaut={pays}
+                        valeur={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
                         className={CHAMP}
-                        placeholder={t("champMaitreOeuvrePlaceholder")}
                         disabled={enCours}
                       />
                     </FormControl>

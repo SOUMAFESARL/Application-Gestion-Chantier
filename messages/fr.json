@@ -4987,5 +4987,20 @@
   "selecteurHeure": {
     "heures": "Heures",
     "minutes": "Minutes"
+  },
+  "tiersAjoutRapide": {
+    "selectionner": "Sélectionner…",
+    "rechercher": "Rechercher ou saisir un nom…",
+    "aucun": "Aucun résultat.",
+    "ajouter": "Ajouter « {saisie} »",
+    "titre": {
+      "CLIENT_MOA": "Nouveau maître d’ouvrage",
+      "MAITRE_OEUVRE": "Nouveau maître d’œuvre"
+    },
+    "raisonSociale": "Raison sociale",
+    "telephone": "Téléphone",
+    "annuler": "Annuler",
+    "creer": "Ajouter",
+    "erreur": "Le tiers n’a pas pu être ajouté. Réessayez."
   }
 }
