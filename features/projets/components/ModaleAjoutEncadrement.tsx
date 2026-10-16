@@ -37,7 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ajouterMembreEncadrement, listerAffectables } from "@/features/projets/adaptateur";
-import { FONCTIONS_AUTRE_MEMBRE } from "@/features/projets/regles";
+import { FONCTIONS_AUTRE_MEMBRE, ROLE_PROJET_PAR_FONCTION } from "@/features/projets/regles";
 import type { FonctionProjet, Intervenant, Projet } from "@/features/projets/types";
 import {
   LONGUEUR_MAX_ZONE,
@@ -110,8 +110,16 @@ export function ModaleAjoutEncadrement({
     ...projet.autresMembres.map((m) => m.intervenant.id),
   ]);
 
+  // Règle du 16/10/2026 : une place ne propose que les personnes qui ont ce rôle sur la
+  // plateforme ; « autre membre », celles qui ne tiennent aucune place d'encadrement.
+  const roleAttendu = ROLE_PROJET_PAR_FONCTION[fonction];
+  const ROLES_ENCADREMENT = ["CP", "CT", "CC", "DG"];
   const candidats = (requeteAffectables.data ?? []).filter(
-    (candidat) => !idsEnPlace.has(candidat.id) && candidat.role !== "DG",
+    (candidat) =>
+      !idsEnPlace.has(candidat.id) &&
+      (fonction === "AUTRE_MEMBRE"
+        ? !ROLES_ENCADREMENT.includes(candidat.roleCode)
+        : candidat.roleCode === roleAttendu),
   );
 
   const options = candidats.map((candidat) => ({

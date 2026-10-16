@@ -594,12 +594,15 @@ export async function modifierMembreEncadrement(
 export async function listerAffectables(
   projetId: string,
   signal?: AbortSignal,
-): Promise<{ id: string; nom: string; role: string }[]> {
-  const reponse = await api.lire<
-    { id: string; nom: string; role: string }[] | ChargeListe<{ id: string; nom: string; role: string }>
-  >(`/projets/${projetId}/collaborateurs-affectables/`, undefined, signal);
-  if (Array.isArray(reponse)) return reponse;
-  return reponse?.results ?? [];
+): Promise<{ id: string; nom: string; role: string; roleCode: string }[]> {
+  type Charge = { id: string; nom: string; role: string; role_code?: string };
+  const reponse = await api.lire<Charge[] | ChargeListe<Charge>>(
+    `/projets/${projetId}/collaborateurs-affectables/`,
+    undefined,
+    signal,
+  );
+  const charges = Array.isArray(reponse) ? reponse : (reponse?.results ?? []);
+  return charges.map(({ role_code, ...reste }) => ({ ...reste, roleCode: role_code ?? "" }));
 }
 
 export async function obtenirMeteo(params?: {
