@@ -193,8 +193,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
   const { modifier, basculerSuspension, supprimer, encadrer, retirerEncadrement, cadrer, modaux } =
     useGestionProjet(() => router.replace("/projets"));
   const fichePdf = useGenerationFicheProjet(requete.data);
-  const { droits, peut, peutSurProjet } = useDroits();
-  const voitFinance = peut("finance");
+  const { droits, peutSurProjet, voitMontants } = useDroits();
 
   const requeteProfil = useQuery({
     queryKey: ["profil-moi"],
@@ -373,7 +372,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
       <section
         className={cn(
           "grid gap-4 max-lg:grid-cols-1",
-          voitFinance || cadrable
+          voitMontants
             ? "grid-cols-4 max-2xl:grid-cols-2"
             : "grid-cols-3 max-xl:grid-cols-2",
         )}
@@ -382,7 +381,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
           projet={projet}
           onDefinir={cadrable ? () => cadrer(projet, "planning") : undefined}
         />
-        {(voitFinance || cadrable) && (
+        {voitMontants && (
           <CarteBudget
             projet={projet}
             onDefinir={cadrable ? () => cadrer(projet, "budget") : undefined}

@@ -14,7 +14,7 @@ import { listerProjets } from "@/features/projets/adaptateur";
 import { CLE_LISTE_PROJETS } from "@/features/projets/cles";
 import type { Projet } from "@/features/projets/types";
 
-import { peut, peutCode, peutSurProjet, projetsVisibles, routeAutorisee } from "../regles";
+import { peut, peutCode, peutSurProjet, peutVoirMontants, projetsVisibles, routeAutorisee } from "../regles";
 import type { AccesModule, CodeModule, Droits } from "../types";
 
 /**
@@ -56,6 +56,7 @@ export function useDroits() {
     peut: peutFaire,
     peutCode: peutFaireCode,
     peutSurProjet: peutFaireSurProjet,
+    voitMontants: peutVoirMontants(droits),
   };
 }
 

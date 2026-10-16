@@ -7,6 +7,7 @@ import { useState } from "react";
 
 import { Badge, Tableau } from "@/components/ui";
 import type { Colonne } from "@/components/ui";
+import { useDroits } from "@/features/habilitations";
 import { chantiersSuivis, trierParCriticite } from "@/features/tableauDeBord";
 import type { LigneChantier } from "@/features/tableauDeBord";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,7 @@ const ETIQUETTE = "text-[11px] font-semibold tracking-wide text-neutral-500 uppe
  */
 export function PanneauPortefeuille({ chantiers }: { chantiers: LigneChantier[] }) {
   const t = useTranslations("tableauDeBord.portefeuille");
+  const { voitMontants } = useDroits();
   const [modeVue, setModeVue] = useState<ModeVue>("auto");
   const lignes = trierParCriticite(chantiersSuivis(chantiers));
 
@@ -84,18 +86,22 @@ export function PanneauPortefeuille({ chantiers }: { chantiers: LigneChantier[] 
         />
       ),
     },
-    {
-      cle: "budget",
-      entete: t("colBudget"),
-      largeurMinimale: "150px",
-      rendu: (chantier) => <CelluleBudget chantier={chantier} />,
-    },
-    {
-      cle: "marge",
-      entete: t("colMarge"),
-      largeurMinimale: "100px",
-      rendu: (chantier) => <CelluleMarge chantier={chantier} />,
-    },
+    ...(voitMontants
+      ? [
+          {
+            cle: "budget",
+            entete: t("colBudget"),
+            largeurMinimale: "150px",
+            rendu: (chantier: LigneChantier) => <CelluleBudget chantier={chantier} />,
+          },
+          {
+            cle: "marge",
+            entete: t("colMarge"),
+            largeurMinimale: "100px",
+            rendu: (chantier: LigneChantier) => <CelluleMarge chantier={chantier} />,
+          },
+        ]
+      : []),
     {
       cle: "fin",
       entete: t("colFin"),
@@ -175,15 +181,19 @@ export function PanneauPortefeuille({ chantiers }: { chantiers: LigneChantier[] 
                 ecart={chantier.ecart}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 flex flex-col gap-1">
-                <span className={ETIQUETTE}>{t("labelBudget")}</span>
-                <CelluleBudget chantier={chantier} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className={ETIQUETTE}>{t("labelMarge")}</span>
-                <CelluleMarge chantier={chantier} />
-              </div>
+            <div className={cn("grid gap-3", voitMontants ? "grid-cols-2" : "grid-cols-1")}>
+              {voitMontants && (
+                <>
+                  <div className="col-span-2 flex flex-col gap-1">
+                    <span className={ETIQUETTE}>{t("labelBudget")}</span>
+                    <CelluleBudget chantier={chantier} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className={ETIQUETTE}>{t("labelMarge")}</span>
+                    <CelluleMarge chantier={chantier} />
+                  </div>
+                </>
+              )}
               <div className="flex flex-col gap-1">
                 <span className={ETIQUETTE}>{t("labelFin")}</span>
                 <CelluleFin chantier={chantier} />

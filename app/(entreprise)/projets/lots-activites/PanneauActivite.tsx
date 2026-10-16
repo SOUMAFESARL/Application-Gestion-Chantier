@@ -33,7 +33,7 @@ interface Props {
  */
 export function PanneauActivite({ projet, activite, lot, lots, onModifier, onSupprimer }: Props) {
   const t = useTranslations("projets.lotsActivites");
-  const { peutSurProjet } = useDroits();
+  const { peutSurProjet, voitMontants } = useDroits();
   const peutSaisir = projet ? peutSurProjet("projets.ecrire", projet) : false;
 
   if (!activite || !lot) {
@@ -93,13 +93,15 @@ export function PanneauActivite({ projet, activite, lot, lots, onModifier, onSup
           <Periode debut={activite.dateDebutPrevue} fin={activite.dateFinPrevue} />
         </Ligne>
         {/* Le budget se tient au lot : on montre celui du lot de l'activité. */}
-        <Ligne libelle={t("panneau.budgetLot")}>
-          {lot.budget === null ? (
-            <span className="text-neutral-500 italic">{t("panneau.nonDefini")}</span>
-          ) : (
-            formaterMontant(lot.budget)
-          )}
-        </Ligne>
+        {voitMontants && (
+          <Ligne libelle={t("panneau.budgetLot")}>
+            {lot.budget === null ? (
+              <span className="text-neutral-500 italic">{t("panneau.nonDefini")}</span>
+            ) : (
+              formaterMontant(lot.budget)
+            )}
+          </Ligne>
+        )}
         <Ligne libelle={t("panneau.equipe")}>
           {activite.equipe ? (
             t("libelleEquipe", { nom: activite.equipe.nom, effectif: activite.equipe.effectif })

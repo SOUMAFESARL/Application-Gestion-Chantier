@@ -491,7 +491,7 @@ export interface SaisieActiviteDomaine {
   quantitePrevue: number | null;
   unite: UniteActivite | null;
   /** En centimes. */
-  budget: number | null;
+  budget?: number | null;
   dateDebutPrevue?: string | null;
   dateFinPrevue?: string | null;
   responsableId: string | null;

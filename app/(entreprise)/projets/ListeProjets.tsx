@@ -97,7 +97,7 @@ export function ListeProjets() {
 
   // Hors direction, seulement ses chantiers ; les gestes selon les accès du module.
   const requete = useProjetsVisibles();
-  const { peutCode, peutSurProjet } = useDroits();
+  const { peutCode, peutSurProjet, voitMontants } = useDroits();
   const peutCreer = peutCode("projets.creer");
 
   // Le repli tient dans un `useMemo` : un `?? []` rend un tableau neuf à
@@ -170,15 +170,18 @@ export function ListeProjets() {
         libelleTypeProjet(type, (code) => t(`tiroirCreation.typeProjet.${code}`)),
       formaterDate,
     };
+    const colonnes = COLONNES_EXPORT_PROJETS.map((cle, rang) => ({ cle, rang }))
+      .filter(({ cle }) => voitMontants || cle !== "budgetInitial")
+      .map(({ cle, rang }) => ({
+        entete: t(`export.colonnes.${cle}`),
+        valeur: (projet: Projet) => valeursExportProjet(projet, libelles)[rang],
+      }));
     return {
       titre: t("export.titrePdf"),
       nomFichier: t("export.nomFichier"),
-      colonnes: COLONNES_EXPORT_PROJETS.map((cle, rang) => ({
-        entete: t(`export.colonnes.${cle}`),
-        valeur: (projet: Projet) => valeursExportProjet(projet, libelles)[rang],
-      })),
+      colonnes,
     };
-  }, [t]);
+  }, [t, voitMontants]);
 
   const colonnes = useMemo(
     () =>
@@ -251,24 +254,28 @@ export function ListeProjets() {
             </span>
           ),
         }),
-        colonne.accessor("budgetInitial", {
-          header: t("colonneBudget"),
-          cell: ({ getValue }) => {
-            const budget = getValue();
-            return budget === null ? (
-              <span className="text-xs text-neutral-500 italic">{t("budgetNonDefini")}</span>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span tabIndex={0} className="cursor-help font-semibold tabular-nums text-neutral-900">
-                    {formaterMillions(budget)}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent className="tabular-nums">{formaterMontant(budget)}</TooltipContent>
-              </Tooltip>
-            );
-          },
-        }),
+        ...(voitMontants
+          ? [
+              colonne.accessor("budgetInitial", {
+                header: t("colonneBudget"),
+                cell: ({ getValue }) => {
+                  const budget = getValue();
+                  return budget === null ? (
+                    <span className="text-xs text-neutral-500 italic">{t("budgetNonDefini")}</span>
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span tabIndex={0} className="cursor-help font-semibold tabular-nums text-neutral-900">
+                          {formaterMillions(budget)}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="tabular-nums">{formaterMontant(budget)}</TooltipContent>
+                    </Tooltip>
+                  );
+                },
+              }),
+            ]
+          : []),
         colonne.accessor("statut", {
           header: t("colonneStatut"),
           cell: ({ getValue }) => (
@@ -348,7 +355,7 @@ export function ListeProjets() {
           },
         }),
       ]),
-    [t, modifier, basculerSuspension, supprimer, peutSurProjet],
+    [t, modifier, basculerSuspension, supprimer, peutSurProjet, voitMontants],
   );
 
   return (

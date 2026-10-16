@@ -151,6 +151,8 @@ export function TiroirActivite({
     enabled: ouverte,
   });
 
+  const { voitMontants } = useDroits();
+
   /**
    * Le formulaire part de l'activité à modifier, ou vierge sur le lot d'où
    * l'on vient. L'écran **remonte le tiroir à chaque ouverture** (`key`) :
@@ -159,14 +161,17 @@ export function TiroirActivite({
   const form = useForm<SaisieActivite, unknown, ValeursActivite>({
     // Le budget ne dépasse ni celui du lot choisi, ni celui du projet.
     resolver: zodResolver(schemaActiviteBornee(budgetProjet, lots, activite?.id)),
-    defaultValues: activite ? saisieDepuisActivite(activite) : saisieActiviteVide(lotIdInitial),
+    defaultValues: activite
+      ? {
+          ...saisieDepuisActivite(activite),
+          budget: voitMontants ? saisieDepuisActivite(activite).budget : "",
+        }
+      : saisieActiviteVide(lotIdInitial),
     mode: "onTouched",
   });
 
   const valeurs = useWatch({ control: form.control }) as SaisieActivite;
   const enCours = form.formState.isSubmitting;
-  const { peut } = useDroits();
-  const peutVoirMontants = peut("finance");
   const lotChoisi = useMemo(() => lots.find((l) => l.id === valeurs.lotId), [lots, valeurs.lotId]);
   const autresActivites = useMemo(
     () => (lotChoisi ? lotChoisi.activites.filter((a) => a.id !== activite?.id) : []),
@@ -177,7 +182,7 @@ export function TiroirActivite({
     [lotChoisi, autresActivites],
   );
   const aideDisponible =
-    peutVoirMontants && disponible !== null
+    voitMontants && disponible !== null
       ? t("aideDisponible", { montant: formaterMontant(disponible) })
       : null;
 
@@ -198,6 +203,9 @@ export function TiroirActivite({
   async function soumettre(saisie: ValeursActivite) {
     try {
       const domaine = versSaisieActiviteDomaine(saisie);
+      if (!voitMontants) {
+        delete domaine.budget;
+      }
       if (datesActiviteFigees) {
         delete domaine.dateDebutPrevue;
         delete domaine.dateFinPrevue;
@@ -402,27 +410,29 @@ export function TiroirActivite({
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="budget"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("champBudget")}</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      onChange={(evenement) => field.onChange(formaterSaisieMontant(evenement.target.value))}
-                      className={cn(CHAMP, "tabular-nums")}
-                      inputMode="numeric"
-                      placeholder={t("champBudgetPlaceholder")}
-                      disabled={enCours}
-                    />
-                  </FormControl>
-                  {aideDisponible && <FormDescription>{aideDisponible}</FormDescription>}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {voitMontants && (
+              <FormField
+                control={form.control}
+                name="budget"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("champBudget")}</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        onChange={(evenement) => field.onChange(formaterSaisieMontant(evenement.target.value))}
+                        className={cn(CHAMP, "tabular-nums")}
+                        inputMode="numeric"
+                        placeholder={t("champBudgetPlaceholder")}
+                        disabled={enCours}
+                      />
+                    </FormControl>
+                    {aideDisponible && <FormDescription>{aideDisponible}</FormDescription>}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {datesActiviteFigees && activite && (
               <div className="flex items-center justify-between gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-2.5">

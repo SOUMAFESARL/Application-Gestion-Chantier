@@ -6,6 +6,7 @@ import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
 
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
+import { useDroits } from "@/features/habilitations";
 import { pointsBudget } from "@/features/tableauDeBord";
 import type { LigneChantier } from "@/features/tableauDeBord";
 import { formaterMontant, formaterMontantCourt } from "@/lib/format";
@@ -44,8 +45,11 @@ const abreger = (nom: string) => (nom.length > LONGUEUR_NOM ? `${nom.slice(0, LO
  * seule chose que l'œil doit attraper, il n'a pas à comparer deux longueurs.
  */
 export function GraphiqueBudgets({ chantiers }: { chantiers: LigneChantier[] }) {
+  const { voitMontants } = useDroits();
   const t = useTranslations("tableauDeBord.graphique");
   const points = pointsBudget(chantiers);
+
+  if (!voitMontants) return null;
 
   const configuration = {
     prevu: { label: t("prevu"), color: TEINTE_PREVU },

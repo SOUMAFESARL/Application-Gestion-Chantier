@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { useDroits } from "@/features/habilitations";
 import { chantiersAAttention, estMotifGrave } from "@/features/tableauDeBord";
-import type { LigneChantier, MotifAttention } from "@/features/tableauDeBord";
+import type { LigneChantier, MotifAttention, TypeMotif } from "@/features/tableauDeBord";
 import { cn } from "@/lib/utils";
 
 import {
@@ -23,6 +24,13 @@ import { PastilleSante } from "./PastilleSante";
 /** Au-delà, la liste cesse d'être « ce qui réclame votre intervention ». */
 const NOMBRE_MAXIMAL = 5;
 
+const MOTIFS_BUDGETAIRES: readonly TypeMotif[] = [
+  "MARGE_NEGATIVE",
+  "BUDGET_DEPASSE",
+  "BUDGET_ALERTE",
+  "BUDGET_NON_DEFINI",
+];
+
 /**
  * Les chantiers qui demandent l'intervention du DG — CDC module 12,
  * « identifier immédiatement les projets en difficulté ».
@@ -36,7 +44,14 @@ const NOMBRE_MAXIMAL = 5;
  */
 export function ChantiersAttention({ chantiers }: { chantiers: LigneChantier[] }) {
   const t = useTranslations("tableauDeBord.attention");
-  const lignes = chantiersAAttention(chantiers).slice(0, NOMBRE_MAXIMAL);
+  const { voitMontants } = useDroits();
+  const lignes = chantiersAAttention(chantiers)
+    .map(({ chantier, motifs }) => ({
+      chantier,
+      motifs: voitMontants ? motifs : motifs.filter((m) => !MOTIFS_BUDGETAIRES.includes(m.type)),
+    }))
+    .filter(({ motifs }) => motifs.length > 0)
+    .slice(0, NOMBRE_MAXIMAL);
 
   const libelleMotif = (motif: MotifAttention) =>
     t(`motifs.${motif.type}`, {

@@ -73,7 +73,7 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
   const [ouverture, setOuverture] = useState(0);
 
   const requeteProjets = useProjetsVisibles();
-  const { droits } = useDroits();
+  const { droits, voitMontants } = useDroits();
   const { cadrer, modaux } = useGestionProjet();
   const projets = useMemo(() => requeteProjets.data ?? [], [requeteProjets.data]);
   const projetId = projetChoisi ?? projetOuvert(projets, projetInitial)?.id ?? null;
@@ -296,7 +296,7 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
             onFermer={() => setTiroirActivite((etat) => ({ ...etat, ouvert: false }))}
             projetId={projetId}
             lots={lots}
-            budgetProjet={projet?.budgetInitial ?? null}
+            budgetProjet={voitMontants ? (projet?.budgetInitial ?? null) : null}
             activite={tiroirActivite.activite}
             lotIdInitial={tiroirActivite.lotId}
             onEnregistree={surActiviteEnregistree}
@@ -312,7 +312,7 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
             onFermer={() => setTiroirLot((etat) => ({ ...etat, ouvert: false }))}
             projetId={projetId}
             lots={lots}
-            budgetProjet={projet?.budgetInitial ?? null}
+            budgetProjet={voitMontants ? (projet?.budgetInitial ?? null) : null}
             datesProjet={
               projet
                 ? { dateDebutPrevue: projet.dateDebutPrevue, dateFinPrevue: projet.dateFinPrevue }

@@ -254,8 +254,7 @@ function SaisieLot({
   const tCreation = useTranslations("projets.tiroirCreation");
   const tLots = useTranslations("projets.lotsActivites");
   const tReprog = useTranslations("projets.reprogrammation");
-  const { peut } = useDroits();
-  const peutVoirMontants = peut("finance");
+  const { voitMontants } = useDroits();
 
   const datesProjetDefinies =
     !datesProjet ||
@@ -271,13 +270,15 @@ function SaisieLot({
     [budgetProjet, autresLots],
   );
   const aideDisponible =
-    peutVoirMontants && disponible !== null
+    voitMontants && disponible !== null
       ? t("aideDisponible", { montant: formaterMontant(disponible) })
       : null;
 
   const form = useForm<SaisieLotProjet>({
     resolver: zodResolver(schema),
-    defaultValues: lot ? lotEnSaisie(lot) : lotVide(),
+    defaultValues: lot
+      ? { ...lotEnSaisie(lot), budget: voitMontants ? lotEnSaisie(lot).budget : "" }
+      : lotVide(),
     mode: "onTouched",
   });
 
@@ -289,7 +290,14 @@ function SaisieLot({
   async function soumettre(saisie: SaisieLotProjet) {
     onOccupe(true);
     try {
-      const valeurs = versCreationLotProjet(schema.parse(saisie));
+      const parsed = schema.parse({
+        ...saisie,
+        budget: voitMontants ? saisie.budget : "",
+      });
+      const valeurs = versCreationLotProjet(parsed);
+      if (!voitMontants) {
+        delete valeurs.budget;
+      }
       if (datesLotFigees) {
         delete valeurs.dateDebut;
         delete valeurs.dateFin;
@@ -440,27 +448,29 @@ function SaisieLot({
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="budget"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("champBudget")}</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    onChange={(evenement) => field.onChange(formaterSaisieMontant(evenement.target.value))}
-                    className={cn(CHAMP, "tabular-nums")}
-                    inputMode="numeric"
-                    placeholder={t("champBudgetPlaceholder")}
-                    disabled={enCours}
-                  />
-                </FormControl>
-                {aideDisponible && <FormDescription>{aideDisponible}</FormDescription>}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {voitMontants && (
+            <FormField
+              control={form.control}
+              name="budget"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("champBudget")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      onChange={(evenement) => field.onChange(formaterSaisieMontant(evenement.target.value))}
+                      className={cn(CHAMP, "tabular-nums")}
+                      inputMode="numeric"
+                      placeholder={t("champBudgetPlaceholder")}
+                      disabled={enCours}
+                    />
+                  </FormControl>
+                  {aideDisponible && <FormDescription>{aideDisponible}</FormDescription>}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
           {datesLotFigees && lot && (
             <div className="flex items-center justify-between gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-2.5">

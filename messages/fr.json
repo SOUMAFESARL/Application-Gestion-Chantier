@@ -1652,6 +1652,9 @@
     "filtreChefProjetTous": "Tous les chefs de projet",
     "filtreStatut": "Filtrer par statut",
     "filtreStatutTous": "Tous les statuts",
+    "import": {
+      "budgetIgnore": "Les budgets du fichier ne sont pas importés : votre rôle ne donne pas accès aux montants."
+    },
     "indicateurs": {
       "libelle": "Répartition des projets par statut",
       "total": "Total des projets"
@@ -3521,6 +3524,7 @@
       "budget": "Budget consommé",
       "depassements": "{n, plural, =0 {Aucun dépassement} one {# projet en dépassement} other {# projets en dépassement}}",
       "detailActifs": "Carnet {montant} · {enAttente} en attente · {suspendus, plural, =0 {aucun suspendu} one {# suspendu} other {# suspendus}}",
+      "detailActifsSansMontant": "{enAttente} en attente · {suspendus, plural, =0 {aucun suspendu} one {# suspendu} other {# suspendus}}",
       "detailBudget": "{consomme} sur {total}",
       "detailMarge": "{montant} sur les marchés en cours",
       "marge": "Marge prévisionnelle",
