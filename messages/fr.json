@@ -2445,10 +2445,18 @@
     "champDescription": "Description du périmètre (optionnel)",
     "champIntitule": "Intitulé du rôle",
     "champModele": "Pré-remplir les droits à partir d’un rôle existant",
+    "champPortee": "Portée",
     "champRoleRemplacement": "Nouveau rôle de remplacement pour les collaborateurs concernés",
     "chargement": "Chargement de la matrice des rôles et permissions…",
     "choisirModele": "-- Choisir un modèle optionnel --",
     "choisirRemplacement": "-- Choisissez un rôle de remplacement --",
+    "confirmationPortee": {
+      "avertissementEntreprise": "Elles verront tous les chantiers de l’entreprise. Leurs affectations actuelles aux chantiers seront désactivées : elles ne tiendront plus aucune fonction sur un chantier (chef de projet, conducteur de travaux, chef de chantier) tant qu’on ne les y affecte pas de nouveau.",
+      "bouton": "Changer la portée",
+      "infoProjet": "Elles ne verront plus que les chantiers où elles sont affectées.",
+      "personnes": "{n, plural, =0 {Aucune personne n’a ce rôle aujourd’hui.} one {# personne a ce rôle.} other {# personnes ont ce rôle.}}",
+      "titre": "Changer la portée de « {role} » ?"
+    },
     "confirmationSuppressionSimple": "Êtes-vous sûr de vouloir supprimer ce rôle ? Cette action retirera ce rôle du catalogue de l’entreprise.",
     "confirmerSuppression": "Confirmer la réassignation et supprimer",
     "consulter": "Consulter",
@@ -2533,6 +2541,14 @@
     "placeholderCode": "ex: MAGASINIER",
     "placeholderDescription": "Responsabilités et missions clés au sein de l’entreprise ou sur chantier…",
     "placeholderIntitule": "ex: Magasinier de chantier, Métreur",
+    "portee": {
+      "ENTREPRISE": "Toute l’entreprise",
+      "PROJET": "Ses chantiers",
+      "aide": {
+        "ENTREPRISE": "Voit et agit sur tous les chantiers, sans y être affecté.",
+        "PROJET": "Voit et agit seulement sur les chantiers où il est affecté."
+      }
+    },
     "raccourcis": {
       "aucun": "Aucun",
       "lecture": "Lecture",

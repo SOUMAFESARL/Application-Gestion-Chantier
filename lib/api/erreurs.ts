@@ -55,6 +55,8 @@ export const CODES_METIER = [
   "configuration_terminee",
   // Essai gratuit — T-025 §4.2
   "essai_expire",
+  // Rôles — changement de portée (apps/accounts/views/role.py)
+  "confirmation_requise",
 ] as const;
 
 export type CodeErreur =

@@ -15,6 +15,7 @@ interface Props {
   variante?: VarianteBadge;
   children: ReactNode;
   icone?: ReactNode;
+  title?: string;
 }
 
 /**
@@ -40,9 +41,10 @@ const VARIANTES: Record<VarianteBadge, string> = {
  * (charte §8.4) : un chantier « en retard » doit se lire, pas se deviner
  * à la teinte d'une pastille.
  */
-export function Badge({ variante = "neutre", children, icone }: Props) {
+export function Badge({ variante = "neutre", children, icone, title }: Props) {
   return (
     <span
+      title={title}
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs leading-relaxed font-semibold whitespace-nowrap",
         VARIANTES[variante],

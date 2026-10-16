@@ -20,10 +20,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import type { CreationRolePayload } from "../api";
 import { codesDuRole } from "../regles";
-import type { ModuleCatalogue, RoleItem } from "../types";
+import type { ModuleCatalogue, PorteeRole, RoleItem } from "../types";
 import { EditeurPermissions } from "./EditeurPermissions";
 
 /** Ascenseur fin, dans le ton du contenu qu'il défile — même recette que `sidebar.tsx`. */
@@ -63,6 +64,7 @@ export function ModalNouveauRole({
   const [libelle, setLibelle] = useState("");
   const [description, setDescription] = useState("");
   const [modele, setModele] = useState("");
+  const [portee, setPortee] = useState<PorteeRole>("PROJET");
   const [codes, setCodes] = useState<string[]>([]);
   const [nbCodesEcartes, setNbCodesEcartes] = useState(0);
   const [erreurs, setErreurs] = useState<Record<string, string>>({});
@@ -125,7 +127,7 @@ export function ModalNouveauRole({
       code: codeNettoye,
       libelle: libelleNettoye,
       description: description.trim(),
-      portee: "PROJET",
+      portee,
       permissions: codes,
     });
   }
@@ -185,6 +187,34 @@ export function ModalNouveauRole({
               onChange={(e) => setDescription(e.target.value)}
               className={INDICATIF_LEGER}
             />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label className="font-normal">{t("champPortee")}</Label>
+            <RadioGroup
+              value={portee}
+              onValueChange={(val) => setPortee(val as PorteeRole)}
+              className="gap-2"
+            >
+              <div className="flex items-start gap-2">
+                <RadioGroupItem value="PROJET" id="nouveau-role-portee-projet" className="mt-0.5" />
+                <div className="flex flex-col">
+                  <Label htmlFor="nouveau-role-portee-projet" className="font-medium cursor-pointer">
+                    {t("portee.PROJET")}
+                  </Label>
+                  <span className="text-xs text-neutral-500">{t("portee.aide.PROJET")}</span>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <RadioGroupItem value="ENTREPRISE" id="nouveau-role-portee-entreprise" className="mt-0.5" />
+                <div className="flex flex-col">
+                  <Label htmlFor="nouveau-role-portee-entreprise" className="font-medium cursor-pointer">
+                    {t("portee.ENTREPRISE")}
+                  </Label>
+                  <span className="text-xs text-neutral-500">{t("portee.aide.ENTREPRISE")}</span>
+                </div>
+              </div>
+            </RadioGroup>
           </div>
 
           <div className="flex flex-col gap-1">
