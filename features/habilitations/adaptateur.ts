@@ -9,7 +9,7 @@
  */
 
 import type { ProfilUtilisateur } from "@/features/auth/api";
-import { accesNormalises, permissionsNormalisees } from "@/features/roles/regles";
+import { accesDepuisNiveau, accesNormalises, permissionsNormalisees } from "@/features/roles/regles";
 import type { AccesModule, CodeModule, RoleItem } from "@/features/roles/types";
 import { MODULES_CCD } from "@/features/roles/types";
 
@@ -78,20 +78,23 @@ export function versDroits(profil: ProfilUtilisateur): Droits {
 /** Les droits d'un rôle, portés par une personne donnée (ses chantiers). */
 export function droitsDuRole(role: RoleItem, collaborateurId: string | null): Droits {
   const codes: string[] = [];
+  const repliParModule: Record<string, AccesModule[]> = {};
+
   for (const mod of role.modules ?? []) {
     for (const perm of mod.permissions ?? []) {
       if (perm.code) {
         codes.push(perm.code.toLowerCase());
       }
     }
+    const codeMod = mod.code.toLowerCase();
+    repliParModule[codeMod] = accesDepuisNiveau(mod.niveau);
   }
 
-  const permissionsNiveau = permissionsNormalisees(role.permissions_modules);
   const permissionsParModule: Record<string, AccesModule[]> = {};
-  const tousModules = new Set([...MODULES_CCD, ...Object.keys(role.permissions_modules ?? {})]);
+  const tousModules = new Set([...MODULES_CCD, ...Object.keys(repliParModule)]);
   for (const mod of tousModules) {
     const depuisCodes = codes.length > 0 ? accesDepuisCodes(mod, codes) : null;
-    const acces = depuisCodes ?? permissionsNiveau[mod as CodeModule] ?? [];
+    const acces = depuisCodes ?? repliParModule[mod] ?? [];
     if (acces.length > 0) {
       permissionsParModule[mod] = acces;
     }

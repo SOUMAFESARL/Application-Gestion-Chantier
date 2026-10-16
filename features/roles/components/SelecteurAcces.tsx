@@ -51,6 +51,7 @@ interface Props {
    * Classe ajoutée à la liste déroulante. Sert dans une `Modale` (`z-100`) :
    * la liste, portée hors de la modale en `z-50`, s'ouvrirait derrière elle.
    */
+  titre?: string;
   classeListe?: string;
 }
 
@@ -66,6 +67,7 @@ export function SelecteurAcces({
   libelleAria,
   disabled = false,
   classeListe,
+  titre: titreExplicite,
 }: Props) {
   const t = useTranslations("roles");
   const [ouvert, setOuvert] = useState(false);
@@ -78,7 +80,7 @@ export function SelecteurAcces({
     valeur.length === 0 ? t("acces.court.aucun") : valeur.map((a) => t(`acces.court.${a}`)).join(" · ");
 
   const pastille = cn(PASTILLE, TONS[rangAccesMax(valeur)]);
-  const titre = complet;
+  const titre = titreExplicite ?? complet;
 
   if (!onChange) {
     return (

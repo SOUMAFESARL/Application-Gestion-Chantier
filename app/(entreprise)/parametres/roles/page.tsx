@@ -6,28 +6,36 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { Alerte, Bouton, EtatChargement, EtatErreur } from "@/components/ui";
+import { useDroits } from "@/features/habilitations";
 import {
+  colonnesDeMatrice,
   creerRole,
+  gestesSurRole,
+  LegendeAcces,
+  listerModulesEntreprise,
   listerRoles,
   MatricePermissionsTable,
   ModalModificationRole,
   ModalNouveauRole,
   ModalReassignationRole,
   modifierRole,
-  LegendeAcces,
   supprimerRole,
 } from "@/features/roles";
-import type { AccesModule, CreationRolePayload, ModificationRolePayload, RoleItem } from "@/features/roles";
-import { obtenirProfilMoi } from "@/features/auth/api";
-import type { ProfilUtilisateur } from "@/features/auth/api";
+import type {
+  CreationRolePayload,
+  ModificationRolePayload,
+  ModuleCatalogue,
+  RoleItem,
+} from "@/features/roles";
 import { ErreurApi } from "@/lib/api";
 
 export default function ParametresRolesPage() {
   const t = useTranslations("roles");
+  const { estDirection, peutCode } = useDroits();
   const [roles, setRoles] = useState<RoleItem[]>([]);
+  const [catalogue, setCatalogue] = useState<ModuleCatalogue[]>([]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [profil, setProfil] = useState<ProfilUtilisateur | null>(null);
 
   const [modalNouveauOuverte, setModalNouveauOuverte] = useState(false);
   const [roleAEditer, setRoleAEditer] = useState<RoleItem | null>(null);
@@ -38,12 +46,12 @@ export default function ParametresRolesPage() {
     try {
       setChargement(true);
       setErreur(null);
-      const [dataRoles, dataProfil] = await Promise.all([
+      const [dataRoles, dataCatalogue] = await Promise.all([
         listerRoles(),
-        obtenirProfilMoi(),
+        listerModulesEntreprise(),
       ]);
       setRoles(dataRoles);
-      setProfil(dataProfil);
+      setCatalogue(dataCatalogue);
     } catch (err: unknown) {
       setErreur(err instanceof Error ? err.message : t("chargement"));
     } finally {
@@ -53,11 +61,11 @@ export default function ParametresRolesPage() {
 
   useEffect(() => {
     let vivant = true;
-    Promise.all([listerRoles(), obtenirProfilMoi()])
-      .then(([dataRoles, dataProfil]) => {
+    Promise.all([listerRoles(), listerModulesEntreprise()])
+      .then(([dataRoles, dataCatalogue]) => {
         if (vivant) {
           setRoles(dataRoles);
-          setProfil(dataProfil);
+          setCatalogue(dataCatalogue);
           setChargement(false);
         }
       })
@@ -86,36 +94,15 @@ export default function ParametresRolesPage() {
     }
   }
 
-  async function handleChangementAcces(roleId: string, module: string, acces: AccesModule[]) {
-    const role = roles.find((r) => r.id === roleId);
-    if (!role) return;
-
-    // La matrice **complète** du rôle part au serveur, pas le seul module
-    // touché : un `PATCH` qui remplace le champ JSON au lieu de le fusionner
-    // effacerait sinon les onze autres modules.
-    const permissions = { ...role.permissions_modules, [module]: acces };
-
-    setRoles((prev) =>
-      prev.map((r) => (r.id === roleId ? { ...r, permissions_modules: permissions } : r))
-    );
-
-    try {
-      await modifierRole(roleId, { permissions_modules: permissions });
-    } catch (err: unknown) {
-      await chargerDonnees();
-      toast.error(err instanceof ErreurApi && err.message ? err.message : t("erreurAction"));
-    }
-  }
-
   async function handleModificationRole(
     roleId: string,
-    payload: Required<ModificationRolePayload>,
+    payload: ModificationRolePayload,
   ) {
     setActionEnCours(true);
     try {
       await modifierRole(roleId, payload);
       setRoleAEditer(null);
-      toast.success(t("succesModification", { role: payload.libelle }));
+      toast.success(t("succesModification", { role: payload.libelle ?? "" }));
       await chargerDonnees();
     } catch (err: unknown) {
       toast.error(err instanceof ErreurApi && err.message ? err.message : t("erreurAction"));
@@ -125,7 +112,8 @@ export default function ParametresRolesPage() {
   }
 
   function handleDemandeSuppression(role: RoleItem) {
-    if (role.est_systeme) return;
+    const g = gestesSurRole(role, { estDirection }, catalogue);
+    if (!g.supprimable) return;
     setRoleASupprimer(role);
   }
 
@@ -143,7 +131,7 @@ export default function ParametresRolesPage() {
         t("succesSuppression", {
           users: res.utilisateurs_reassignes,
           aff: res.affectations_reassignees,
-        })
+        }),
       );
       await chargerDonnees();
     } catch (err: unknown) {
@@ -169,7 +157,9 @@ export default function ParametresRolesPage() {
     );
   }
 
-  const estDG = Boolean(profil?.is_dg || profil?.role_global === "DG");
+  const colonnes = colonnesDeMatrice(roles, catalogue);
+  const peutGerer = peutCode("administration.roles_gerer");
+  const gestesRole = (r: RoleItem) => gestesSurRole(r, { estDirection }, catalogue);
 
   return (
     <div className="flex flex-col gap-6">
@@ -183,7 +173,7 @@ export default function ParametresRolesPage() {
           titre={t("titre")}
           description={t("sousTitre")}
           actions={
-            estDG && (
+            peutGerer && (
               <Bouton
                 variante="primaire"
                 iconeGauche={<Plus size={16} weight="bold" />}
@@ -195,9 +185,9 @@ export default function ParametresRolesPage() {
           }
         />
 
-        {!estDG && (
-          <Alerte type="avertissement">
-            {t("restrictionDgMessage")}
+        {!estDirection && (
+          <Alerte type="information">
+            {t("perimetreNonDg")}
           </Alerte>
         )}
 
@@ -209,14 +199,16 @@ export default function ParametresRolesPage() {
 
       <MatricePermissionsTable
         roles={roles}
-        onChangeAcces={estDG ? handleChangementAcces : undefined}
-        onEditerRole={estDG ? setRoleAEditer : undefined}
-        onSupprimerRole={estDG ? handleDemandeSuppression : undefined}
+        colonnes={colonnes}
+        gestes={gestesRole}
+        onOuvrirRole={setRoleAEditer}
+        onSupprimerRole={handleDemandeSuppression}
       />
 
       <ModalNouveauRole
         ouverte={modalNouveauOuverte}
         rolesExistant={roles}
+        catalogue={catalogue}
         enCours={actionEnCours}
         onEnregistrer={handleCreationRole}
         onFermer={() => setModalNouveauOuverte(false)}
@@ -227,6 +219,8 @@ export default function ParametresRolesPage() {
         ouverte={Boolean(roleAEditer)}
         role={roleAEditer}
         rolesExistant={roles}
+        catalogue={catalogue}
+        gestes={gestesSurRole(roleAEditer, { estDirection }, catalogue)}
         enCours={actionEnCours}
         onEnregistrer={handleModificationRole}
         onFermer={() => setRoleAEditer(null)}

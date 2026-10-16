@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { Bouton } from "@/components/ui";
+import { Alerte, Bouton } from "@/components/ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -22,9 +22,9 @@ import {
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import type { CreationRolePayload } from "../api";
-import { ACCES_MODULE, MODULES_CCD } from "../types";
-import type { AccesModule, RoleItem } from "../types";
-import { SelecteurAcces } from "./SelecteurAcces";
+import { codesDuRole } from "../regles";
+import type { ModuleCatalogue, RoleItem } from "../types";
+import { EditeurPermissions } from "./EditeurPermissions";
 
 /** Ascenseur fin, dans le ton du contenu qu'il défile — même recette que `sidebar.tsx`. */
 const ASCENSEUR_FIN = "[scrollbar-width:thin] [scrollbar-color:var(--color-neutral-300)_transparent]";
@@ -34,6 +34,7 @@ const INDICATIF_LEGER = "placeholder:font-normal placeholder:text-neutral-400";
 
 interface Props {
   ouverte: boolean;
+  catalogue: ModuleCatalogue[];
   rolesExistant: RoleItem[];
   onEnregistrer: (data: CreationRolePayload) => Promise<void>;
   onFermer: () => void;
@@ -51,6 +52,7 @@ function Requis() {
 
 export function ModalNouveauRole({
   ouverte,
+  catalogue,
   rolesExistant,
   onEnregistrer,
   onFermer,
@@ -61,13 +63,8 @@ export function ModalNouveauRole({
   const [libelle, setLibelle] = useState("");
   const [description, setDescription] = useState("");
   const [modele, setModele] = useState("");
-  const [permissions, setPermissions] = useState<Record<string, AccesModule[]>>(() => {
-    const init: Record<string, AccesModule[]> = {};
-    for (const code of MODULES_CCD) {
-      init[code] = [...ACCES_MODULE];
-    }
-    return init;
-  });
+  const [codes, setCodes] = useState<string[]>([]);
+  const [nbCodesEcartes, setNbCodesEcartes] = useState(0);
   const [erreurs, setErreurs] = useState<Record<string, string>>({});
 
   function handleLibelleChange(nouveauLibelle: string) {
@@ -83,9 +80,18 @@ export function ModalNouveauRole({
 
   function copierDepuis(roleId: string) {
     setModele(roleId);
-    const modele = rolesExistant.find((r) => r.id === roleId);
-    if (modele) {
-      setPermissions({ ...modele.permissions_modules });
+    const roleModele = rolesExistant.find((r) => r.id === roleId);
+    if (roleModele) {
+      const tousCodes = codesDuRole(roleModele);
+      const codesCatalogue = new Set(
+        catalogue.flatMap((mod) => mod.permissions.map((p) => p.code.toLowerCase())),
+      );
+      const copies = tousCodes.filter((c) => codesCatalogue.has(c.toLowerCase()));
+      const ecartes = tousCodes.length - copies.length;
+      setCodes(copies);
+      setNbCodesEcartes(ecartes);
+    } else {
+      setNbCodesEcartes(0);
     }
   }
 
@@ -94,16 +100,10 @@ export function ModalNouveauRole({
     const codeNettoye = code.trim().toUpperCase();
     const libelleNettoye = libelle.trim();
 
-    // Ces trois messages nommaient le **champ** au lieu de dire ce qui n'allait
-    // pas : la personne lisait « Intitulé du rôle » et « Code identifiant » en
-    // rouge sous les champs concernés, sans savoir s'ils étaient vides, trop
-    // longs ou déjà pris — et le même libellé servait pour « vide » et pour
-    // « déjà utilisé », deux causes qui n'ont pas la même correction.
     if (!libelleNettoye) {
       err.libelle = t("erreurIntituleRequis");
     } else if (
       libelleNettoye.toLowerCase().includes("directeur general") ||
-      // On reconnaît ce que la personne a tapé, avec et sans accents.
       // eslint-disable-next-line no-restricted-syntax -- comparaison, pas affichage
       libelleNettoye.toLowerCase().includes("directeur général")
     ) {
@@ -125,7 +125,8 @@ export function ModalNouveauRole({
       code: codeNettoye,
       libelle: libelleNettoye,
       description: description.trim(),
-      permissions_modules: permissions,
+      portee: "PROJET",
+      permissions: codes,
     });
   }
 
@@ -202,39 +203,23 @@ export function ModalNouveauRole({
                 ))}
               </SelectContent>
             </Select>
+            {nbCodesEcartes > 0 && (
+              <div className="mt-1">
+                <Alerte type="information">
+                  {t("copieFiltree", { n: nbCodesEcartes })}
+                </Alerte>
+              </div>
+            )}
           </div>
 
-          <div>
-            <Label className="mb-2 font-normal">{t("matriceDroitsTitre")}</Label>
-            <div className={`max-h-[320px] overflow-y-auto rounded-md border border-neutral-200 ${ASCENSEUR_FIN}`}>
-              <table className="w-full border-collapse text-sm">
-                <thead className="sticky top-0 bg-neutral-50">
-                  <tr>
-                    <th className="p-2 text-left font-normal text-neutral-600">{t("module")}</th>
-                    <th className="w-[200px] p-2 text-left font-normal text-neutral-600">{t("colonneAcces")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {MODULES_CCD.map((code) => (
-                    <tr key={code} className="border-t border-neutral-200">
-                      <td className="p-2">
-                        <span className="font-medium text-neutral-900">{t(`modules.${code}.nom`)}</span>
-                        <div className="text-xs text-neutral-500">{t(`modules.${code}.description`)}</div>
-                      </td>
-                      <td className="p-2">
-                        <SelecteurAcces
-                          variante="champ"
-                          valeur={permissions[code] ?? []}
-                          onChange={(acces) => setPermissions((prev) => ({ ...prev, [code]: acces }))}
-                          libelleAria={t(`modules.${code}.nom`)}
-                          disabled={enCours}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="flex flex-col gap-2">
+            <Label className="font-normal">{t("matriceDroitsTitre")}</Label>
+            <EditeurPermissions
+              catalogue={catalogue}
+              codes={codes}
+              onChange={setCodes}
+              disabled={enCours}
+            />
           </div>
         </div>
 

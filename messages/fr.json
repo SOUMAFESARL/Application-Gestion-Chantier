@@ -2434,6 +2434,12 @@
     },
     "actions": "Actions",
     "annuler": "Annuler",
+    "aucunePermission": "Aucune permission",
+    "avertissementPresent": "Point à vérifier : ouvrez le rôle.",
+    "avertissements": {
+      "inconnu": "Le serveur signale un point à vérifier sur ce rôle ({code}).",
+      "permission_globale_sur_role_projet": "Ce rôle a une portée « projet », mais certaines de ses permissions (hors module Projets) ne se limitent pas aux chantiers de la personne."
+    },
     "avertissementSuppression": "Attention : ce rôle est actuellement attribué à {n} collaborateur(s) ou affectation(s) de chantier. Pour garantir la continuité de l’accès sans interruption, vous devez obligatoirement sélectionner un rôle de substitution.",
     "champCode": "Code identifiant",
     "champDescription": "Description du périmètre (optionnel)",
@@ -2443,12 +2449,17 @@
     "chargement": "Chargement de la matrice des rôles et permissions…",
     "choisirModele": "-- Choisir un modèle optionnel --",
     "choisirRemplacement": "-- Choisissez un rôle de remplacement --",
-    "colonneAcces": "Accès",
     "confirmationSuppressionSimple": "Êtes-vous sûr de vouloir supprimer ce rôle ? Cette action retirera ce rôle du catalogue de l’entreprise.",
     "confirmerSuppression": "Confirmer la réassignation et supprimer",
+    "consulter": "Consulter",
+    "copieFiltree": "{n, plural, one {# permission n’a pas été copiée} other {# permissions n’ont pas été copiées}} : vous ne la détenez pas.",
     "copierDroitsDe": "Copier les droits de : {role}",
     "creer": "Créer le rôle",
     "editer": "Éditer",
+    "editeur": {
+      "aide": "Cochez permission par permission, ou partez d’un raccourci. Un raccourci ne retire pas les permissions particulières (créer, voir les montants…) ; « Aucun » retire tout le module.",
+      "catalogueVide": "Vous ne détenez aucune permission que vous puissiez accorder."
+    },
     "enregistrer": "Enregistrer",
     "erreurAction": "L’action n’a pas abouti. Réessayez.",
     "erreurCodeExistant": "Ce code est déjà utilisé par un rôle existant.",
@@ -2456,8 +2467,15 @@
     "erreurCodeReserve": "Ce code de rôle est strictement réservé au système.",
     "erreurDgUnique": "Le rôle de Directeur Général est unique et immuable.",
     "erreurIntituleRequis": "L’intitulé du rôle est requis.",
+    "horsPerimetreTitre": "Permissions accordées hors de votre périmètre",
+    "lectureSeule": {
+      "horsPerimetre": "Ce rôle porte des permissions que vous ne détenez pas : seul le Directeur Général peut modifier ses droits. Son intitulé et sa description restent modifiables.",
+      "roleDg": "Le rôle Directeur Général ne se modifie pas : il a toujours tous les droits.",
+      "roleSysteme": "Ce rôle système ne se modifie que par le Directeur Général."
+    },
     "legendeTitre": "Légende des accès :",
     "matriceDroitsTitre": "Matrice des droits par module",
+    "modifier": "Modifier",
     "module": "Module",
     "modules": {
       "achats": {
@@ -2510,12 +2528,17 @@
       }
     },
     "nouveauRole": "Nouveau rôle",
+    "perimetreNonDg": "Vous accordez seulement les permissions que vous détenez vous-même. Les rôles système se modifient par le Directeur Général.",
     "personnalise": "Personnalisé",
     "placeholderCode": "ex: MAGASINIER",
     "placeholderDescription": "Responsabilités et missions clés au sein de l’entreprise ou sur chantier…",
     "placeholderIntitule": "ex: Magasinier de chantier, Métreur",
-    "restrictionDgMessage": "Seul le Directeur Général a autorité pour créer, modifier ou supprimer des rôles de l’entreprise.",
-    "restrictionDgTitre": "Accès restreint",
+    "raccourcis": {
+      "aucun": "Aucun",
+      "lecture": "Lecture",
+      "saisie": "Saisie",
+      "validation": "Validation"
+    },
     "role": "Rôle",
     "sousTitre": "Personnalisez les rôles de votre entreprise et configurez la matrice d’accès. Ces habilitations constituent le standard par défaut appliqué à l’ensemble de vos chantiers.",
     "sousTitreModification": "Modifiez l’intitulé, la description et les accès par module de ce rôle.",
@@ -2526,6 +2549,7 @@
     "supprimer": "Supprimer",
     "systeme": "Système",
     "titre": "Rôles et Habilitations",
+    "titreConsultation": "{role}",
     "titreCreation": "Créer un nouveau rôle personnalisé",
     "titreModification": "Modifier le rôle « {role} »",
     "titreSuppression": "Supprimer le rôle « {role} »",

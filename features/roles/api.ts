@@ -1,43 +1,85 @@
 /**
  * API pour la gestion dynamique des rôles et des habilitations par module.
+ *
+ * Écriture : le client envoie la liste complète des permissions (`permissions: string[]`).
+ * Le serveur recalcule les niveaux de chaque module et enregistre les droits.
  */
 
 import { api } from "@/lib/api";
-import { permissionsNormalisees } from "./regles";
 import type {
-  AccesModule,
+  ModuleCatalogue,
   ModuleRole,
   NiveauAcces,
   PermissionCatalogue,
-  PermissionsModules,
   PorteeRole,
   RoleItem,
 } from "./types";
 
-/**
- * **Écriture** : chaque module part en liste d'accès indépendants (`[]` =
- * aucun) — un rôle peut valider sans saisir. Le serveur doit accepter ce
- * format ; il stocke aujourd'hui un seul niveau cumulatif par module.
- *
- * **Lecture** : tant que le serveur renvoie des niveaux, `versRole` les
- * traduit en accès équivalents ; il accepte déjà les listes, pour que le jour
- * où Django bascule, aucun écran ne change.
- */
 export interface CreationRolePayload {
   code: string;
   libelle: string;
-  description?: string;
-  permissions_modules?: PermissionsModules;
+  description: string;
+  portee: PorteeRole; // F5 le fait choisir ; ici, toujours "PROJET"
+  permissions: string[];
 }
 
 export interface ModificationRolePayload {
   libelle?: string;
   description?: string;
-  permissions_modules?: PermissionsModules;
+  /** La liste complète : elle remplace toute la matrice. Absente : la matrice ne change pas. */
+  permissions?: string[];
+  portee?: PorteeRole; // F5
+  confirmer?: boolean; // F5
 }
 
-/** Un module tel que le serveur le renvoie : un niveau aujourd'hui, une liste demain. */
-type ChargeAcces = NiveauAcces | AccesModule[];
+interface ChargePermissionCatalogue {
+  id: string;
+  code: string;
+  libelle: string;
+  description?: string;
+  ordre?: number;
+}
+
+interface ChargeModuleCatalogue {
+  id: string;
+  code: string;
+  libelle: string;
+  description?: string;
+  ordre?: number;
+  icone?: string;
+  permissions?: ChargePermissionCatalogue[];
+}
+
+function versModuleCatalogue(charge: ChargeModuleCatalogue): ModuleCatalogue {
+  const permissions: PermissionCatalogue[] = (charge.permissions ?? [])
+    .map((p) => ({
+      id: p.id,
+      code: p.code.toLowerCase(),
+      libelle: p.libelle,
+      description: p.description ?? "",
+      ordre: p.ordre ?? 0,
+    }))
+    .sort((a, b) => a.ordre - b.ordre || a.code.localeCompare(b.code));
+
+  return {
+    id: charge.id,
+    code: charge.code.toLowerCase(),
+    libelle: charge.libelle,
+    description: charge.description ?? "",
+    ordre: charge.ordre ?? 0,
+    icone: charge.icone ?? "box",
+    permissions,
+  };
+}
+
+/** `GET /modules/` — le catalogue de celui qui demande (voir README §3). */
+export async function listerModulesEntreprise(signal?: AbortSignal): Promise<ModuleCatalogue[]> {
+  const charge = await api.lire<ChargeModuleCatalogue[]>("/modules/", undefined, signal);
+  return charge
+    .filter((m) => (m.code || "").toLowerCase() !== "administration")
+    .map(versModuleCatalogue)
+    .sort((a, b) => a.ordre - b.ordre || a.code.localeCompare(b.code));
+}
 
 export interface ChargeModuleRole {
   module_id: string;
@@ -52,9 +94,8 @@ export interface ChargeModuleRole {
 
 type ChargeRole<T extends RoleItem> = Omit<
   T,
-  "permissions_modules" | "portee" | "avertissements" | "modules"
+  "portee" | "avertissements" | "modules"
 > & {
-  permissions_modules?: Record<string, ChargeAcces> | null;
   portee?: PorteeRole;
   avertissements?: string[];
   modules?: ChargeModuleRole[];
@@ -71,13 +112,16 @@ function versRole<T extends RoleItem>(charge: ChargeRole<T>): T {
           : 0;
       return {
         moduleId: m.module_id,
-        code: m.module_code,
+        code: (m.module_code || "").toLowerCase(),
         libelle: m.module_libelle,
         description: m.module_description ?? "",
         icone: m.module_icone ?? "box",
         ordre: m.module_ordre ?? 0,
         niveau: niv,
-        permissions: m.permissions ?? [],
+        permissions: (m.permissions ?? []).map((p) => ({
+          ...p,
+          code: p.code.toLowerCase(),
+        })),
       };
     })
     .sort((a, b) => a.ordre - b.ordre || a.code.localeCompare(b.code));
@@ -87,7 +131,6 @@ function versRole<T extends RoleItem>(charge: ChargeRole<T>): T {
     portee: charge.portee ?? "PROJET",
     avertissements: charge.avertissements ?? [],
     modules,
-    permissions_modules: permissionsNormalisees(charge.permissions_modules),
   } as T;
 }
 

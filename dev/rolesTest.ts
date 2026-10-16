@@ -5,8 +5,8 @@
 import type { PorteeProjets } from "@/features/habilitations/types";
 import type { FonctionProjet, Projet } from "@/features/projets/types";
 import { listerRoles } from "@/features/roles/api";
-import { permissionsNormalisees } from "@/features/roles/regles";
-import type { AccesModule, NiveauAcces, RoleItem } from "@/features/roles/types";
+import { accesDepuisNiveau, rangAccesMax } from "@/features/roles/regles";
+import type { AccesModule, ModuleRole, NiveauAcces, RoleItem } from "@/features/roles/types";
 import { MODULES_CCD } from "@/features/roles/types";
 
 /**
@@ -28,11 +28,41 @@ function partout(niveau: NiveauAcces): Record<string, NiveauAcces> {
   return Object.fromEntries(MODULES_CCD.map((code) => [code, niveau]));
 }
 
+function codesDepuisAcces(module: string, acces: AccesModule[]): string[] {
+  const codes: string[] = [];
+  if (acces.includes("lecture")) codes.push(`${module}.lire`);
+  if (acces.includes("saisie")) codes.push(`${module}.ecrire`);
+  if (acces.includes("validation")) codes.push(`${module}.valider`);
+  return codes;
+}
+
 function roleTest(
   code: string,
   libelle: string,
   permissions: Record<string, NiveauAcces | AccesModule[]>,
 ): RoleItem {
+  const modules: ModuleRole[] = Object.entries(permissions).map(([modCode, val], idx) => {
+    const acces = Array.isArray(val) ? val : accesDepuisNiveau(val);
+    const niveau = rangAccesMax(acces);
+    const codes = codesDepuisAcces(modCode, acces);
+    return {
+      moduleId: `mod-${modCode}`,
+      code: modCode,
+      libelle: modCode.charAt(0).toUpperCase() + modCode.slice(1),
+      description: "",
+      icone: "",
+      ordre: idx + 1,
+      niveau,
+      permissions: codes.map((c, i) => ({
+        id: `perm-${c}`,
+        code: c,
+        libelle: c,
+        description: "",
+        ordre: i + 1,
+      })),
+    };
+  });
+
   return {
     id: `test-${code}`,
     code,
@@ -43,8 +73,7 @@ function roleTest(
     nb_utilisateurs: 0,
     portee: "PROJET",
     avertissements: [],
-    modules: [],
-    permissions_modules: permissionsNormalisees(permissions),
+    modules,
   };
 }
 

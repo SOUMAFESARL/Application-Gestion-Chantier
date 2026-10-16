@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Bouton } from "@/components/ui";
+import { Alerte, Bouton } from "@/components/ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -15,9 +15,9 @@ import {
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import type { ModificationRolePayload } from "../api";
-import { MODULES_CCD } from "../types";
-import type { AccesModule, PermissionsModules, RoleItem } from "../types";
-import { SelecteurAcces } from "./SelecteurAcces";
+import { codesDuRole, codesHorsCatalogue } from "../regles";
+import type { ModuleCatalogue, RoleItem } from "../types";
+import { EditeurPermissions } from "./EditeurPermissions";
 
 /** Ascenseur fin, dans le ton du contenu qu'il défile — même recette que `sidebar.tsx`. */
 const ASCENSEUR_FIN = "[scrollbar-width:thin] [scrollbar-color:var(--color-neutral-300)_transparent]";
@@ -29,7 +29,14 @@ interface Props {
   ouverte: boolean;
   role: RoleItem | null;
   rolesExistant: RoleItem[];
-  onEnregistrer: (roleId: string, data: Required<ModificationRolePayload>) => Promise<void>;
+  catalogue: ModuleCatalogue[];
+  gestes: {
+    modifiable: boolean; // intitulé, description
+    matriceModifiable: boolean;
+    supprimable: boolean;
+    raison: "roleDg" | "roleSysteme" | "horsPerimetre" | null;
+  };
+  onEnregistrer: (roleId: string, data: ModificationRolePayload) => Promise<void>;
   onFermer: () => void;
   enCours?: boolean;
 }
@@ -43,19 +50,12 @@ function Requis() {
   );
 }
 
-/**
- * Même tiroir que `ModalNouveauRole` : intitulé, description et accès par
- * module. Le code identifiant ne se modifie pas — des affectations y sont
- * rattachées.
- *
- * `role` change de valeur quand la personne clique sur un autre rôle sans
- * fermer le tiroir : `page.tsx` remonte alors ce composant via `key={role.id}`,
- * ce qui réinitialise ces `useState` sans passer par un effet.
- */
 export function ModalModificationRole({
   ouverte,
   role,
   rolesExistant,
+  catalogue,
+  gestes,
   onEnregistrer,
   onFermer,
   enCours = false,
@@ -63,16 +63,15 @@ export function ModalModificationRole({
   const t = useTranslations("roles");
   const [libelle, setLibelle] = useState(role?.libelle ?? "");
   const [description, setDescription] = useState(role?.description ?? "");
-  const [permissions, setPermissions] = useState<PermissionsModules>(() => ({
-    ...(role?.permissions_modules ?? {}),
-  }));
+  const [codes, setCodes] = useState<string[]>(() => (role ? codesDuRole(role) : []));
   const [erreurs, setErreurs] = useState<Record<string, string>>({});
 
   if (!role) return null;
 
-  function changerAccesModule(module: string, acces: AccesModule[]) {
-    setPermissions((prev) => ({ ...prev, [module]: acces }));
-  }
+  const codesHors = codesHorsCatalogue(codesDuRole(role), catalogue);
+  const permsHorsPerimetre = role.modules
+    .flatMap((m) => m.permissions)
+    .filter((p) => codesHors.includes(p.code.toLowerCase()));
 
   async function valider() {
     if (!role) return;
@@ -98,28 +97,55 @@ export function ModalModificationRole({
     setErreurs(err);
     if (Object.keys(err).length > 0) return;
 
-    await onEnregistrer(role.id, {
+    const payload: ModificationRolePayload = {
       libelle: libelleNettoye,
       description: description.trim(),
-      permissions_modules: permissions,
-    });
+    };
+
+    if (gestes.matriceModifiable) {
+      payload.permissions = codes;
+    }
+
+    await onEnregistrer(role.id, payload);
   }
+
+  const titre = !gestes.modifiable
+    ? t("titreConsultation", { role: role.libelle })
+    : t("titreModification", { role: role.libelle });
 
   return (
     <Sheet open={ouverte} onOpenChange={(ouvert) => !ouvert && !enCours && onFermer()}>
       <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-[560px]">
         <SheetHeader className="border-b border-neutral-200 py-5 pr-14 pl-6">
-          <SheetTitle className="text-lg font-medium text-neutral-900">
-            {t("titreModification", { role: role.libelle })}
-          </SheetTitle>
+          <SheetTitle className="text-lg font-medium text-neutral-900">{titre}</SheetTitle>
           <SheetDescription>{t("sousTitreModification")}</SheetDescription>
         </SheetHeader>
 
         <div className={`flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5 ${ASCENSEUR_FIN}`}>
+          {/* Avertissements du rôle */}
+          {role.avertissements.map((av) => {
+            const cleAv = `avertissements.${av}`;
+            const texte = t.has(cleAv)
+              ? t(cleAv)
+              : t("avertissements.inconnu", { code: av });
+            return (
+              <Alerte key={av} type="avertissement">
+                {texte}
+              </Alerte>
+            );
+          })}
+
+          {/* Raison de lecture seule le cas échéant */}
+          {gestes.raison && (
+            <Alerte type="information">
+              {t(`lectureSeule.${gestes.raison}`)}
+            </Alerte>
+          )}
+
           <div className="grid grid-cols-[1.4fr_1fr] gap-3">
             <div className="flex flex-col gap-1">
               <Label htmlFor="role-modif-libelle" className="font-normal">
-                {t("champIntitule")} <Requis />
+                {t("champIntitule")} {gestes.modifiable && <Requis />}
               </Label>
               <Input
                 id="role-modif-libelle"
@@ -127,6 +153,7 @@ export function ModalModificationRole({
                 value={libelle}
                 placeholder={t("placeholderIntitule")}
                 onChange={(e) => setLibelle(e.target.value)}
+                disabled={!gestes.modifiable || enCours}
                 className={INDICATIF_LEGER}
                 aria-invalid={Boolean(erreurs.libelle)}
               />
@@ -151,51 +178,46 @@ export function ModalModificationRole({
               rows={2}
               placeholder={t("placeholderDescription")}
               onChange={(e) => setDescription(e.target.value)}
+              disabled={!gestes.modifiable || enCours}
               className={INDICATIF_LEGER}
             />
           </div>
 
-          <div>
-            <Label className="mb-2 font-normal">{t("matriceDroitsTitre")}</Label>
-            <div className="rounded-md border border-neutral-200">
-              <table className="w-full border-collapse text-sm">
-                <thead className="bg-neutral-50">
-                  <tr>
-                    <th className="p-2 text-left font-normal text-neutral-600">{t("module")}</th>
-                    <th className="w-[200px] p-2 text-left font-normal text-neutral-600">{t("colonneAcces")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {MODULES_CCD.map((code) => (
-                    <tr key={code} className="border-t border-neutral-200">
-                      <td className="p-2">
-                        <span className="font-medium text-neutral-900">{t(`modules.${code}.nom`)}</span>
-                        <div className="text-xs text-neutral-500">{t(`modules.${code}.description`)}</div>
-                      </td>
-                      <td className="p-2">
-                        <SelecteurAcces
-                          variante="champ"
-                          valeur={permissions[code] ?? []}
-                          onChange={(acces) => changerAccesModule(code, acces)}
-                          libelleAria={t(`modules.${code}.nom`)}
-                          disabled={enCours}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="flex flex-col gap-2">
+            <Label className="font-normal">{t("matriceDroitsTitre")}</Label>
+            <EditeurPermissions
+              catalogue={catalogue}
+              codes={codes}
+              onChange={gestes.matriceModifiable && !enCours ? setCodes : undefined}
+              disabled={!gestes.matriceModifiable || enCours}
+            />
           </div>
+
+          {/* Permissions hors périmètre de l'utilisateur le cas échéant */}
+          {permsHorsPerimetre.length > 0 && (
+            <div className="flex flex-col gap-2 rounded-md border border-neutral-200 p-4 bg-neutral-50">
+              <h4 className="m-0 text-sm font-semibold text-neutral-800">{t("horsPerimetreTitre")}</h4>
+              <ul className="m-0 flex flex-col gap-1 p-0 list-none">
+                {permsHorsPerimetre.map((p) => (
+                  <li key={p.id || p.code} className="text-xs text-neutral-600 flex items-center gap-1.5">
+                    <span className="font-medium text-neutral-800">{p.libelle}</span>
+                    <span className="font-mono text-neutral-400">{p.code}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         <SheetFooter className="flex-row justify-end gap-3 border-t border-neutral-200 px-6 py-4">
           <Bouton variante="secondaire" onClick={onFermer} disabled={enCours}>
             {t("annuler")}
           </Bouton>
-          <Bouton variante="primaire" onClick={valider} enCours={enCours}>
-            {t("enregistrer")}
-          </Bouton>
+          {gestes.modifiable && (
+            <Bouton variante="primaire" onClick={valider} enCours={enCours}>
+              {t("enregistrer")}
+            </Bouton>
+          )}
         </SheetFooter>
       </SheetContent>
     </Sheet>
