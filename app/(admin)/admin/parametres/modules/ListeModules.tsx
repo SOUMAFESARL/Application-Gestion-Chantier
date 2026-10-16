@@ -3,12 +3,15 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ban, Pencil, Play, Plus } from "lucide-react";
+import { Key } from "@phosphor-icons/react/dist/ssr";
 import { useTranslations } from "next-intl";
 import { useId, useMemo, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Alerte, Bouton, Champ, EtatChargement, EtatErreur, Modale } from "@/components/ui";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { aideColonnes } from "@/components/ui/data-table";
 import type { ExportTableau } from "@/components/ui/export-tableau";
 import {
@@ -18,12 +21,13 @@ import {
   TableauListe,
 } from "@/components/ui/tableau-liste";
 import { Textarea } from "@/components/ui/textarea";
-import { ZonePreRemplie } from "@/components/ui/form";
 import {
   CRITERES_MODULES_VIDES,
   criteresModulesActifs,
   desactivationModulePossible,
+  differenceRattachement,
   filtrerModules,
+  permissionsRattachables,
   peutParametrerPlateforme,
   reactivationModulePossible,
   STATUTS_MODULE,
@@ -34,12 +38,13 @@ import {
   creerModule,
   desactiverModule,
   listerModules,
+  listerPermissions,
   modifierModule,
+  rattacherPermissionsModule,
   reactiverModule,
 } from "@/features/administration/adaptateur";
 import { schemaModule } from "@/features/administration/validations";
 import type { SaisieModule, ValeursModule } from "@/features/administration/validations";
-import { SelecteurAcces } from "@/features/roles/components/SelecteurAcces";
 import { ErreurApi } from "@/lib/api";
 import { formaterDate } from "@/lib/format";
 
@@ -52,52 +57,26 @@ const colonne = aideColonnes<ModulePlateforme>();
 /** Relie le bouton du pied de modale au formulaire, rendu dans le corps. */
 const ID_FORM_MODULE = "form-module-plateforme";
 
-/** La liste des accès s'ouvre hors de la modale (`z-100`) : elle doit passer devant. */
-const LISTE_AU_DESSUS_DE_LA_MODALE = "z-110";
+const VALEURS_VIDES: SaisieModule = { libelle: "", description: "", ordre: 0, icone: "box" };
 
-/**
- * « Aucun » par défaut : un nouveau module arrive fermé dans les entreprises,
- * et c'est l'agent qui choisit de l'ouvrir — jamais un repli silencieux.
- */
-const VALEURS_VIDES: SaisieModule = { libelle: "", description: "", accesParDefaut: [] };
-
-/**
- * Une seule modale à la fois ; la cible voyage avec l'action qui la concerne.
- * `formulaire` sans module est une création, avec un module une modification :
- * mêmes champs, même validation, seul le verbe change.
- */
 type Action =
   | { type: "formulaire"; module: ModulePlateforme | null }
   | { type: "desactivation"; module: ModulePlateforme }
   | { type: "reactivation"; module: ModulePlateforme }
+  | {
+      type: "permissions";
+      module: ModulePlateforme;
+      etape: "selection" | "confirmation";
+      codesChoisis: string[];
+    }
   | null;
 
-/**
- * Le catalogue des modules du produit.
- *
- * **Le catalogue, pas les droits.** On y décrit ce que le produit contient —
- * un libellé, une description. Ce qu'un utilisateur peut faire dans un module
- * (lecture, saisie, validation) se décide dans chaque entreprise, par ses
- * rôles. L'accès par défaut n'est que leur **point de départ** : le serveur
- * le pose sur les rôles non système quand le module arrive, puis chaque
- * entreprise le change. Il se saisit donc avec le sélecteur des rôles
- * (`SelecteurAcces`), dans le même vocabulaire.
- *
- * **Désactiver, jamais supprimer** (`desactivationModulePossible`) : les rôles
- * des entreprises référencent le module par son code, qu'une suppression
- * laisserait orphelin.
- *
- * Le rôle `SUPPORT` consulte et exporte ; les actions sont désactivées, pas
- * masquées — comme sur la page des comptes.
- */
 export function ListeModules() {
   const t = useTranslations("administration");
-  const tRoles = useTranslations("roles");
   const profil = useAdministrateur();
   const cache = useQueryClient();
   const peutAgir = peutParametrerPlateforme(profil);
   const idDescription = useId();
-  const idAccesParDefaut = useId();
 
   const [criteres, setCriteres] = useState<CriteresModules>(CRITERES_MODULES_VIDES);
   const [action, setAction] = useState<Action>(null);
@@ -106,6 +85,12 @@ export function ListeModules() {
   const requete = useQuery({
     queryKey: CLES_ADMINISTRATION.modules(),
     queryFn: ({ signal }) => listerModules(signal),
+  });
+
+  const requetePermissions = useQuery({
+    queryKey: CLES_ADMINISTRATION.permissions(),
+    queryFn: ({ signal }) => listerPermissions(signal),
+    enabled: action?.type === "permissions",
   });
 
   const tous = useMemo(() => requete.data ?? [], [requete.data]);
@@ -125,11 +110,22 @@ export function ListeModules() {
         ? {
             libelle: cible.libelle,
             description: cible.description,
-            accesParDefaut: cible.accesParDefaut,
+            ordre: cible.ordre,
+            icone: cible.icone,
           }
         : VALEURS_VIDES,
     );
     setAction({ type: "formulaire", module: cible });
+  }
+
+  function ouvrirPermissions(cible: ModulePlateforme) {
+    setErreurAction(null);
+    setAction({
+      type: "permissions",
+      module: cible,
+      etape: "selection",
+      codesChoisis: (cible.permissions ?? []).map((p) => p.code.toLowerCase()),
+    });
   }
 
   function fermer() {
@@ -138,7 +134,6 @@ export function ListeModules() {
     formulaire.reset(VALEURS_VIDES);
   }
 
-  /** Remplace la ligne modifiée dans le cache, sans relire toute la liste. */
   function remplacer(cible: ModulePlateforme) {
     cache.setQueryData<ModulePlateforme[]>(CLES_ADMINISTRATION.modules(), (liste) =>
       liste?.some((m) => m.id === cible.id)
@@ -176,6 +171,18 @@ export function ListeModules() {
     },
   });
 
+  const rattachement = useMutation({
+    mutationFn: ({ id, codes }: { id: string; codes: string[] }) =>
+      rattacherPermissionsModule(id, codes),
+    onSuccess: (cible) => {
+      remplacer(cible);
+      cache.invalidateQueries({ queryKey: CLES_ADMINISTRATION.permissions() });
+      toast.success(t("parametres.modules.succesPermissions", { libelle: cible.libelle }));
+      fermer();
+    },
+    onError: surEchec,
+  });
+
   const desactivation = useMutation({
     mutationFn: (id: string) => desactiverModule(id),
     onSuccess: (cible) => {
@@ -197,6 +204,11 @@ export function ListeModules() {
   const colonnes = useMemo(
     () =>
       colonne.columns([
+        colonne.accessor("ordre", {
+          header: t("parametres.modules.colonneOrdre"),
+          meta: { classe: "text-right" },
+          cell: ({ getValue }) => <span className="tabular-nums font-mono">{getValue()}</span>,
+        }),
         colonne.accessor("libelle", {
           header: t("parametres.modules.colonneModule"),
           cell: ({ row }) => (
@@ -206,14 +218,27 @@ export function ListeModules() {
             </span>
           ),
         }),
+        colonne.accessor("icone", {
+          header: t("parametres.modules.colonneIcone"),
+          cell: ({ getValue }) => <code className="font-mono text-xs">{getValue()}</code>,
+        }),
         colonne.accessor("description", {
           header: t("parametres.modules.colonneDescription"),
           meta: { classe: "text-neutral-700" },
           cell: ({ getValue }) => <span className="line-clamp-2">{getValue()}</span>,
         }),
-        colonne.accessor("accesParDefaut", {
-          header: t("parametres.modules.colonneAccesParDefaut"),
-          cell: ({ getValue }) => <SelecteurAcces valeur={getValue()} variante="champ" />,
+        colonne.display({
+          id: "permissions",
+          header: t("parametres.modules.colonnePermissions"),
+          cell: ({ row }) => {
+            const perms = row.original.permissions ?? [];
+            const codes = perms.map((p) => p.code).join(", ");
+            return (
+              <span title={codes || undefined}>
+                {t("parametres.modules.nbPermissions", { n: perms.length })}
+              </span>
+            );
+          },
         }),
         colonne.accessor("statut", {
           header: t("parametres.modules.colonneStatut"),
@@ -244,6 +269,15 @@ export function ListeModules() {
                   onClick={() => ouvrirFormulaire(cible)}
                 >
                   {t("parametres.modules.modifier")}
+                </Bouton>
+                <Bouton
+                  variante="ghost"
+                  taille="sm"
+                  disabled={!peutAgir}
+                  iconeGauche={<Key size={16} aria-hidden="true" />}
+                  onClick={() => ouvrirPermissions(cible)}
+                >
+                  {t("parametres.modules.permissions")}
                 </Bouton>
                 {desactivationModulePossible(cible) && (
                   <Bouton
@@ -279,7 +313,6 @@ export function ListeModules() {
           },
         }),
       ]),
-    // `ouvrirFormulaire` ne lit que des références stables (`formulaire`, setters).
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [t, peutAgir],
   );
@@ -289,15 +322,14 @@ export function ListeModules() {
       titre: t("parametres.modules.export.titre"),
       nomFichier: t("parametres.modules.export.nomFichier"),
       colonnes: [
+        { entete: t("parametres.modules.colonneOrdre"), valeur: (m) => m.ordre },
         { entete: t("parametres.modules.colonneModule"), valeur: (m) => m.libelle },
         { entete: t("parametres.modules.colonneCode"), valeur: (m) => m.code },
+        { entete: t("parametres.modules.colonneIcone"), valeur: (m) => m.icone },
         { entete: t("parametres.modules.colonneDescription"), valeur: (m) => m.description },
         {
-          entete: t("parametres.modules.colonneAccesParDefaut"),
-          valeur: (m) =>
-            m.accesParDefaut.length === 0
-              ? tRoles("acces.aucun")
-              : m.accesParDefaut.map((a) => tRoles(`acces.${a}`)).join(", "),
+          entete: t("parametres.modules.colonnePermissions"),
+          valeur: (m) => t("parametres.modules.nbPermissions", { n: m.permissions?.length ?? 0 }),
         },
         {
           entete: t("parametres.modules.colonneStatut"),
@@ -306,7 +338,7 @@ export function ListeModules() {
         { entete: t("parametres.modules.colonneCreeLe"), valeur: (m) => formaterDate(m.creeLe) },
       ],
     }),
-    [t, tRoles],
+    [t],
   );
 
   if (requete.isPending) return <EtatChargement />;
@@ -319,9 +351,19 @@ export function ListeModules() {
   const { errors } = formulaire.formState;
   const idErreurDescription = `${idDescription}-erreur`;
 
+  const permissionsCible = action?.type === "permissions" ? action.module : null;
+  const cataloguePerms = requetePermissions.data ?? [];
+  const rattachables = permissionsCible
+    ? permissionsRattachables(permissionsCible, cataloguePerms)
+    : [];
+  const diffPerms =
+    action?.type === "permissions"
+      ? differenceRattachement(action.module, action.codesChoisis)
+      : { ajoutes: [], retires: [] };
+  const rienChangePerms = diffPerms.ajoutes.length === 0 && diffPerms.retires.length === 0;
+
   return (
     <>
-
       <TableauListe
         colonnes={colonnes}
         donnees={modules}
@@ -364,6 +406,7 @@ export function ListeModules() {
         }
       />
 
+      {/* Modale Formulaire (Création / Modification) */}
       <Modale
         ouverte={action?.type === "formulaire"}
         titre={
@@ -410,19 +453,15 @@ export function ListeModules() {
                 })
               : t("parametres.modules.formulaire.descriptionCreation")}
           </p>
-          <ZonePreRemplie control={formulaire.control} nom="libelle" actif={enModification !== null}>
-            <Champ
-              libelle={t("parametres.modules.formulaire.libelle")}
-              taille="md"
-              required
-              placeholder={t("parametres.modules.formulaire.libellePlaceholder")}
-              erreur={errors.libelle?.message}
-              disabled={enregistrement.isPending}
-              {...formulaire.register("libelle")}
-            />
-          </ZonePreRemplie>
-          {/* `Champ` ne rend qu'un `input` : même libellé, même erreur sous le
-              champ, reliée par `aria-describedby`. */}
+          <Champ
+            libelle={t("parametres.modules.formulaire.libelle")}
+            taille="md"
+            required
+            placeholder={t("parametres.modules.formulaire.libellePlaceholder")}
+            erreur={errors.libelle?.message}
+            disabled={enregistrement.isPending}
+            {...formulaire.register("libelle")}
+          />
           <div className="mb-4 flex flex-col gap-1">
             <label className="text-sm font-semibold text-neutral-800" htmlFor={idDescription}>
               {t("parametres.modules.formulaire.description")}
@@ -430,50 +469,174 @@ export function ListeModules() {
                 *
               </span>
             </label>
-            <ZonePreRemplie control={formulaire.control} nom="description" actif={enModification !== null}>
-              <Textarea
-                id={idDescription}
-                rows={3}
-                required
-                aria-required
-                aria-invalid={errors.description ? true : undefined}
-                aria-describedby={errors.description ? idErreurDescription : undefined}
-                placeholder={t("parametres.modules.formulaire.descriptionPlaceholder")}
-                disabled={enregistrement.isPending}
-                {...formulaire.register("description")}
-              />
-            </ZonePreRemplie>
+            <Textarea
+              id={idDescription}
+              rows={3}
+              required
+              aria-required
+              aria-invalid={errors.description ? true : undefined}
+              aria-describedby={errors.description ? idErreurDescription : undefined}
+              placeholder={t("parametres.modules.formulaire.descriptionPlaceholder")}
+              disabled={enregistrement.isPending}
+              {...formulaire.register("description")}
+            />
             {errors.description && (
               <p id={idErreurDescription} className="text-xs font-medium text-erreur">
                 {errors.description.message}
               </p>
             )}
           </div>
+          <Champ
+            libelle={t("parametres.modules.formulaire.ordre")}
+            type="number"
+            min={0}
+            max={999}
+            required
+            placeholder={t("parametres.modules.formulaire.ordrePlaceholder")}
+            erreur={errors.ordre?.message}
+            disabled={enregistrement.isPending}
+            {...formulaire.register("ordre")}
+          />
           <div className="mb-4 flex flex-col gap-1">
-            <span id={idAccesParDefaut} className="text-sm font-semibold text-neutral-800">
-              {t("parametres.modules.formulaire.accesParDefaut")}
+            <Champ
+              libelle={t("parametres.modules.formulaire.icone")}
+              type="text"
+              required
+              placeholder={t("parametres.modules.formulaire.iconePlaceholder")}
+              erreur={errors.icone?.message}
+              disabled={enregistrement.isPending}
+              {...formulaire.register("icone")}
+            />
+            <span className="text-xs text-neutral-500">
+              {t("parametres.modules.formulaire.iconeAide")}
             </span>
-            <ZonePreRemplie control={formulaire.control} nom="accesParDefaut" actif={enModification !== null}>
-              <Controller
-                control={formulaire.control}
-                name="accesParDefaut"
-                render={({ field }) => (
-                  <SelecteurAcces
-                    valeur={field.value}
-                    onChange={field.onChange}
-                    variante="champ"
-                    libelleAria={t("parametres.modules.formulaire.accesParDefaut")}
-                    disabled={enregistrement.isPending}
-                    classeListe={LISTE_AU_DESSUS_DE_LA_MODALE}
-                  />
-                )}
-              />
-            </ZonePreRemplie>
           </div>
           {erreurAction && <Alerte type="erreur">{erreurAction}</Alerte>}
         </form>
       </Modale>
 
+      {/* Modale Permissions rattachées */}
+      {action?.type === "permissions" && (
+        <Modale
+          ouverte={true}
+          titre={
+            action.etape === "confirmation"
+              ? t("parametres.modules.permissionsModal.titreConfirmation")
+              : t("parametres.modules.permissionsModal.titre", {
+                  libelle: action.module.libelle,
+                })
+          }
+          onFermer={fermer}
+          actions={
+            action.etape === "confirmation" ? (
+              <>
+                <Bouton
+                  variante="ghost"
+                  onClick={() => setAction({ ...action, etape: "selection" })}
+                  disabled={rattachement.isPending}
+                >
+                  {t("parametres.modules.permissionsModal.retour")}
+                </Bouton>
+                <Bouton
+                  variante={diffPerms.retires.length > 0 ? "danger" : "primaire"}
+                  onClick={() =>
+                    rattachement.mutate({
+                      id: action.module.id,
+                      codes: action.codesChoisis,
+                    })
+                  }
+                  enCours={rattachement.isPending}
+                >
+                  {t("parametres.modules.permissionsModal.confirmer")}
+                </Bouton>
+              </>
+            ) : (
+              <>
+                <Bouton variante="ghost" onClick={fermer}>
+                  {t("parametres.modules.permissionsModal.annuler")}
+                </Bouton>
+                <Bouton
+                  variante="primaire"
+                  disabled={rienChangePerms || requetePermissions.isPending}
+                  onClick={() => setAction({ ...action, etape: "confirmation" })}
+                >
+                  {t("parametres.modules.permissionsModal.continuer")}
+                </Bouton>
+              </>
+            )
+          }
+        >
+          {action.etape === "selection" ? (
+            requetePermissions.isPending ? (
+              <EtatChargement />
+            ) : rattachables.length === 0 ? (
+              <p className="text-sm text-neutral-600">
+                {t("parametres.modules.aucunePermissionRattachable", {
+                  code: action.module.code,
+                })}
+              </p>
+            ) : (
+              <div className="flex max-h-[60vh] flex-col gap-2 overflow-y-auto pr-1">
+                {rattachables.map((perm) => {
+                  const code = perm.code.toLowerCase();
+                  const coche = action.codesChoisis.includes(code);
+                  return (
+                    <div key={perm.id} className="flex items-start gap-2 py-1.5 border-b border-neutral-100 last:border-b-0">
+                      <Checkbox
+                        id={`perm-${perm.id}`}
+                        checked={coche}
+                        onCheckedChange={(c) => {
+                          const nouveaux = c
+                            ? [...action.codesChoisis, code]
+                            : action.codesChoisis.filter((x) => x !== code);
+                          setAction({ ...action, codesChoisis: nouveaux });
+                        }}
+                        className="mt-0.5"
+                      />
+                      <Label
+                        htmlFor={`perm-${perm.id}`}
+                        className="flex flex-col cursor-pointer text-sm"
+                      >
+                        <span className="font-medium text-neutral-900 flex items-center gap-2">
+                          {perm.libelle}
+                          {!perm.actif && (
+                            <span className="text-xs text-neutral-400">
+                              ({t("parametres.modules.permissionInactive")})
+                            </span>
+                          )}
+                        </span>
+                        <span className="font-mono text-xs text-neutral-500">{perm.code}</span>
+                      </Label>
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          ) : (
+            <div className="flex flex-col gap-3">
+              {diffPerms.ajoutes.length > 0 && (
+                <Alerte type="information">
+                  {t("parametres.modules.confirmationAjout", {
+                    n: diffPerms.ajoutes.length,
+                  })}
+                </Alerte>
+              )}
+              {diffPerms.retires.length > 0 && (
+                <Alerte type="avertissement">
+                  {t("parametres.modules.confirmationRetrait", {
+                    n: diffPerms.retires.length,
+                    module: action.module.libelle,
+                    codes: diffPerms.retires.join(", "),
+                  })}
+                </Alerte>
+              )}
+            </div>
+          )}
+          {erreurAction && <Alerte type="erreur">{erreurAction}</Alerte>}
+        </Modale>
+      )}
+
+      {/* Modale Désactivation */}
       <Modale
         ouverte={action?.type === "desactivation"}
         titre={
@@ -507,6 +670,7 @@ export function ListeModules() {
         {erreurAction && <Alerte type="erreur">{erreurAction}</Alerte>}
       </Modale>
 
+      {/* Modale Réactivation */}
       <Modale
         ouverte={action?.type === "reactivation"}
         titre={

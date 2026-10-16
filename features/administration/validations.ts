@@ -8,7 +8,6 @@
 
 import { z } from "zod";
 
-import { ACCES_MODULE } from "@/features/roles/types";
 import { texte } from "@/i18n/horsReact";
 import { chaineNonVide, email } from "@/lib/validations/champs";
 
@@ -178,8 +177,18 @@ export const schemaModule = z.object({
       max: DESCRIPTION_MODULE_MAX,
     }),
   ),
-  /** Une liste vide est une réponse valide : « Aucun ». */
-  accesParDefaut: z.array(z.enum(ACCES_MODULE)),
+  ordre: z.coerce
+    .number({ message: texte("administration.parametres.modules.erreurOrdre") })
+    .int({ message: texte("administration.parametres.modules.erreurOrdre") })
+    .min(0, { message: texte("administration.parametres.modules.erreurOrdre") })
+    .max(999, { message: texte("administration.parametres.modules.erreurOrdre") }),
+  icone: z
+    .string()
+    .min(1, { message: texte("administration.parametres.modules.erreurIcone") })
+    .max(50, { message: texte("administration.parametres.modules.erreurIcone") })
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, {
+      message: texte("administration.parametres.modules.erreurIcone"),
+    }),
 });
 
 export type SaisieModule = z.input<typeof schemaModule>;
