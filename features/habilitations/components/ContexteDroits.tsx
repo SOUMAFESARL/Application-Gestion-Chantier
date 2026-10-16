@@ -14,7 +14,7 @@ import { listerProjets } from "@/features/projets/adaptateur";
 import { CLE_LISTE_PROJETS } from "@/features/projets/cles";
 import type { Projet } from "@/features/projets/types";
 
-import { peut, projetsVisibles, routeAutorisee } from "../regles";
+import { peut, peutCode, peutSurProjet, projetsVisibles, routeAutorisee } from "../regles";
 import type { AccesModule, CodeModule, Droits } from "../types";
 
 /**
@@ -43,12 +43,19 @@ export function useDroits() {
     (module: CodeModule, acces: AccesModule = "lecture") => peut(droits, module, acces),
     [droits],
   );
+  const peutFaireCode = useCallback((code: string) => peutCode(droits, code), [droits]);
+  const peutFaireSurProjet = useCallback(
+    (code: string, projet: Projet) => peutSurProjet(droits, code, projet),
+    [droits],
+  );
   return {
     droits,
     /** `false` tant que les droits ne sont pas connus. */
     connus: droits !== null,
     estDirection: droits?.estDirection ?? false,
     peut: peutFaire,
+    peutCode: peutFaireCode,
+    peutSurProjet: peutFaireSurProjet,
   };
 }
 

@@ -13,8 +13,8 @@ import type { AccesModule, CodeModule, PermissionsModules } from "@/features/rol
 export type { AccesModule, CodeModule };
 
 /**
- * Les chantiers qu'un compte voit : tous (direction), ou ceux de la personne
- * — ceux où elle est désignée dans l'équipe projet.
+ * Les chantiers qu'un compte voit : tous (direction et rôles de portée ENTREPRISE),
+ * ou ceux de la personne — ceux où elle est désignée dans l'équipe projet.
  *
  * `fonctionsSimulees` (identifiant de chantier → fonctions) ajoute des
  * affectations que les données du chantier ne portent pas encore. Seul l'outil
@@ -31,10 +31,15 @@ export type PorteeProjets =
 
 export interface Droits {
   /**
-   * Le Directeur Général. Seul à voir les Paramètres et l'Abonnement, et seul
-   * à voir tous les chantiers (décision du 30/09/2026).
+   * Le Directeur Général. Seul à voir l'Abonnement et la configuration de
+   * l'entreprise ; les rôles et les collaborateurs s'ouvrent aussi par leur code.
    */
   estDirection: boolean;
+  /**
+   * Les codes de permission accordés (`projets.creer`, `projets.voir_montants`…), tels que le
+   * serveur les applique. Vide pour la direction, qui a tout (voir `peutCode`).
+   */
+  codes: readonly string[];
   /** Les accès de son rôle, module par module. Un module absent vaut « aucun ». */
   permissions: PermissionsModules;
   portee: PorteeProjets;
@@ -44,4 +49,5 @@ export interface Droits {
 export type ConditionAcces =
   | { type: "TOUS" }
   | { type: "DIRECTION" }
-  | { type: "MODULE"; module: CodeModule; acces: AccesModule };
+  | { type: "MODULE"; module: CodeModule; acces: AccesModule }
+  | { type: "PERMISSION"; code: string };

@@ -10,10 +10,11 @@
 
 import type { ProfilUtilisateur } from "@/features/auth/api";
 import { accesNormalises, permissionsNormalisees } from "@/features/roles/regles";
-import type { RoleItem } from "@/features/roles/types";
+import type { AccesModule, CodeModule, RoleItem } from "@/features/roles/types";
+import { MODULES_CCD } from "@/features/roles/types";
 
-import { droitsDirection } from "./regles";
-import type { Droits } from "./types";
+import { accesDepuisCodes, droitsDirection } from "./regles";
+import type { Droits, PorteeProjets } from "./types";
 
 /**
  * Une habilitation du profil arrive au format `{ libelle, niveau }` (niveau
@@ -38,6 +39,8 @@ function accesHabilitation(valeur: unknown): unknown {
 export function versDroits(profil: ProfilUtilisateur): Droits {
   if (profil.is_dg || profil.role_global === "DG") return droitsDirection();
 
+  const codes = (profil.permissions ?? []).map((c) => c.toLowerCase());
+
   // Le serveur écrit les modules en capitales (`CHANTIER`), le domaine en
   // minuscules (`chantier`, `MODULES_CCD`). Sans cette traduction, aucun
   // module n'était reconnu : tout rôle hors direction se voyait refuser
@@ -46,19 +49,63 @@ export function versDroits(profil: ProfilUtilisateur): Droits {
   for (const [module, valeur] of Object.entries(profil.habilitations ?? {})) {
     brutes[module.toLowerCase()] = accesNormalises(accesHabilitation(valeur));
   }
+  const permissionsNiveau = permissionsNormalisees(brutes);
+
+  // Accès par module : accesDepuisCodes(module, codes) ?? accès du niveau
+  const permissionsParModule: Record<string, AccesModule[]> = {};
+  const tousModules = new Set([...MODULES_CCD, ...Object.keys(brutes)]);
+  for (const mod of tousModules) {
+    const depuisCodes = codes.length > 0 ? accesDepuisCodes(mod, codes) : null;
+    const acces = depuisCodes ?? permissionsNiveau[mod as CodeModule] ?? [];
+    if (acces.length > 0) {
+      permissionsParModule[mod] = acces;
+    }
+  }
+
+  const portee: PorteeProjets =
+    profil.portee === "ENTREPRISE"
+      ? { type: "TOUS" }
+      : { type: "PERSONNE", collaborateurId: profil.id };
+
   return {
     estDirection: false,
-    permissions: permissionsNormalisees(brutes),
-    portee: { type: "PERSONNE", collaborateurId: profil.id },
+    codes,
+    permissions: permissionsNormalisees(permissionsParModule),
+    portee,
   };
 }
 
 /** Les droits d'un rôle, portés par une personne donnée (ses chantiers). */
 export function droitsDuRole(role: RoleItem, collaborateurId: string | null): Droits {
+  const codes: string[] = [];
+  for (const mod of role.modules ?? []) {
+    for (const perm of mod.permissions ?? []) {
+      if (perm.code) {
+        codes.push(perm.code.toLowerCase());
+      }
+    }
+  }
+
+  const permissionsNiveau = permissionsNormalisees(role.permissions_modules);
+  const permissionsParModule: Record<string, AccesModule[]> = {};
+  const tousModules = new Set([...MODULES_CCD, ...Object.keys(role.permissions_modules ?? {})]);
+  for (const mod of tousModules) {
+    const depuisCodes = codes.length > 0 ? accesDepuisCodes(mod, codes) : null;
+    const acces = depuisCodes ?? permissionsNiveau[mod as CodeModule] ?? [];
+    if (acces.length > 0) {
+      permissionsParModule[mod] = acces;
+    }
+  }
+
+  const portee: PorteeProjets =
+    role.portee === "ENTREPRISE"
+      ? { type: "TOUS" }
+      : { type: "PERSONNE", collaborateurId: collaborateurId ?? "" };
+
   return {
     estDirection: false,
-    permissions: permissionsNormalisees(role.permissions_modules),
-    // Sans personne, aucun chantier : la portée ne s'accorde pas par défaut.
-    portee: { type: "PERSONNE", collaborateurId: collaborateurId ?? "" },
+    codes,
+    permissions: permissionsNormalisees(permissionsParModule),
+    portee,
   };
 }

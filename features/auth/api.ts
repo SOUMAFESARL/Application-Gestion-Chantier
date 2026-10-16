@@ -61,6 +61,10 @@ export interface ProfilUtilisateur {
   entreprise?: EntrepriseProfil;
   /** Les droits effectifs, par module : le libellé du niveau est rendu par le serveur. */
   habilitations?: Record<string, HabilitationModule>;
+  /** Les droits effectifs, code par code (`projets.creer`…) : la liste exacte que le serveur applique. */
+  permissions?: string[];
+  /** `ENTREPRISE` : tous les chantiers de l'entreprise ; `PROJET` : ceux où la personne est affectée. */
+  portee?: "ENTREPRISE" | "PROJET";
   derniere_connexion?: string | null;
   cree_le?: string;
   modifie_le?: string;

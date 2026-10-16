@@ -41,6 +41,9 @@ function roleTest(
     est_systeme: false,
     est_actif: true,
     nb_utilisateurs: 0,
+    portee: "PROJET",
+    avertissements: [],
+    modules: [],
     permissions_modules: permissionsNormalisees(permissions),
   };
 }
