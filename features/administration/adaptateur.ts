@@ -722,7 +722,7 @@ export async function creerModule(demande: DemandeModule): Promise<ModulePlatefo
   return versModule(charge);
 }
 
-/** `PATCH /admins/modules/{id}/` — libellé, description, accès par défaut ; le code reste. */
+/** `PATCH /admins/modules/{id}/` — libellé, description, ordre, icône ; le code reste. */
 export async function modifierModule(
   id: string,
   demande: DemandeModule,

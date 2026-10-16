@@ -61,7 +61,7 @@ export interface ProfilUtilisateur {
   entreprise?: EntrepriseProfil;
   /**
    * Les droits effectifs, code par code (`projets.creer`…) : la liste exacte que le serveur
-   * applique. Le serveur sert aussi `habilitations` (un niveau par module) : il n'est pas lu.
+   * applique.
    */
   permissions?: string[];
   /** `ENTREPRISE` : tous les chantiers de l'entreprise ; `PROJET` : ceux où la personne est affectée. */

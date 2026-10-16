@@ -303,7 +303,7 @@
       "retraitTexte": "Les utilisateurs de l’entreprise n’auront plus accès à ce module. Ses données sont conservées et reviendront telles quelles si vous le réactivez. Le dirigeant de l’entreprise est prévenu par courriel.",
       "retraitConfirmer": "Retirer le module",
       "activationTitre": "Activer {module} pour {client} ?",
-      "activationTexte": "Les rôles standards de l’entreprise reçoivent leurs droits par défaut sur ce module. Les rôles personnalisés n’y reçoivent aucun droit : le dirigeant devra les leur accorder. Le dirigeant est prévenu par courriel.",
+      "activationTexte": "Les rôles standards de l’entreprise reçoivent leurs permissions sur ce module. Les rôles personnalisés n’y reçoivent aucune permission : le dirigeant devra les leur accorder. Le dirigeant est prévenu par courriel.",
       "activationConfirmer": "Activer le module",
       "annuler": "Annuler",
       "sansDirigeant": "Aucun dirigeant actif : personne ne sera prévenu.",

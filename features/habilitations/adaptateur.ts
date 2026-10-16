@@ -7,8 +7,7 @@
  * - un **rôle** de l'entreprise (`GET /parametres/roles/`), quand un poste de
  *   développement l'incarne pour tester l'interface (voir `ContexteDroits`).
  *
- * Un droit est un **code de permission** (`projets.creer`), rien d'autre. Les
- * niveaux que le serveur sert encore (`habilitations`, `niveau`) ne sont pas lus.
+ * Un droit est un **code de permission** (`projets.creer`), rien d'autre.
  */
 
 import type { ProfilUtilisateur } from "@/features/auth/api";
