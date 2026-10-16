@@ -22,14 +22,8 @@ export type AccesModule = (typeof ACCES_MODULE)[number];
 export type PermissionsModules = Record<string, AccesModule[]>;
 
 /**
- * Les douze modules du produit, **par leur code seul**.
- *
- * Le nom et la description de chaque module sont du texte affiché : ils vivent
- * dans `messages/fr.json`, sous `roles.modules.<code>`, et les écrans les
- * lisent par le code. Ils étaient écrits dans ce tableau, en français, dans un
- * module que la règle `no-literal-string` ne regarde pas — elle ne voit que le
- * JSX. C'est le premier des angles morts que le guide frontend §1 nomme : le
- * tableau de libellés (Socle Commun §1.1).
+ * Les codes de module que la **table des routes** connaît (`features/habilitations/regles.ts`). Aucun
+ * écran ne s'en sert plus pour lister des modules : la liste vient du serveur (`GET /modules/`).
  */
 export const MODULES_CCD = [
   "projets",
@@ -59,6 +53,21 @@ export interface PermissionCatalogue {
   ordre: number;
 }
 
+/** Un module du catalogue de l'entreprise, avec les permissions que le demandeur peut accorder. */
+export interface ModuleCatalogue {
+  id: string;
+  code: string;
+  libelle: string;
+  description: string;
+  ordre: number;
+  icone: string;
+  permissions: PermissionCatalogue[];
+}
+
+/** Les quatre raccourcis d'un module, dans l'ordre d'affichage. */
+export const RACCOURCIS = ["aucun", "lecture", "saisie", "validation"] as const;
+export type Raccourci = (typeof RACCOURCIS)[number];
+
 /** Un module de la matrice d'un rôle : son niveau (calculé par le serveur) et ses permissions accordées. */
 export interface ModuleRole {
   moduleId: string;
@@ -82,7 +91,6 @@ export interface RoleItem {
   portee: PorteeRole;
   avertissements: string[];
   modules: ModuleRole[];
-  permissions_modules: PermissionsModules;
 }
 
 export interface RoleDetailItem extends RoleItem {
