@@ -524,8 +524,6 @@ export interface DemandeRoleSysteme {
   code: string;
   libelle: string;
   description: string;
-  portee: PorteeRoleSysteme;
-  modules: string[];
 }
 
 /** Les référentiels de la plateforme, proposés à toutes les entreprises. */

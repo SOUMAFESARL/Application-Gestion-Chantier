@@ -1340,7 +1340,11 @@ export async function listerRolesSysteme(signal?: AbortSignal): Promise<RoleSyst
 export async function creerRoleSysteme(demande: DemandeRoleSysteme): Promise<RoleSysteme> {
   const charge = await apiAdministration.creer<ChargeRoleSysteme>(
     "/admins/roles-systeme/",
-    demande,
+    {
+      code: demande.code,
+      libelle: demande.libelle,
+      description: demande.description,
+    },
   );
   return versRoleSysteme(charge);
 }
@@ -1348,11 +1352,14 @@ export async function creerRoleSysteme(demande: DemandeRoleSysteme): Promise<Rol
 /** `PATCH /admins/roles-systeme/{id}/` — le code reste. */
 export async function modifierRoleSysteme(
   id: string,
-  demande: Omit<DemandeRoleSysteme, "code">,
+  demande: { libelle: string; description: string },
 ): Promise<RoleSysteme> {
   const charge = await apiAdministration.modifier<ChargeRoleSysteme>(
     `/admins/roles-systeme/${id}/`,
-    demande,
+    {
+      libelle: demande.libelle,
+      description: demande.description,
+    },
   );
   return versRoleSysteme(charge);
 }

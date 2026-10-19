@@ -7,7 +7,6 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Alerte, Bouton, Champ, EtatChargement, EtatErreur, Modale } from "@/components/ui";
-import { Checkbox } from "@/components/ui/checkbox";
 import { aideColonnes } from "@/components/ui/data-table";
 import type { ExportTableau } from "@/components/ui/export-tableau";
 import { Label } from "@/components/ui/label";
@@ -16,12 +15,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { peutParametrerPlateforme, peutSupprimerRoleSysteme } from "@/features/administration";
 import type {
   DemandeRoleSysteme,
-  PorteeRoleSysteme,
   RoleSysteme,
 } from "@/features/administration";
 import {
   creerRoleSysteme,
-  listerModules,
   listerRolesSysteme,
   modifierRoleSysteme,
   supprimerRoleSysteme,
@@ -33,14 +30,10 @@ import { CLES_ADMINISTRATION } from "../../cles";
 
 const colonne = aideColonnes<RoleSysteme>();
 
-const PORTEES: PorteeRoleSysteme[] = ["ENTREPRISE", "PROJET"];
-
 const SAISIE_VIDE: DemandeRoleSysteme = {
   code: "",
   libelle: "",
   description: "",
-  portee: "PROJET",
-  modules: [],
 };
 
 type Action =
@@ -50,9 +43,10 @@ type Action =
 
 /**
  * Les rôles système : gabarits de la plateforme recopiés dans chaque
- * entreprise. Créer propage partout ; modifier réécrit libellé et
- * description partout, les modules ne valant que pour les entreprises à
- * venir ; supprimer laisse le rôle à chaque entreprise, devenu personnalisé.
+ * entreprise. Créer propage partout, en portée Projet et sans permission ;
+ * modifier réécrit libellé et description partout ; supprimer laisse le
+ * rôle à chaque entreprise, devenu personnalisé. Le DG de chaque
+ * entreprise attribue les permissions.
  */
 export function ListeRolesSysteme() {
   const t = useTranslations("administration.parametres.rolesSysteme");
@@ -68,12 +62,6 @@ export function ListeRolesSysteme() {
     queryKey: CLES_ADMINISTRATION.rolesSysteme(),
     queryFn: ({ signal }) => listerRolesSysteme(signal),
   });
-  const requeteModules = useQuery({
-    queryKey: CLES_ADMINISTRATION.modules(),
-    queryFn: ({ signal }) => listerModules(signal),
-    enabled: action?.type === "formulaire",
-  });
-
   const enModification = action?.type === "formulaire" ? action.role : null;
 
   function ouvrirFormulaire(role: RoleSysteme | null) {
@@ -84,8 +72,6 @@ export function ListeRolesSysteme() {
             code: role.code,
             libelle: role.libelle,
             description: role.description,
-            portee: role.portee,
-            modules: role.modules,
           }
         : SAISIE_VIDE,
     );
@@ -107,8 +93,6 @@ export function ListeRolesSysteme() {
         return modifierRoleSysteme(enModification.id, {
           libelle: saisie.libelle,
           description: saisie.description,
-          portee: saisie.portee,
-          modules: saisie.modules,
         });
       }
       return creerRoleSysteme(saisie);
@@ -148,11 +132,6 @@ export function ListeRolesSysteme() {
           id: "portee",
           header: t("colonnePortee"),
           cell: ({ row }) => t(`portee.${row.original.portee}`),
-        }),
-        colonne.accessor("modules", {
-          id: "modules",
-          header: t("colonneModules"),
-          cell: ({ row }) => row.original.modules.length,
         }),
         colonne.display({
           id: "actions",
@@ -198,7 +177,6 @@ export function ListeRolesSysteme() {
         { entete: t("colonneRole"), valeur: (r) => r.libelle },
         { entete: t("code"), valeur: (r) => r.code },
         { entete: t("colonnePortee"), valeur: (r) => t(`portee.${r.portee}`) },
-        { entete: t("colonneModules"), valeur: (r) => r.modules.join(", ") },
       ],
     }),
     [t],
@@ -207,7 +185,6 @@ export function ListeRolesSysteme() {
   if (requete.isPending) return <EtatChargement />;
   if (requete.isError) return <EtatErreur onReessayer={() => void requete.refetch()} />;
 
-  const modules = requeteModules.data ?? [];
   const valide = saisie.libelle.trim() !== "" && (enModification || saisie.code.trim() !== "");
 
   return (
@@ -229,7 +206,6 @@ export function ListeRolesSysteme() {
 
       <Modale
         ouverte={action?.type === "formulaire"}
-        taille="large"
         titre={enModification ? t("titreModification") : t("titreCreation")}
         onFermer={enregistrement.isPending ? undefined : fermer}
         actions={
@@ -248,7 +224,11 @@ export function ListeRolesSysteme() {
         }
       >
         <div className="flex flex-col gap-4">
-          {enModification && <Alerte type="information">{t("aideModification")}</Alerte>}
+          {enModification ? (
+            <Alerte type="information">{t("aideModification")}</Alerte>
+          ) : (
+            <Alerte type="information">{t("aideCreation")}</Alerte>
+          )}
           <Champ
             libelle={t("code")}
             value={saisie.code}
@@ -273,57 +253,6 @@ export function ListeRolesSysteme() {
               onChange={(e) => setSaisie((s) => ({ ...s, description: e.target.value }))}
             />
           </div>
-          <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-sm font-medium text-neutral-800">{t("colonnePortee")}</legend>
-            <div className="flex flex-wrap gap-4">
-              {PORTEES.map((portee) => (
-                <label key={portee} className="flex items-center gap-2 text-sm text-neutral-700">
-                  <input
-                    type="radio"
-                    name="portee-role-systeme"
-                    checked={saisie.portee === portee}
-                    disabled={enregistrement.isPending}
-                    onChange={() => setSaisie((s) => ({ ...s, portee }))}
-                  />
-                  {t(`portee.${portee}`)}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-sm font-medium text-neutral-800">{t("colonneModules")}</legend>
-            {requeteModules.isPending ? (
-              <EtatChargement />
-            ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {modules.map((module) => {
-                  const code = module.code.toLowerCase();
-                  const id = `role-systeme-module-${code}`;
-                  return (
-                    <div key={module.id} className="flex items-center gap-2">
-                      <Checkbox
-                        id={id}
-                        checked={saisie.modules.includes(code)}
-                        disabled={enregistrement.isPending}
-                        onCheckedChange={(coche) =>
-                          setSaisie((s) => ({
-                            ...s,
-                            modules:
-                              coche === true
-                                ? [...s.modules, code]
-                                : s.modules.filter((m) => m !== code),
-                          }))
-                        }
-                      />
-                      <Label htmlFor={id} className="text-sm font-normal">
-                        {module.libelle}
-                      </Label>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </fieldset>
           {erreur && <Alerte type="erreur">{erreur}</Alerte>}
         </div>
       </Modale>
