@@ -13,9 +13,8 @@ Cinq étapes, dans l'ordre. Les deux premières ne modifient aucun fichier. C'es
 celui du backend (`../API-Gestion-Chantier/.agents/skills/sprint-task-lifecycle`) ; seules la
 lecture de départ et la façon de vérifier changent.
 
-**Qui écrit le code.** Pour le chantier d'alignement (`docs/plan_alignement_api.md`), l'agent
-implémente tout — décision du 13/10/2026. Pour toute autre tâche, poser la question à la fin de
-l'étape 2.
+**Qui écrit le code.** L'agent implémente — décision du 19/10/2026, qui étend à toutes les tâches
+celle du 13/10/2026 pour le chantier d'alignement.
 
 ## Étape 1 — Cadrage (lecture seule)
 
