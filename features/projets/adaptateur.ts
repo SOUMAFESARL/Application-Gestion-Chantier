@@ -127,6 +127,12 @@ interface ChargeProjet {
   date_debut_reelle?: string | null;
   date_fin_reelle?: string | null;
   duree_jours_ouvres?: number | null;
+  duree?: {
+    annees: number;
+    mois: number;
+    jours: number;
+    jours_ouvres: number;
+  } | null;
   maitre_oeuvre?: string | null;
   contrat?: ChargeContrat[];
   chef_projet?: ChargeIntervenant | null;
@@ -352,6 +358,14 @@ export function versProjet(charge: ChargeProjet): Projet {
     dateDebutReelle: charge.date_debut_reelle ?? null,
     dateFinReelle: charge.date_fin_reelle ?? null,
     dureeJoursOuvres: charge.duree_jours_ouvres ?? null,
+    duree: charge.duree
+      ? {
+          annees: charge.duree.annees,
+          mois: charge.duree.mois,
+          jours: charge.duree.jours,
+          joursOuvres: charge.duree.jours_ouvres,
+        }
+      : null,
     maitreOeuvre: charge.maitre_oeuvre || null,
     contrats: (charge.contrat ?? []).map(versContrat),
     chefProjet: versIntervenant(charge.chef_projet),
