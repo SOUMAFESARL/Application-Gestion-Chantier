@@ -13,8 +13,6 @@
  * en francs est un acte d'affichage, et il appartient à `lib/format`.
  */
 
-import type { DureeProjet } from "./regles";
-
 /** L'état d'un chantier, tel que le serveur le nomme. */
 export type StatutProjet =
   | "EN_ATTENTE"
@@ -53,6 +51,19 @@ export interface ClientProjet {
   telephone: string | null;
   email: string | null;
   ville: string | null;
+}
+
+/**
+ * La durée d'un projet, lue de deux façons qui ne se remplacent pas : en
+ * **calendaire** (années, mois, et les jours qui restent après le dernier mois
+ * plein), comme on l'écrit dans un marché ; et en **jours ouvrés**, ce que le
+ * chantier aura réellement pour travailler.
+ */
+export interface DureeProjet {
+  annees: number;
+  mois: number;
+  jours: number;
+  joursOuvres: number;
 }
 
 /**

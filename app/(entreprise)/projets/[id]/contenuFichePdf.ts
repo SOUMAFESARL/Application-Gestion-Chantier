@@ -202,7 +202,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
         elements: [
           { libelle: t("calendrier.debutPrevu"), valeur: formaterDate(projet.dateDebutPrevue) },
           { libelle: t("calendrier.finPrevue"), valeur: formaterDate(projet.dateFinPrevue) },
-          { libelle: t("calendrier.duree"), valeur: formaterDuree(echeancier.duree) },
+          { libelle: t("calendrier.duree"), valeur: formaterDuree(projet.duree ?? echeancier.duree) },
           {
             libelle: t("calendrier.debutReel"),
             valeur: projet.dateDebutReelle
