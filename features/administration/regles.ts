@@ -34,6 +34,7 @@ import type {
   ModulePermission,
   PermissionPlateforme,
   ApercuSuppression,
+  RoleSysteme,
 } from "./types";
 
 /**
@@ -894,6 +895,11 @@ export function refusSuppression(apercu: ApercuSuppression): RefusSuppression | 
   if (!apercu.suppressionActivee) return "desactivee";
   if (!apercu.suspendue) return "nonSuspendue";
   return null;
+}
+
+/** Un rôle système se supprime, sauf le DG : le serveur le refuse. */
+export function peutSupprimerRoleSysteme(role: Pick<RoleSysteme, "code">): boolean {
+  return role.code.toUpperCase() !== "DG";
 }
 
 /** Le nom technique retapé correspond-il ? Casse et espaces de bord ignorés, comme le serveur. */

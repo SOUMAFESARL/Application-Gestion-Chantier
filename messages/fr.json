@@ -690,9 +690,6 @@
         "colonneRole": "Rôle",
         "colonnePortee": "Portée",
         "colonneModules": "Modules",
-        "colonneType": "Type",
-        "socle": "Socle",
-        "ajoute": "Ajouté",
         "portee": {
           "ENTREPRISE": "Toute l’entreprise",
           "PROJET": "Chantiers affectés"

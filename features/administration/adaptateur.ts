@@ -1313,17 +1313,36 @@ interface ChargeRoleSysteme {
   description: string;
   portee: PorteeRoleSysteme;
   modules: string[];
-  protege: boolean;
+}
+
+function versRoleSysteme(charge: ChargeRoleSysteme): RoleSysteme {
+  return {
+    id: charge.id,
+    code: charge.code,
+    libelle: charge.libelle,
+    description: charge.description,
+    portee: charge.portee,
+    modules: charge.modules,
+  };
 }
 
 /** `GET /admins/roles-systeme/`. */
 export async function listerRolesSysteme(signal?: AbortSignal): Promise<RoleSysteme[]> {
-  return apiAdministration.lire<ChargeRoleSysteme[]>("/admins/roles-systeme/", undefined, signal);
+  const charges = await apiAdministration.lire<ChargeRoleSysteme[]>(
+    "/admins/roles-systeme/",
+    undefined,
+    signal,
+  );
+  return charges.map(versRoleSysteme);
 }
 
 /** `POST /admins/roles-systeme/` — créé puis propagé à toutes les entreprises. */
 export async function creerRoleSysteme(demande: DemandeRoleSysteme): Promise<RoleSysteme> {
-  return apiAdministration.creer<ChargeRoleSysteme>("/admins/roles-systeme/", demande);
+  const charge = await apiAdministration.creer<ChargeRoleSysteme>(
+    "/admins/roles-systeme/",
+    demande,
+  );
+  return versRoleSysteme(charge);
 }
 
 /** `PATCH /admins/roles-systeme/{id}/` — le code reste. */
@@ -1331,7 +1350,11 @@ export async function modifierRoleSysteme(
   id: string,
   demande: Omit<DemandeRoleSysteme, "code">,
 ): Promise<RoleSysteme> {
-  return apiAdministration.modifier<ChargeRoleSysteme>(`/admins/roles-systeme/${id}/`, demande);
+  const charge = await apiAdministration.modifier<ChargeRoleSysteme>(
+    `/admins/roles-systeme/${id}/`,
+    demande,
+  );
+  return versRoleSysteme(charge);
 }
 
 /** `DELETE /admins/roles-systeme/{id}/` — il devient personnalisé dans chaque entreprise. */
