@@ -69,7 +69,7 @@ import {
   type SaisieAjoutCollaborateur,
   type ValeursAjoutCollaborateur,
 } from "@/features/invitations/validations";
-import { afficherTelephone } from "@/features/referentiels/telephone";
+import { PAYS_TELEPHONE_DEFAUT, afficherTelephone } from "@/features/referentiels/telephone";
 import { ErreurApi } from "@/lib/api";
 import { formaterDate } from "@/lib/format";
 
@@ -110,8 +110,13 @@ export default function PageCollaborateurs() {
     queryFn: listerCollaborateurs,
   });
 
+  const resolver = useMemo(
+    () => zodResolver(schemaAjoutCollaborateur(pays || PAYS_TELEPHONE_DEFAUT)),
+    [pays],
+  );
+
   const form = useForm<SaisieAjoutCollaborateur, unknown, ValeursAjoutCollaborateur>({
-    resolver: zodResolver(schemaAjoutCollaborateur),
+    resolver,
     defaultValues: saisieAjoutVide(),
   });
 
@@ -504,7 +509,8 @@ export default function PageCollaborateurs() {
                 render={({ field, fieldState }) => (
                   <ChampTelephone
                     libelle={t("champTelephone")}
-                    paysDefaut={pays}
+                    paysDefaut={pays || PAYS_TELEPHONE_DEFAUT}
+                    international
                     valeur={field.value}
                     onChange={field.onChange}
                     erreur={fieldState.error?.message}

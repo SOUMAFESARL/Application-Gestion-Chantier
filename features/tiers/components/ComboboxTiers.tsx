@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { ErreurApi } from "@/lib/api";
 
 import { cleTiers, creerTiers, listerTiers } from "../adaptateur";
+import { erreurTelephoneTiers, telephoneTiersValide } from "@/features/tiers/regles";
 import type { RoleTiers } from "../types";
 
 interface Props extends Omit<ComponentProps<"button">, "value" | "onChange" | "children"> {
@@ -36,6 +37,9 @@ export function ComboboxTiers({ role, valeur, onChange, paysDefaut, ...props }: 
   const [aCreer, setACreer] = useState<string | null>(null);
   const [telephone, setTelephone] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
+
+  const numeroValide = telephoneTiersValide(telephone, paysDefaut);
+  const erreurTelephone = erreurTelephoneTiers(telephone, paysDefaut);
 
   const requete = useQuery({
     queryKey: cleTiers(role),
@@ -97,7 +101,7 @@ export function ComboboxTiers({ role, valeur, onChange, paysDefaut, ...props }: 
               {t("annuler")}
             </Bouton>
             <Bouton
-              disabled={!aCreer?.trim() || !telephone || creation.isPending}
+              disabled={!aCreer?.trim() || !numeroValide || creation.isPending}
               enCours={creation.isPending}
               onClick={() => creation.mutate()}
             >
@@ -125,6 +129,7 @@ export function ComboboxTiers({ role, valeur, onChange, paysDefaut, ...props }: 
             international
             required
             valeur={telephone}
+            erreur={erreurTelephone}
             disabled={creation.isPending}
             onChange={setTelephone}
           />

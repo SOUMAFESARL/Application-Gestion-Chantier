@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, Eye, EyeOff, KeyRound, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ZonePreRemplie } from "@/components/ui/form";
+import { paysEntreprise } from "@/features/configuration/api";
 import {
   FORMATS_AVATAR,
   changerMotDePasseMoi,
@@ -248,9 +249,25 @@ function BlocInformations({ profil }: { profil: ProfilUtilisateur }) {
   const t = useTranslations("profil");
   const cache = useQueryClient();
   const [erreur, setErreur] = useState<string | null>(null);
+  const [pays, setPays] = useState("");
+
+  useEffect(() => {
+    let vivant = true;
+    paysEntreprise().then((code) => {
+      if (vivant) setPays(code);
+    });
+    return () => {
+      vivant = false;
+    };
+  }, []);
+
+  const resolver = useMemo(
+    () => zodResolver(schemaProfil(pays || PAYS_TELEPHONE_DEFAUT)),
+    [pays],
+  );
 
   const formulaire = useForm<SaisieProfil, unknown, ValeursProfil>({
-    resolver: zodResolver(schemaProfil),
+    resolver,
     defaultValues: valeursDe(profil),
   });
   const { reset, setError } = formulaire;
@@ -340,7 +357,8 @@ function BlocInformations({ profil }: { profil: ProfilUtilisateur }) {
               render={({ field, fieldState }) => (
                 <ChampTelephone
                   libelle={t("telephone")}
-                  paysDefaut={PAYS_TELEPHONE_DEFAUT}
+                  paysDefaut={pays || PAYS_TELEPHONE_DEFAUT}
+                  international
                   valeur={field.value}
                   onChange={field.onChange}
                   erreur={fieldState.error?.message}

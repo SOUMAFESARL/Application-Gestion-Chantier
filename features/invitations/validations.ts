@@ -9,7 +9,10 @@
 import { z } from "zod";
 
 import { texte } from "@/i18n/horsReact";
-import { PAYS_TELEPHONE_DEFAUT, telephoneValide } from "@/features/referentiels/telephone";
+import {
+  PAYS_TELEPHONE_DEFAUT,
+  telephoneInternationalValide,
+} from "@/features/referentiels/telephone";
 import { chaineNonVide, email } from "@/lib/validations/champs";
 
 import type { CreationCollaborateur } from "./types";
@@ -26,33 +29,36 @@ export const LONGUEUR_MAX_NOM = 100;
  */
 export const CODES_ROLES = ["AD", "CP", "CT", "CC", "MOA", "MOE", "VI"] as const;
 
-export const schemaAjoutCollaborateur = z.object({
-  prenom: z
-    .string()
-    .trim()
-    .max(LONGUEUR_MAX_NOM, { message: texte("gestionCollaborateurs.erreurPrenomTropLong") }),
-  nom: chaineNonVide(texte("gestionCollaborateurs.erreurNomRequis")).max(LONGUEUR_MAX_NOM, {
-    message: texte("gestionCollaborateurs.erreurNomTropLong"),
-  }),
-  email: email(
-    texte("gestionCollaborateurs.erreurEmailRequis"),
-    texte("gestionCollaborateurs.erreurEmailInvalide"),
-  ),
-  // Le champ stocke du E.164 : l'indicatif porte déjà le pays, le pays par
-  // défaut ne sert qu'à lire une valeur qui n'en aurait pas.
-  telephone: chaineNonVide(texte("gestionCollaborateurs.erreurTelephoneRequis")).refine(
-    (valeur) => telephoneValide(valeur, PAYS_TELEPHONE_DEFAUT),
-    { message: texte("gestionCollaborateurs.erreurTelephoneInvalide") },
-  ),
-  role: z
-    .string()
-    .refine((valeur) => (CODES_ROLES as readonly string[]).includes(valeur), {
-      message: texte("gestionCollaborateurs.erreurRoleRequis"),
+export function schemaAjoutCollaborateur(paysDefaut: string = PAYS_TELEPHONE_DEFAUT) {
+  const pays = paysDefaut || PAYS_TELEPHONE_DEFAUT;
+  return z.object({
+    prenom: z
+      .string()
+      .trim()
+      .max(LONGUEUR_MAX_NOM, { message: texte("gestionCollaborateurs.erreurPrenomTropLong") }),
+    nom: chaineNonVide(texte("gestionCollaborateurs.erreurNomRequis")).max(LONGUEUR_MAX_NOM, {
+      message: texte("gestionCollaborateurs.erreurNomTropLong"),
     }),
-});
+    email: email(
+      texte("gestionCollaborateurs.erreurEmailRequis"),
+      texte("gestionCollaborateurs.erreurEmailInvalide"),
+    ),
+    // Le champ stocke du E.164 : l'indicatif porte déjà le pays, le pays par
+    // défaut ne sert qu'à lire une valeur qui n'en aurait pas.
+    telephone: chaineNonVide(texte("gestionCollaborateurs.erreurTelephoneRequis")).refine(
+      (valeur) => telephoneInternationalValide(valeur, pays),
+      { message: texte("gestionCollaborateurs.erreurTelephoneInvalide") },
+    ),
+    role: z
+      .string()
+      .refine((valeur) => (CODES_ROLES as readonly string[]).includes(valeur), {
+        message: texte("gestionCollaborateurs.erreurRoleRequis"),
+      }),
+  });
+}
 
-export type SaisieAjoutCollaborateur = z.input<typeof schemaAjoutCollaborateur>;
-export type ValeursAjoutCollaborateur = z.output<typeof schemaAjoutCollaborateur>;
+export type SaisieAjoutCollaborateur = z.input<ReturnType<typeof schemaAjoutCollaborateur>>;
+export type ValeursAjoutCollaborateur = z.output<ReturnType<typeof schemaAjoutCollaborateur>>;
 
 /**
  * Le formulaire vierge. **Aucun rôle n'est présélectionné** : un rôle choisi
