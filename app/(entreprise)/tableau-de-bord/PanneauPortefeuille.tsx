@@ -83,6 +83,7 @@ export function PanneauPortefeuille({ chantiers }: { chantiers: LigneChantier[] 
           avancementReel={chantier.avancementReel}
           avancementTheorique={chantier.avancementTheorique}
           ecart={chantier.ecart}
+          deltaRetard={chantier.deltaRetard}
         />
       ),
     },
@@ -179,6 +180,7 @@ export function PanneauPortefeuille({ chantiers }: { chantiers: LigneChantier[] 
                 avancementReel={chantier.avancementReel}
                 avancementTheorique={chantier.avancementTheorique}
                 ecart={chantier.ecart}
+                deltaRetard={chantier.deltaRetard}
               />
             </div>
             <div className={cn("grid gap-3", voitMontants ? "grid-cols-2" : "grid-cols-1")}>

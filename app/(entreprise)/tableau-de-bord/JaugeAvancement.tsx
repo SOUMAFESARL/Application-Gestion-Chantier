@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 
-import { ecartSigne, estEnRetard, largeurJauge } from "@/features/projets/regles";
+import { ecartSigne, estEnRetard, largeurJauge, libelleDelta } from "@/features/projets/regles";
 import { cn } from "@/lib/utils";
 
 import { JAUGE_CIBLE, JAUGE_PISTE, JAUGE_REMPLI } from "./classes";
@@ -11,6 +11,7 @@ interface Props {
   avancementReel: number;
   avancementTheorique: number;
   ecart: number;
+  deltaRetard: number | null;
 }
 
 /**
@@ -20,16 +21,27 @@ interface Props {
  * La vue tableau et la vue cartes posent **la même** jauge : deux copies d'une
  * jauge finissent par ne plus placer le repère au même endroit.
  */
-export function JaugeAvancement({ avancementReel, avancementTheorique, ecart }: Props) {
+export function JaugeAvancement({
+  avancementReel,
+  avancementTheorique,
+  ecart,
+  deltaRetard,
+}: Props) {
   const t = useTranslations("tableauDeBord.portefeuille");
   const enRetard = estEnRetard(ecart);
   const prevu = t("prevu", { taux: avancementTheorique, ecart: ecartSigne(ecart) });
+  const infoDelta = libelleDelta(deltaRetard);
+  const texteDelta = infoDelta ? t(infoDelta.cle, infoDelta.params) : null;
+  const infobulle = texteDelta ? t("infobulle", { prevu, delta: texteDelta }) : prevu;
 
   return (
     <div className="min-w-[160px]">
       <div className="flex justify-between gap-2 text-xs">
         <span className="font-semibold text-neutral-800">{t("reel", { taux: avancementReel })}</span>
-        <span className={enRetard ? "font-medium text-avertissement" : "text-neutral-500"}>
+        <span
+          className={enRetard ? "font-medium text-avertissement" : "text-neutral-500"}
+          title={infobulle}
+        >
           {prevu}
         </span>
       </div>
@@ -41,7 +53,7 @@ export function JaugeAvancement({ avancementReel, avancementTheorique, ecart }: 
         <div
           className={JAUGE_CIBLE}
           style={{ left: `${largeurJauge(avancementTheorique)}%` }}
-          title={prevu}
+          title={infobulle}
         />
       </div>
     </div>

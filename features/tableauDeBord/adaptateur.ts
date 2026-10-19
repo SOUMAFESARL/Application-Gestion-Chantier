@@ -45,6 +45,7 @@ interface ChargeLigneChantier {
   chef_projet_nom?: string;
   avancement_reel: number;
   avancement_theorique: number;
+  delta_retard?: number | null;
   ecart: number;
   budget_initial_montant: number | null;
   budget_consomme_montant?: number;
@@ -125,7 +126,9 @@ function versLigneChantier(charge: ChargeLigneChantier): LigneChantier {
     chefProjetNom: charge.chef_projet_nom ?? "",
     avancementReel: charge.avancement_reel ?? 0,
     avancementTheorique: charge.avancement_theorique ?? 0,
-    ecart: charge.ecart ?? 0,
+    // SFD F3 formule 5 : delta_retard = temporel − réel ; ecart = réel − temporel = −delta_retard
+    ecart: charge.delta_retard != null ? -charge.delta_retard : (charge.ecart ?? 0),
+    deltaRetard: charge.delta_retard ?? null,
     budgetInitial: charge.budget_initial_montant ?? null,
     budgetConsomme: charge.budget_consomme_montant ?? 0,
     montantMarche: charge.montant_marche ?? null,
