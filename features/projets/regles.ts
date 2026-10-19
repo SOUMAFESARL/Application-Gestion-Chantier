@@ -20,6 +20,7 @@ import type {
   AnomalieImportLot,
   BadgeSante,
   CreationLotProjet,
+  DureeProjet,
   Equipe,
   FonctionAutreMembre,
   FonctionProjet,
@@ -562,18 +563,7 @@ export function joursOuvres(debut: string, fin: string): number | null {
   return ouvres;
 }
 
-/**
- * La durée d'un projet, lue de deux façons qui ne se remplacent pas : en
- * **calendaire** (années, mois, et les jours qui restent après le dernier mois
- * plein), comme on l'écrit dans un marché ; et en **jours ouvrés**, ce que le
- * chantier aura réellement pour travailler.
- */
-export interface DureeProjet {
-  annees: number;
-  mois: number;
-  jours: number;
-  joursOuvres: number;
-}
+export type { DureeProjet } from "./types";
 
 /** Une date UTC décalée de `n` mois, le quantième ramené au dernier jour du mois au besoin (31 janv. + 1 mois → 28 févr.). */
 function decalerMois(date: Date, n: number): Date {
