@@ -764,7 +764,7 @@ function CarteCalendrier({ projet, onDefinir }: { projet: Projet; onDefinir?: ()
 
       <div className={cn(FILET, "flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-600")}>
         <span>
-          {t("duree", { duree: formaterDuree(echeancier.duree) })}
+          {t("duree", { duree: formaterDuree(projet.duree ?? echeancier.duree) })}
         </span>
         <span>
           {projet.dateDebutReelle
