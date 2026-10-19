@@ -90,6 +90,8 @@ export interface Projet {
   avancementReel: number;
   /** Un pourcentage, de 0 à 100. */
   avancementTheorique: number;
+  /** Écart temporel − physique en points (positif = retard). null si non calculé. */
+  deltaRetard: number | null;
   /** L'indice de santé calculé par le serveur, de 0 à 100. `null` : pas encore calculé. */
   indiceSante: number | null;
   /** En centimes. `null` tant que le budget n'est pas défini. */
@@ -487,6 +489,12 @@ export interface Lot {
   dateDebut: string | null;
   dateFin: string | null;
   statut: StatutDeclare;
+  /** Avancement physique du lot en pourcentage. `null` si non calculé. */
+  avancement: number | null;
+  /** Avancement temporel en pourcentage. `null` si non calculé. */
+  avancementTemporel: number | null;
+  /** Écart temporel − physique en points (positif = retard). `null` si non calculé. */
+  deltaRetard: number | null;
   activites: Activite[];
 }
 

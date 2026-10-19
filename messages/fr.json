@@ -1229,13 +1229,19 @@
     "avancement": {
       "titre": "Avancement",
       "reel": "Réel",
-      "theorique": "Théorique",
+      "theorique": "Temporel",
+      "delta": "Delta",
       "ecart": "Écart",
       "sante": "Indice de santé",
       "santeInconnue": "Non calculé",
       "enRetard": "En retard",
       "conforme": "Dans les temps",
-      "repereTheorique": "Repère : avancement théorique"
+      "repereTheorique": "Repère : avancement temporel"
+    },
+    "delta": {
+      "retard": "Retard : {points} pts",
+      "avance": "Avance : {points} pts",
+      "dansLesDelais": "Dans les délais"
     },
     "sante": {
       "titre": "Santé du projet",
@@ -1359,8 +1365,13 @@
       },
       "avancement": {
         "reel": "Avancement réel",
-        "theorique": "Avancement théorique",
-        "ecart": "Écart au théorique : {valeur} pts"
+        "theorique": "Avancement temporel",
+        "ecart": "Écart au temporel : {valeur} pts"
+      },
+      "delta": {
+        "retard": "Retard : {points} pts",
+        "avance": "Avance : {points} pts",
+        "dansLesDelais": "Dans les délais"
       },
       "lots": {
         "numero": "N°",
@@ -1882,6 +1893,12 @@
         "enRetard": "Activités en retard"
       },
       "pourcentage": "{valeur} %",
+      "avancementTemporel": "Temporel : {valeur}",
+      "delta": {
+        "retard": "Retard : {points} pts",
+        "avance": "Avance : {points} pts",
+        "dansLesDelais": "Dans les délais"
+      },
       "onglets": {
         "libelle": "Vues du chantier",
         "structure": "Structure",

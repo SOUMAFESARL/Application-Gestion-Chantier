@@ -104,7 +104,7 @@ export function PlanningLots({ lots }: { lots: Lot[] }) {
                           libelle: lot.nom,
                           debut: formaterDate(periode.debut),
                           fin: formaterDate(periode.fin),
-                          avancement: avancementActivites(lot.activites),
+                          avancement: lot.avancement ?? avancementActivites(lot.activites),
                         })}
                       />
                     )}

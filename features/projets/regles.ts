@@ -97,6 +97,45 @@ export function ecartSigne(ecart: number): string {
   return ecart >= 0 ? `+${ecart}` : `${ecart}`;
 }
 
+/** Résultat structuré de la mise en mots du delta de retard (clé i18n et paramètres). */
+export interface ResultatLibelleDelta {
+  cle: string;
+  params?: { points: string };
+}
+
+/**
+ * Mise en mots du delta de retard (avancement temporel − avancement physique).
+ * Règle pure rendant une clé i18n et ses paramètres pour affichage (points formatés en français) :
+ * - delta > 0 : « Retard : X pts » (`cle: "delta.retard"`, `params: { points: "X,X" }`)
+ * - delta < 0 : « Avance : X pts » (`cle: "delta.avance"`, `params: { points: "X,X" }`)
+ * - delta === 0 : « Dans les délais » (`cle: "delta.dansLesDelais"`)
+ * - null ou undefined : null (rien à afficher)
+ */
+export function libelleDelta(delta: number | null | undefined): ResultatLibelleDelta | null {
+  if (delta === null || delta === undefined) return null;
+  if (delta > 0) {
+    return {
+      cle: "delta.retard",
+      params: {
+        points: new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(
+          Math.abs(delta),
+        ),
+      },
+    };
+  }
+  if (delta < 0) {
+    return {
+      cle: "delta.avance",
+      params: {
+        points: new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(
+          Math.abs(delta),
+        ),
+      },
+    };
+  }
+  return { cle: "delta.dansLesDelais" };
+}
+
 /**
  * La part du budget initial déjà consommée, en pourcentage entier.
  *
@@ -902,6 +941,8 @@ export function quantiteRealisee(activite: Activite): number | null {
  * L'avancement d'un ensemble d'activités : leur moyenne simple. Le budget se
  * tient au lot, pas à l'activité — il n'y a rien d'autre pour les départager.
  * Aucune activité : 0.
+ *
+ * Repli d'affichage quand le serveur n'a pas répondu ; la valeur qui fait foi est celle du serveur (SFD F3 RG-F3-04).
  */
 export function avancementActivites(activites: Activite[]): number {
   if (activites.length === 0) return 0;
@@ -917,6 +958,8 @@ export function avancementActivites(activites: Activite[]): number {
  * presque fini. La pondération n'a de sens que si **chaque** lot qui a des
  * activités a son budget — un lot sans budget pèserait zéro et disparaîtrait
  * du calcul. Sinon, la moyenne simple des activités est le seul repli honnête.
+ *
+ * Repli d'affichage quand le serveur n'a pas répondu ; la valeur qui fait foi est celle du serveur (SFD F3 RG-F3-04).
  */
 export function avancementPondere(lots: Lot[]): number {
   const mesures = lots.filter((lot) => lot.activites.length > 0);
@@ -961,6 +1004,10 @@ export interface SyntheseLots {
   enRetard: number;
 }
 
+/**
+ * Synthèse des indicateurs d'un chantier à partir de ses lots.
+ * Repli d'affichage quand le serveur n'a pas répondu ; la valeur qui fait foi est celle du serveur (SFD F3 RG-F3-04).
+ */
 export function syntheseLots(lots: Lot[], maintenant: Date = new Date()): SyntheseLots {
   const activites = activitesDuProjet(lots);
   return {
@@ -1534,7 +1581,10 @@ export function statutLot(lot: Lot, maintenant: Date = new Date()): StatutLot {
   return "EN_COURS";
 }
 
-/** L'avancement d'un lot, moyenne de ses activités. `null` sans activité (F1 §10). */
+/**
+ * L'avancement d'un lot, moyenne de ses activités. `null` sans activité (F1 §10).
+ * Repli d'affichage quand le serveur n'a pas répondu ; la valeur qui fait foi est celle du serveur (SFD F3 RG-F3-04).
+ */
 export function avancementLot(lot: Lot): number | null {
   return lot.activites.length === 0 ? null : avancementActivites(lot.activites);
 }
