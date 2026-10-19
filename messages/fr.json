@@ -5107,6 +5107,7 @@
     "telephone": "Téléphone",
     "annuler": "Annuler",
     "creer": "Ajouter",
-    "erreur": "Le tiers n’a pas pu être ajouté. Réessayez."
+    "erreur": "Le tiers n’a pas pu être ajouté. Réessayez.",
+    "erreurFormat": "Saisissez le numéro au format international : + suivi de l’indicatif du pays et du numéro."
   }
 }
