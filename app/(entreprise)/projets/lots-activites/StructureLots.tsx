@@ -16,6 +16,7 @@ import {
   avancementActivites,
   filtrerLots,
   largeurJauge,
+  libelleDelta,
   paginerLots,
   periodeLot,
   statutActivite,
@@ -29,6 +30,7 @@ import {
   formaterJourMoisNumerique,
   formaterMontant,
   formaterMontantCourt,
+  formaterPourcentage,
   formaterQuantite,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -335,7 +337,8 @@ export function StructureLots({
             {troncons.map(({ lot, activites }) => {
               const replie = !filtreActif && replies.has(lot.id);
               const periode = periodeLot(lot);
-              const avancement = avancementActivites(lot.activites);
+              const avancement = lot.avancement ?? avancementActivites(lot.activites);
+              const infoDelta = libelleDelta(lot.deltaRetard);
               return (
                 <Fragment key={lot.id}>
                   <tr className="bg-neutral-50">
@@ -374,7 +377,30 @@ export function StructureLots({
                       </td>
                     )}
                     <td className={CELLULE}>
-                      <Avancement valeur={avancement} />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Avancement valeur={avancement} />
+                        {lot.avancementTemporel !== null && (
+                          <span className="text-xs whitespace-nowrap tabular-nums text-neutral-500">
+                            {t("avancementTemporel", {
+                              valeur: formaterPourcentage(lot.avancementTemporel),
+                            })}
+                          </span>
+                        )}
+                        {infoDelta && (
+                          <span
+                            className={cn(
+                              "text-xs whitespace-nowrap",
+                              (lot.deltaRetard ?? 0) > 0
+                                ? "font-medium text-avertissement"
+                                : (lot.deltaRetard ?? 0) < 0
+                                  ? "font-medium text-succes"
+                                  : "text-neutral-500",
+                            )}
+                          >
+                            {t(infoDelta.cle, infoDelta.params)}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className={CELLULE} />
                     {peutSaisir && (

@@ -91,6 +91,7 @@ const ID_CLINIQUE = "a6ac73a6-92f8-4e90-d760-146e56222f57";
 /** Un chantier créé pendant la démonstration n'a ni marché saisi ni historique. */
 function versLigne(projet: Projet): LigneChantier {
   const complement = COMPLEMENTS[projet.id];
+  const ecart = ecartAvancement(projet.avancementReel, projet.avancementTheorique);
   return {
     id: projet.id,
     reference: projet.reference,
@@ -102,7 +103,8 @@ function versLigne(projet: Projet): LigneChantier {
     chefProjetNom: projet.chefProjet?.nomComplet ?? "",
     avancementReel: projet.avancementReel,
     avancementTheorique: projet.avancementTheorique,
-    ecart: ecartAvancement(projet.avancementReel, projet.avancementTheorique),
+    ecart,
+    deltaRetard: -ecart,
     budgetInitial: projet.budgetInitial,
     budgetConsomme: projet.budgetConsomme,
     montantMarche: complement?.montantMarche ?? null,

@@ -70,6 +70,7 @@ import {
   effectifProjet,
   estEnRetard,
   largeurJauge,
+  libelleDelta,
   niveauBudget,
   peutReprendre,
   peutSuspendre,
@@ -210,13 +211,12 @@ export function FicheProjet({ projetId }: { projetId: string }) {
     };
   }, [requeteProfil.data]);
 
+  const lots = useMemo(() => requeteLots.data ?? [], [requeteLots.data]);
+
   // Les chiffres du serveur quand il les tient ; sinon, ceux des lots affichés.
   const synthese = useMemo(
-    () =>
-      requeteStatistiques.data ??
-      requete.data?.statistiques ??
-      syntheseLots(requeteLots.data ?? []),
-    [requeteStatistiques.data, requete.data?.statistiques, requeteLots.data],
+    () => requeteStatistiques.data ?? requete.data?.statistiques ?? syntheseLots(lots),
+    [requeteStatistiques.data, requete.data?.statistiques, lots],
   );
 
   const retour = (
@@ -388,7 +388,12 @@ export function FicheProjet({ projetId }: { projetId: string }) {
             onDefinir={cadrable ? () => cadrer(projet, "budget") : undefined}
           />
         )}
-        <CarteAvancement projet={projet} />
+        <CarteAvancement
+          projet={projet}
+          avancementReel={
+            requeteStatistiques.data?.avancement ?? requete.data?.statistiques?.avancement
+          }
+        />
         <CarteSante projet={projet} />
       </section>
 
@@ -857,15 +862,23 @@ function CarteBudget({ projet, onDefinir }: { projet: Projet; onDefinir?: () => 
   );
 }
 
-function CarteAvancement({ projet }: { projet: Projet }) {
+function CarteAvancement({
+  projet,
+  avancementReel,
+}: {
+  projet: Projet;
+  avancementReel?: number;
+}) {
   const t = useTranslations("ficheProjet");
   const format = useFormatter();
+  const reel = avancementReel ?? projet.avancementReel;
   const ecart = ecartAvancement(
-    projet.avancementReel,
+    reel,
     projet.avancementTheorique,
   );
   const retard = estEnRetard(ecart);
   const sante = couleurIndiceSante(projet.indiceSante);
+  const infoDelta = libelleDelta(projet.deltaRetard);
 
   return (
     <CarteCle
@@ -886,18 +899,23 @@ function CarteAvancement({ projet }: { projet: Projet }) {
             retard ? "text-avertissement" : "text-neutral-900",
           )}
         >
-          {formaterPourcentage(projet.avancementReel)}
+          {formaterPourcentage(reel)}
         </span>
       </div>
 
       <Jauge
-        valeur={projet.avancementReel}
+        valeur={reel}
         className={retard ? "bg-avertissement" : "bg-succes"}
         repere={projet.avancementTheorique}
         libelleRepere={t("avancement.repereTheorique")}
       />
 
-      <div className={cn(FILET, "grid grid-cols-3 gap-3")}>
+      <div
+        className={cn(
+          FILET,
+          infoDelta ? "grid grid-cols-2 gap-3 sm:grid-cols-4" : "grid grid-cols-3 gap-3",
+        )}
+      >
         <Detail
           libelle={t("avancement.theorique")}
           valeur={formaterPourcentage(projet.avancementTheorique)}
@@ -912,6 +930,19 @@ function CarteAvancement({ projet }: { projet: Projet }) {
           })}
           className={cn(retard ? "text-avertissement" : "text-succes")}
         />
+        {infoDelta && (
+          <Detail
+            libelle={t("avancement.delta")}
+            valeur={t(infoDelta.cle, infoDelta.params)}
+            className={cn(
+              (projet.deltaRetard ?? 0) > 0
+                ? "text-avertissement"
+                : (projet.deltaRetard ?? 0) < 0
+                  ? "text-succes"
+                  : "text-neutral-900",
+            )}
+          />
+        )}
         <Detail
           libelle={t("avancement.sante")}
           valeur={

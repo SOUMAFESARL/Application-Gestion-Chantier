@@ -1229,13 +1229,19 @@
     "avancement": {
       "titre": "Avancement",
       "reel": "Réel",
-      "theorique": "Théorique",
+      "theorique": "Temporel",
+      "delta": "Delta",
       "ecart": "Écart",
       "sante": "Indice de santé",
       "santeInconnue": "Non calculé",
       "enRetard": "En retard",
       "conforme": "Dans les temps",
-      "repereTheorique": "Repère : avancement théorique"
+      "repereTheorique": "Repère : avancement temporel"
+    },
+    "delta": {
+      "retard": "Retard : {points} pts",
+      "avance": "Avance : {points} pts",
+      "dansLesDelais": "Dans les délais"
     },
     "sante": {
       "titre": "Santé du projet",
@@ -1359,8 +1365,13 @@
       },
       "avancement": {
         "reel": "Avancement réel",
-        "theorique": "Avancement théorique",
-        "ecart": "Écart au théorique : {valeur} pts"
+        "theorique": "Avancement temporel",
+        "ecart": "Écart au temporel : {valeur} pts"
+      },
+      "delta": {
+        "retard": "Retard : {points} pts",
+        "avance": "Avance : {points} pts",
+        "dansLesDelais": "Dans les délais"
       },
       "lots": {
         "numero": "N°",
@@ -1882,6 +1893,12 @@
         "enRetard": "Activités en retard"
       },
       "pourcentage": "{valeur} %",
+      "avancementTemporel": "Temporel : {valeur}",
+      "delta": {
+        "retard": "Retard : {points} pts",
+        "avance": "Avance : {points} pts",
+        "dansLesDelais": "Dans les délais"
+      },
       "onglets": {
         "libelle": "Vues du chantier",
         "structure": "Structure",
@@ -3608,7 +3625,7 @@
     "erreurChargement": "Le tableau de bord n'a pas pu être chargé.",
     "export": {
       "avancementReel": "Avancement réel (%)",
-      "avancementTheorique": "Avancement prévu (%)",
+      "avancementTheorique": "Avancement temporel (%)",
       "budgetConsomme": "Dépensé (FCFA)",
       "budgetInitial": "Budget (FCFA)",
       "chefProjet": "Chef de projet",
@@ -3741,7 +3758,7 @@
     },
     "portefeuille": {
       "budgetNonDefini": "Non défini",
-      "colAvancement": "Avancement réel / prévu",
+      "colAvancement": "Avancement réel / temporel",
       "colBudget": "Budget",
       "colChef": "Chef de projet",
       "colFin": "Fin prévue",
@@ -3750,16 +3767,22 @@
       "colSante": "Santé",
       "compteur": "{n, plural, one {# projet suivi} other {# projets suivis}}",
       "consulter": "Consulter le projet",
+      "delta": {
+        "retard": "Retard : {points} pts",
+        "avance": "Avance : {points} pts",
+        "dansLesDelais": "Dans les délais"
+      },
       "detailProjet": "{client} · {ville}",
       "finDans": "{jours, plural, =0 {aujourd'hui} one {dans # jour} other {dans # jours}}",
       "finDepassee": "{jours, plural, one {dépassée de # jour} other {dépassée de # jours}}",
       "inconnue": "—",
+      "infobulle": "{prevu} · {delta}",
       "labelAvancement": "Avancement",
       "labelBudget": "Budget",
       "labelFin": "Fin prévue",
       "labelMarge": "Marge",
       "pourcent": "{valeur} %",
-      "prevu": "Prévu {taux} % ({ecart})",
+      "prevu": "Temporel {taux} % ({ecart})",
       "ratioConsommation": "{taux} % consommé",
       "ratioDepassement": "{taux} % · dépassement",
       "reel": "Réel {taux} %",

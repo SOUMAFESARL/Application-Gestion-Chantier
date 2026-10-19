@@ -118,6 +118,7 @@ interface ChargeProjet {
   statut?: StatutProjet;
   avancement_reel?: number;
   avancement_theorique?: number;
+  delta_retard?: number | string | null;
   indice_sante?: number | null;
   /** Un `DecimalField` : Django peut l'envoyer en chaîne. */
   budget_initial_montant: number | string | null;
@@ -350,6 +351,7 @@ export function versProjet(charge: ChargeProjet): Projet {
     statut: charge.statut ?? "EN_ATTENTE",
     avancementReel: charge.avancement_reel ?? 0,
     avancementTheorique: charge.avancement_theorique ?? 0,
+    deltaRetard: versNombre(charge.delta_retard),
     indiceSante: charge.indice_sante ?? null,
     budgetInitial: versMontant(charge.budget_initial_montant),
     budgetConsomme: charge.budget_consomme_montant ?? 0,
@@ -710,6 +712,8 @@ interface ChargeLot {
   date_debut_reelle?: string | null;
   date_fin_reelle?: string | null;
   avancement?: number | string | null;
+  avancement_temporel?: number | string | null;
+  delta_retard?: number | string | null;
   activites_count?: number;
   ordre?: number;
   est_actif?: boolean;
@@ -816,6 +820,9 @@ function versLot(charge: ChargeLot, activites: Activite[] = []): Lot {
     dateDebut: charge.date_debut_prevue ?? null,
     dateFin: charge.date_fin_prevue ?? null,
     statut: depuisServeur(STATUT_SERVEUR, charge.statut, STATUT_DECLARE_PAR_DEFAUT),
+    avancement: versNombre(charge.avancement),
+    avancementTemporel: versNombre(charge.avancement_temporel),
+    deltaRetard: versNombre(charge.delta_retard),
     activites,
   };
 }

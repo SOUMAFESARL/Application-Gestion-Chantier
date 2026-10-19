@@ -49,6 +49,8 @@ export interface LigneChantier {
    * Calculé par le serveur, qui seul connaît le planning détaillé.
    */
   ecart: number;
+  /** Écart temporel − physique en points (positif = retard). null si non calculé. */
+  deltaRetard: number | null;
   /** En centimes. `null` tant que le budget n'est pas défini. */
   budgetInitial: number | null;
   /** En centimes. */

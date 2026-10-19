@@ -8,6 +8,7 @@ import {
   effectifProjet,
   estEnRetard,
   financierDuProjet,
+  libelleDelta,
   niveauBudget,
   niveauConformite,
   pointsDeVigilance,
@@ -261,7 +262,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
 
   const lignesLots: CellulePdf[][] = lots.map((lot) => {
     const statut = statutLot(lot, maintenant);
-    const avancement = avancementLot(lot);
+    const avancement = lot.avancement ?? avancementLot(lot);
     const ton: TonPdf = statut === "SANS_ACTIVITE" ? "neutre" : BADGE_STATUT[statut];
     return [
       { texte: lot.code, gras: true },
@@ -280,6 +281,14 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
       },
     ];
   });
+
+  const deltaInfo = libelleDelta(projet.deltaRetard);
+  const texteEcart = [
+    t("avancement.ecart", { valeur: ecartTexte }),
+    deltaInfo ? t(deltaInfo.cle, deltaInfo.params) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const avancement: SectionPdf = {
     titre: t("sections.avancement"),
@@ -301,7 +310,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
           },
         ],
       },
-      { type: "paragraphe", texte: t("avancement.ecart", { valeur: ecartTexte }) },
+      { type: "paragraphe", texte: texteEcart },
       {
         type: "tableau",
         vide: t("lots.vide"),
