@@ -21,8 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
  *
  * Il est né de la liste des chantiers (`app/(app)/projets/ListeProjets.tsx`),
  * qui en est la référence visuelle : une carte collée au tableau, une barre
- * d'outils (recherche, filtres, remise à zéro, export), une case à cocher par
- * ligne et une pagination de dix lignes. Chaque liste recopiait ce montage à la main,
+ * d'outils (recherche, filtres, remise à zéro, export) et une pagination de
+ * dix lignes, sans case à cocher sauf action groupée. Chaque liste recopiait ce montage à la main,
  * et chacune finissait par avoir sa largeur de recherche, sa hauteur de
  * champ, ses filtres en boutons ou en listes : **un tableau de liste passe
  * désormais par ici**, dans l'espace entreprise comme dans le back-office.

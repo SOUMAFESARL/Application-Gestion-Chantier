@@ -320,8 +320,9 @@ Two things that migration surfaced, worth knowing before reading old code:
    **one file**, never a directory, and justifies itself in one line.
 9. **Every list table goes through `components/ui/tableau-liste.tsx`**
    (`TableauListe` + `RechercheTableau` + `FiltreTableau`), in both spaces:
-   same toolbar, same `Select` filters, one checkbox per row, 10-row
-   pagination. The projects list is the visual reference. The filtering
+   same toolbar, same `Select` filters, 10-row pagination. No row
+   checkboxes unless a bulk action uses the selection (`selectionnable`,
+   off by default — decision of 19/10/2026). The projects list is the visual reference. The filtering
    itself lives in the domain's `regles.ts` (`filtrerProjets`,
    `filtrerClients`). Only dashboard blocks keep `Tableau` or a bare
    `DataTable`.
