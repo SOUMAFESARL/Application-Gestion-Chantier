@@ -518,8 +518,6 @@ export interface RoleSysteme {
   portee: PorteeRoleSysteme;
   /** Codes des modules du gabarit — appliqués aux seules entreprises à venir. */
   modules: string[];
-  /** Rôle du socle (DG, CP, CT…) : modifiable, jamais supprimable. */
-  protege: boolean;
 }
 
 export interface DemandeRoleSysteme {

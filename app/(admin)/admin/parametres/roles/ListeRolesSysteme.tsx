@@ -6,14 +6,14 @@ import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { Alerte, Badge, Bouton, Champ, EtatChargement, EtatErreur, Modale } from "@/components/ui";
+import { Alerte, Bouton, Champ, EtatChargement, EtatErreur, Modale } from "@/components/ui";
 import { Checkbox } from "@/components/ui/checkbox";
 import { aideColonnes } from "@/components/ui/data-table";
 import type { ExportTableau } from "@/components/ui/export-tableau";
 import { Label } from "@/components/ui/label";
 import { BORD_DROIT_TABLEAU, TableauListe } from "@/components/ui/tableau-liste";
 import { Textarea } from "@/components/ui/textarea";
-import { peutParametrerPlateforme } from "@/features/administration";
+import { peutParametrerPlateforme, peutSupprimerRoleSysteme } from "@/features/administration";
 import type {
   DemandeRoleSysteme,
   PorteeRoleSysteme,
@@ -154,16 +154,6 @@ export function ListeRolesSysteme() {
           header: t("colonneModules"),
           cell: ({ row }) => row.original.modules.length,
         }),
-        colonne.accessor("protege", {
-          id: "protege",
-          header: t("colonneType"),
-          cell: ({ row }) =>
-            row.original.protege ? (
-              <Badge variante="neutre">{t("socle")}</Badge>
-            ) : (
-              <Badge variante="primaire">{t("ajoute")}</Badge>
-            ),
-        }),
         colonne.display({
           id: "actions",
           header: "",
@@ -179,7 +169,7 @@ export function ListeRolesSysteme() {
                 >
                   <Pencil size={16} aria-hidden="true" />
                 </Bouton>
-                {!row.original.protege && (
+                {peutSupprimerRoleSysteme(row.original) && (
                   <Bouton
                     variante="ghost"
                     taille="sm"
