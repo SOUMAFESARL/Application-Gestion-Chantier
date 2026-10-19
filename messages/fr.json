@@ -683,13 +683,12 @@
       },
       "rolesSysteme": {
         "titre": "Rôles système",
-        "description": "Les rôles proposés à toutes les entreprises. Une création ou un changement de libellé s’applique partout ; les modules ne valent que pour les entreprises à venir.",
+        "description": "Les rôles proposés à toutes les entreprises. Une création ou un changement de libellé s’applique partout ; le DG de chaque entreprise attribue les permissions.",
         "nomFichier": "roles-systeme",
         "vide": "Aucun rôle système.",
         "nouveau": "Nouveau rôle système",
         "colonneRole": "Rôle",
         "colonnePortee": "Portée",
-        "colonneModules": "Modules",
         "portee": {
           "ENTREPRISE": "Toute l’entreprise",
           "PROJET": "Chantiers affectés"
@@ -699,8 +698,9 @@
         "libelle": "Libellé",
         "champDescription": "Description",
         "titreCreation": "Nouveau rôle système",
+        "aideCreation": "Le rôle est créé pour les chantiers (portée Projet), sans permission. Chaque entreprise est prévenue, et son DG lui attribue les permissions.",
         "titreModification": "Modifier le rôle système",
-        "aideModification": "Le libellé et la description sont réécrits dans toutes les entreprises. Les modules ne s’appliquent qu’aux entreprises à venir : les réglages faits par chaque entreprise sont conservés.",
+        "aideModification": "Le libellé et la description sont réécrits dans toutes les entreprises. Les permissions du rôle sont attribuées par le DG de chaque entreprise.",
         "titreSuppression": "Supprimer le rôle système",
         "confirmationSuppression": "« {role} » sera retiré du catalogue. Dans chaque entreprise, il deviendra un rôle personnalisé : personne ne perd ses droits.",
         "modifier": "Modifier",
