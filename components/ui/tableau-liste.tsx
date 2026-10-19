@@ -3,7 +3,7 @@
 import type { RowData } from "@tanstack/react-table";
 import { Search } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -42,8 +42,8 @@ export const TAILLE_DE_PAGE_LISTE = 10;
 /**
  * La carte colle le tableau à ses bords : les colonnes extrêmes portent la
  * gouttière — resserrée sous 640 px, comme celle de la page. La gauche revient
- * à la case à cocher, posée ici ; la droite à la dernière colonne de l'écran,
- * qui la pose dans son `meta.classe`.
+ * à la case à cocher (si présente) ou à la première colonne de données ; la
+ * droite à la dernière colonne de l'écran, qui la pose dans son `meta.classe`.
  */
 export const BORD_GAUCHE_TABLEAU = "pl-4 sm:pl-6";
 export const BORD_DROIT_TABLEAU = "pr-4 text-right sm:pr-6";
@@ -85,6 +85,8 @@ interface PropsTableauListe<T extends RowData> {
    */
   cleCriteres?: string;
   tailleDePage?: number;
+  /** Cases à cocher par ligne — seulement quand une action groupée porte sur la sélection. */
+  selectionnable?: boolean;
 }
 
 export function TableauListe<T extends RowData>({
@@ -99,8 +101,22 @@ export function TableauListe<T extends RowData>({
   filtresActifs = false,
   cleCriteres,
   tailleDePage = TAILLE_DE_PAGE_LISTE,
+  selectionnable = false,
 }: PropsTableauListe<T>) {
   const t = useTranslations("dataTable");
+
+  const colonnesAffichees = useMemo(() => {
+    if (selectionnable || colonnes.length === 0) return colonnes;
+    const [premiere, ...reste] = colonnes;
+    const premiereEnrichie: ColonneDonnees<T> = {
+      ...premiere,
+      meta: {
+        ...premiere.meta,
+        classe: cn(BORD_GAUCHE_TABLEAU, premiere.meta?.classe),
+      },
+    };
+    return [premiereEnrichie, ...reste];
+  }, [colonnes, selectionnable]);
 
   return (
     // `p-0` aux deux ruptures : le tableau va d'un bord à l'autre de la carte.
@@ -120,11 +136,11 @@ export function TableauListe<T extends RowData>({
 
       <DataTable
         key={cleCriteres}
-        colonnes={colonnes}
+        colonnes={colonnesAffichees}
         donnees={donnees}
         cleLigne={cleLigne}
         messageVide={messageVide}
-        selectionnable
+        selectionnable={selectionnable}
         classeSelection={BORD_GAUCHE_TABLEAU}
         tailleDePage={tailleDePage}
         className="[&_td]:py-3"

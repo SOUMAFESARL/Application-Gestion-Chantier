@@ -53,7 +53,7 @@ export function DerniersAbonnements({ clients }: { clients: ClientPlateforme[] }
         colonne.accessor((client) => client.abonnement.referenceTransaction, {
           id: "reference",
           header: t("derniersAbonnements.colonneReference"),
-          meta: { classe: "font-mono text-xs text-neutral-600" },
+          meta: { classe: `${BORD_GAUCHE} font-mono text-xs text-neutral-600` },
           cell: ({ getValue }) => `#${getValue()}`,
         }),
         colonne.accessor("nomCommercial", {
@@ -125,8 +125,6 @@ export function DerniersAbonnements({ clients }: { clients: ClientPlateforme[] }
           donnees={lignes}
           cleLigne={(client) => client.id}
           messageVide={t("derniersAbonnements.aucun")}
-          selectionnable
-          classeSelection={BORD_GAUCHE}
           className="[&_td]:py-2 [&_th]:h-8"
         />
       </CardContent>
