@@ -29,6 +29,7 @@ interface ChargeCollaborateur {
   telephone: string;
   role_global: string;
   role_global_libelle: string;
+  role_personnalise?: { id: string; code: string; libelle: string } | null;
   statut: string;
   is_owner: boolean;
   cree_le: string;
@@ -44,7 +45,7 @@ interface ChargeCreationCollaborateur {
   nom: string;
   prenom: string;
   telephone: string;
-  role_global: string;
+  role_personnalise_id: string;
 }
 
 const STATUTS: readonly StatutCollaborateur[] = ["ACTIF", "INVITE", "DESACTIVE"];
@@ -65,7 +66,8 @@ function versCollaborateur(charge: ChargeCollaborateur): Collaborateur {
     email: charge.email,
     telephone: charge.telephone ?? "",
     role: charge.role_global,
-    roleLibelle: charge.role_global_libelle || charge.role_global,
+    roleLibelle:
+      charge.role_personnalise?.libelle || charge.role_global_libelle || charge.role_global,
     statut: versStatut(charge.statut),
     estProprietaire: Boolean(charge.is_owner),
     creeLe: charge.cree_le,
@@ -80,7 +82,7 @@ function versChargeCreation(creation: CreationCollaborateur): ChargeCreationColl
     nom: creation.nom,
     prenom: creation.prenom,
     telephone: creation.telephone,
-    role_global: creation.role,
+    role_personnalise_id: creation.role,
   };
 }
 
@@ -90,7 +92,7 @@ const CHAMPS_CREATION: Record<keyof ChargeCreationCollaborateur, keyof CreationC
   nom: "nom",
   prenom: "prenom",
   telephone: "telephone",
-  role_global: "role",
+  role_personnalise_id: "role",
 };
 
 /**

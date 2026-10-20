@@ -152,6 +152,18 @@ export async function listerRoles(): Promise<RoleItem[]> {
 }
 
 /**
+ * `GET /parametres/roles/?attribuables=1` — seulement les rôles que l'utilisateur
+ * connecté peut attribuer à un collaborateur (le serveur applique les règles
+ * DG, AD et « on ne donne que ce qu'on possède »).
+ */
+export async function listerRolesAttribuables(): Promise<RoleItem[]> {
+  const charge = await api.lire<ChargeRole<RoleItem>[]>("/parametres/roles/", {
+    attribuables: "1",
+  });
+  return charge.map(versRole);
+}
+
+/**
  * `POST /parametres/roles/` — branché sur le serveur, hors simulation, comme la
  * lecture : un rôle créé en simulation n'apparaîtrait jamais dans la liste
  * réelle. La réponse n'est typée qu'en `RoleItem` — rien ne garantit encore

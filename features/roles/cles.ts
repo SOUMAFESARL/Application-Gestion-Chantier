@@ -4,6 +4,8 @@
 
 export const CLE_ROLES = ["roles"] as const;
 
+export const CLE_ROLES_ATTRIBUABLES = ["roles", "attribuables"] as const;
+
 export const CLE_MODULES_ENTREPRISE = ["roles", "modules"] as const;
 
 export const cleRole = (id: string) => ["roles", id] as const;

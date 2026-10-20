@@ -35,6 +35,7 @@ export interface CreationCollaborateur {
   nom: string;
   email: string;
   telephone: string;
+  /** Identifiant du rôle choisi dans la liste servie par `/parametres/roles/`. */
   role: string;
 }
 

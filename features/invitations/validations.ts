@@ -20,15 +20,6 @@ import type { CreationCollaborateur } from "./types";
 /** La longueur des colonnes `nom` et `prenom` côté Django. */
 export const LONGUEUR_MAX_NOM = 100;
 
-/**
- * Les rôles proposés à l'ajout, **par leur code seul** — les libellés sont
- * dans `messages/fr.json`, sous `gestionCollaborateurs.roleOptions.<code>`.
- *
- * Ce sont les choix de `RoleGlobal` côté Django, moins `DG` : le serveur
- * refuse tout autre code, et le rôle de DG n'est jamais attribuable.
- */
-export const CODES_ROLES = ["AD", "CP", "CT", "CC", "MOA", "MOE", "VI"] as const;
-
 export function schemaAjoutCollaborateur(paysDefaut: string = PAYS_TELEPHONE_DEFAUT) {
   const pays = paysDefaut || PAYS_TELEPHONE_DEFAUT;
   return z.object({
@@ -49,11 +40,9 @@ export function schemaAjoutCollaborateur(paysDefaut: string = PAYS_TELEPHONE_DEF
       (valeur) => telephoneInternationalValide(valeur, pays),
       { message: texte("gestionCollaborateurs.erreurTelephoneInvalide") },
     ),
-    role: z
-      .string()
-      .refine((valeur) => (CODES_ROLES as readonly string[]).includes(valeur), {
-        message: texte("gestionCollaborateurs.erreurRoleRequis"),
-      }),
+    // L'identifiant d'un rôle de la liste servie par le serveur : le serveur
+    // reste juge de son existence et des droits d'attribution.
+    role: chaineNonVide(texte("gestionCollaborateurs.erreurRoleRequis")),
   });
 }
 

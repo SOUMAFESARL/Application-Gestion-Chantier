@@ -217,7 +217,7 @@ export function FicheCollaborateur({
           titre={nom}
           description={
             <span className="mt-1 flex flex-wrap items-center gap-2">
-              <Badge variante="neutre">{libelleRole(t, collaborateur)}</Badge>
+              <Badge variante="neutre">{libelleRole(collaborateur)}</Badge>
               <BadgeStatut collaborateur={collaborateur} />
             </span>
           }
@@ -285,14 +285,9 @@ export function FicheCollaborateur({
   );
 }
 
-/** Le catalogue d'abord ; un code qu'il ne connaît pas garde le libellé du serveur. */
-function libelleRole(
-  t: ReturnType<typeof useTranslations<"gestionCollaborateurs">>,
-  collaborateur: Collaborateur,
-): string {
-  return t.has(`roleOptions.${collaborateur.role}`)
-    ? t(`roleOptions.${collaborateur.role}`)
-    : collaborateur.roleLibelle;
+/** Le libellé vient du serveur : un rôle renommé se met à jour sans toucher au code. */
+function libelleRole(collaborateur: Collaborateur): string {
+  return collaborateur.roleLibelle;
 }
 
 function BadgeStatut({ collaborateur }: { collaborateur: Collaborateur }) {
@@ -346,7 +341,7 @@ function BlocIdentite({ collaborateur }: { collaborateur: Collaborateur }) {
           </span>
         </div>
         <div className="flex flex-wrap justify-center gap-2">
-          <Badge variante="neutre">{libelleRole(t, collaborateur)}</Badge>
+          <Badge variante="neutre">{libelleRole(collaborateur)}</Badge>
           {collaborateur.estProprietaire && (
             <Badge variante="primaire">{t("fiche.proprietaire")}</Badge>
           )}
@@ -368,7 +363,7 @@ function BlocInformations({ collaborateur }: { collaborateur: Collaborateur }) {
       libelle: t("colonneTelephone"),
       valeur: afficherTelephone(collaborateur.telephone) || ABSENT,
     },
-    { libelle: t("colonneRole"), valeur: libelleRole(t, collaborateur) },
+    { libelle: t("colonneRole"), valeur: libelleRole(collaborateur) },
     {
       libelle: t("colonneStatut"),
       valeur: t(`statut.${collaborateur.statut}`),

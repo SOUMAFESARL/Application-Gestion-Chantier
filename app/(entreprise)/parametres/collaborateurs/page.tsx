@@ -60,8 +60,9 @@ import {
   type FiltreCollaborateurs,
 } from "@/features/invitations/regles";
 import type { Collaborateur, StatutCollaborateur } from "@/features/invitations/types";
+import { listerRolesAttribuables } from "@/features/roles/api";
+import { CLE_ROLES_ATTRIBUABLES } from "@/features/roles/cles";
 import {
-  CODES_ROLES,
   LONGUEUR_MAX_NOM,
   saisieAjoutVide,
   schemaAjoutCollaborateur,
@@ -109,6 +110,18 @@ export default function PageCollaborateurs() {
     queryKey: CLE_COLLABORATEURS,
     queryFn: listerCollaborateurs,
   });
+
+  // Relue à chaque ouverture de la modale : la liste ne peut pas être périmée.
+  const requeteRoles = useQuery({
+    queryKey: CLE_ROLES_ATTRIBUABLES,
+    queryFn: listerRolesAttribuables,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+  const { refetch: relireRoles } = requeteRoles;
+  useEffect(() => {
+    if (modaleOuverte) void relireRoles();
+  }, [modaleOuverte, relireRoles]);
 
   const resolver = useMemo(
     () => zodResolver(schemaAjoutCollaborateur(pays || PAYS_TELEPHONE_DEFAUT)),
@@ -186,9 +199,12 @@ export default function PageCollaborateurs() {
   });
   const ajoutEnCours = ajout.isPending;
 
-  const optionsRoles = CODES_ROLES.filter(
-    (code) => code !== "AD" || Boolean(moi?.is_dg || moi?.is_owner || moi?.role_global === "DG"),
-  ).map((code) => ({ valeur: code, libelle: t(`roleOptions.${code}`) }));
+  // Les rôles viennent du serveur, déjà réduits à ceux que je peux attribuer :
+  // un rôle créé, renommé ou supprimé dans `parametres/roles` apparaît ici.
+  const optionsRoles = useMemo(
+    () => (requeteRoles.data ?? []).map((role) => ({ valeur: role.id, libelle: role.libelle })),
+    [requeteRoles.data],
+  );
 
   const collaborateurs = useMemo(() => requete.data ?? [], [requete.data]);
 
@@ -199,8 +215,7 @@ export default function PageCollaborateurs() {
 
   const colonnes = useMemo(() => {
     // Le catalogue d'abord ; un code qu'il ne connaît pas garde le libellé du serveur.
-    const libelleRole = (c: Collaborateur) =>
-      t.has(`roleOptions.${c.role}`) ? t(`roleOptions.${c.role}`) : c.roleLibelle;
+    const libelleRole = (c: Collaborateur) => c.roleLibelle;
 
     return colonne.columns([
       colonne.accessor("nomComplet", {
@@ -353,7 +368,7 @@ export default function PageCollaborateurs() {
       { entete: t("colonneTelephone"), valeur: (c) => afficherTelephone(c.telephone) },
       {
         entete: t("colonneRole"),
-        valeur: (c) => (t.has(`roleOptions.${c.role}`) ? t(`roleOptions.${c.role}`) : c.roleLibelle),
+        valeur: (c) => c.roleLibelle,
       },
       { entete: t("colonneStatut"), valeur: (c) => t(`statut.${c.statut}`) },
       { entete: t("colonneDate"), valeur: (c) => formaterDate(c.creeLe) },
