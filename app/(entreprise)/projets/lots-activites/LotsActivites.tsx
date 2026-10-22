@@ -8,8 +8,14 @@ import { EnTetePage } from "@/components/layout/EnTetePage";
 import { EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import { useDroits, useProjetsVisibles } from "@/features/habilitations";
 import { peutCadrerProjet } from "@/features/habilitations/regles";
-import { lireStatistiques, listerLots } from "@/features/projets/adaptateur";
-import { CLE_LISTE_PROJETS, cleLots, cleProjet, cleStatistiques } from "@/features/projets/cles";
+import { lirePlanning, lireStatistiques, listerLots } from "@/features/projets/adaptateur";
+import {
+  CLE_LISTE_PROJETS,
+  cleLots,
+  clePlanning,
+  cleProjet,
+  cleStatistiques,
+} from "@/features/projets/cles";
 import { useGestionProjet } from "@/features/projets/components/GestionProjet";
 import { TiroirActivite } from "@/features/projets/components/TiroirActivite";
 import { ModaleSuppressionActivite } from "@/features/projets/components/ModaleSuppressionActivite";
@@ -86,6 +92,13 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
   });
   const lots = useMemo(() => requeteLots.data ?? [], [requeteLots.data]);
 
+  // La frise a ses propres données : dates contractuelles et avancements du serveur.
+  const requetePlanning = useQuery({
+    queryKey: clePlanning(projetId ?? ""),
+    queryFn: ({ signal }) => lirePlanning(projetId as string, signal),
+    enabled: projetId !== null && onglet === "planning",
+  });
+
   const requeteStatistiques = useQuery({
     queryKey: cleStatistiques(projetId ?? ""),
     queryFn: ({ signal }) => lireStatistiques(projetId as string, signal),
@@ -108,6 +121,22 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
     [lots, activiteChoisie],
   );
   const lotDeActivite = activite ? (lots.find((lot) => lot.id === activite.lotId) ?? null) : null;
+
+  /**
+   * Un clic sur un lot de la frise : retour à la structure, sur la première
+   * activité du lot, qui devient celle du panneau.
+   */
+  function choisirLotDepuisPlanning(lotId: string) {
+    const lot = lots.find((candidat) => candidat.id === lotId);
+    if (lot?.activites[0]) setActiviteChoisie(lot.activites[0].id);
+    setOnglet("structure");
+  }
+
+  /** Un clic sur une activité de la frise : retour à la structure, sur cette activité. */
+  function choisirActiviteDepuisPlanning(activiteId: string) {
+    setActiviteChoisie(activiteId);
+    setOnglet("structure");
+  }
 
   function changerProjet(id: string) {
     setProjetChoisi(id);
@@ -135,6 +164,7 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
    */
   function rafraichirStructure(id: string) {
     void clientRequetes.invalidateQueries({ queryKey: cleLots(id) });
+    void clientRequetes.invalidateQueries({ queryKey: clePlanning(id) });
     void clientRequetes.invalidateQueries({ queryKey: cleStatistiques(id) });
     void clientRequetes.invalidateQueries({ queryKey: cleProjet(id) });
     void clientRequetes.invalidateQueries({ queryKey: CLE_LISTE_PROJETS });
@@ -286,7 +316,17 @@ export function LotsActivites({ projetInitial }: { projetInitial?: string }) {
 
           {requeteLots.isSuccess && onglet === "planning" && (
             <div role="tabpanel" id="panneau-planning" aria-labelledby="onglet-planning">
-              <PlanningLots lots={lots} />
+              {requetePlanning.isPending && <EtatChargement />}
+              {requetePlanning.isError && (
+                <EtatErreur onReessayer={() => void requetePlanning.refetch()} />
+              )}
+              {requetePlanning.isSuccess && (
+                <PlanningLots
+                  planning={requetePlanning.data}
+                  onChoisirLot={choisirLotDepuisPlanning}
+                  onChoisirActivite={choisirActiviteDepuisPlanning}
+                />
+              )}
             </div>
           )}
 

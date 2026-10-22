@@ -1053,6 +1053,194 @@
       "courrielDirigeant": "Le dirigeant de l’entreprise reçoit un courriel avant la suppression. Le motif n’y figure pas."
     }
   },
+  "alertes": {
+    "titre": "Alertes de retard",
+    "sousTitre": "{nombre, plural, =0 {Aucune alerte ouverte} one {# alerte ouverte} other {# alertes ouvertes}}",
+    "aucuneTitre": "Aucune alerte de retard",
+    "aucune": "Les retards détectés sur vos lots et vos chantiers apparaîtront dans ce tableau.",
+    "aucuneLigne": "Aucune alerte à afficher.",
+    "aucunResultat": "Aucune alerte ne correspond à ces critères.",
+    "recherche": "Rechercher une alerte",
+    "recherchePlaceholder": "Chantier, référence, lot…",
+    "filtreNiveau": "Filtrer par niveau",
+    "filtreNiveauTous": "Tous les niveaux",
+    "filtreProjet": "Filtrer par projet",
+    "filtreProjetTous": "Tous les projets",
+    "projetOption": "{reference} — {nom}",
+    "filtreEtat": "Filtrer par état",
+    "filtreEtatTous": "Tous les états",
+    "etatOuvertes": "Ouvertes",
+    "colonne": {
+      "projet": "Projet",
+      "lot": "Lot",
+      "niveau": "Niveau",
+      "retard": "Retard",
+      "dateDetection": "Détectée le",
+      "etat": "État",
+      "actions": "Actions"
+    },
+    "lotProjet": "Projet",
+    "points": "{valeur} pts",
+    "actionDetail": "Voir le détail de l’alerte sur « {projet} »",
+    "niveau": {
+      "MODERE": "Modéré",
+      "ELEVE": "Élevé",
+      "CRITIQUE": "Critique"
+    },
+    "statut": {
+      "OUVERTE": "Ouverte",
+      "EN_COURS": "En cours",
+      "RESOLUE": "Résolue",
+      "IGNOREE": "Ignorée"
+    },
+    "export": {
+      "nomFichier": "alertes-retard",
+      "titrePdf": "Alertes de retard",
+      "colonnes": {
+        "projetReference": "Référence du projet",
+        "projetNom": "Projet",
+        "lotCode": "Code du lot",
+        "lotLibelle": "Lot",
+        "niveau": "Niveau",
+        "retard": "Retard (points)",
+        "dateDetection": "Date de détection",
+        "indiceSante": "Indice de santé",
+        "statut": "État"
+      }
+    },
+    "detail": {
+      "titreLot": "Lot {code}",
+      "titreProjet": "Alerte de niveau projet",
+      "sousTitre": "{reference} — {nom}",
+      "sectionAlerte": "L’alerte",
+      "projet": "Projet",
+      "projetValeur": "{reference} — {nom}",
+      "lot": "Lot",
+      "lotValeur": "{code} — {libelle}",
+      "lotProjet": "Projet entier",
+      "retard": "Retard sur l’avancement temporel",
+      "points": "{valeur} pts",
+      "dateDetection": "Détectée le",
+      "indiceSante": "Indice de santé",
+      "santeSur100": "{indice} / 100",
+      "etat": "État",
+      "sectionCauses": "Causes relevées (7 derniers jours)",
+      "absences": "Absences cumulées",
+      "incidents": "Incidents déclarés",
+      "blocagesOuverts": "Blocages ouverts",
+      "aucunBlocage": "Aucun blocage ouvert.",
+      "sectionActions": "Actions recommandées",
+      "aucuneAction": "Aucune action recommandée.",
+      "sectionResolution": "Résolution",
+      "resoluePar": "Clôturée par {nom} le {date}",
+      "resolueLe": "Clôturée le {date}",
+      "cloturer": "Clôturer l’alerte"
+    },
+    "cloture": {
+      "titre": "Clôturer l’alerte",
+      "description": "Alerte de retard sur « {projet} », {lot}. Votre commentaire est conservé avec votre nom et la date.",
+      "cible": "lot {code} — {libelle}",
+      "cibleProjet": "niveau projet",
+      "commentaire": "Commentaire de clôture",
+      "commentairePlaceholder": "Ce qui a été fait, ou pourquoi l’alerte n’a plus lieu d’être…",
+      "commentaireAide": "Obligatoire : il justifie la clôture auprès de la direction.",
+      "compteur": "{actuel} / {min} caractères",
+      "annuler": "Annuler",
+      "confirmer": "Clôturer l’alerte",
+      "succes": "L’alerte a été clôturée.",
+      "erreurGenerique": "L’alerte n’a pas pu être clôturée. Réessayez.",
+      "erreurCommentaireRequis": "Le commentaire de clôture est obligatoire.",
+      "erreurCommentaireCourt": "Le commentaire doit contenir au moins {min} caractères."
+    }
+  },
+  "calendrier": {
+    "titre": "Calendrier de l’entreprise",
+    "metaDescription": "Les jours ouvrés de l’entreprise : semaine type, jours fériés nationaux et exceptions.",
+    "description": "Un seul calendrier pour toute l’entreprise : il sert à compter les jours ouvrés de tous les chantiers.",
+    "aideFetes": "Les fêtes musulmanes (Korité, Tabaski, Nuit du Destin) ne figurent pas dans les jours fériés nationaux : elles dépendent de l’observation de la lune. Saisissez-les ici chaque année, comme jours non ouvrés.",
+    "lectureSeule": "Vous consultez le calendrier. Seuls les comptes qui détiennent le droit de gérer le calendrier peuvent le modifier.",
+    "chargement": "Chargement du calendrier…",
+    "erreurs": {
+      "action": "L’action n’a pas abouti. Réessayez."
+    },
+    "jours": {
+      "lundi": "Lundi",
+      "mardi": "Mardi",
+      "mercredi": "Mercredi",
+      "jeudi": "Jeudi",
+      "vendredi": "Vendredi",
+      "samedi": "Samedi",
+      "dimanche": "Dimanche"
+    },
+    "joursCourts": {
+      "lundi": "Lun.",
+      "mardi": "Mar.",
+      "mercredi": "Mer.",
+      "jeudi": "Jeu.",
+      "vendredi": "Ven.",
+      "samedi": "Sam.",
+      "dimanche": "Dim."
+    },
+    "etat": {
+      "ouvre": "Ouvré",
+      "nonOuvre": "Non ouvré"
+    },
+    "raison": {
+      "semaineType": "Semaine type",
+      "ferie": "Férié national : {libelle}",
+      "exception": "Exception de l’entreprise : {motif}"
+    },
+    "semaineType": {
+      "titre": "Semaine type",
+      "aide": "Cochez les jours de la semaine que l’entreprise travaille. Les jours fériés nationaux et les exceptions l’emportent sur cette semaine.",
+      "aideLecture": "Les jours de la semaine que l’entreprise travaille.",
+      "jourEtat": "{jour} : {etat}",
+      "enregistrer": "Enregistrer la semaine type",
+      "enCours": "Enregistrement…",
+      "annuler": "Annuler les modifications",
+      "succes": "La semaine type a été enregistrée.",
+      "erreurVide": "Cochez au moins un jour travaillé."
+    },
+    "mois": {
+      "precedent": "Mois précédent",
+      "suivant": "Mois suivant",
+      "courant": "Mois en cours",
+      "resume": "{n, plural, =0 {Aucun jour ouvré} one {# jour ouvré} other {# jours ouvrés}} ce mois-ci.",
+      "aideClic": "Cliquez sur un jour pour le marquer comme ouvré ou non ouvré."
+    },
+    "grille": {
+      "aria": "Jours du mois"
+    },
+    "legende": {
+      "ouvre": "Jour ouvré",
+      "nonOuvre": "Jour non ouvré",
+      "ferie": "Férié national",
+      "exception": "Exception de l’entreprise"
+    },
+    "modale": {
+      "titreNonOuvre": "Marquer le {date} comme non ouvré",
+      "titreOuvre": "Marquer le {date} comme ouvré",
+      "titreRetrait": "Exception du {date}",
+      "descriptionNonOuvre": "Ce jour est ouvré. L’exception le rendra non ouvré, quel que soit le calendrier habituel.",
+      "descriptionOuvre": "Ce jour est non ouvré. L’exception le rendra ouvré, malgré la semaine type ou le jour férié.",
+      "exceptionOuvre": "Ce jour est ouvré par exception. Motif :",
+      "exceptionNonOuvre": "Ce jour est non ouvré par exception. Motif :",
+      "aideRetrait": "En retirant l’exception, le jour reprend son état habituel (semaine type ou jour férié national).",
+      "motif": "Motif",
+      "motifPlaceholder": "Ex. : Tabaski, fermeture de fin d’année, samedi travaillé",
+      "aideMotif": "{n} / {max} caractères",
+      "erreurMotifRequis": "Le motif est obligatoire.",
+      "erreurMotifLong": "Le motif ne peut pas dépasser {max} caractères.",
+      "annuler": "Annuler",
+      "confirmer": "Enregistrer l’exception",
+      "enCours": "Enregistrement…",
+      "retirer": "Retirer l’exception",
+      "retraitEnCours": "Retrait…",
+      "fermer": "Fermer",
+      "succesCreation": "L’exception a été enregistrée.",
+      "succesRetrait": "L’exception a été retirée."
+    }
+  },
   "configuration": {
     "entreprise": {
       "accroche": "Ces informations apparaîtront sur vos documents officiels et vos factures.",
@@ -1723,6 +1911,19 @@
     "retourConnexion": "Retour à la connexion",
     "titre": "Mot de passe oublié ?"
   },
+  "pageParametres": {
+    "titre": "Paramètres",
+    "metaDescription": "Les réglages de l’entreprise : collaborateurs, rôles, listes, calendrier et configuration.",
+    "description": "Les réglages de votre entreprise, regroupés au même endroit.",
+    "aucune": "Aucun réglage n’est ouvert à votre compte.",
+    "descriptions": {
+      "collaborateurs": "Inviter les membres de l’équipe, suivre leurs comptes et leurs affectations.",
+      "roles": "Créer les rôles et régler ce que chacun peut voir et faire.",
+      "listes": "Les types de projet et les noms de lot proposés à toute l’entreprise.",
+      "calendrier": "Les jours ouvrés de l’entreprise : semaine type, jours fériés et exceptions.",
+      "configuration": "Les informations de l’entreprise qui figurent sur vos documents officiels."
+    }
+  },
   "pagination": {
     "dernierePage": "Dernière page",
     "pageActuelle": "Page {page} sur {total}",
@@ -1986,11 +2187,50 @@
         "aucuneSelection": "Sélectionnez une activité pour afficher son détail.",
         "budgetLot": "Budget du lot"
       },
+      "avancement": {
+        "bouton": "Mettre à jour l'avancement",
+        "titre": "Mettre à jour l'avancement",
+        "description": "Saisissez la nouvelle quantité cumulée réalisée de l'activité {activite}.",
+        "champQuantite": "Quantité réalisée",
+        "champQuantiteUnite": "Quantité réalisée ({unite})",
+        "quantiteActuelle": "Actuellement : {quantite}",
+        "champCommentaire": "Commentaire",
+        "commentaireAide": "Dites ce qui justifie cette mise à jour : elle reste dans l'historique de l'activité.",
+        "compteur": "{actuel} / {min} caractères minimum",
+        "annuler": "Annuler",
+        "enregistrer": "Enregistrer",
+        "succes": "L'avancement de l'activité {activite} a été mis à jour.",
+        "erreurGenerique": "L'avancement n'a pas pu être mis à jour. Réessayez.",
+        "erreurQuantiteInvalide": "Saisissez une quantité positive, par exemple 14 500 ou 12,5.",
+        "erreurCommentaireCourt": "Le commentaire doit comporter au moins {min} caractères.",
+        "erreurDiminution": "L'avancement d'une activité ne peut pas diminuer.",
+        "historique": {
+          "titre": "Historique",
+          "chargement": "Chargement de l'historique…",
+          "erreur": "L'historique n'a pas pu être chargé.",
+          "vide": "Aucune mise à jour manuelle pour le moment.",
+          "transition": "{avant} → {apres}",
+          "avancement": "{valeur} %",
+          "auteurEtDate": "{auteur} · {date}"
+        }
+      },
       "planning": {
         "aujourdhui": "Aujourd'hui",
         "aucuneDate": "Aucune date n'est encore planifiée sur ce chantier.",
         "barre": "{libelle} : du {debut} au {fin}, {avancement} %",
-        "nonPlanifiee": "Non planifiée"
+        "nonPlanifiee": "Non planifiée",
+        "ouvrirLot": "Ouvrir le lot {libelle} dans la structure",
+        "infobulle": {
+          "physique": "Avancement physique : {valeur} %",
+          "temporel": "Avancement temporel : {valeur} %"
+        },
+        "legende": {
+          "duree": "Durée prévue",
+          "DANS_LES_DELAIS": "Avancement : dans les délais",
+          "MODERE": "Avancement : retard modéré (> {seuil} pts)",
+          "CRITIQUE": "Avancement : retard critique (> {seuil} pts)",
+          "temporel": "Avancement temporel du lot"
+        }
       },
       "formActivite": {
         "titre": "Nouvelle activité",
@@ -3670,6 +3910,7 @@
       "chantier": "Journal chantier",
       "chargementEntreprise": "Chargement…",
       "collaborateurs": "Collaborateurs",
+      "calendrier": "Calendrier",
       "configuration": "Configuration",
       "listes": "Listes",
       "contrats": "Contrats",
@@ -3735,6 +3976,7 @@
       "plus": "Plus",
       "plusDeModules": "Autres modules",
       "projets": "Projets",
+      "projetsAlertes": "Alertes de retard",
       "projetsEquipe": "Équipes & affectations",
       "projetsListe": "Liste projets",
       "projetsLots": "Lots & activités",

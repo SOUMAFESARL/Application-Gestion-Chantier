@@ -29,6 +29,7 @@ import {
 
 import type {
   Activite,
+  ActivitePlanning,
   AjoutEncadrement,
   AlerteIntemperies,
   AutreMembreProjet,
@@ -38,7 +39,9 @@ import type {
   CreationLotProjet,
   ContratProjet,
   CreationProjet,
+  DonneesPlanning,
   Equipe,
+  EvenementAvancement,
   EvenementDate,
   FonctionAutreMembre,
   EquipeChantier,
@@ -46,8 +49,10 @@ import type {
   Intervenant,
   LigneImportLot,
   Lot,
+  LotPlanning,
   MembreEquipe,
   MeteoProjet,
+  MiseAJourAvancement,
   ModeExecutionLot,
   ModificationProjet,
   MotifReport,
@@ -789,6 +794,7 @@ function versActivite(charge: ChargeActivite, code = ""): Activite {
     dateDebutPrevue: charge.date_debut_prevue ?? null,
     dateFinPrevue: charge.date_fin_prevue ?? null,
     avancement: versNombre(charge.avancement) ?? 0,
+    quantiteRealisee: versNombre(charge.quantite_realisee),
     surCheminCritique: false,
     dependanceId: charge.dependance ?? null,
     responsableId: charge.responsable ?? null,
@@ -1056,6 +1062,133 @@ export function erreursChampsActivite(erreur: ErreurApi): Record<string, string>
  */
 export async function supprimerActivite(activiteId: string): Promise<void> {
   await api.supprimer(`/activites/${activiteId}/`);
+}
+
+/*
+ * L'avancement d'une activité ne s'écrit **pas** par `modifierActivite` : le
+ * serveur refuse `quantite_realisee` et `avancement` au PATCH ordinaire (403).
+ * Il passe par une route dédiée, qui journalise la mise à jour (F3, SFD §5).
+ */
+
+/** Une ligne de `GET /activites/{id}/avancement/historique/`. */
+interface ChargeEvenementAvancement {
+  id: string;
+  auteur: string;
+  date: string;
+  /** Des `DecimalField`, en chaîne. */
+  quantite_avant?: number | string | null;
+  quantite_apres?: number | string | null;
+  avancement_avant?: number | string | null;
+  avancement_apres?: number | string | null;
+  commentaire: string;
+}
+
+function versEvenementAvancement(charge: ChargeEvenementAvancement): EvenementAvancement {
+  return {
+    id: charge.id,
+    auteur: charge.auteur,
+    quantiteAvant: versNombre(charge.quantite_avant),
+    quantiteApres: versNombre(charge.quantite_apres),
+    avancementAvant: versNombre(charge.avancement_avant),
+    avancementApres: versNombre(charge.avancement_apres),
+    commentaire: charge.commentaire,
+    le: new Date(charge.date),
+  };
+}
+
+/**
+ * La mise à jour manuelle de l'avancement (CT et CP du chantier). Le serveur
+ * refuse une quantité en baisse (422) et un autre rôle (403) : l'écran
+ * affiche alors son message. Renvoie l'activité telle que le serveur l'a
+ * recalculée.
+ */
+export async function mettreAJourAvancement(
+  activiteId: string,
+  miseAJour: MiseAJourAvancement,
+): Promise<Activite> {
+  return versActivite(
+    await api.modifier<ChargeActivite>(`/activites/${activiteId}/avancement/`, {
+      quantite_realisee: miseAJour.quantiteRealisee,
+      commentaire: miseAJour.commentaire,
+    }),
+  );
+}
+
+/** Les mises à jour manuelles d'une activité, de la plus récente à la plus ancienne. */
+export async function lireHistoriqueAvancement(
+  activiteId: string,
+  signal?: AbortSignal,
+): Promise<EvenementAvancement[]> {
+  const charge = await api.lire<
+    ChargeEvenementAvancement[] | ChargeListe<ChargeEvenementAvancement>
+  >(`/activites/${activiteId}/avancement/historique/`, undefined, signal);
+  return aPlat(charge).map(versEvenementAvancement);
+}
+
+/** Une activité de `GET /projets/{id}/planning/`. */
+interface ChargeActivitePlanning {
+  id: string;
+  libelle: string;
+  debut: string | null;
+  fin: string | null;
+  avancement: number;
+  statut: string;
+}
+
+/** Un lot de `GET /projets/{id}/planning/`. */
+interface ChargeLotPlanning {
+  id: string;
+  code: string;
+  libelle: string;
+  debut: string | null;
+  fin: string | null;
+  avancement: number;
+  avancement_temporel: number | null;
+  delta_retard: number | null;
+  activites: ChargeActivitePlanning[];
+}
+
+interface ChargePlanning {
+  aujourdhui: string;
+  lots: ChargeLotPlanning[];
+}
+
+function versActivitePlanning(charge: ChargeActivitePlanning): ActivitePlanning {
+  return {
+    id: charge.id,
+    libelle: charge.libelle,
+    debut: charge.debut,
+    fin: charge.fin,
+    avancement: charge.avancement,
+    statut: depuisServeur(STATUT_SERVEUR, charge.statut, STATUT_DECLARE_PAR_DEFAUT),
+  };
+}
+
+function versLotPlanning(charge: ChargeLotPlanning): LotPlanning {
+  return {
+    id: charge.id,
+    code: charge.code,
+    libelle: charge.libelle,
+    debut: charge.debut,
+    fin: charge.fin,
+    avancement: charge.avancement,
+    avancementTemporel: charge.avancement_temporel,
+    deltaRetard: charge.delta_retard,
+    activites: (charge.activites ?? []).map(versActivitePlanning),
+  };
+}
+
+/**
+ * Les données de la frise d'un chantier : lots et activités avec leurs dates
+ * contractuelles et leur avancement physique, et, par lot, l'avancement
+ * temporel et le retard calculés par le serveur.
+ */
+export async function lirePlanning(
+  projetId: string,
+  signal?: AbortSignal,
+): Promise<DonneesPlanning> {
+  const charge = await api.lire<ChargePlanning>(`/projets/${projetId}/planning/`, undefined, signal);
+  return { aujourdhui: charge.aujourdhui, lots: (charge.lots ?? []).map(versLotPlanning) };
 }
 
 /**

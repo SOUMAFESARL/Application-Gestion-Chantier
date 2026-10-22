@@ -460,6 +460,8 @@ export interface Activite {
   dateFinPrevue: string | null;
   /** Un pourcentage, de 0 à 100, alimenté par le journal de chantier. */
   avancement: number;
+  /** La quantité cumulée réalisée, telle que le serveur la tient ; `null` si non communiquée. */
+  quantiteRealisee: number | null;
   /** Calculé par le serveur à partir des dépendances. */
   surCheminCritique: boolean;
   /** L'activité qui doit être terminée avant que celle-ci commence. */
@@ -469,6 +471,41 @@ export interface Activite {
   /** `null` : équipe encore à affecter. */
   equipe: EquipeChantier | null;
   statut: StatutDeclare;
+}
+
+/** Une activité sur la frise : ses dates contractuelles et son avancement physique. */
+export interface ActivitePlanning {
+  id: string;
+  libelle: string;
+  /** Dates contractuelles (baseline si complète, sinon prévues). `null` : non planifiée. */
+  debut: string | null;
+  fin: string | null;
+  /** Avancement physique en pourcentage. */
+  avancement: number;
+  statut: StatutDeclare;
+}
+
+/** Un lot sur la frise, avec ses indicateurs d'avancement. */
+export interface LotPlanning {
+  id: string;
+  code: string;
+  libelle: string;
+  debut: string | null;
+  fin: string | null;
+  /** Avancement physique en pourcentage. */
+  avancement: number;
+  /** Avancement temporel en pourcentage. `null` si le lot n'est pas planifié. */
+  avancementTemporel: number | null;
+  /** Avancement temporel − physique en points (positif = retard). `null` si non calculé. */
+  deltaRetard: number | null;
+  activites: ActivitePlanning[];
+}
+
+/** Ce que le serveur renvoie pour dessiner la frise d'un chantier. */
+export interface DonneesPlanning {
+  /** Le jour du serveur, en ISO court. */
+  aujourdhui: string;
+  lots: LotPlanning[];
 }
 
 /** Un lot d'un chantier, avec ses activités. */
@@ -608,6 +645,28 @@ export interface EvenementDate {
   objetId?: string | null;
   projetId?: string | null;
   projetNom?: string | null;
+  le: Date;
+}
+
+/* ------------------------------------------------------------------ *
+ * Mise à jour manuelle de l'avancement d'une activité (F3).
+ * ------------------------------------------------------------------ */
+
+/** La mise à jour saisie : la nouvelle quantité cumulée réalisée, et sa raison. */
+export interface MiseAJourAvancement {
+  quantiteRealisee: number;
+  commentaire: string;
+}
+
+/** Une ligne de l'historique des mises à jour manuelles d'une activité. */
+export interface EvenementAvancement {
+  id: string;
+  auteur: string;
+  quantiteAvant: number | null;
+  quantiteApres: number | null;
+  avancementAvant: number | null;
+  avancementApres: number | null;
+  commentaire: string;
   le: Date;
 }
 

@@ -15,6 +15,11 @@ export function cleLots(projetId: string) {
   return ["projets", projetId, "lots"] as const;
 }
 
+/** Les données de la frise de planning d'un chantier. */
+export function clePlanning(projetId: string) {
+  return ["projets", projetId, "planning"] as const;
+}
+
 /** Les chiffres de structure d'un chantier, recomptés par le serveur. */
 export function cleStatistiques(projetId: string) {
   return ["projets", projetId, "statistiques"] as const;
@@ -28,6 +33,11 @@ export function cleEquipes(projetId: string) {
 /** Un chantier dans son détail, pour sa fiche. */
 export function cleProjet(projetId: string) {
   return ["projets", projetId, "detail"] as const;
+}
+
+/** L'historique des mises à jour manuelles d'avancement d'une activité. */
+export function cleHistoriqueAvancement(activiteId: string) {
+  return ["activites", activiteId, "historique-avancement"] as const;
 }
 
 /** La liste des motifs de report de dates (référentiel). */

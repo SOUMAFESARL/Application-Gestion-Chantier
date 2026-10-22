@@ -27,6 +27,7 @@ import type {
   Intervenant,
   LigneImportLot,
   Lot,
+  LotPlanning,
   MembreEquipe,
   ModeExecutionLot,
   NatureEquipe,
@@ -938,6 +939,30 @@ export function quantiteRealisee(activite: Activite): number | null {
 }
 
 /**
+ * La quantité cumulée dont part une mise à jour manuelle : celle du serveur,
+ * sinon le repli déduit de l'avancement, sinon zéro.
+ */
+export function quantiteActuelleActivite(activite: Activite): number {
+  return activite.quantiteRealisee ?? quantiteRealisee(activite) ?? 0;
+}
+
+/**
+ * Mettre à jour l'avancement à la main : le conducteur de travaux et le chef
+ * de projet **du chantier** (SFD F3 §3, RG-F3-02) — la direction, qui n'y
+ * tient aucune fonction, n'en fait pas partie. `fonctions` est ce que le
+ * compte tient sur ce chantier ; un chantier clos ne se modifie plus.
+ */
+export function peutMettreAJourAvancement(
+  projet: Pick<Projet, "statut">,
+  fonctions: readonly FonctionProjet[],
+): boolean {
+  return (
+    projetModifiable(projet) &&
+    fonctions.some((fonction) => fonction === "CHEF_PROJET" || fonction === "CONDUCTEUR_TRAVAUX")
+  );
+}
+
+/**
  * L'avancement d'un ensemble d'activités : leur moyenne simple. Le budget se
  * tient au lot, pas à l'activité — il n'y a rien d'autre pour les départager.
  * Aucune activité : 0.
@@ -1137,18 +1162,6 @@ export function paginerLots(
 }
 
 /**
- * L'étendue du planning d'un chantier : du premier début à la dernière fin,
- * sur tous ses lots. `null` tant qu'aucune date n'est connue.
- */
-export function etenduePlanning(lots: Lot[]): { debut: string; fin: string } | null {
-  const periodes = lots.map(periodeLot);
-  const debuts = periodes.map((periode) => periode.debut).filter((date): date is string => !!date);
-  const fins = periodes.map((periode) => periode.fin).filter((date): date is string => !!date);
-  if (debuts.length === 0 || fins.length === 0) return null;
-  return { debut: debuts.sort()[0], fin: fins.sort()[fins.length - 1] };
-}
-
-/**
  * La position d'une barre de planning, en pourcentages de l'étendue :
  * décalage depuis la gauche, et largeur. Une barre d'un jour garde une
  * largeur visible.
@@ -1177,14 +1190,73 @@ export function moisPlanning(etendue: { debut: string; fin: string }): string[] 
   return mois;
 }
 
-/** La position du jour sur le planning, en pourcentage ; `null` hors de l'étendue. */
-export function positionAujourdhui(
+/* ------------------------------------------------------------------ *
+ * La frise de planning alimentée par le serveur (SFD F3 §5.3).
+ * ------------------------------------------------------------------ */
+
+/** Au-delà de ce retard (points), un lot est en retard modéré — signe inversé : `delta_retard` = temporel − physique. */
+export const SEUIL_RETARD_MODERE_PLANNING = -SEUIL_RETARD_POINTS;
+
+/** Au-delà de ce retard (points), un lot est en retard critique. */
+export const SEUIL_RETARD_CRITIQUE_PLANNING = 25;
+
+/** Le retard d'un lot sur la frise : la barre d'avancement en prend la couleur. */
+export type NiveauRetardPlanning = "DANS_LES_DELAIS" | "MODERE" | "CRITIQUE";
+
+/**
+ * Le niveau de retard d'un lot d'après son retard en points (avancement
+ * temporel − physique, positif = retard). Sans retard calculé, le lot est
+ * tenu pour dans les délais : rien n'est attendu de lui.
+ */
+export function niveauRetardPlanning(deltaRetard: number | null): NiveauRetardPlanning {
+  if (deltaRetard !== null && deltaRetard > SEUIL_RETARD_CRITIQUE_PLANNING) return "CRITIQUE";
+  if (deltaRetard !== null && deltaRetard > SEUIL_RETARD_MODERE_PLANNING) return "MODERE";
+  return "DANS_LES_DELAIS";
+}
+
+/**
+ * L'étendue de la frise du serveur : du premier début à la dernière fin, sur
+ * les lots et leurs activités. `null` tant qu'aucune date n'est connue.
+ */
+export function etendueDonneesPlanning(
+  lots: LotPlanning[],
+): { debut: string; fin: string } | null {
+  const elements = lots.flatMap((lot) => [lot, ...lot.activites]);
+  const debuts = elements.map((element) => element.debut).filter((date): date is string => !!date);
+  const fins = elements.map((element) => element.fin).filter((date): date is string => !!date);
+  if (debuts.length === 0 || fins.length === 0) return null;
+  return { debut: debuts.sort()[0], fin: fins.sort()[fins.length - 1] };
+}
+
+/** La position d'un jour (ISO court) sur la frise, en pourcentage ; `null` hors de l'étendue. */
+export function positionJourPlanning(
+  jour: string,
   etendue: { debut: string; fin: string },
-  maintenant: Date = new Date(),
 ): number | null {
-  const jour = isoCourt(maintenant);
   if (jour < etendue.debut || jour > etendue.fin) return null;
   return positionPlanning(jour, jour, etendue).gauche;
+}
+
+/**
+ * La barre d'avancement physique, posée sur la barre de durée : même départ,
+ * largeur proportionnelle à l'avancement (plafonné à 100 %).
+ */
+export function positionAvancementPlanning(
+  barre: { gauche: number; largeur: number },
+  avancement: number,
+): { gauche: number; largeur: number } {
+  return { gauche: barre.gauche, largeur: (barre.largeur * largeurJauge(avancement)) / 100 };
+}
+
+/**
+ * La position du marqueur d'avancement temporel d'un lot, en pourcentage de
+ * l'étendue : à la part de la barre de durée que le temps a consommée.
+ */
+export function positionMarqueurTemporel(
+  barre: { gauche: number; largeur: number },
+  avancementTemporel: number,
+): number {
+  return barre.gauche + (barre.largeur * largeurJauge(avancementTemporel)) / 100;
 }
 
 /**
