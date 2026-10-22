@@ -1,7 +1,7 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
-import { Eye, Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Eye, FileText, Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
@@ -18,6 +18,7 @@ import {
   RechercheTableau,
   TableauListe,
 } from "@/components/ui/tableau-liste";
+import { lireProfilLocal, obtenirProfilMoi } from "@/features/auth/api";
 import { useDroits, useProjetsVisibles } from "@/features/habilitations";
 import { useGestionProjet } from "@/features/projets/components/GestionProjet";
 import { TiroirCreationProjet } from "@/features/projets/components/TiroirCreationProjet";
@@ -33,6 +34,7 @@ import {
   niveauAvancement,
   nomAbrege,
   ORDRE_STATUTS,
+  peutExporterRapportPortefeuille,
   peutReprendre,
   peutSuspendre,
   projetModifiable,
@@ -45,7 +47,9 @@ import type { Projet, StatutProjet } from "@/features/projets/types";
 import { ABSENT, couleurIndiceSante, formaterDate, formaterMillions, formaterMontant } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+import { useGenerationDocumentPdf } from "../rapports/GenerationDocumentPdf";
 import { FOND_STATUT, TON_SANTE, TON_STATUT } from "./classes";
+import { contenuPortefeuille } from "./contenuPortefeuillePdf";
 import { Indicateur } from "./EnteteChantier";
 
 /**
@@ -90,6 +94,7 @@ const colonne = aideColonnes<Projet>();
 
 export function ListeProjets() {
   const t = useTranslations("projets");
+  const tRapport = useTranslations("projets.rapportPortefeuille");
   const { libelle: libelleType } = useReferentiel(REFERENTIEL_TYPES_PROJET);
   const clientRequetes = useQueryClient();
   const [tiroirOuvert, setTiroirOuvert] = useState(false);
@@ -98,8 +103,12 @@ export function ListeProjets() {
 
   // Hors direction, seulement ses chantiers ; les gestes selon les accès du module.
   const requete = useProjetsVisibles();
-  const { peutCode, peutSurProjet, voitMontants } = useDroits();
+  const { droits, peutCode, peutSurProjet, voitMontants } = useDroits();
   const peutCreer = peutCode("projets.creer");
+
+  // Le profil dit si l'on est DO ; le chef de projet se lit sur les chantiers.
+  const requeteProfil = useQuery({ queryKey: ["profil-moi"], queryFn: obtenirProfilMoi });
+  const profil = useMemo(() => requeteProfil.data ?? lireProfilLocal(), [requeteProfil.data]);
 
   // Le repli tient dans un `useMemo` : un `?? []` rend un tableau neuf à
   // chaque rendu, donc recalcule les trois dérivations qui en dépendent.
@@ -110,6 +119,29 @@ export function ListeProjets() {
   const chefs = useMemo(() => chefsDeProjet(projets), [projets]);
   const parStatut = useMemo(() => compterParStatut(projets), [projets]);
   const filtresActifs = criteresActifs(criteres);
+  const peutRapport = peutExporterRapportPortefeuille(droits, profil, projets);
+
+  /**
+   * Le rapport d'avancement du portefeuille (SFD F3 US-03) : les chantiers que
+   * le tableau exporte, c'est-à-dire ceux qui passent la recherche et les
+   * filtres du moment. Tout le contenu est construit par `contenuPortefeuille`.
+   */
+  const { pdf: rapport, indicateur: indicateurRapport } = useGenerationDocumentPdf(
+    tRapport("action"),
+    (source) =>
+      contenuPortefeuille((cle, valeurs) => tRapport(cle, valeurs), {
+        projets: projetsFiltres,
+        criteres,
+        chefFiltre: chefs.find((chef) => chef.id === criteres.chefProjetId)?.nomComplet ?? null,
+        voitMontants,
+        entreprise: source.entreprise,
+        logo: source.logo,
+        documents: source.documents,
+        marque: source.marque,
+        libelles: { statutProjet: (statut) => t(`statut.${statut}`) },
+        maintenant: source.maintenant,
+      }),
+  );
 
   /**
    * Le chantier créé est posé **en tête du cache** avant tout rechargement :
@@ -183,6 +215,21 @@ export function ListeProjets() {
       colonnes,
     };
   }, [t, voitMontants, libelleType]);
+
+  /** Le rapport PDF, après le bouton de création pour que « Exporter » reste juste à sa gauche : réduit à son icône sous 640 px comme le bouton de création. */
+  const boutonRapport = (
+    <Bouton
+      variante="secondaire"
+      taille="sm"
+      aria-label={tRapport("action")}
+      iconeGauche={<FileText size={16} aria-hidden="true" />}
+      enCours={rapport.enCours}
+      onClick={rapport.telecharger}
+      className="max-sm:gap-0 max-sm:px-3"
+    >
+      <span className="max-sm:hidden">{tRapport("action")}</span>
+    </Bouton>
+  );
 
   const colonnes = useMemo(
     () =>
@@ -412,7 +459,14 @@ export function ListeProjets() {
               onReinitialiser={() => setCriteres(CRITERES_VIDES)}
               cleCriteres={`${criteres.recherche}|${criteres.statut}|${criteres.chefProjetId}`}
               exporter={exporter}
-              actions={peutCreer ? boutonNouveauCompact : undefined}
+              actions={
+                peutRapport || peutCreer ? (
+                  <>
+                    {peutCreer && boutonNouveauCompact}
+                    {peutRapport && boutonRapport}
+                  </>
+                ) : undefined
+              }
               outils={
                 <>
                   <RechercheTableau
@@ -445,6 +499,8 @@ export function ListeProjets() {
         ))}
 
       {modaux}
+
+      {indicateurRapport}
 
       <TiroirCreationProjet
         ouverte={tiroirOuvert}

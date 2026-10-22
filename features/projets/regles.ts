@@ -11,6 +11,8 @@
  * s'était produit — voir `SEUIL_RETARD_POINTS` plus bas.
  */
 
+import type { ProfilUtilisateur } from "@/features/auth/api";
+import type { Droits } from "@/features/habilitations/types";
 import type { Collaborateur } from "@/features/invitations/types";
 import { LOTS_INDICATIFS } from "@/features/referentiels/lots";
 
@@ -804,6 +806,8 @@ export const COLONNES_EXPORT_PROJETS = [
   "typeProjet",
   "chefProjet",
   "avancementReel",
+  "avancementTemporel",
+  "deltaRetard",
   "indiceSante",
   "dateFinPrevue",
   "budgetInitial",
@@ -835,11 +839,92 @@ export function valeursExportProjet(
     projet.typeProjet ? libelles.typeProjet(projet.typeProjet) : "",
     projet.chefProjet?.nomComplet ?? "",
     projet.avancementReel,
+    projet.avancementTheorique,
+    projet.deltaRetard ?? "",
     projet.indiceSante ?? "",
     projet.dateFinPrevue ? libelles.formaterDate(projet.dateFinPrevue) : "",
     projet.budgetInitial === null ? "" : Math.round(projet.budgetInitial / 100),
     libelles.statut(projet.statut),
   ];
+}
+
+/* ------------------------------------------------------------------ *
+ * Le rapport d'avancement du portefeuille (SFD F3 US-03, §5.1).
+ * ------------------------------------------------------------------ */
+
+/**
+ * Qui peut sortir le rapport d'avancement du portefeuille : le DG, le DO et
+ * les chefs de projet (SFD F3 US-03).
+ *
+ * Le DG se reconnaît à la direction, le DO à son rôle global — le seul code de
+ * rôle que lit cette règle, comme `peutCloturerAlerte`. Le chef de projet, lui,
+ * n'est pas un rôle mais une **fonction tenue sur un chantier** : il se
+ * reconnaît à ce qu'il est désigné chef de projet d'au moins un des chantiers
+ * qu'il voit. Ce n'est pas une barrière : le serveur ne renvoie à chacun que
+ * ses chantiers.
+ */
+export function peutExporterRapportPortefeuille(
+  droits: Droits | null,
+  profil: Pick<ProfilUtilisateur, "id" | "role_global" | "is_dg" | "is_owner"> | null,
+  projets: Projet[],
+): boolean {
+  if (!droits || !profil) return false;
+  if (droits.estDirection || profil.is_dg || profil.role_global === "DG") return true;
+  if (profil.role_global === "DO") return true;
+
+  const personne =
+    droits.portee.type === "PERSONNE" ? droits.portee.collaborateurId : profil.id;
+  return projets.some((projet) => fonctionsDansProjet(projet, personne).includes("CHEF_PROJET"));
+}
+
+/**
+ * Le niveau de retard d'un chantier du portefeuille, d'après le retard en
+ * points **fourni par le serveur** (`deltaRetard`) et les seuils du planning —
+ * ceux des lots, pour que le rapport ne qualifie pas un chantier autrement que
+ * la frise.
+ */
+export function niveauRetardProjet(projet: Pick<Projet, "deltaRetard">): NiveauRetardPlanning {
+  return niveauRetardPlanning(projet.deltaRetard);
+}
+
+/** Les chiffres de tête du rapport de portefeuille. */
+export interface SyntheseRapportPortefeuille {
+  nombre: number;
+  /** `null` : aucun chantier, donc rien à moyenner. */
+  avancementMoyen: number | null;
+  enRetard: number;
+  critiques: number;
+}
+
+/**
+ * Les tuiles du rapport, sur les chantiers que le rapport liste.
+ *
+ * **Aucun avancement n'est recalculé** : la moyenne ne porte que sur les
+ * avancements physiques que le serveur a rendus. Le serveur ne fournit pas
+ * d'agrégat pour une sélection filtrée : on affiche donc une moyenne simple,
+ * explicitement étiquetée comme telle, et aucune pondération n'est recalculée
+ * côté client (RG-F3-04).
+ *
+ * Un chantier est **en retard** quand le serveur le dit (statut `EN_RETARD` ou
+ * `CRITIQUE`) ou que son retard dépasse le seuil du planning ; il est
+ * **critique** par son statut ou par un retard critique.
+ */
+export function syntheseRapportPortefeuille(projets: Projet[]): SyntheseRapportPortefeuille {
+  const nombre = projets.length;
+  const avancementMoyen =
+    nombre > 0 ? projets.reduce((somme, projet) => somme + projet.avancementReel, 0) / nombre : null;
+
+  const critiques = projets.filter(
+    (projet) => projet.statut === "CRITIQUE" || niveauRetardProjet(projet) === "CRITIQUE",
+  ).length;
+  const enRetard = projets.filter(
+    (projet) =>
+      projet.statut === "EN_RETARD" ||
+      projet.statut === "CRITIQUE" ||
+      niveauRetardProjet(projet) !== "DANS_LES_DELAIS",
+  ).length;
+
+  return { nombre, avancementMoyen, enRetard, critiques };
 }
 
 /* ------------------------------------------------------------------ *

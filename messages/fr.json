@@ -1971,6 +1971,8 @@
         "typeProjet": "Type",
         "chefProjet": "Chef de projet",
         "avancementReel": "Avancement réel (%)",
+        "avancementTemporel": "Avancement temporel (%)",
+        "deltaRetard": "Retard (points)",
         "indiceSante": "Indice de santé",
         "dateFinPrevue": "Date de fin prévue",
         "budgetInitial": "Budget initial (FCFA)",
@@ -1990,6 +1992,51 @@
     },
     "localisation": "{quartier}, {ville}",
     "pourcentage": "{valeur} %",
+    "rapportPortefeuille": {
+      "action": "Rapport d'avancement (PDF)",
+      "nomFichier": "portefeuille_{date}_{heure}.pdf",
+      "titre": "Rapport d'avancement du portefeuille",
+      "dateGeneration": "Généré le {date}",
+      "objet": "Portefeuille de projets",
+      "nombreProjets": "{nombre, plural, =0 {Aucun projet} one {# projet} other {# projets}}",
+      "sections": {
+        "filtres": "Filtres appliqués",
+        "synthese": "Synthèse",
+        "projets": "Projets"
+      },
+      "filtres": {
+        "aucun": "Aucun filtre : tous les projets du portefeuille sont listés.",
+        "recherche": "Recherche : « {valeur} »",
+        "statut": "Statut : {valeur}",
+        "chefProjet": "Chef de projet : {valeur}"
+      },
+      "synthese": {
+        "projets": "Projets",
+        "avancement": "Avancement physique moyen",
+        "moyenneSimple": "moyenne simple",
+        "enRetard": "Projets en retard",
+        "critiques": "Projets critiques"
+      },
+      "tableau": {
+        "projet": "Projet",
+        "localisation": "Localisation",
+        "chefProjet": "Chef de projet",
+        "avancementReel": "Avanc. physique réel",
+        "avancementTemporel": "Avanc. temporel",
+        "retard": "Retard (pts)",
+        "sante": "Santé",
+        "finContractuelle": "Fin contractuelle",
+        "statut": "Statut",
+        "budget": "Budget prévisionnel (FCFA)",
+        "sansChefProjet": "Non désigné",
+        "budgetNonDefini": "Non défini",
+        "vide": "Aucun projet ne correspond aux filtres appliqués.",
+        "legende": "L'avancement temporel est la part du délai contractuel écoulée à la date du rapport. Le retard est l'écart en points entre l'avancement temporel et l'avancement physique réel : positif, le projet est en retard."
+      },
+      "pied": {
+        "page": "Page {page} / {total}"
+      }
+    },
     "recherche": "Rechercher un projet",
     "recherchePlaceholder": "Référence, projet, client, ville…",
     "sansChefProjet": "Non désigné",
