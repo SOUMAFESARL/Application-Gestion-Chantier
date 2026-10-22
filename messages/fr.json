@@ -2218,7 +2218,19 @@
         "aujourdhui": "Aujourd'hui",
         "aucuneDate": "Aucune date n'est encore planifiée sur ce chantier.",
         "barre": "{libelle} : du {debut} au {fin}, {avancement} %",
-        "nonPlanifiee": "Non planifiée"
+        "nonPlanifiee": "Non planifiée",
+        "ouvrirLot": "Ouvrir le lot {libelle} dans la structure",
+        "infobulle": {
+          "physique": "Avancement physique : {valeur} %",
+          "temporel": "Avancement temporel : {valeur} %"
+        },
+        "legende": {
+          "duree": "Durée prévue",
+          "DANS_LES_DELAIS": "Avancement : dans les délais",
+          "MODERE": "Avancement : retard modéré (> {seuil} pts)",
+          "CRITIQUE": "Avancement : retard critique (> {seuil} pts)",
+          "temporel": "Avancement temporel du lot"
+        }
       },
       "formActivite": {
         "titre": "Nouvelle activité",

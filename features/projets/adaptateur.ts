@@ -29,6 +29,7 @@ import {
 
 import type {
   Activite,
+  ActivitePlanning,
   AjoutEncadrement,
   AlerteIntemperies,
   AutreMembreProjet,
@@ -38,6 +39,7 @@ import type {
   CreationLotProjet,
   ContratProjet,
   CreationProjet,
+  DonneesPlanning,
   Equipe,
   EvenementAvancement,
   EvenementDate,
@@ -47,6 +49,7 @@ import type {
   Intervenant,
   LigneImportLot,
   Lot,
+  LotPlanning,
   MembreEquipe,
   MeteoProjet,
   MiseAJourAvancement,
@@ -1120,6 +1123,72 @@ export async function lireHistoriqueAvancement(
     ChargeEvenementAvancement[] | ChargeListe<ChargeEvenementAvancement>
   >(`/activites/${activiteId}/avancement/historique/`, undefined, signal);
   return aPlat(charge).map(versEvenementAvancement);
+}
+
+/** Une activité de `GET /projets/{id}/planning/`. */
+interface ChargeActivitePlanning {
+  id: string;
+  libelle: string;
+  debut: string | null;
+  fin: string | null;
+  avancement: number;
+  statut: string;
+}
+
+/** Un lot de `GET /projets/{id}/planning/`. */
+interface ChargeLotPlanning {
+  id: string;
+  code: string;
+  libelle: string;
+  debut: string | null;
+  fin: string | null;
+  avancement: number;
+  avancement_temporel: number | null;
+  delta_retard: number | null;
+  activites: ChargeActivitePlanning[];
+}
+
+interface ChargePlanning {
+  aujourdhui: string;
+  lots: ChargeLotPlanning[];
+}
+
+function versActivitePlanning(charge: ChargeActivitePlanning): ActivitePlanning {
+  return {
+    id: charge.id,
+    libelle: charge.libelle,
+    debut: charge.debut,
+    fin: charge.fin,
+    avancement: charge.avancement,
+    statut: depuisServeur(STATUT_SERVEUR, charge.statut, STATUT_DECLARE_PAR_DEFAUT),
+  };
+}
+
+function versLotPlanning(charge: ChargeLotPlanning): LotPlanning {
+  return {
+    id: charge.id,
+    code: charge.code,
+    libelle: charge.libelle,
+    debut: charge.debut,
+    fin: charge.fin,
+    avancement: charge.avancement,
+    avancementTemporel: charge.avancement_temporel,
+    deltaRetard: charge.delta_retard,
+    activites: (charge.activites ?? []).map(versActivitePlanning),
+  };
+}
+
+/**
+ * Les données de la frise d'un chantier : lots et activités avec leurs dates
+ * contractuelles et leur avancement physique, et, par lot, l'avancement
+ * temporel et le retard calculés par le serveur.
+ */
+export async function lirePlanning(
+  projetId: string,
+  signal?: AbortSignal,
+): Promise<DonneesPlanning> {
+  const charge = await api.lire<ChargePlanning>(`/projets/${projetId}/planning/`, undefined, signal);
+  return { aujourdhui: charge.aujourdhui, lots: (charge.lots ?? []).map(versLotPlanning) };
 }
 
 /**

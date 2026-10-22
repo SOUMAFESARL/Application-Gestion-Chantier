@@ -473,6 +473,41 @@ export interface Activite {
   statut: StatutDeclare;
 }
 
+/** Une activité sur la frise : ses dates contractuelles et son avancement physique. */
+export interface ActivitePlanning {
+  id: string;
+  libelle: string;
+  /** Dates contractuelles (baseline si complète, sinon prévues). `null` : non planifiée. */
+  debut: string | null;
+  fin: string | null;
+  /** Avancement physique en pourcentage. */
+  avancement: number;
+  statut: StatutDeclare;
+}
+
+/** Un lot sur la frise, avec ses indicateurs d'avancement. */
+export interface LotPlanning {
+  id: string;
+  code: string;
+  libelle: string;
+  debut: string | null;
+  fin: string | null;
+  /** Avancement physique en pourcentage. */
+  avancement: number;
+  /** Avancement temporel en pourcentage. `null` si le lot n'est pas planifié. */
+  avancementTemporel: number | null;
+  /** Avancement temporel − physique en points (positif = retard). `null` si non calculé. */
+  deltaRetard: number | null;
+  activites: ActivitePlanning[];
+}
+
+/** Ce que le serveur renvoie pour dessiner la frise d'un chantier. */
+export interface DonneesPlanning {
+  /** Le jour du serveur, en ISO court. */
+  aujourdhui: string;
+  lots: LotPlanning[];
+}
+
 /** Un lot d'un chantier, avec ses activités. */
 export interface Lot {
   id: string;

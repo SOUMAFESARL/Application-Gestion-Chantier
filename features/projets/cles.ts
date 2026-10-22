@@ -15,6 +15,11 @@ export function cleLots(projetId: string) {
   return ["projets", projetId, "lots"] as const;
 }
 
+/** Les données de la frise de planning d'un chantier. */
+export function clePlanning(projetId: string) {
+  return ["projets", projetId, "planning"] as const;
+}
+
 /** Les chiffres de structure d'un chantier, recomptés par le serveur. */
 export function cleStatistiques(projetId: string) {
   return ["projets", projetId, "statistiques"] as const;

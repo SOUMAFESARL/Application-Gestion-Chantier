@@ -20,15 +20,6 @@ export const BADGE_STATUT: Record<StatutActivite, VarianteBadge> = {
   TERMINE: "succes",
 };
 
-/** La barre du planning prend la teinte de son statut. */
-export const BARRE_STATUT: Record<StatutActivite, string> = {
-  A_VENIR: "bg-neutral-300",
-  EN_COURS: "bg-information",
-  EN_RETARD: "bg-erreur",
-  BLOQUE: "bg-avertissement",
-  TERMINE: "bg-succes",
-};
-
 /** L'anneau d'avancement de la structure : sa piste, puis sa part remplie. */
 export const CERCLE_PISTE = "stroke-neutral-200";
 export const CERCLE_REMPLI = "stroke-succes transition-[stroke-dasharray] duration-300";
