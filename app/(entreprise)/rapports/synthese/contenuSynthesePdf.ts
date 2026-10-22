@@ -8,8 +8,7 @@ import {
   rapportsManquants,
   tauxPresence,
 } from "@/features/chantier";
-import type { SynthesePeriodique } from "@/features/chantier";
-import type { ModeExecutionLot } from "@/features/projets/types";
+import type { LotJournal, SynthesePeriodique } from "@/features/chantier";
 import { ABSENT, formaterDateHeure, formaterJourMoisNumerique, formaterQuantite } from "@/lib/format";
 import type { BlocPdf, CasePdf, CellulePdf, DocumentPdf, SectionPdf } from "@/lib/export/documentPdf";
 
@@ -33,7 +32,7 @@ export interface DonneesSynthesePdf extends SourcePdf {
   synthese: SynthesePeriodique;
   /** La période, déjà mise en mots par l'écran (« Semaine 39 — du … au … »). */
   periode: string;
-  modeExecution: (mode: ModeExecutionLot) => string;
+  modeExecution: (lot: LotJournal) => string;
 }
 
 /** Un écart signé : « +2 », « −3 », « 0 ». */
@@ -288,7 +287,7 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
         ],
         synthese.avancement.flatMap(({ lot, activites }) => [
           [
-            cellule(s("avancement.lot", { code: lot.code, nom: lot.nom, mode: modeExecution(lot.modeExecution) }), {
+            cellule(s("avancement.lot", { code: lot.code, nom: lot.nom, mode: modeExecution(lot) }), {
               gras: true,
             }),
             ...Array.from({ length: 8 }, () => cellule("")),

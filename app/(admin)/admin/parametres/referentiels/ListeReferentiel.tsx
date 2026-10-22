@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Alerte, Bouton, Champ, EtatChargement, EtatErreur, Modale } from "@/components/ui";
 import { aideColonnes } from "@/components/ui/data-table";
 import type { ExportTableau } from "@/components/ui/export-tableau";
+import { SelecteurModeBase } from "@/components/metier/SelecteurModeBase";
 import { BORD_DROIT_TABLEAU, RechercheTableau, TableauListe } from "@/components/ui/tableau-liste";
 import { peutParametrerPlateforme } from "@/features/administration";
 import type {
@@ -21,6 +22,7 @@ import {
   modifierReferentielPlateforme,
   supprimerReferentielPlateforme,
 } from "@/features/administration/adaptateur";
+import { estModeExecutionBase } from "@/features/projets/regles";
 import { ErreurApi } from "@/lib/api";
 
 import { useAdministrateur } from "../../ContexteAdministrateur";
@@ -37,14 +39,25 @@ type Action =
  * Un référentiel de la plateforme : ce qui s'y ajoute est proposé aussitôt
  * à toutes les entreprises, qui ne peuvent pas le supprimer. Une entrée
  * retirée ici n'est plus proposée ; les projets qui l'utilisent la gardent.
+ *
+ * Les modes d'exécution portent un groupe obligatoire : l'un des trois modes
+ * de base, sur lesquels le rapport journalier raisonne.
  */
 export function ListeReferentiel({ categorie }: { categorie: CategorieReferentielPlateforme }) {
   const t = useTranslations(`administration.parametres.referentiels.${categorie}`);
   const tCommun = useTranslations("administration.parametres.referentiels");
+  const tModesBase = useTranslations("projets.referentiels.modesBase");
   const profil = useAdministrateur();
   const cache = useQueryClient();
   const peutAgir = peutParametrerPlateforme(profil);
   const cle = CLES_ADMINISTRATION.referentiels(categorie);
+  const groupeObligatoire = categorie === "modes-execution";
+
+  /** Le groupe tel qu'on le lit : un mode de base en toutes lettres, un autre groupe tel quel. */
+  const libelleGroupe = useMemo(
+    () => (groupe: string) => (estModeExecutionBase(groupe) ? tModesBase(groupe) : groupe),
+    [tModesBase],
+  );
 
   const [action, setAction] = useState<Action>(null);
   const [libelle, setLibelle] = useState("");
@@ -103,9 +116,11 @@ export function ListeReferentiel({ categorie }: { categorie: CategorieReferentie
     const terme = recherche.trim().toLowerCase();
     const toutes = requete.data ?? [];
     return terme
-      ? toutes.filter((e) => `${e.libelle} ${e.groupe}`.toLowerCase().includes(terme))
+      ? toutes.filter((e) =>
+          `${e.libelle} ${libelleGroupe(e.groupe)}`.toLowerCase().includes(terme),
+        )
       : toutes;
-  }, [requete.data, recherche]);
+  }, [requete.data, recherche, libelleGroupe]);
 
   const colonnes = useMemo(
     () =>
@@ -120,7 +135,7 @@ export function ListeReferentiel({ categorie }: { categorie: CategorieReferentie
         colonne.accessor("groupe", {
           id: "groupe",
           header: tCommun("colonneGroupe"),
-          cell: ({ row }) => row.original.groupe,
+          cell: ({ row }) => libelleGroupe(row.original.groupe),
         }),
         colonne.display({
           id: "actions",
@@ -153,7 +168,7 @@ export function ListeReferentiel({ categorie }: { categorie: CategorieReferentie
             ),
         }),
       ]),
-    [tCommun, peutAgir],
+    [tCommun, peutAgir, libelleGroupe],
   );
 
   const exporter = useMemo<ExportTableau<EntreeReferentielPlateforme>>(
@@ -162,11 +177,11 @@ export function ListeReferentiel({ categorie }: { categorie: CategorieReferentie
       nomFichier: t("nomFichier"),
       colonnes: [
         { entete: tCommun("colonneLibelle"), valeur: (e) => e.libelle },
-        { entete: tCommun("colonneGroupe"), valeur: (e) => e.groupe },
+        { entete: tCommun("colonneGroupe"), valeur: (e) => libelleGroupe(e.groupe) },
         { entete: tCommun("colonneCode"), valeur: (e) => e.code },
       ],
     }),
-    [t, tCommun],
+    [t, tCommun, libelleGroupe],
   );
 
   return (
@@ -212,7 +227,7 @@ export function ListeReferentiel({ categorie }: { categorie: CategorieReferentie
               {tCommun("annuler")}
             </Bouton>
             <Bouton
-              disabled={!libelle.trim() || enregistrement.isPending}
+              disabled={!libelle.trim() || (groupeObligatoire && !groupe) || enregistrement.isPending}
               enCours={enregistrement.isPending}
               onClick={() => enregistrement.mutate()}
             >
@@ -229,14 +244,22 @@ export function ListeReferentiel({ categorie }: { categorie: CategorieReferentie
             disabled={enregistrement.isPending}
             onChange={(e) => setLibelle(e.target.value)}
           />
-          <Champ
-            libelle={tCommun("colonneGroupe")}
-            aide={t("aideGroupe")}
-            value={groupe}
-            maxLength={100}
-            disabled={enregistrement.isPending}
-            onChange={(e) => setGroupe(e.target.value)}
-          />
+          {groupeObligatoire ? (
+            <SelecteurModeBase
+              valeur={groupe}
+              onChange={setGroupe}
+              disabled={enregistrement.isPending}
+            />
+          ) : (
+            <Champ
+              libelle={tCommun("colonneGroupe")}
+              aide={t("aideGroupe")}
+              value={groupe}
+              maxLength={100}
+              disabled={enregistrement.isPending}
+              onChange={(e) => setGroupe(e.target.value)}
+            />
+          )}
           {erreur && <Alerte type="erreur">{erreur}</Alerte>}
         </div>
       </Modale>

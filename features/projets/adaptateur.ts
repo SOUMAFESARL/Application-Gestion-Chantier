@@ -40,6 +40,7 @@ import type {
   ContratProjet,
   CreationProjet,
   DonneesPlanning,
+  EntreeModeExecution,
   Equipe,
   EvenementAvancement,
   EvenementDate,
@@ -53,7 +54,6 @@ import type {
   MembreEquipe,
   MeteoProjet,
   MiseAJourAvancement,
-  ModeExecutionLot,
   ModificationProjet,
   MotifReport,
   NatureEquipe,
@@ -708,7 +708,9 @@ interface ChargeLot {
   code: string;
   nom: string;
   statut?: string | null;
+  /** Le code du référentiel des modes d'exécution (`REGIE` pour la régie). */
   mode_execution: string;
+  mode_execution_libelle?: string;
   type_bordereau: string;
   /** Un `DecimalField` : Django peut l'envoyer en chaîne. */
   budget_initial_montant?: number | string | null;
@@ -730,12 +732,6 @@ interface ChargeLot {
  * sont supposées porter le nom du domaine — **à confirmer**, et à corriger
  * ici seulement.
  */
-
-const MODE_EXECUTION_SERVEUR: Record<ModeExecutionLot, string> = {
-  REGIE_DIRECTE: "REGIE",
-  SOUS_TRAITANCE_STRUCTUREE: "SOUS_TRAITANCE_STRUCTUREE",
-  SOUS_TRAITANCE_INFORMELLE: "SOUS_TRAITANCE_INFORMELLE",
-};
 
 const TYPE_BORDEREAU_SERVEUR: Record<TypeBordereau, string> = {
   FORFAIT_GLOBAL: "FORFAIT",
@@ -820,7 +816,8 @@ function versLot(charge: ChargeLot, activites: Activite[] = []): Lot {
     projetId: charge.projet_id,
     code: charge.code,
     nom: charge.nom,
-    modeExecution: depuisServeur(MODE_EXECUTION_SERVEUR, charge.mode_execution, "REGIE_DIRECTE"),
+    modeExecution: charge.mode_execution,
+    modeExecutionLibelle: charge.mode_execution_libelle || charge.mode_execution,
     typeBordereau: depuisServeur(TYPE_BORDEREAU_SERVEUR, charge.type_bordereau, "FORFAIT_GLOBAL"),
     budget: versMontant(charge.budget_initial_montant),
     dateDebut: charge.date_debut_prevue ?? null,
@@ -879,7 +876,7 @@ export async function listerLots(projetId: string, signal?: AbortSignal): Promis
 function versChargeLot(creation: CreationLotProjet) {
   const charge: Record<string, unknown> = {
     nom: creation.nom,
-    mode_execution: MODE_EXECUTION_SERVEUR[creation.modeExecution],
+    mode_execution: creation.modeExecution,
     type_bordereau: TYPE_BORDEREAU_SERVEUR[creation.typeBordereau],
     statut: STATUT_SERVEUR[creation.statut ?? STATUT_DECLARE_PAR_DEFAUT],
   };
@@ -927,10 +924,11 @@ export async function lireFichierLots(
   lotsExistants: Lot[],
   budgetProjet: number | null,
   voitMontants: boolean = true,
+  modes: EntreeModeExecution[] = [],
 ): Promise<LigneImportLot[]> {
   const { readSheet } = await import("read-excel-file/browser");
   const feuille = await readSheet(fichier);
-  return lireLotsImportes(feuille as unknown[][], lotsExistants, budgetProjet, voitMontants);
+  return lireLotsImportes(feuille as unknown[][], lotsExistants, budgetProjet, voitMontants, modes);
 }
 
 /**

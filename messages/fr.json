@@ -651,7 +651,7 @@
       },
       "referentiels": {
         "titre": "Référentiels",
-        "description": "Les types de projet et les noms de lot proposés à toutes les entreprises. Elles peuvent y ajouter les leurs, mais pas supprimer ceux d’ici.",
+        "description": "Les types de projet, les noms de lot et les modes d’exécution proposés à toutes les entreprises. Elles peuvent y ajouter les leurs, mais pas supprimer ceux d’ici.",
         "types-projet": {
           "titre": "Types de projet",
           "nomFichier": "types-projet",
@@ -665,6 +665,13 @@
           "vide": "Aucun nom de lot.",
           "ajouter": "Ajouter un nom de lot",
           "aideGroupe": "Le corps d’état, titre du groupe dans la liste (ex. : Lots architecturaux)."
+        },
+        "modes-execution": {
+          "titre": "Modes d’exécution",
+          "nomFichier": "modes-execution",
+          "vide": "Aucun mode d’exécution.",
+          "ajouter": "Ajouter un mode d’exécution",
+          "aideGroupe": "Le mode de base auquel ce mode se rattache."
         },
         "colonneLibelle": "Libellé",
         "colonneGroupe": "Groupe",
@@ -2724,16 +2731,38 @@
       "ajouter": "Ajouter « {saisie} » à la liste",
       "groupeEntreprise": "Ajoutés par l’entreprise",
       "erreurAjout": "L’ajout à la liste a échoué. Réessayez.",
+      "rechercherMode": "Rechercher un mode d’exécution…",
+      "modeRetire": "Retiré de la liste",
+      "modesBase": {
+        "REGIE": "Régie",
+        "SOUS_TRAITANCE_STRUCTUREE": "Sous-traitance structurée",
+        "SOUS_TRAITANCE_INFORMELLE": "Sous-traitance informelle"
+      },
+      "modeBase": {
+        "libelle": "Mode de base",
+        "aide": "Le rapport journalier s’appuie sur ce mode : le mode ajouté s’y rattache.",
+        "placeholder": "Choisir un mode de base"
+      },
       "gestion": {
         "titrePage": "Listes de l’entreprise",
-        "descriptionPage": "Les types de projet et les noms de lot proposés dans les formulaires. Vos ajouts sont proposés à tous vos collaborateurs ; ceux de la plateforme ne se retirent pas.",
+        "descriptionPage": "Les types de projet, les noms de lot et les modes d’exécution proposés dans les formulaires. Vos ajouts sont proposés à tous vos collaborateurs ; ceux de la plateforme ne se retirent pas.",
         "titre": {
           "types-projet": "Types de projet",
-          "lots": "Noms de lot"
+          "lots": "Noms de lot",
+          "modes-execution": "Modes d’exécution"
         },
         "placeholder": {
           "types-projet": "Nouveau type de projet",
-          "lots": "Nouveau nom de lot"
+          "lots": "Nouveau nom de lot",
+          "modes-execution": "Nouveau mode d’exécution"
+        },
+        "groupe": {
+          "libelle": "Groupe (facultatif)",
+          "placeholder": "Choisir ou saisir un groupe",
+          "rechercher": "Rechercher ou saisir un groupe…",
+          "aucun": "Aucun groupe",
+          "aucunResultat": "Aucun groupe.",
+          "creer": "Créer le groupe « {saisie} »"
         },
         "aide": "Plateforme : proposé à toutes les entreprises, verrouillé. Les autres sont les vôtres.",
         "aidePlateforme": "Défini par la plateforme : il ne se retire pas.",

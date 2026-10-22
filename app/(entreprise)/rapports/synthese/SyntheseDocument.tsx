@@ -13,6 +13,7 @@ import {
   enAlerteStock,
   estManquant,
   incidentsResolus,
+  libelleModeLot,
   numeroSemaine,
   periodeValide,
   rapportsManquants,
@@ -151,7 +152,7 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
       ...source,
       synthese,
       periode: libellePeriode,
-      modeExecution: (mode) => tMode(mode),
+      modeExecution: (lot) => libelleModeLot(lot, tMode),
     }),
   );
 
@@ -379,7 +380,7 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
                   accent: true,
                   cellules: [
                     <span key="l" className="text-neutral-900">
-                      {t("avancement.lot", { code: lot.code, nom: lot.nom, mode: tMode(lot.modeExecution) })}
+                      {t("avancement.lot", { code: lot.code, nom: lot.nom, mode: libelleModeLot(lot, tMode) })}
                     </span>,
                     "",
                     "",

@@ -20,7 +20,6 @@ import { formaterDate, formaterMontant, formaterSaisieMontant, saisieEnCentimes 
 import { chaineNonVide } from "@/lib/validations/champs";
 
 import {
-  MODES_EXECUTION_LOT,
   NATURES_EQUIPE,
   ROLE_MEMBRE_PAR_DEFAUT,
   ROLE_PROJET_PAR_FONCTION,
@@ -48,7 +47,6 @@ import type {
   Intervenant,
   Lot,
   MiseAJourAvancement,
-  ModeExecutionLot,
   ModificationProjet,
   NatureEquipe,
   PlanningProjet,
@@ -208,7 +206,8 @@ export function versModificationProjet(
 export const schemaLot = z
   .object({
     nom: chaineNonVide(texte("projets.tiroirCreation.erreurLotNomRequis")),
-    modeExecution: choixParmi(MODES_EXECUTION_LOT, texte("projets.tiroirCreation.erreurLotModeRequis")),
+    // Un code du référentiel des modes : le serveur seul sait lesquels existent.
+    modeExecution: chaineNonVide(texte("projets.tiroirCreation.erreurLotModeRequis")),
     typeBordereau: choixParmi(TYPES_BORDEREAU, texte("projets.tiroirCreation.erreurLotBordereauRequis")),
     statut: choixParmi(STATUTS_DECLARES, texte("projets.lotsActivites.erreurStatutRequis")),
     budget: z
@@ -324,7 +323,7 @@ export function lotEnSaisie(lot: Lot): SaisieLotProjet {
 export function versCreationLotProjet(saisie: z.output<typeof schemaLot>): CreationLotProjet {
   return {
     nom: saisie.nom,
-    modeExecution: saisie.modeExecution as ModeExecutionLot,
+    modeExecution: saisie.modeExecution,
     typeBordereau: saisie.typeBordereau as TypeBordereau,
     statut: saisie.statut as StatutDeclare,
     budget: saisie.budget ? (saisieEnCentimes(saisie.budget) ?? undefined) : undefined,

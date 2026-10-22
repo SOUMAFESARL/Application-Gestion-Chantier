@@ -238,11 +238,26 @@ export type TypeProjetPredefini =
   | "REHABILITATION"
   | "AUTRE";
 
-/** Qui exécute un lot : l'entreprise elle-même, ou un sous-traitant. */
+/**
+ * Le mode de base d'un lot, tel que le journal le lit : le rapport journalier
+ * raisonne sur ces trois-là seuls, quel que soit le mode que le lot porte.
+ */
 export type ModeExecutionLot =
   | "REGIE_DIRECTE"
   | "SOUS_TRAITANCE_STRUCTUREE"
   | "SOUS_TRAITANCE_INFORMELLE";
+
+/**
+ * Les trois modes d'exécution de base, sous le code du serveur. Tout mode du
+ * référentiel (`modes-execution`) se rattache à l'un d'eux : c'est son groupe.
+ */
+export type ModeExecutionBase = "REGIE" | "SOUS_TRAITANCE_STRUCTUREE" | "SOUS_TRAITANCE_INFORMELLE";
+
+/** Une entrée du référentiel des modes d'exécution, pour reconnaître un mode écrit en clair. */
+export interface EntreeModeExecution {
+  code: string;
+  libelle: string;
+}
 
 /** Comment le lot est rémunéré. */
 export type TypeBordereau = "FORFAIT_GLOBAL" | "PRIX_UNITAIRE";
@@ -515,7 +530,10 @@ export interface Lot {
   /** `03` : l'ordre du lot dans le chantier. */
   code: string;
   nom: string;
-  modeExecution: ModeExecutionLot;
+  /** Le code d'une entrée du référentiel des modes d'exécution (`REGIE` pour la régie). */
+  modeExecution: string;
+  /** Le libellé du mode, tel que le serveur le résout — à afficher à la lecture. */
+  modeExecutionLibelle: string;
   typeBordereau: TypeBordereau;
   /**
    * En centimes. `null` tant qu'il n'est pas défini. Le budget se tient
@@ -538,7 +556,8 @@ export interface Lot {
 /** Ce qu'il faut fournir pour ajouter un lot à un chantier existant. */
 export interface CreationLotProjet {
   nom: string;
-  modeExecution: ModeExecutionLot;
+  /** Le code d'une entrée du référentiel des modes d'exécution. */
+  modeExecution: string;
   typeBordereau: TypeBordereau;
   /** En centimes. */
   budget?: number;
@@ -588,7 +607,7 @@ export interface LigneImportLot {
   ligne: number;
   nom: string;
   /** `null` : absent ou non reconnu — le choix par défaut de l'import s'applique. */
-  modeExecution: ModeExecutionLot | null;
+  modeExecution: string | null;
   typeBordereau: TypeBordereau | null;
   /** En centimes. */
   budget: number | null;

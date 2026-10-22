@@ -11,12 +11,13 @@ import { ErreurApi } from "@/lib/api";
 import {
   ajouterAuReferentiel,
   cleReferentiel,
+  useDroitsReferentiels,
   useReferentiel,
-  type CategorieReferentiel,
+  type CategorieReferentielLibre,
 } from "../referentiels";
 
 interface Props extends Omit<ComponentProps<"button">, "value" | "onChange" | "children"> {
-  categorie: CategorieReferentiel;
+  categorie: CategorieReferentielLibre;
   /** Le type de projet s'enregistre par son code ; le nom d'un lot, par son libellé. */
   valeurPar: "code" | "libelle";
   valeur: string;
@@ -25,13 +26,17 @@ interface Props extends Omit<ComponentProps<"button">, "value" | "onChange" | "c
 
 /**
  * Un choix dans un référentiel dynamique (types de projet, noms de lot). Un
- * libellé absent de la liste s'y ajoute sur place — « Ajouter « … » » — et
- * devient aussitôt proposé à toute l'entreprise.
+ * libellé absent de la liste peut s'y ajouter sur place — « Ajouter « … » » —
+ * et devient aussitôt proposé à toute l'entreprise. Cet ajout n'est offert
+ * qu'à qui en a le droit, et c'est le serveur qui le dit
+ * (`GET /referentiels/droits/`, `peut_ajouter`) : sans lui, aucune saisie libre
+ * n'est proposée et aucune requête ne part.
  */
 export function ComboboxReferentiel({ categorie, valeurPar, valeur, onChange, ...props }: Props) {
   const t = useTranslations("projets.referentiels");
   const cache = useQueryClient();
   const { entrees } = useReferentiel(categorie);
+  const { droits } = useDroitsReferentiels();
 
   const options: OptionCombobox[] = entrees.map((entree) => ({
     valeur: entree[valeurPar],
@@ -53,7 +58,7 @@ export function ComboboxReferentiel({ categorie, valeurPar, valeur, onChange, ..
   function choisir(choix: string) {
     if (options.some((option) => option.valeur === choix)) {
       onChange(choix);
-    } else if (choix.trim()) {
+    } else if (droits.peutAjouter && choix.trim()) {
       ajout.mutate(choix);
     }
   }
@@ -66,7 +71,7 @@ export function ComboboxReferentiel({ categorie, valeurPar, valeur, onChange, ..
       placeholder={t("selectionner")}
       placeholderRecherche={t("rechercher")}
       aucunResultat={t("aucun")}
-      libelleSaisieLibre={(saisie) => t("ajouter", { saisie })}
+      libelleSaisieLibre={droits.peutAjouter ? (saisie) => t("ajouter", { saisie }) : undefined}
       {...props}
       disabled={props.disabled || ajout.isPending}
     />

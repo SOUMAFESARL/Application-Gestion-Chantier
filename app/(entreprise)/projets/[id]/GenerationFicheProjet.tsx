@@ -111,7 +111,6 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
           typeProjet: (type) =>
             libelleType(type),
           statutProjet: (statut) => tProjets(`statut.${statut}`),
-          modeExecution: (mode) => tProjets(`tiroirCreation.modeExecution.${mode}`),
           typeBordereau: (type) => tProjets(`tiroirCreation.typeBordereau.${type}`),
           statutActivite: (statut) => tProjets(`lotsActivites.statutActivite.${statut}`),
           fonctionAutreMembre: (fonction) => tProjets(`encadrement.fonctionAutreMembre.${fonction}`),

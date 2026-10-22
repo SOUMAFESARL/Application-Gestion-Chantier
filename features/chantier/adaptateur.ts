@@ -74,7 +74,9 @@ interface ChargeLot {
   id: string;
   code: string;
   nom: string;
+  /** Le mode de base : `REGIE_DIRECTE`, `SOUS_TRAITANCE_STRUCTUREE` ou `SOUS_TRAITANCE_INFORMELLE`. */
   mode_execution: ModeExecutionLot;
+  mode_execution_libelle?: string;
   projet_id: string;
   projet_nom: string;
   projet_reference: string;
@@ -313,6 +315,7 @@ function versLot(charge: ChargeLot): LotJournal {
     code: charge.code,
     nom: charge.nom,
     modeExecution: charge.mode_execution,
+    modeExecutionLibelle: charge.mode_execution_libelle ?? "",
     projetId: charge.projet_id,
     projetNom: charge.projet_nom,
     projetReference: charge.projet_reference,

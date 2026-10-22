@@ -12,6 +12,7 @@ import {
   cumulActivite,
   enAlerteStock,
   formatDocument,
+  libelleModeLot,
   montantProduction,
   presenceSuffisante,
   retardPoints,
@@ -147,7 +148,7 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
       ...source,
       rapport,
       jour,
-      modeExecution: (mode) => tMode(mode),
+      modeExecution: (lot) => libelleModeLot(lot, tMode),
     }),
   );
 
@@ -403,7 +404,7 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
                     </h3>
                     <span className="text-xs text-neutral-500">
                       {t("avancement.lotDetail", {
-                        mode: tMode(travaux.lot.modeExecution),
+                        mode: libelleModeLot(travaux.lot, tMode),
                         reel: travaux.avancement,
                         theorique: travaux.avancementTheorique,
                       })}

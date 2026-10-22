@@ -3,12 +3,16 @@ import { getTranslations } from "next-intl/server";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { GestionReferentiel } from "@/features/projets/components/GestionReferentiel";
-import { REFERENTIEL_LOTS, REFERENTIEL_TYPES_PROJET } from "@/features/projets/referentiels";
+import {
+  REFERENTIEL_LOTS,
+  REFERENTIEL_MODES_EXECUTION,
+  REFERENTIEL_TYPES_PROJET,
+} from "@/features/projets/referentiels";
 
 /**
- * Les listes de l'entreprise : types de projet et noms de lot. Ce qu'elle y
- * ajoute est proposé à tous ses collaborateurs ; ce que la plateforme y a
- * posé ne se retire pas d'ici.
+ * Les listes de l'entreprise : types de projet, noms de lot et modes
+ * d'exécution. Ce qu'elle y ajoute est proposé à tous ses collaborateurs ; ce
+ * que la plateforme y a posé ne se retire pas d'ici.
  */
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("projets.referentiels.gestion");
@@ -23,6 +27,7 @@ export default async function Page() {
       <div className="grid gap-5 lg:grid-cols-2">
         <GestionReferentiel categorie={REFERENTIEL_TYPES_PROJET} />
         <GestionReferentiel categorie={REFERENTIEL_LOTS} />
+        <GestionReferentiel categorie={REFERENTIEL_MODES_EXECUTION} />
       </div>
     </div>
   );

@@ -24,12 +24,13 @@ import type {
   Equipe,
   FonctionAutreMembre,
   FonctionProjet,
+  EntreeModeExecution,
   Intervenant,
   LigneImportLot,
   Lot,
   LotPlanning,
   MembreEquipe,
-  ModeExecutionLot,
+  ModeExecutionBase,
   NatureEquipe,
   Projet,
   SanteProjet,
@@ -556,12 +557,20 @@ export function refusContrat(fichier: { name: string; type: string; size: number
   return null;
 }
 
-/** De la régie à la sous-traitance la moins encadrée. */
-export const MODES_EXECUTION_LOT: ModeExecutionLot[] = [
-  "REGIE_DIRECTE",
+/**
+ * Les trois modes de base, de la régie à la sous-traitance la moins encadrée.
+ * Tout mode d'exécution du référentiel se rattache à l'un d'eux (son groupe).
+ */
+export const MODES_EXECUTION_BASE: ModeExecutionBase[] = [
+  "REGIE",
   "SOUS_TRAITANCE_STRUCTUREE",
   "SOUS_TRAITANCE_INFORMELLE",
 ];
+
+/** Le groupe d'une entrée de référentiel est-il l'un des trois modes de base ? */
+export function estModeExecutionBase(groupe: string): groupe is ModeExecutionBase {
+  return (MODES_EXECUTION_BASE as string[]).includes(groupe);
+}
 
 export const TYPES_BORDEREAU: TypeBordereau[] = ["FORFAIT_GLOBAL", "PRIX_UNITAIRE"];
 
@@ -2019,10 +2028,28 @@ const INTITULES_FAMILLES = new Set(
   LOTS_INDICATIFS.map((famille) => sansPrefixeFamille(normaliserImport(famille.famille))),
 );
 
-/** Un mode d'exécution écrit en clair (« Régie directe », « sous-traitance informelle ») ou par son code. */
-export function modeExecutionDepuisTexte(valeur: string): ModeExecutionLot | null {
-  const texte = normaliserImport(valeur).replace(/[^a-z]/g, "");
-  if (texte.includes("regie")) return "REGIE_DIRECTE";
+/** Un texte réduit à ses lettres, pour comparer un libellé et ce qu'une cellule en dit. */
+function lettresSeules(valeur: string): string {
+  return normaliserImport(valeur).replace(/[^a-z]/g, "");
+}
+
+/**
+ * Un mode d'exécution écrit en clair (« Régie directe », « sous-traitance
+ * informelle ») ou par son code, rendu sous le code du référentiel. Une entrée
+ * du référentiel (libellé ou code) l'emporte ; à défaut, un mode de base
+ * reconnu à son mot-clé.
+ */
+export function modeExecutionDepuisTexte(
+  valeur: string,
+  modes: EntreeModeExecution[] = [],
+): string | null {
+  const texte = lettresSeules(valeur);
+  if (texte === "") return null;
+  const entree = modes.find(
+    (mode) => lettresSeules(mode.libelle) === texte || lettresSeules(mode.code) === texte,
+  );
+  if (entree) return entree.code;
+  if (texte.includes("regie")) return "REGIE";
   if (texte.includes("informel")) return "SOUS_TRAITANCE_INFORMELLE";
   if (texte.includes("structur")) return "SOUS_TRAITANCE_STRUCTUREE";
   return null;
@@ -2101,6 +2128,7 @@ export function lireLotsImportes(
   lotsExistants: Lot[],
   budgetProjet: number | null,
   voitMontants: boolean = true,
+  modes: EntreeModeExecution[] = [],
 ): LigneImportLot[] {
   const rangEntete = feuille
     .slice(0, 10)
@@ -2167,7 +2195,7 @@ export function lireLotsImportes(
     lignes.push({
       ligne: premiereLigne + rang,
       nom,
-      modeExecution: modeExecutionDepuisTexte(texteCellule(cellule("modeExecution"))),
+      modeExecution: modeExecutionDepuisTexte(texteCellule(cellule("modeExecution")), modes),
       typeBordereau: typeBordereauDepuisTexte(texteCellule(cellule("typeBordereau"))),
       budget: budget ?? null,
       dateDebut: dateDebut ?? null,
@@ -2191,7 +2219,7 @@ export function ligneRetenueParDefaut(ligne: LigneImportLot): boolean {
 
 /** Les choix de l'écran qui complètent ce que le fichier ne dit pas. */
 export interface DefautsImportLots {
-  modeExecution: ModeExecutionLot | null;
+  modeExecution: string | null;
   typeBordereau: TypeBordereau | null;
 }
 

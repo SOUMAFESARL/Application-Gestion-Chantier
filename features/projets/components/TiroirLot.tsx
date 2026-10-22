@@ -43,7 +43,6 @@ import {
   budgetDisponible,
   codeLotSuivant,
   lotCreable,
-  MODES_EXECUTION_LOT,
   STATUTS_DECLARES,
   TYPES_BORDEREAU,
 } from "@/features/projets/regles";
@@ -59,6 +58,7 @@ import { ErreurApi } from "@/lib/api";
 import { formaterDate, formaterMontant, formaterSaisieMontant } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+import { ComboboxModeExecution } from "./ComboboxModeExecution";
 import { ComboboxNomLot } from "./ComboboxNomLot";
 import { ImportLots } from "./ImportLots";
 
@@ -375,20 +375,16 @@ function SaisieLot({
                 <FormLabel>
                   {tCreation("colonneModeExecution")} <Requis />
                 </FormLabel>
-                <Select value={field.value} onValueChange={field.onChange} disabled={enCours}>
-                  <FormControl>
-                    <SelectTrigger className={cn(CHAMP, "w-full bg-card")} onBlur={field.onBlur}>
-                      <SelectValue placeholder={tCreation("selectionner")} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {MODES_EXECUTION_LOT.map((mode) => (
-                      <SelectItem key={mode} value={mode}>
-                        {tCreation(`modeExecution.${mode}`)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <ComboboxModeExecution
+                    valeur={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    libelleActuel={lot?.modeExecutionLibelle}
+                    className={CHAMP}
+                    disabled={enCours}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}

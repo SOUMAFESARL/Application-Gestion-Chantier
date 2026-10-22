@@ -67,11 +67,10 @@ export interface DonneesFiche {
   note: string;
   /** Le nom de la plateforme : l'émetteur à défaut d'entreprise connue. */
   marque: string;
-  /** Les libellés d'énumération de l'écran (type, statut, mode, bordereau). */
+  /** Les libellés d'énumération de l'écran (type, statut, bordereau) ; le mode du lot vient du serveur. */
   libelles: {
     typeProjet: (type: NonNullable<Projet["typeProjet"]>) => string;
     statutProjet: (statut: Projet["statut"]) => string;
-    modeExecution: (mode: Lot["modeExecution"]) => string;
     typeBordereau: (type: Lot["typeBordereau"]) => string;
     statutActivite: (statut: Exclude<StatutLot, "SANS_ACTIVITE">) => string;
     fonctionAutreMembre: (fonction: FonctionAutreMembre) => string;
@@ -267,7 +266,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
     return [
       { texte: lot.code, gras: true },
       { texte: lot.nom, gras: true },
-      { texte: libelles.modeExecution(lot.modeExecution) },
+      { texte: lot.modeExecutionLibelle },
       { texte: libelles.typeBordereau(lot.typeBordereau) },
       avancement === null
         ? { texte: ABSENT, ton: "neutre" }

@@ -14,8 +14,7 @@ import {
   totalProduction,
   totauxEffectifs,
 } from "@/features/chantier";
-import type { EtapeCircuit, RapportJournalier } from "@/features/chantier";
-import type { ModeExecutionLot } from "@/features/projets/types";
+import type { EtapeCircuit, LotJournal, RapportJournalier } from "@/features/chantier";
 import { formaterDate, formaterDateHeure, formaterMontant, formaterQuantite } from "@/lib/format";
 import type {
   BlocPdf,
@@ -61,7 +60,7 @@ export interface DonneesRapportPdf extends SourcePdf {
   rapport: RapportJournalier;
   /** Le jour du rapport, déjà mis en toutes lettres par l'écran. */
   jour: string;
-  modeExecution: (mode: ModeExecutionLot) => string;
+  modeExecution: (lot: LotJournal) => string;
 }
 
 function tableau(entetes: string[], lignes: CellulePdf[][], vide: string): BlocPdf {
@@ -278,7 +277,7 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
           texte: r("pdf.lot", {
             lot: r("avancement.lot", { code: travaux.lot.code, nom: travaux.lot.nom }),
             detail: r("avancement.lotDetail", {
-              mode: modeExecution(travaux.lot.modeExecution),
+              mode: modeExecution(travaux.lot),
               reel: travaux.avancement,
               theorique: travaux.avancementTheorique,
             }),
@@ -567,7 +566,7 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
                 rapport.lots.length === 0
                   ? r("lotsValeur", { n: 0 })
                   : rapport.lots
-                      .map((lot) => r("lotMode", { code: lot.code, nom: lot.nom, mode: modeExecution(lot.modeExecution) }))
+                      .map((lot) => r("lotMode", { code: lot.code, nom: lot.nom, mode: modeExecution(lot) }))
                       .join(r("pdf.separateurLots")),
             },
             { libelle: role("CP"), valeur: rapport.intervenants.chefProjet },

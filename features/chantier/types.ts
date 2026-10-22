@@ -74,7 +74,10 @@ export interface LotJournal {
   id: string;
   code: string;
   nom: string;
+  /** Le mode de base du lot : c'est sur lui que raisonnent les sections du rapport. */
   modeExecution: ModeExecutionLot;
+  /** Le mode que le lot porte, en toutes lettres ; vide si le serveur ne le donne pas. */
+  modeExecutionLibelle: string;
   projetId: string;
   projetNom: string;
   projetReference: string;

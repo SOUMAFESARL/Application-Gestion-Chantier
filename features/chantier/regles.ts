@@ -420,6 +420,17 @@ export function codesLots(lots: Pick<LotJournal, "code">[]): string {
   return lots.map((lot) => lot.code).join(" · ");
 }
 
+/**
+ * Le mode d'exécution d'un lot en toutes lettres : celui que le serveur
+ * résout dans le référentiel, à défaut le libellé de son mode de base.
+ */
+export function libelleModeLot(
+  lot: Pick<LotJournal, "modeExecution" | "modeExecutionLibelle">,
+  libelleBase: (mode: LotJournal["modeExecution"]) => string,
+): string {
+  return lot.modeExecutionLibelle || libelleBase(lot.modeExecution);
+}
+
 export interface TotauxEffectifs {
   prevus: number;
   presents: number;

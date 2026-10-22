@@ -25,21 +25,18 @@ import {
   EXTENSION_IMPORT_LOTS,
   ligneRetenueParDefaut,
   lotCreable,
-  MODES_EXECUTION_LOT,
   NOMBRE_MAX_LOTS_IMPORT,
   refusFichierLots,
   TAILLE_MAX_IMPORT_LOTS,
   TYPES_BORDEREAU,
 } from "@/features/projets/regles";
-import type {
-  LigneImportLot,
-  Lot,
-  ModeExecutionLot,
-  TypeBordereau,
-} from "@/features/projets/types";
+import type { LigneImportLot, Lot, TypeBordereau } from "@/features/projets/types";
 import { ErreurApi } from "@/lib/api";
 import { formaterDate, formaterMontant, formaterTailleFichier } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+import { REFERENTIEL_MODES_EXECUTION, useReferentiel } from "../referentiels";
+import { ComboboxModeExecution } from "./ComboboxModeExecution";
 
 const CHAMP = "h-[var(--input-height-md)]";
 
@@ -90,7 +87,8 @@ export function ImportLots({
   const [fichiers, setFichiers] = useState<File[]>([]);
   const [lignes, setLignes] = useState<LigneImportLot[] | null>(null);
   const [retenues, setRetenues] = useState<Set<number>>(new Set());
-  const [modeDefaut, setModeDefaut] = useState<ModeExecutionLot | null>(null);
+  const { entrees: modes, libelle: libelleMode } = useReferentiel(REFERENTIEL_MODES_EXECUTION);
+  const [modeDefaut, setModeDefaut] = useState<string | null>(null);
   const [bordereauDefaut, setBordereauDefaut] = useState<TypeBordereau | null>(null);
   const [lecture, setLecture] = useState(false);
   const [envoi, setEnvoi] = useState(false);
@@ -146,7 +144,7 @@ export function ImportLots({
 
     setLecture(true);
     try {
-      const lues = await lireFichierLots(fichier, lots, budgetProjet, voitMontants);
+      const lues = await lireFichierLots(fichier, lots, budgetProjet, voitMontants, modes);
       if (lues.length === 0) {
         toast.error(t("aucunLotTrouve"));
         setFichiers([]);
@@ -270,18 +268,22 @@ export function ImportLots({
               <h3 className="m-0 text-sm font-semibold text-neutral-900">{t("defautsTitre")}</h3>
               <p className="m-0 text-xs text-neutral-500">{t("defautsAide")}</p>
               <div className="grid grid-cols-2 gap-x-4 gap-y-3 max-[640px]:grid-cols-1">
-                <ChoixDefaut
-                  libelle={tCreation("colonneModeExecution")}
-                  valeur={modeDefaut}
-                  onChange={(valeur) => setModeDefaut(valeur as ModeExecutionLot)}
-                  options={MODES_EXECUTION_LOT.map((mode) => ({
-                    valeur: mode,
-                    libelle: tCreation(`modeExecution.${mode}`),
-                  }))}
-                  placeholder={tCreation("selectionner")}
-                  erreur={tentative && manquants.modeExecution ? t("erreurModeRequis") : null}
-                  disabled={envoi}
-                />
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-sm font-medium text-neutral-900">
+                    {tCreation("colonneModeExecution")}
+                  </span>
+                  <ComboboxModeExecution
+                    valeur={modeDefaut ?? ""}
+                    onChange={setModeDefaut}
+                    aria-label={tCreation("colonneModeExecution")}
+                    aria-invalid={tentative && manquants.modeExecution}
+                    className={CHAMP}
+                    disabled={envoi}
+                  />
+                  {tentative && manquants.modeExecution && (
+                    <p className="m-0 text-xs font-medium text-erreur">{t("erreurModeRequis")}</p>
+                  )}
+                </div>
                 <ChoixDefaut
                   libelle={tCreation("colonneTypeBordereau")}
                   valeur={bordereauDefaut}
@@ -324,6 +326,7 @@ export function ImportLots({
                     cochee={retenues.has(ligne.ligne)}
                     onBasculer={(coche) => basculer(ligne.ligne, coche)}
                     modeDefaut={modeDefaut}
+                    libelleMode={libelleMode}
                     bordereauDefaut={bordereauDefaut}
                     erreurServeur={erreursServeurLignes[String(ligne.ligne)]}
                     disabled={envoi}
@@ -407,6 +410,7 @@ function LigneApercu({
   cochee,
   onBasculer,
   modeDefaut,
+  libelleMode,
   bordereauDefaut,
   erreurServeur,
   disabled,
@@ -415,7 +419,9 @@ function LigneApercu({
   ligne: LigneImportLot;
   cochee: boolean;
   onBasculer: (coche: boolean) => void;
-  modeDefaut: ModeExecutionLot | null;
+  modeDefaut: string | null;
+  /** Le libellé d'un mode d'après son code, dans le référentiel. */
+  libelleMode: (code: string) => string;
   bordereauDefaut: TypeBordereau | null;
   erreurServeur?: string | null;
   disabled: boolean;
@@ -429,7 +435,7 @@ function LigneApercu({
   const bordereau = ligne.typeBordereau ?? bordereauDefaut;
   const details = [
     t("numeroLigne", { numero: ligne.ligne }),
-    mode ? tCreation(`modeExecution.${mode}`) : t("modeAChoisir"),
+    mode ? libelleMode(mode) : t("modeAChoisir"),
     bordereau ? tCreation(`typeBordereau.${bordereau}`) : t("bordereauAChoisir"),
     voitMontants && ligne.budget !== null ? formaterMontant(ligne.budget) : null,
     ligne.dateDebut || ligne.dateFin
