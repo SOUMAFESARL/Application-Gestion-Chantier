@@ -92,6 +92,7 @@ const SOUS_MENU_PROJETS = [
   { href: "/projets", cle: "projetsListe" },
   { href: "/projets/lots-activites", cle: "projetsLots" },
   { href: "/projets/equipe-affectations", cle: "projetsEquipe" },
+  { href: "/projets/alertes", cle: "projetsAlertes" },
 ] as const;
 
 /** Le groupe « Plus de modules » disparaît quand aucune de ses entrées n'est ouverte. */
@@ -101,7 +102,7 @@ const MODULES_SECONDAIRES = ["/stocks", "/rh", "/equipements", "/qhse", "/contra
  * Les segments de `/projets/*` qui sont des écrans, pas des identifiants de
  * projet : sans ce filtre, la météo serait demandée pour le projet « lots-activites ».
  */
-const SEGMENTS_PROJETS_STATIQUES = new Set(["lots-activites", "equipe-affectations"]);
+const SEGMENTS_PROJETS_STATIQUES = new Set(["lots-activites", "equipe-affectations", "alertes"]);
 
 const abonnementVide = () => () => {};
 

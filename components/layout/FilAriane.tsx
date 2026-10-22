@@ -40,6 +40,7 @@ const CARTE_SEGMENTS: Record<string, string> = {
   "/projets": "projets",
   "/projets/lots-activites": "projetsLots",
   "/projets/equipe-affectations": "projetsEquipe",
+  "/projets/alertes": "projetsAlertes",
   "/rapports": "chantier",
   "/rapports/synthese": "chantierSynthese",
   "/planning": "planning",
