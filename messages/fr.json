@@ -2187,6 +2187,33 @@
         "aucuneSelection": "Sélectionnez une activité pour afficher son détail.",
         "budgetLot": "Budget du lot"
       },
+      "avancement": {
+        "bouton": "Mettre à jour l'avancement",
+        "titre": "Mettre à jour l'avancement",
+        "description": "Saisissez la nouvelle quantité cumulée réalisée de l'activité {activite}.",
+        "champQuantite": "Quantité réalisée",
+        "champQuantiteUnite": "Quantité réalisée ({unite})",
+        "quantiteActuelle": "Actuellement : {quantite}",
+        "champCommentaire": "Commentaire",
+        "commentaireAide": "Dites ce qui justifie cette mise à jour : elle reste dans l'historique de l'activité.",
+        "compteur": "{actuel} / {min} caractères minimum",
+        "annuler": "Annuler",
+        "enregistrer": "Enregistrer",
+        "succes": "L'avancement de l'activité {activite} a été mis à jour.",
+        "erreurGenerique": "L'avancement n'a pas pu être mis à jour. Réessayez.",
+        "erreurQuantiteInvalide": "Saisissez une quantité positive, par exemple 14 500 ou 12,5.",
+        "erreurCommentaireCourt": "Le commentaire doit comporter au moins {min} caractères.",
+        "erreurDiminution": "L'avancement d'une activité ne peut pas diminuer.",
+        "historique": {
+          "titre": "Historique",
+          "chargement": "Chargement de l'historique…",
+          "erreur": "L'historique n'a pas pu être chargé.",
+          "vide": "Aucune mise à jour manuelle pour le moment.",
+          "transition": "{avant} → {apres}",
+          "avancement": "{valeur} %",
+          "auteurEtDate": "{auteur} · {date}"
+        }
+      },
       "planning": {
         "aujourdhui": "Aujourd'hui",
         "aucuneDate": "Aucune date n'est encore planifiée sur ce chantier.",

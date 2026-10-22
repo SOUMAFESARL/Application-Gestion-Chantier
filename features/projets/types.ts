@@ -460,6 +460,8 @@ export interface Activite {
   dateFinPrevue: string | null;
   /** Un pourcentage, de 0 à 100, alimenté par le journal de chantier. */
   avancement: number;
+  /** La quantité cumulée réalisée, telle que le serveur la tient ; `null` si non communiquée. */
+  quantiteRealisee: number | null;
   /** Calculé par le serveur à partir des dépendances. */
   surCheminCritique: boolean;
   /** L'activité qui doit être terminée avant que celle-ci commence. */
@@ -608,6 +610,28 @@ export interface EvenementDate {
   objetId?: string | null;
   projetId?: string | null;
   projetNom?: string | null;
+  le: Date;
+}
+
+/* ------------------------------------------------------------------ *
+ * Mise à jour manuelle de l'avancement d'une activité (F3).
+ * ------------------------------------------------------------------ */
+
+/** La mise à jour saisie : la nouvelle quantité cumulée réalisée, et sa raison. */
+export interface MiseAJourAvancement {
+  quantiteRealisee: number;
+  commentaire: string;
+}
+
+/** Une ligne de l'historique des mises à jour manuelles d'une activité. */
+export interface EvenementAvancement {
+  id: string;
+  auteur: string;
+  quantiteAvant: number | null;
+  quantiteApres: number | null;
+  avancementAvant: number | null;
+  avancementApres: number | null;
+  commentaire: string;
   le: Date;
 }
 

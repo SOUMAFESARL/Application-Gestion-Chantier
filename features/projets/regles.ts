@@ -938,6 +938,30 @@ export function quantiteRealisee(activite: Activite): number | null {
 }
 
 /**
+ * La quantité cumulée dont part une mise à jour manuelle : celle du serveur,
+ * sinon le repli déduit de l'avancement, sinon zéro.
+ */
+export function quantiteActuelleActivite(activite: Activite): number {
+  return activite.quantiteRealisee ?? quantiteRealisee(activite) ?? 0;
+}
+
+/**
+ * Mettre à jour l'avancement à la main : le conducteur de travaux et le chef
+ * de projet **du chantier** (SFD F3 §3, RG-F3-02) — la direction, qui n'y
+ * tient aucune fonction, n'en fait pas partie. `fonctions` est ce que le
+ * compte tient sur ce chantier ; un chantier clos ne se modifie plus.
+ */
+export function peutMettreAJourAvancement(
+  projet: Pick<Projet, "statut">,
+  fonctions: readonly FonctionProjet[],
+): boolean {
+  return (
+    projetModifiable(projet) &&
+    fonctions.some((fonction) => fonction === "CHEF_PROJET" || fonction === "CONDUCTEUR_TRAVAUX")
+  );
+}
+
+/**
  * L'avancement d'un ensemble d'activités : leur moyenne simple. Le budget se
  * tient au lot, pas à l'activité — il n'y a rien d'autre pour les départager.
  * Aucune activité : 0.

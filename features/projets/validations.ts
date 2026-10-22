@@ -47,6 +47,7 @@ import type {
   FonctionProjet,
   Intervenant,
   Lot,
+  MiseAJourAvancement,
   ModeExecutionLot,
   ModificationProjet,
   NatureEquipe,
@@ -572,6 +573,63 @@ export function versSaisieActiviteDomaine(valeurs: ValeursActivite): SaisieActiv
     responsableId: valeurs.responsableId || null,
     equipeId: valeurs.equipeId || null,
     statut: valeurs.statut as StatutDeclare,
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * La mise à jour manuelle de l'avancement d'une activité (F3).
+ * ------------------------------------------------------------------ */
+
+/** Longueur minimale du commentaire exigée par le serveur (RG-F3-02). */
+export const COMMENTAIRE_AVANCEMENT_MIN = 10;
+
+/**
+ * La nouvelle quantité cumulée réalisée et sa raison. `quantiteActuelle` est
+ * le plancher : l'avancement d'une activité ne diminue pas (SFD F3, RG-F3-02).
+ */
+export function schemaAvancement(quantiteActuelle: number) {
+  return z
+    .object({
+      quantite: z
+        .string()
+        .trim()
+        .refine((valeur) => MOTIF_QUANTITE.test(valeur), {
+          message: texte("projets.lotsActivites.avancement.erreurQuantiteInvalide"),
+        }),
+      commentaire: z
+        .string()
+        .trim()
+        .min(COMMENTAIRE_AVANCEMENT_MIN, {
+          message: texte("projets.lotsActivites.avancement.erreurCommentaireCourt", {
+            min: COMMENTAIRE_AVANCEMENT_MIN,
+          }),
+        }),
+    })
+    .superRefine((saisie, ctx) => {
+      const quantite = saisieEnQuantite(saisie.quantite);
+      if (quantite !== null && quantite < quantiteActuelle) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["quantite"],
+          message: texte("projets.lotsActivites.avancement.erreurDiminution"),
+        });
+      }
+    });
+}
+
+export type SaisieAvancement = z.input<ReturnType<typeof schemaAvancement>>;
+export type ValeursAvancement = z.output<ReturnType<typeof schemaAvancement>>;
+
+/** Le formulaire de départ : la quantité actuelle, sans commentaire. */
+export function saisieAvancementDepuis(quantiteActuelle: number): SaisieAvancement {
+  return { quantite: String(quantiteActuelle).replace(".", ","), commentaire: "" };
+}
+
+/** La saisie validée, traduite en objet du domaine. */
+export function versMiseAJourAvancement(valeurs: ValeursAvancement): MiseAJourAvancement {
+  return {
+    quantiteRealisee: saisieEnQuantite(valeurs.quantite) ?? 0,
+    commentaire: valeurs.commentaire,
   };
 }
 

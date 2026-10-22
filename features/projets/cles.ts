@@ -30,6 +30,11 @@ export function cleProjet(projetId: string) {
   return ["projets", projetId, "detail"] as const;
 }
 
+/** L'historique des mises à jour manuelles d'avancement d'une activité. */
+export function cleHistoriqueAvancement(activiteId: string) {
+  return ["activites", activiteId, "historique-avancement"] as const;
+}
+
 /** La liste des motifs de report de dates (référentiel). */
 export const CLE_MOTIFS_REPORT = ["referentiels", "motifs-report"] as const;
 
