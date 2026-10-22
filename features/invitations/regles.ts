@@ -6,14 +6,38 @@ import type { Collaborateur } from "./types";
 
 export type FiltreCollaborateurs = "TOUS" | "ACTIFS" | "INVITES" | "SUSPENDUS";
 
-/** Recherche sur le nom ou l'email, insensible à la casse. */
+/**
+ * Libellés de rôle réellement présents dans l'annuaire, distincts et triés.
+ *
+ * Ce sont les valeurs que `filtrerCollaborateurs` compare : les tirer de
+ * l'annuaire couvre tous les rôles affichés (le DG compris), là où la liste des
+ * rôles attribuables est réduite par le serveur et peut répéter un libellé.
+ */
+export function rolesPresents(collaborateurs: Collaborateur[]): string[] {
+  const libelles = new Set<string>();
+  for (const c of collaborateurs) {
+    if (c.roleLibelle) libelles.add(c.roleLibelle);
+  }
+  return [...libelles].sort((a, b) => a.localeCompare(b, "fr"));
+}
+
+/**
+ * Recherche sur le nom ou l'email, insensible à la casse.
+ *
+ * `roleLibelle` restreint à un rôle, comparé au libellé affiché dans la
+ * colonne « Rôle » (celui du rôle personnalisé, à défaut celui du rôle
+ * global) ; vide : tous les rôles. Les valeurs possibles viennent de
+ * `rolesPresents`.
+ */
 export function filtrerCollaborateurs(
   collaborateurs: Collaborateur[],
   filtre: FiltreCollaborateurs,
   recherche: string,
+  roleLibelle = "",
 ): Collaborateur[] {
   const requete = recherche.trim().toLowerCase();
   return collaborateurs.filter((c) => {
+    if (roleLibelle && c.roleLibelle !== roleLibelle) return false;
     if (filtre === "ACTIFS" && c.statut !== "ACTIF") return false;
     if (filtre === "INVITES" && c.statut !== "INVITE") return false;
     if (filtre === "SUSPENDUS" && c.statut !== "DESACTIVE") return false;

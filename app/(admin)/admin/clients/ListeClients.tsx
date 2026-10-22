@@ -33,7 +33,7 @@ import { useLibellePlan } from "@/features/plateforme/hooks";
 
 import { useAdministrateur } from "../ContexteAdministrateur";
 import { CLES_ADMINISTRATION } from "../cles";
-import { BADGE, TON_ALERTE, TON_STATUT_ABONNEMENT, TON_STATUT_CLIENT } from "../tons";
+import { BADGE, TON_ALERTE, TON_STATUT_CLIENT } from "../tons";
 import { ModaleFinAbonnement } from "./ModaleFinAbonnement";
 
 const colonne = aideColonnes<ClientPlateforme>();
@@ -111,16 +111,8 @@ export function ListeClients() {
         colonne.accessor((client) => client.abonnement.plan, {
           id: "plan",
           header: t("clients.colonnePlan"),
-          cell: ({ row }) => (
-            <span className="flex flex-col gap-1">
-              <span className="text-neutral-700">{libellePlan(row.original.abonnement.plan)}</span>
-              <span
-                className={`${BADGE} ${TON_STATUT_ABONNEMENT[row.original.abonnement.statut]} self-start`}
-              >
-                {t(`statutAbonnement.${row.original.abonnement.statut}`)}
-              </span>
-            </span>
-          ),
+          meta: { classe: "text-neutral-700" },
+          cell: ({ row }) => libellePlan(row.original.abonnement.plan),
         }),
         colonne.accessor((client) => client.abonnement.dateFin, {
           id: "finAbonnement",

@@ -1695,6 +1695,8 @@
     "filtreActifs": "Actifs",
     "filtreAvecNombre": "{libelle} ({nombre})",
     "filtreInvites": "Invitations en attente",
+    "filtreRole": "Filtrer par rôle",
+    "filtreRoleTous": "Tous les rôles",
     "filtreStatut": "Filtrer par statut",
     "filtreSuspendus": "Suspendus",
     "filtreTous": "Tous",
