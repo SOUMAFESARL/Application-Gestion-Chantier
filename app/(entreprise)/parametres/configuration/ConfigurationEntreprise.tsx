@@ -3,7 +3,7 @@
 import { Building2, Check, MapPin, Plus, Trash2, Upload, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -150,6 +150,18 @@ export function ConfigurationEntreprise() {
 
   const [erreurs, setErreurs] = useState<Record<string, string>>({});
 
+  // Une clé stable par ligne de téléphone, parallèle à `donnees.telephones` : avec
+  // l'index pour clé, retirer une ligne ferait hériter sa voisine de l'état du
+  // sélecteur d'indicatif de la ligne retirée.
+  const compteurCles = useRef(0);
+  const [clesTelephones, setClesTelephones] = useState<number[]>([]);
+  // L'index de la ligne qui doit prendre le focus à son prochain rendu.
+  const indexAFocaliser = useRef<number | null>(null);
+
+  function genererCles(nombre: number): number[] {
+    return Array.from({ length: nombre }, () => compteurCles.current++);
+  }
+
   useEffect(() => {
     let vivant = true;
     paysEntreprise().then((p) => {
@@ -164,6 +176,7 @@ export function ConfigurationEntreprise() {
         };
         setDonnees(initialises);
         setReference(initialises);
+        setClesTelephones(genererCles(initialises.telephones.length));
         if (entreprise.logo) {
           setApercuLogo(entreprise.logo);
           setLogo({ nom: t("logoActuel"), taille: 0 });
@@ -211,6 +224,9 @@ export function ConfigurationEntreprise() {
   function ajouterTelephone() {
     const actuels = donnees.telephones ?? [];
     if (!peutAjouterTelephone(actuels)) return;
+    indexAFocaliser.current = actuels.length;
+    const nouvelleCle = genererCles(1);
+    setClesTelephones((prec) => [...prec, ...nouvelleCle]);
     setDonnees((prec) => ({
       ...prec,
       telephones: [
@@ -309,6 +325,7 @@ export function ConfigurationEntreprise() {
       };
       setDonnees(enregistrees);
       setReference(enregistrees);
+      setClesTelephones(genererCles((enregistrees.telephones ?? []).length));
       if (reponse.logo) {
         setApercuLogo(reponse.logo);
         setLogo({ nom: t("logoActuel"), taille: 0 });
@@ -533,7 +550,7 @@ export function ConfigurationEntreprise() {
               <div className="flex flex-col gap-3">
                 {listeTelephones.map((tel, index) => (
                   <div
-                    key={index}
+                    key={clesTelephones[index] ?? `ligne-${index}`}
                     className="flex flex-col gap-2 rounded-lg border border-border/40 p-3 sm:grid sm:grid-cols-[10rem_1fr] sm:items-start lg:grid-cols-[10rem_12rem_1fr_auto] lg:border-0 lg:p-0"
                   >
                     <div className="w-full">
@@ -591,6 +608,12 @@ export function ConfigurationEntreprise() {
                         )}
                         erreur={erreurs[`telephones.${index}.numero`]}
                         disabled={envoi}
+                        refChamp={(champ) => {
+                          if (champ && indexAFocaliser.current === index) {
+                            indexAFocaliser.current = null;
+                            champ.focus();
+                          }
+                        }}
                         onChange={(valeur) => modifierTelephone(index, { numero: valeur })}
                       />
                     </div>
@@ -622,6 +645,7 @@ export function ConfigurationEntreprise() {
                         aria-label={tTel("retirer")}
                         disabled={envoi || listeTelephones.length <= 1}
                         onClick={() => {
+                          setClesTelephones((prec) => prec.filter((_, i) => i !== index));
                           setDonnees((prec) => ({
                             ...prec,
                             telephones: retirerTelephone(prec.telephones ?? [], index),
