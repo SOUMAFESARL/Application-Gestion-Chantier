@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CircleX, Info, LoaderCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { changerRoleMembreEquipe } from "@/features/projets/adaptateur";
+import { actualiserEquipes } from "@/features/projets/cles";
 import { ROLE_ANCIEN_CHEF, ROLES_MEMBRE_EQUIPE } from "@/features/projets/regles";
 import type { Equipe, MembreEquipe, RoleMembreEquipe } from "@/features/projets/types";
 import type { ErreurApi } from "@/lib/api";
@@ -34,7 +35,6 @@ interface Props {
   onFermer: () => void;
   projetId: string;
   equipe: Equipe;
-  onModifiee: (equipe: Equipe) => void;
 }
 
 /**
@@ -42,18 +42,23 @@ interface Props {
  * au chef en place, touche une autre personne que celle qu'on modifie : la
  * modale le dit **avant** l'enregistrement, pas après.
  *
+ * Le serveur renvoie l'équipe entière — nommer un chef en fait redescendre un
+ * autre : elle est posée dans le cache, et tout ce qui en dépend est relu
+ * (`actualiserEquipes`).
+ *
  * L'écran la remonte à chaque ouverture (`key`) : elle repart du rôle actuel.
  */
-export function ModaleRoleMembre({ membre, onFermer, projetId, equipe, onModifiee }: Props) {
+export function ModaleRoleMembre({ membre, onFermer, projetId, equipe }: Props) {
   const t = useTranslations("projets.equipesAffectations.fiche.changementRole");
   const tEcran = useTranslations("projets.equipesAffectations");
+  const clientRequetes = useQueryClient();
   const [role, setRole] = useState<RoleMembreEquipe | undefined>(membre?.role);
 
   const mutation = useMutation({
     mutationFn: (nouveau: RoleMembreEquipe) =>
       changerRoleMembreEquipe(projetId, equipe.id, (membre as MembreEquipe).id, nouveau),
     onSuccess: (modifiee) => {
-      onModifiee(modifiee);
+      void actualiserEquipes(clientRequetes, projetId, modifiee);
       onFermer();
     },
   });

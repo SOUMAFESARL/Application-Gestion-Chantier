@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CircleX, LoaderCircle, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { retirerMembreEquipe } from "@/features/projets/adaptateur";
+import { actualiserEquipes } from "@/features/projets/cles";
 import type { Equipe, MembreEquipe } from "@/features/projets/types";
 import type { ErreurApi } from "@/lib/api";
 
@@ -24,21 +25,23 @@ interface Props {
   onFermer: () => void;
   projetId: string;
   equipe: Equipe;
-  onRetire: (equipe: Equipe) => void;
 }
 
 /**
  * La confirmation du retrait d'une personne de l'équipe. Elle quitte
- * l'équipe, pas l'entreprise : son compte collaborateur, s'il en a un, reste.
+ * l'équipe, pas l'entreprise : son compte collaborateur, s'il en a un, reste —
+ * et elle redevient proposable pour cette équipe (`actualiserEquipes` relit
+ * aussi les candidats).
  */
-export function ModaleRetraitMembre({ membre, onFermer, projetId, equipe, onRetire }: Props) {
+export function ModaleRetraitMembre({ membre, onFermer, projetId, equipe }: Props) {
   const t = useTranslations("projets.equipesAffectations.fiche.retrait");
   const tEcran = useTranslations("projets.equipesAffectations");
+  const clientRequetes = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: (cible: MembreEquipe) => retirerMembreEquipe(projetId, equipe.id, cible.id),
     onSuccess: (modifiee) => {
-      onRetire(modifiee);
+      void actualiserEquipes(clientRequetes, projetId, modifiee);
       onFermer();
     },
   });

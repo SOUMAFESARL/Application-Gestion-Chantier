@@ -18,6 +18,7 @@ import {
   CRITERES_AFFECTATIONS_VIDES,
   criteresAffectationsActifs,
   filtrerAffectations,
+  peutGererEquipes,
   SANS_EQUIPE,
   statutActivite,
 } from "@/features/projets/regles";
@@ -50,8 +51,8 @@ export function AffectationsProjet({ projet, lots, equipes, onNouvelle, onModifi
   const t = useTranslations("projets.equipesAffectations");
   const tLots = useTranslations("projets.lotsActivites");
   const { peutSurProjet } = useDroits();
-  // Affecter une équipe à une activité appelle /equipes/affectations/ -> projets.gerer_equipes
-  const peutAffecter = projet ? peutSurProjet("projets.gerer_equipes", projet) : false;
+  // Affecter une équipe à une activité appelle /equipes/affectations/ -> projets.gerer_equipes sur ce chantier.
+  const peutAffecter = peutGererEquipes(projet, peutSurProjet);
   const [criteres, setCriteres] = useState<CriteresAffectations>(CRITERES_AFFECTATIONS_VIDES);
 
   const lignes = useMemo(() => filtrerAffectations(lots, criteres), [lots, criteres]);
@@ -118,28 +119,32 @@ export function AffectationsProjet({ projet, lots, equipes, onNouvelle, onModifi
           return <Badge variante={BADGE_STATUT[statut]}>{tLots(`statutActivite.${statut}`)}</Badge>;
         },
       }),
-      colonne.display({
-        id: "actions",
-        header: t("colonnes.actions"),
-        meta: { classe: BORD_DROIT_TABLEAU },
-        cell: ({ row }) => {
-          if (!peutAffecter) return null;
-          const libelle = row.original.equipe
-            ? t("actionReaffecter", { code: row.original.code })
-            : t("actionAffecterActivite", { code: row.original.code });
-          return (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={libelle}
-              title={libelle}
-              onClick={() => onModifier(row.original)}
-            >
-              <UserPen />
-            </Button>
-          );
-        },
-      }),
+      // Sans le droit, pas de colonne : une colonne « Actions » vide n'a rien à dire.
+      ...(peutAffecter
+        ? [
+            colonne.display({
+              id: "actions",
+              header: t("colonnes.actions"),
+              meta: { classe: BORD_DROIT_TABLEAU },
+              cell: ({ row }) => {
+                const libelle = row.original.equipe
+                  ? t("actionReaffecter", { code: row.original.code })
+                  : t("actionAffecterActivite", { code: row.original.code });
+                return (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={libelle}
+                    title={libelle}
+                    onClick={() => onModifier(row.original)}
+                  >
+                    <UserPen />
+                  </Button>
+                );
+              },
+            }),
+          ]
+        : []),
     ]);
   }, [t, tLots, equipes, onModifier, peutAffecter]);
 

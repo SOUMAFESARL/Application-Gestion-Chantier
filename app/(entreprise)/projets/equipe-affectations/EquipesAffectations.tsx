@@ -8,11 +8,11 @@ import { EnTetePage } from "@/components/layout/EnTetePage";
 import { EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import { useProjetsVisibles } from "@/features/habilitations";
 import { listerEquipes, listerLots } from "@/features/projets/adaptateur";
-import { cleEquipes, cleLots } from "@/features/projets/cles";
+import { actualiserEquipes, cleEquipes, cleLots } from "@/features/projets/cles";
 import { TiroirAffectation } from "@/features/projets/components/TiroirAffectation";
 import { TiroirEquipe } from "@/features/projets/components/TiroirEquipe";
 import { projetOuvert, syntheseEquipes } from "@/features/projets/regles";
-import type { Activite, Equipe } from "@/features/projets/types";
+import type { Activite } from "@/features/projets/types";
 
 import { BarreProjet, Indicateur, Onglets } from "../EnteteChantier";
 import { AffectationsProjet } from "./AffectationsProjet";
@@ -50,7 +50,11 @@ export function EquipesAffectations({ projetInitial }: { projetInitial?: string 
     equipeId?: string;
   }>({ ouvert: false });
   const [tiroirEquipeOuvert, setTiroirEquipeOuvert] = useState(false);
-  const [equipeMembres, setEquipeMembres] = useState<Equipe | null>(null);
+  /**
+   * L'identifiant de l'équipe dont le tiroir des membres est ouvert — pas
+   * l'équipe elle-même : une copie garderait l'état d'avant la dernière écriture.
+   */
+  const [equipeMembresId, setEquipeMembresId] = useState<string | null>(null);
   /** Le rang de la dernière ouverture d'un tiroir, qui lui sert de `key`. */
   const [ouverture, setOuverture] = useState(0);
 
@@ -72,6 +76,7 @@ export function EquipesAffectations({ projetInitial }: { projetInitial?: string 
   });
   const lots = useMemo(() => requeteLots.data ?? [], [requeteLots.data]);
   const equipes = useMemo(() => requeteEquipes.data ?? [], [requeteEquipes.data]);
+  const equipeMembres = equipes.find((equipe) => equipe.id === equipeMembresId) ?? null;
 
   const synthese = useMemo(() => syntheseEquipes(equipes, lots), [equipes, lots]);
   const chargement = requeteLots.isPending || requeteEquipes.isPending;
@@ -92,19 +97,10 @@ export function EquipesAffectations({ projetInitial }: { projetInitial?: string 
     setTiroirEquipeOuvert(true);
   }
 
+  // Une affectation change la carte des équipes (« actuellement sur… ») comme
+  // les lots : tout ce qui dépend des équipes est relu, pas les seuls lots.
   function surAffectee() {
-    if (projetId) void clientRequetes.invalidateQueries({ queryKey: cleLots(projetId) });
-  }
-
-  function surEquipeCreee(equipe: Equipe) {
-    if (!projetId) return;
-    // Posée dans le cache avant le rechargement : la carte apparaît au moment
-    // où le tiroir se referme.
-    clientRequetes.setQueryData<Equipe[]>(cleEquipes(projetId), (anciennes) => [
-      ...(anciennes ?? []),
-      equipe,
-    ]);
-    void clientRequetes.invalidateQueries({ queryKey: cleEquipes(projetId) });
+    if (projetId) void actualiserEquipes(clientRequetes, projetId);
   }
 
   function reessayer() {
@@ -170,7 +166,7 @@ export function EquipesAffectations({ projetInitial }: { projetInitial?: string 
                 equipes={equipes}
                 lots={lots}
                 onConstituer={ouvrirConstitution}
-                onMembres={setEquipeMembres}
+                onMembres={(equipe) => setEquipeMembresId(equipe.id)}
                 onAffecter={(equipe) => ouvrirAffectation({ equipeId: equipe.id })}
               />
             </div>
@@ -205,9 +201,8 @@ export function EquipesAffectations({ projetInitial }: { projetInitial?: string 
             ouverte={tiroirEquipeOuvert}
             onFermer={() => setTiroirEquipeOuvert(false)}
             projetId={projetId}
-            onCreee={surEquipeCreee}
           />
-          <TiroirMembres equipe={equipeMembres} onFermer={() => setEquipeMembres(null)} />
+          <TiroirMembres equipe={equipeMembres} onFermer={() => setEquipeMembresId(null)} />
         </>
       )}
     </div>

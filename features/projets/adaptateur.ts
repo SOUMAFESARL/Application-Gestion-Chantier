@@ -34,6 +34,7 @@ import type {
   AlerteIntemperies,
   AutreMembreProjet,
   ChefChantierProjet,
+  CandidatEquipe,
   ClientProjet,
   CreationEquipe,
   CreationLotProjet,
@@ -1314,6 +1315,36 @@ export async function listerEquipes(projetId: string, signal?: AbortSignal): Pro
   );
   const charges = Array.isArray(charge) ? charge : (charge?.results ?? []);
   return charges.map(versEquipeDetail);
+}
+
+interface ChargeCandidatEquipe {
+  id: string;
+  nom_complet: string;
+  role_projet?: string;
+  equipes?: { id: string; nom: string }[];
+}
+
+/**
+ * Les collaborateurs que l'on peut proposer pour une équipe du chantier : ceux
+ * qui lui sont affectés, avec les équipes où ils sont déjà. Le serveur refuse
+ * (403) qui ne gère pas les équipes du projet : ne l'appeler qu'avec ce droit.
+ */
+export async function listerCandidatsEquipes(
+  projetId: string,
+  signal?: AbortSignal,
+): Promise<CandidatEquipe[]> {
+  const charge = await api.lire<ChargeCandidatEquipe[] | ChargeListe<ChargeCandidatEquipe>>(
+    `/projets/${projetId}/equipes/candidats/`,
+    undefined,
+    signal,
+  );
+  const charges = Array.isArray(charge) ? charge : (charge?.results ?? []);
+  return charges.map((candidat) => ({
+    id: candidat.id,
+    nomComplet: candidat.nom_complet,
+    roleProjet: candidat.role_projet ?? "",
+    equipes: candidat.equipes ?? [],
+  }));
 }
 
 export async function creerEquipe(projetId: string, creation: CreationEquipe): Promise<Equipe> {

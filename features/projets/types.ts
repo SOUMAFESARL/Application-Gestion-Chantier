@@ -470,6 +470,20 @@ export interface Equipe extends EquipeChantier {
   membres: MembreEquipe[];
 }
 
+/**
+ * Un collaborateur que l'on peut mettre dans une équipe du chantier : il est
+ * affecté au projet. Une personne peut tenir plusieurs équipes du même projet,
+ * d'où la liste de celles où elle est déjà.
+ */
+export interface CandidatEquipe {
+  id: string;
+  nomComplet: string;
+  /** Le code du rôle qu'il tient sur le projet (`CP`, `CT`, `CC`…) ; vide si le serveur ne le dit pas. */
+  roleProjet: string;
+  /** Les équipes du projet dont il est déjà membre. */
+  equipes: { id: string; nom: string }[];
+}
+
 /** Ce qu'il faut fournir pour constituer une équipe sur un chantier. */
 export interface CreationEquipe {
   nom: string;

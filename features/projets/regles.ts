@@ -19,6 +19,7 @@ import type {
   AffectationProjet,
   AnomalieImportLot,
   BadgeSante,
+  CandidatEquipe,
   ChefChantierProjet,
   CreationLotProjet,
   DureeProjet,
@@ -1474,6 +1475,53 @@ export function collaborateursDisponibles(
   );
 }
 
+/** Le code qui ouvre la gestion des équipes d'un chantier : constituer, composer, affecter. */
+export const PERMISSION_GERER_EQUIPES = "projets.gerer_equipes";
+
+/**
+ * Peut-on gérer les équipes **de ce chantier** ? Le code, sur ce chantier : le
+ * chef de projet l'a par défaut, un autre rôle ne l'a que s'il le reçoit. Sans
+ * chantier connu — liste encore en chargement —, non : mieux vaut un bouton qui
+ * arrive qu'un bouton que le serveur refusera. `peutSurProjet` est celui de
+ * `useDroits()`, passé en paramètre pour que cette règle reste sans React.
+ */
+export function peutGererEquipes(
+  projet: Projet | null | undefined,
+  peutSurProjet: (code: string, projet: Projet) => boolean,
+): boolean {
+  return projet ? peutSurProjet(PERMISSION_GERER_EQUIPES, projet) : false;
+}
+
+/**
+ * Les collaborateurs que le serveur propose pour une équipe, privés de ceux
+ * qu'elle compte déjà : les siens (`dejaDansEquipe`, les personnes de l'équipe
+ * ou celles déjà choisies dans le formulaire) et ceux dont le serveur dit
+ * qu'ils y sont (`equipeId`). Une personne d'une **autre** équipe du chantier
+ * reste proposée : elle peut tenir plusieurs équipes.
+ * `garde` reste proposé même pris : c'est le choix de la ligne en cours.
+ */
+export function candidatsPourEquipe(
+  candidats: CandidatEquipe[],
+  dejaDansEquipe: readonly string[],
+  equipeId?: string,
+  garde?: string,
+): CandidatEquipe[] {
+  const pris = new Set(dejaDansEquipe);
+  return candidats.filter((candidat) => {
+    if (candidat.id === garde) return true;
+    if (pris.has(candidat.id)) return false;
+    return !equipeId || !candidat.equipes.some((equipe) => equipe.id === equipeId);
+  });
+}
+
+/**
+ * Les noms des équipes où un candidat est déjà, hors celle qu'on compose :
+ * c'est la mention qui accompagne son nom dans la liste.
+ */
+export function nomsEquipesDuCandidat(candidat: CandidatEquipe, equipeId?: string): string[] {
+  return candidat.equipes.filter((equipe) => equipe.id !== equipeId).map((equipe) => equipe.nom);
+}
+
 /**
  * « Koffi Kouassi Yao » → prénom « Koffi », nom « Kouassi Yao ». Le premier
  * mot fait le prénom : c'est l'usage du formulaire, qui les propose ensuite
@@ -1534,7 +1582,11 @@ export function activitesEnCoursEquipe(
 /** Les quatre chiffres de l'en-tête de l'écran « Équipes et affectations ». */
 export interface SyntheseEquipes {
   equipes: number;
-  /** Le total des effectifs de toutes les équipes du chantier. */
+  /**
+   * Les personnes mobilisées sur le chantier. Un collaborateur présent dans
+   * deux équipes compte une fois (`effectifProjet`), comme dans les
+   * statistiques du serveur.
+   */
   effectif: number;
   /** Les activités qui ont une équipe. */
   affectees: number;
@@ -1553,7 +1605,7 @@ export function syntheseEquipes(
   const activites = activitesDuProjet(lots);
   return {
     equipes: equipes.length,
-    effectif: equipes.reduce((total, equipe) => total + equipe.effectif, 0),
+    effectif: effectifProjet(equipes),
     affectees: activites.filter((activite) => activite.equipe !== null).length,
     aAffecter: activites.filter(
       (activite) => activite.equipe === null && statutActivite(activite, maintenant) !== "TERMINE",

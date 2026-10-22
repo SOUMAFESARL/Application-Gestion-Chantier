@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleX, LoaderCircle, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -34,14 +34,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { CLE_COLLABORATEURS, listerCollaborateurs } from "@/features/invitations/adaptateur";
-import { creerEquipe } from "@/features/projets/adaptateur";
+import { creerEquipe, listerCandidatsEquipes } from "@/features/projets/adaptateur";
+import { actualiserEquipes, cleCandidatsEquipes } from "@/features/projets/cles";
 import {
-  collaborateursDisponibles,
+  candidatsPourEquipe,
   effectifEquipe,
   NATURES_EQUIPE,
 } from "@/features/projets/regles";
-import type { Equipe } from "@/features/projets/types";
 import {
   membreVide,
   saisieEquipeVide,
@@ -64,7 +63,6 @@ interface Props {
   ouverte: boolean;
   onFermer: () => void;
   projetId: string;
-  onCreee: (equipe: Equipe) => void;
 }
 
 function Requis() {
@@ -82,11 +80,20 @@ function Requis() {
  * L'effectif n'est pas saisi : il se compte (`effectifEquipe`). Un chiffre
  * tapé à côté d'une liste de noms finit toujours par la contredire.
  *
+ * Les personnes proposées sont celles que le serveur dit affectables à ce
+ * chantier (`/equipes/candidats/`), non l'annuaire entier ; une personne déjà
+ * dans une autre équipe du chantier reste proposée, avec la mention de celle-ci.
+ * Une personne qui n'est pas un collaborateur se saisit par son nom.
+ *
+ * La création relit les équipes du chantier et tout ce qui en dépend
+ * (`actualiserEquipes`) : cartes, compteurs et affectations suivent seuls.
+ *
  * L'écran le remonte à chaque ouverture (`key`) : il repart toujours vierge.
  */
-export function TiroirEquipe({ ouverte, onFermer, projetId, onCreee }: Props) {
+export function TiroirEquipe({ ouverte, onFermer, projetId }: Props) {
   const t = useTranslations("projets.equipesAffectations.formEquipe");
   const tEcran = useTranslations("projets.equipesAffectations");
+  const clientRequetes = useQueryClient();
   const [erreur, setErreur] = useState<string | null>(null);
 
   const form = useForm<SaisieEquipe, unknown, ValeursEquipe>({
@@ -99,25 +106,26 @@ export function TiroirEquipe({ ouverte, onFermer, projetId, onCreee }: Props) {
   const effectif = effectifEquipe({ chef, membres: membresSaisis ?? [] });
   const enCours = form.formState.isSubmitting;
 
-  const requeteCollaborateurs = useQuery({
-    queryKey: CLE_COLLABORATEURS,
-    queryFn: listerCollaborateurs,
+  const requeteCandidats = useQuery({
+    queryKey: cleCandidatsEquipes(projetId),
+    queryFn: ({ signal }) => listerCandidatsEquipes(projetId, signal),
     enabled: ouverte,
   });
-  const collaborateurs = requeteCollaborateurs.data ?? [];
+  const candidats = requeteCandidats.data ?? [];
   const pris = [chef, ...(membresSaisis ?? [])]
     .map((personne) => personne?.collaborateurId)
     .filter((identifiant): identifiant is string => Boolean(identifiant));
 
-  /** Les collaborateurs qu'une ligne peut encore choisir : le sien, et ceux que personne n'a pris. */
+  /** Les candidats qu'une ligne peut encore choisir : le sien, et ceux que personne n'a pris. */
   function disponibles(choixDeLaLigne: string) {
-    return collaborateursDisponibles(collaborateurs, pris, choixDeLaLigne);
+    return candidatsPourEquipe(candidats, pris, undefined, choixDeLaLigne);
   }
 
   async function soumettre(valeurs: ValeursEquipe) {
     setErreur(null);
     try {
-      onCreee(await creerEquipe(projetId, versCreationEquipe(valeurs)));
+      const creee = await creerEquipe(projetId, versCreationEquipe(valeurs));
+      void actualiserEquipes(clientRequetes, projetId, creee);
       onFermer();
     } catch (err) {
       const cause = err as ErreurApi;
@@ -149,6 +157,14 @@ export function TiroirEquipe({ ouverte, onFermer, projetId, onCreee }: Props) {
               <Alert variant="erreur">
                 <CircleX />
                 <AlertDescription>{erreur}</AlertDescription>
+              </Alert>
+            )}
+            {requeteCandidats.isError && (
+              <Alert variant="erreur">
+                <CircleX />
+                <AlertDescription>
+                  {(requeteCandidats.error as ErreurApi).message || t("erreurCandidats")}
+                </AlertDescription>
               </Alert>
             )}
 
@@ -235,7 +251,7 @@ export function TiroirEquipe({ ouverte, onFermer, projetId, onCreee }: Props) {
                     valeur={field.value}
                     onChange={field.onChange}
                     onBlur={field.onBlur}
-                    collaborateurs={disponibles(field.value.collaborateurId)}
+                    candidats={disponibles(field.value.collaborateurId)}
                     erreurs={messagesMembre(form.formState.errors.chef)}
                     libelle={t("chef")}
                     disabled={enCours}
@@ -264,7 +280,7 @@ export function TiroirEquipe({ ouverte, onFermer, projetId, onCreee }: Props) {
                       valeur={field.value}
                       onChange={field.onChange}
                       onBlur={field.onBlur}
-                      collaborateurs={disponibles(field.value.collaborateurId)}
+                      candidats={disponibles(field.value.collaborateurId)}
                       erreurs={messagesMembre(form.formState.errors.membres?.[rang])}
                       libelle={t("champPersonneRang", { rang: rang + 1 })}
                       libelleRole={t("champRoleRang", { rang: rang + 1 })}
