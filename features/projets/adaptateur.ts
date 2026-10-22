@@ -34,12 +34,14 @@ import type {
   AlerteIntemperies,
   AutreMembreProjet,
   ChefChantierProjet,
+  CandidatEquipe,
   ClientProjet,
   CreationEquipe,
   CreationLotProjet,
   ContratProjet,
   CreationProjet,
   DonneesPlanning,
+  EntreeModeExecution,
   Equipe,
   EvenementAvancement,
   EvenementDate,
@@ -53,7 +55,6 @@ import type {
   MembreEquipe,
   MeteoProjet,
   MiseAJourAvancement,
-  ModeExecutionLot,
   ModificationProjet,
   MotifReport,
   NatureEquipe,
@@ -173,6 +174,19 @@ interface ChargeChefChantier {
   affectation_id?: string | null;
 }
 
+/**
+ * Une affectation, telle que `GET /projets/{id}/affectations/` la renvoie. Le détail du
+ * projet n'en porte ni le lot ni `modifiable` : on les y rattache par `id`.
+ */
+interface ChargeAffectation {
+  id: string;
+  lot?: { id: string; code: string; libelle: string } | null;
+  role_projet?: string;
+  utilisateur?: { id: string } | null;
+  /** Faux pour le chef de projet quand le compte courant ne peut pas le gérer. */
+  modifiable?: boolean;
+}
+
 interface ChargeAutreMembre {
   utilisateur: ChargeIntervenant;
   fonction: FonctionAutreMembre;
@@ -252,15 +266,20 @@ function intervenants(charges: ChargeIntervenant[] | undefined): Intervenant[] {
     .filter((intervenant): intervenant is Intervenant => intervenant !== null);
 }
 
-function versChefChantier(charge: ChargeChefChantier): ChefChantierProjet | null {
+function versChefChantier(
+  charge: ChargeChefChantier,
+  affectations: Map<string, ChargeAffectation>,
+): ChefChantierProjet | null {
   const intervenant = versIntervenant(charge.utilisateur);
-  return intervenant
-    ? {
-        intervenant,
-        zone: charge.zone || null,
-        affectationId: charge.affectation_id ?? intervenant.affectationId ?? null,
-      }
-    : null;
+  if (!intervenant) return null;
+  const affectationId = charge.affectation_id ?? intervenant.affectationId ?? null;
+  const lot = (affectationId && affectations.get(affectationId)?.lot) || null;
+  return {
+    intervenant,
+    lot: lot ? { id: lot.id, code: lot.code, libelle: lot.libelle } : null,
+    zone: charge.zone || null,
+    affectationId,
+  };
 }
 
 function versAutreMembre(charge: ChargeAutreMembre): AutreMembreProjet | null {
@@ -341,7 +360,20 @@ function versStatistiques(
  * vide pour un texte, `0` pour une consommation, `null` pour un budget non
  * défini — pour qu'aucun écran n'ait à écrire `?? ""` sur un champ du domaine.
  */
-export function versProjet(charge: ChargeProjet): Projet {
+export function versProjet(charge: ChargeProjet, affectations: ChargeAffectation[] = []): Projet {
+  const parId = new Map(affectations.map((affectation) => [affectation.id, affectation]));
+  const chef = charge.chef_projet;
+  // Le détail du projet ne renvoie `affectation_id` que pour un compte actif dont
+  // l'affectation est en cours : pour un chef de projet invité, on la retrouve par
+  // son rôle et son utilisateur dans la liste des affectations.
+  const affectationChef =
+    (chef?.affectation_id ? parId.get(chef.affectation_id) : undefined) ??
+    (chef
+      ? affectations.find(
+          (affectation) =>
+            affectation.role_projet?.toUpperCase() === "CP" && affectation.utilisateur?.id === chef.id,
+        )
+      : undefined);
   return {
     id: charge.id,
     reference: charge.reference,
@@ -376,9 +408,10 @@ export function versProjet(charge: ChargeProjet): Projet {
     maitreOeuvre: charge.maitre_oeuvre || null,
     contrats: (charge.contrat ?? []).map(versContrat),
     chefProjet: versIntervenant(charge.chef_projet),
+    chefProjetModifiable: affectationChef?.modifiable === true,
     conducteursTravaux: intervenants(charge.conducteurs_travaux),
     chefsChantier: (charge.chefs_chantier ?? [])
-      .map(versChefChantier)
+      .map((chef) => versChefChantier(chef, parId))
       .filter((chef): chef is ChefChantierProjet => chef !== null),
     autresMembres: (charge.autres_membres ?? [])
       .map(versAutreMembre)
@@ -474,11 +507,23 @@ export async function listerProjets(signal?: AbortSignal): Promise<Projet[]> {
     signal,
   );
   const charges = Array.isArray(charge) ? charge : (charge?.results ?? []);
-  return charges.map(versProjet);
+  return charges.map((projet) => versProjet(projet));
 }
 
+/**
+ * Le projet, avec ce que seul le détail des affectations porte : le lot des chefs de chantier
+ * et le droit de gérer le chef de projet (`modifiable`). La lecture des affectations ne doit pas
+ * faire échouer la fiche : sans elle, le projet s'affiche, le chef de projet non modifiable.
+ */
 export async function lireProjet(id: string): Promise<Projet> {
-  return versProjet(await api.lire<ChargeProjet>(`/projets/${id}/`));
+  const [projet, affectations] = await Promise.all([
+    api.lire<ChargeProjet>(`/projets/${id}/`),
+    api
+      .lire<ChargeAffectation[] | ChargeListe<ChargeAffectation>>(`/projets/${id}/affectations/`)
+      .then((charge) => (Array.isArray(charge) ? charge : (charge?.results ?? [])))
+      .catch((): ChargeAffectation[] => []),
+  ]);
+  return versProjet(projet, affectations);
 }
 
 /**
@@ -575,7 +620,7 @@ export async function ajouterMembreEncadrement(
   const payload: {
     utilisateur_id: string;
     role_projet: string;
-    zone?: string | null;
+    lot_id?: string | null;
   } = {
     utilisateur_id: ajout.intervenant.id,
     // Le rôle tenu sur le projet est celui de la plateforme, quel qu'il soit.
@@ -584,7 +629,8 @@ export async function ajouterMembreEncadrement(
   };
 
   if (ajout.fonction === "CHEF_CHANTIER") {
-    payload.zone = ajout.zone ?? null;
+    // Le lot fixe la zone côté serveur ; absent, le chef de chantier a tout le chantier.
+    payload.lot_id = ajout.lotId;
   }
 
   await api.creer(`/projets/${projetId}/affectations/`, payload);
@@ -602,11 +648,11 @@ export async function retirerMembreEncadrement(
 export async function modifierMembreEncadrement(
   projetId: string,
   affectationId: string,
-  modifications: { zone?: string | null; fonctionMembre?: FonctionAutreMembre },
+  modifications: { lotId?: string | null; fonctionMembre?: FonctionAutreMembre },
 ): Promise<Projet> {
-  const payload: { zone?: string | null; fonction_membre?: string } = {};
-  if ("zone" in modifications) {
-    payload.zone = modifications.zone ?? null;
+  const payload: { lot_id?: string | null; fonction_membre?: string } = {};
+  if ("lotId" in modifications) {
+    payload.lot_id = modifications.lotId ?? null;
   }
   if (modifications.fonctionMembre) {
     payload.fonction_membre = modifications.fonctionMembre;
@@ -708,7 +754,9 @@ interface ChargeLot {
   code: string;
   nom: string;
   statut?: string | null;
+  /** Le code du référentiel des modes d'exécution (`REGIE` pour la régie). */
   mode_execution: string;
+  mode_execution_libelle?: string;
   type_bordereau: string;
   /** Un `DecimalField` : Django peut l'envoyer en chaîne. */
   budget_initial_montant?: number | string | null;
@@ -730,12 +778,6 @@ interface ChargeLot {
  * sont supposées porter le nom du domaine — **à confirmer**, et à corriger
  * ici seulement.
  */
-
-const MODE_EXECUTION_SERVEUR: Record<ModeExecutionLot, string> = {
-  REGIE_DIRECTE: "REGIE",
-  SOUS_TRAITANCE_STRUCTUREE: "SOUS_TRAITANCE_STRUCTUREE",
-  SOUS_TRAITANCE_INFORMELLE: "SOUS_TRAITANCE_INFORMELLE",
-};
 
 const TYPE_BORDEREAU_SERVEUR: Record<TypeBordereau, string> = {
   FORFAIT_GLOBAL: "FORFAIT",
@@ -820,7 +862,8 @@ function versLot(charge: ChargeLot, activites: Activite[] = []): Lot {
     projetId: charge.projet_id,
     code: charge.code,
     nom: charge.nom,
-    modeExecution: depuisServeur(MODE_EXECUTION_SERVEUR, charge.mode_execution, "REGIE_DIRECTE"),
+    modeExecution: charge.mode_execution,
+    modeExecutionLibelle: charge.mode_execution_libelle || charge.mode_execution,
     typeBordereau: depuisServeur(TYPE_BORDEREAU_SERVEUR, charge.type_bordereau, "FORFAIT_GLOBAL"),
     budget: versMontant(charge.budget_initial_montant),
     dateDebut: charge.date_debut_prevue ?? null,
@@ -879,7 +922,7 @@ export async function listerLots(projetId: string, signal?: AbortSignal): Promis
 function versChargeLot(creation: CreationLotProjet) {
   const charge: Record<string, unknown> = {
     nom: creation.nom,
-    mode_execution: MODE_EXECUTION_SERVEUR[creation.modeExecution],
+    mode_execution: creation.modeExecution,
     type_bordereau: TYPE_BORDEREAU_SERVEUR[creation.typeBordereau],
     statut: STATUT_SERVEUR[creation.statut ?? STATUT_DECLARE_PAR_DEFAUT],
   };
@@ -927,10 +970,11 @@ export async function lireFichierLots(
   lotsExistants: Lot[],
   budgetProjet: number | null,
   voitMontants: boolean = true,
+  modes: EntreeModeExecution[] = [],
 ): Promise<LigneImportLot[]> {
   const { readSheet } = await import("read-excel-file/browser");
   const feuille = await readSheet(fichier);
-  return lireLotsImportes(feuille as unknown[][], lotsExistants, budgetProjet, voitMontants);
+  return lireLotsImportes(feuille as unknown[][], lotsExistants, budgetProjet, voitMontants, modes);
 }
 
 /**
@@ -1271,6 +1315,36 @@ export async function listerEquipes(projetId: string, signal?: AbortSignal): Pro
   );
   const charges = Array.isArray(charge) ? charge : (charge?.results ?? []);
   return charges.map(versEquipeDetail);
+}
+
+interface ChargeCandidatEquipe {
+  id: string;
+  nom_complet: string;
+  role_projet?: string;
+  equipes?: { id: string; nom: string }[];
+}
+
+/**
+ * Les collaborateurs que l'on peut proposer pour une équipe du chantier : ceux
+ * qui lui sont affectés, avec les équipes où ils sont déjà. Le serveur refuse
+ * (403) qui ne gère pas les équipes du projet : ne l'appeler qu'avec ce droit.
+ */
+export async function listerCandidatsEquipes(
+  projetId: string,
+  signal?: AbortSignal,
+): Promise<CandidatEquipe[]> {
+  const charge = await api.lire<ChargeCandidatEquipe[] | ChargeListe<ChargeCandidatEquipe>>(
+    `/projets/${projetId}/equipes/candidats/`,
+    undefined,
+    signal,
+  );
+  const charges = Array.isArray(charge) ? charge : (charge?.results ?? []);
+  return charges.map((candidat) => ({
+    id: candidat.id,
+    nomComplet: candidat.nom_complet,
+    roleProjet: candidat.role_projet ?? "",
+    equipes: candidat.equipes ?? [],
+  }));
 }
 
 export async function creerEquipe(projetId: string, creation: CreationEquipe): Promise<Equipe> {

@@ -1370,7 +1370,7 @@ export async function supprimerRoleSysteme(id: string): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ *
- * Référentiels de la plateforme (types de projet, noms de lot)
+ * Référentiels de la plateforme (types de projet, noms de lot, modes d'exécution)
  * ------------------------------------------------------------------ */
 
 /** `GET /admins/referentiels/{categorie}/`. */

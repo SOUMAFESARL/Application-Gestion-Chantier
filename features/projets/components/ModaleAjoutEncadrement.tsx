@@ -28,7 +28,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -36,11 +35,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ajouterMembreEncadrement, listerAffectables } from "@/features/projets/adaptateur";
+import {
+  ajouterMembreEncadrement,
+  listerAffectables,
+  listerLots,
+} from "@/features/projets/adaptateur";
+import { cleLots } from "@/features/projets/cles";
+import { intituleLot } from "@/features/projets/regles";
 import type { FonctionProjet, Intervenant, Projet } from "@/features/projets/types";
 import {
   fonctionDuRole,
-  LONGUEUR_MAX_ZONE,
   saisieEncadrementVide,
   schemaAjoutEncadrement,
   versAjoutEncadrement,
@@ -72,7 +76,7 @@ interface Props {
  * **Le rôle d'abord, puis la personne parmi ceux qui ont ce rôle** : la liste des
  * rôles est celle des rôles de portée Projet que portent les collaborateurs
  * affectables — tout rôle créé plus tard y apparaît sans changer ce code
- * (décision du 16/10/2026). Un chef de chantier peut préciser sa zone ;
+ * (décision du 16/10/2026). Un chef de chantier peut préciser son lot, parmi ceux du projet ;
  * désigner un chef de projet remplace celui en place, et la modale le dit.
  *
  * L'écran la remonte à chaque ouverture (`key`) : elle repart toujours vierge.
@@ -135,6 +139,20 @@ export function ModaleAjoutEncadrement({
     valeur: candidat.id,
     libelle: candidat.nom,
   }));
+
+  // Les lots du projet, pour le chef de chantier : le premier choix, vide, est « tout le chantier ».
+  const requeteLots = useQuery({
+    queryKey: cleLots(projet.id),
+    queryFn: ({ signal }) => listerLots(projet.id, signal),
+    enabled: ouverte && fonction === "CHEF_CHANTIER",
+  });
+  const optionsLots = [
+    { valeur: "", libelle: t("toutLeChantier") },
+    ...(requeteLots.data ?? []).map((lot) => ({
+      valeur: lot.id,
+      libelle: intituleLot({ code: lot.code, libelle: lot.nom }),
+    })),
+  ];
 
   function changerRole(nouveau: string) {
     form.setValue("role", nouveau, { shouldValidate: true });
@@ -265,24 +283,37 @@ export function ModaleAjoutEncadrement({
             {fonction === "CHEF_CHANTIER" && (
               <FormField
                 control={form.control}
-                name="zone"
+                name="lotId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("ajout.champZone")}</FormLabel>
+                    <FormLabel>{t("ajout.champLot")}</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
+                      <Combobox
                         className={CHAMP}
-                        maxLength={LONGUEUR_MAX_ZONE}
-                        placeholder={t("ajout.zonePlaceholder")}
-                        disabled={enCours}
+                        options={optionsLots}
+                        valeur={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        placeholder={
+                          requeteLots.isPending ? t("ajout.chargementLots") : t("toutLeChantier")
+                        }
+                        placeholderRecherche={t("ajout.lotRecherche")}
+                        aucunResultat={t("ajout.lotAucun")}
+                        disabled={enCours || requeteLots.isPending}
                       />
                     </FormControl>
-                    <FormDescription>{t("ajout.aideZone")}</FormDescription>
+                    <FormDescription>{t("ajout.aideLot")}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+            )}
+
+            {fonction === "CHEF_CHANTIER" && requeteLots.isError && (
+              <Alert variant="erreur">
+                <CircleX />
+                <AlertDescription>{t("ajout.erreurLots")}</AlertDescription>
+              </Alert>
             )}
 
           </form>

@@ -527,7 +527,7 @@ export interface DemandeRoleSysteme {
 }
 
 /** Les référentiels de la plateforme, proposés à toutes les entreprises. */
-export const CATEGORIES_REFERENTIEL_PLATEFORME = ["types-projet", "lots"] as const;
+export const CATEGORIES_REFERENTIEL_PLATEFORME = ["types-projet", "lots", "modes-execution"] as const;
 
 export type CategorieReferentielPlateforme = (typeof CATEGORIES_REFERENTIEL_PLATEFORME)[number];
 
@@ -535,6 +535,6 @@ export interface EntreeReferentielPlateforme {
   id: string;
   code: string;
   libelle: string;
-  /** Le titre de groupe — le corps d'état d'un lot. */
+  /** Le titre de groupe — le corps d'état d'un lot ; pour un mode d'exécution, son mode de base. */
   groupe: string;
 }

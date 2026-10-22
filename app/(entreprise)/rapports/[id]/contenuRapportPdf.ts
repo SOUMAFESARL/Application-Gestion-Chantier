@@ -14,8 +14,8 @@ import {
   totalProduction,
   totauxEffectifs,
 } from "@/features/chantier";
-import type { EtapeCircuit, RapportJournalier } from "@/features/chantier";
-import type { ModeExecutionLot } from "@/features/projets/types";
+import type { EtapeCircuit, LotJournal, RapportJournalier } from "@/features/chantier";
+import { appliquerDocumentsAuPdf } from "@/features/documents";
 import { formaterDate, formaterDateHeure, formaterMontant, formaterQuantite } from "@/lib/format";
 import type {
   BlocPdf,
@@ -61,7 +61,7 @@ export interface DonneesRapportPdf extends SourcePdf {
   rapport: RapportJournalier;
   /** Le jour du rapport, déjà mis en toutes lettres par l'écran. */
   jour: string;
-  modeExecution: (mode: ModeExecutionLot) => string;
+  modeExecution: (lot: LotJournal) => string;
 }
 
 function tableau(entetes: string[], lignes: CellulePdf[][], vide: string): BlocPdf {
@@ -74,7 +74,7 @@ function cellule(texte: string | number | null, options?: Omit<CellulePdf, "text
 }
 
 export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): DocumentPdf {
-  const { rapport, entreprise, logo, marque, jour, modeExecution, maintenant } = donnees;
+  const { rapport, entreprise, logo, documents, marque, jour, modeExecution, maintenant } = donnees;
   const r = (cle: string, valeurs?: Record<string, string | number>) => t(`rapport.${cle}`, valeurs);
   const role = (cle: EtapeCircuit["role"]) => t(`circuit.role.${cle}`);
   const neant = r("neant");
@@ -278,7 +278,7 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
           texte: r("pdf.lot", {
             lot: r("avancement.lot", { code: travaux.lot.code, nom: travaux.lot.nom }),
             detail: r("avancement.lotDetail", {
-              mode: modeExecution(travaux.lot.modeExecution),
+              mode: modeExecution(travaux.lot),
               reel: travaux.avancement,
               theorique: travaux.avancementTheorique,
             }),
@@ -567,7 +567,7 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
                 rapport.lots.length === 0
                   ? r("lotsValeur", { n: 0 })
                   : rapport.lots
-                      .map((lot) => r("lotMode", { code: lot.code, nom: lot.nom, mode: modeExecution(lot.modeExecution) }))
+                      .map((lot) => r("lotMode", { code: lot.code, nom: lot.nom, mode: modeExecution(lot) }))
                       .join(r("pdf.separateurLots")),
             },
             { libelle: role("CP"), valeur: rapport.intervenants.chefProjet },
@@ -644,7 +644,7 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
 
   const { emetteur, pied } = emetteurDocument(entreprise, marque);
 
-  return {
+  const document: DocumentPdf = {
     nomFichier: r("pdf.nomFichier", { reference: reference || rapport.id }),
     entete: {
       emetteur,
@@ -674,4 +674,6 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
       droite: (page, total) => r("pdf.page", { page, total }),
     },
   };
+
+  return appliquerDocumentsAuPdf(document, documents);
 }

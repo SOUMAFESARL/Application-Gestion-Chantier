@@ -90,6 +90,9 @@ export const CONDITIONS_ROUTES: readonly (readonly [string, ConditionAcces])[] =
   // Tout le monde consulte le calendrier de l'entreprise ; l'écriture, elle, exige
   // `administration.calendrier_gerer` (erratum E-4) et se masque dans l'écran.
   ["/parametres/calendrier", TOUS],
+  // Tout compte consulte l'en-tête et le pied des documents (chaque PDF les lit) ; l'écriture
+  // exige `administration.documents_gerer` et se désactive dans l'écran.
+  ["/parametres/documents", TOUS],
   ["/parametres", DIRECTION],
   ["/abonnement", DIRECTION],
 ];

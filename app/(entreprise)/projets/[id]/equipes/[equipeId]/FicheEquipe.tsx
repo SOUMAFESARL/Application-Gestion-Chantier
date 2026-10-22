@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Plus, TriangleAlert, UserCog, UserMinus } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/tableau-liste";
 import { AccesNonAutorise, projetVisible, useDroits } from "@/features/habilitations";
 import { listerEquipes, listerProjets } from "@/features/projets/adaptateur";
-import { CLE_LISTE_PROJETS, cleEquipes, cleLots } from "@/features/projets/cles";
+import { CLE_LISTE_PROJETS, cleEquipes } from "@/features/projets/cles";
 import { ModaleAjoutMembre } from "@/features/projets/components/ModaleAjoutMembre";
 import { ModaleRetraitMembre } from "@/features/projets/components/ModaleRetraitMembre";
 import { ModaleRoleMembre } from "@/features/projets/components/ModaleRoleMembre";
@@ -29,10 +29,11 @@ import {
   criteresMembresActifs,
   filtrerMembres,
   initiales,
+  peutGererEquipes as peutGererLesEquipes,
   rolesPresents,
 } from "@/features/projets/regles";
 import type { CriteresMembres } from "@/features/projets/regles";
-import type { Equipe, MembreEquipe, Projet } from "@/features/projets/types";
+import type { MembreEquipe, Projet } from "@/features/projets/types";
 import { cn } from "@/lib/utils";
 
 import {
@@ -58,8 +59,12 @@ interface Props {
  * Elle lit les équipes du chantier dans **le même cache** que l'écran
  * « Équipes et affectations » : revenir en arrière montre la carte déjà à
  * jour, sans rechargement. Chaque écriture renvoie l'équipe entière, posée
- * telle quelle dans ce cache — nommer un chef en fait redescendre un autre,
- * et c'est le serveur qui le décide, pas cet écran.
+ * telle quelle dans ce cache (`actualiserEquipes`, par les modales) puis tout
+ * ce qui en dépend est relu — nommer un chef en fait redescendre un autre, et
+ * c'est le serveur qui le décide, pas cet écran.
+ *
+ * Les gestes de gestion (ajouter, changer un rôle, retirer) ne s'offrent
+ * qu'avec `projets.gerer_equipes` sur ce chantier.
  *
  * **Aucun calcul ici** : tout vient de `features/projets/regles`.
  */
@@ -67,7 +72,6 @@ export function FicheEquipe({ projetId, equipeId }: Props) {
   const t = useTranslations("projets.equipesAffectations");
   const tFiche = useTranslations("projets.equipesAffectations.fiche");
   const { droits, peutSurProjet } = useDroits();
-  const clientRequetes = useQueryClient();
 
   const [criteres, setCriteres] = useState<CriteresMembres>(CRITERES_MEMBRES_VIDES);
   const [ajoutOuvert, setAjoutOuvert] = useState(false);
@@ -88,7 +92,7 @@ export function FicheEquipe({ projetId, equipeId }: Props) {
   });
   const projet = requeteProjets.data?.find((candidat) => candidat.id === projetId) ?? null;
   // Gérer les membres d'une équipe appelle /projets/${projetId}/equipes/${equipeId}/membres/ -> projets.gerer_equipes
-  const peutGererEquipes = projet ? peutSurProjet("projets.gerer_equipes", projet) : false;
+  const peutGererEquipes = peutGererLesEquipes(projet, peutSurProjet);
 
   const equipes = useMemo(() => requete.data ?? [], [requete.data]);
   const rang = equipes.findIndex((candidate) => candidate.id === equipeId);
@@ -103,15 +107,6 @@ export function FicheEquipe({ projetId, equipeId }: Props) {
   function ouvrir(action: () => void) {
     setOuverture((precedent) => precedent + 1);
     action();
-  }
-
-  function surModifiee(modifiee: Equipe) {
-    clientRequetes.setQueryData<Equipe[]>(cleEquipes(projetId), (anciennes) =>
-      (anciennes ?? []).map((candidate) => (candidate.id === modifiee.id ? modifiee : candidate)),
-    );
-    void clientRequetes.invalidateQueries({ queryKey: cleEquipes(projetId) });
-    // L'effectif d'une équipe s'affiche aussi sur les activités qu'elle tient.
-    void clientRequetes.invalidateQueries({ queryKey: cleLots(projetId) });
   }
 
   const colonnes = useMemo(
@@ -152,38 +147,45 @@ export function FicheEquipe({ projetId, equipeId }: Props) {
             );
           },
         }),
-        colonne.display({
-          id: "actions",
-          header: tFiche("colonnes.actions"),
-          meta: { classe: BORD_DROIT_TABLEAU },
-          cell: ({ row }) => {
-            if (!peutGererEquipes) return null;
-            const nom = t("nomComplet", { prenom: row.original.prenom, nom: row.original.nom });
-            return (
-              <span className="inline-flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={tFiche("actionChangerRole", { nom })}
-                  title={tFiche("actionChangerRole", { nom })}
-                  onClick={() => ouvrir(() => setMembreRole(row.original))}
-                >
-                  <UserCog />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-erreur hover:text-erreur"
-                  aria-label={tFiche("actionRetirer", { nom })}
-                  title={tFiche("actionRetirer", { nom })}
-                  onClick={() => ouvrir(() => setMembreRetrait(row.original))}
-                >
-                  <UserMinus />
-                </Button>
-              </span>
-            );
-          },
-        }),
+        // Sans le droit, pas de colonne : une colonne « Actions » vide n'a rien à dire.
+        ...(peutGererEquipes
+          ? [
+              colonne.display({
+                id: "actions",
+                header: tFiche("colonnes.actions"),
+                meta: { classe: BORD_DROIT_TABLEAU },
+                cell: ({ row }) => {
+                  const nom = t("nomComplet", {
+                    prenom: row.original.prenom,
+                    nom: row.original.nom,
+                  });
+                  return (
+                    <span className="inline-flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={tFiche("actionChangerRole", { nom })}
+                        title={tFiche("actionChangerRole", { nom })}
+                        onClick={() => ouvrir(() => setMembreRole(row.original))}
+                      >
+                        <UserCog />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-erreur hover:text-erreur"
+                        aria-label={tFiche("actionRetirer", { nom })}
+                        title={tFiche("actionRetirer", { nom })}
+                        onClick={() => ouvrir(() => setMembreRetrait(row.original))}
+                      >
+                        <UserMinus />
+                      </Button>
+                    </span>
+                  );
+                },
+              }),
+            ]
+          : []),
       ]),
     [t, tFiche, equipe?.chef?.id, peutGererEquipes],
   );
@@ -303,30 +305,31 @@ export function FicheEquipe({ projetId, equipeId }: Props) {
         }
       />
 
-      <ModaleAjoutMembre
-        key={`ajout-${ouverture}`}
-        ouverte={ajoutOuvert}
-        onFermer={() => setAjoutOuvert(false)}
-        projetId={projetId}
-        equipe={equipe}
-        onAjoute={surModifiee}
-      />
-      <ModaleRoleMembre
-        key={`role-${ouverture}`}
-        membre={membreRole}
-        onFermer={() => setMembreRole(null)}
-        projetId={projetId}
-        equipe={equipe}
-        onModifiee={surModifiee}
-      />
-      <ModaleRetraitMembre
-        key={`retrait-${ouverture}`}
-        membre={membreRetrait}
-        onFermer={() => setMembreRetrait(null)}
-        projetId={projetId}
-        equipe={equipe}
-        onRetire={surModifiee}
-      />
+      {peutGererEquipes && (
+        <>
+          <ModaleAjoutMembre
+            key={`ajout-${ouverture}`}
+            ouverte={ajoutOuvert}
+            onFermer={() => setAjoutOuvert(false)}
+            projetId={projetId}
+            equipe={equipe}
+          />
+          <ModaleRoleMembre
+            key={`role-${ouverture}`}
+            membre={membreRole}
+            onFermer={() => setMembreRole(null)}
+            projetId={projetId}
+            equipe={equipe}
+          />
+          <ModaleRetraitMembre
+            key={`retrait-${ouverture}`}
+            membre={membreRetrait}
+            onFermer={() => setMembreRetrait(null)}
+            projetId={projetId}
+            equipe={equipe}
+          />
+        </>
+      )}
     </div>
   );
 }

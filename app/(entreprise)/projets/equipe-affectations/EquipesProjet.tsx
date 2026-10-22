@@ -13,6 +13,7 @@ import {
   initiales,
   NATURES_EQUIPE,
   nomAbrege,
+  peutGererEquipes as peutGererLesEquipes,
 } from "@/features/projets/regles";
 import { useDroits } from "@/features/habilitations";
 import type { Equipe, Lot, NatureEquipe, Projet } from "@/features/projets/types";
@@ -55,8 +56,8 @@ export function EquipesProjet({
   const t = useTranslations("projets.equipesAffectations");
   const [nature, setNature] = useState<NatureEquipe | "">("");
   const { peutSurProjet } = useDroits();
-  // Constituer une équipe, gérer ses membres, l'affecter appellent /equipes/… -> projets.gerer_equipes
-  const peutGererEquipes = projet ? peutSurProjet("projets.gerer_equipes", projet) : false;
+  // Constituer une équipe ou l'affecter appelle /equipes/… -> projets.gerer_equipes sur ce chantier.
+  const peutGererEquipes = peutGererLesEquipes(projet, peutSurProjet);
 
   const comptes = useMemo(() => compterEquipesParNature(equipes), [equipes]);
   const visibles = useMemo(() => filtrerEquipes(equipes, nature), [equipes, nature]);
@@ -77,7 +78,7 @@ export function EquipesProjet({
       <div className={BLOC}>
         <EtatVide
           titre={t("aucuneEquipeTitre")}
-          description={t("aucuneEquipe")}
+          description={peutGererEquipes ? t("aucuneEquipe") : t("aucuneEquipeLecture")}
           action={boutonConstituer || undefined}
         />
       </div>
@@ -220,7 +221,7 @@ function CarteEquipe({
           : t("aucuneActiviteEnCours")}
       </p>
 
-      {peutGererEquipes && (
+      {/* Voir les membres est une lecture : tout lecteur du chantier l'a. Seule l'affectation se gère. */}
       <div className="relative z-10 flex flex-wrap gap-2 self-start">
         <Bouton
           variante="secondaire"
@@ -231,17 +232,18 @@ function CarteEquipe({
         >
           {t("actionMembres")}
         </Bouton>
-        <Bouton
-          variante="secondaire"
-          taille="sm"
-          iconeGauche={<UserPlus size={16} aria-hidden="true" />}
-          aria-label={t("actionAffecterLibelle", { nom: equipe.nom })}
-          onClick={onAffecter}
-        >
-          {t("actionAffecter")}
-        </Bouton>
+        {peutGererEquipes && (
+          <Bouton
+            variante="secondaire"
+            taille="sm"
+            iconeGauche={<UserPlus size={16} aria-hidden="true" />}
+            aria-label={t("actionAffecterLibelle", { nom: equipe.nom })}
+            onClick={onAffecter}
+          >
+            {t("actionAffecter")}
+          </Bouton>
+        )}
       </div>
-      )}
     </article>
   );
 }

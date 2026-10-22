@@ -42,8 +42,8 @@ import { creerLot, modifierLot } from "@/features/projets/adaptateur";
 import {
   budgetDisponible,
   codeLotSuivant,
+  datesVerrouillees,
   lotCreable,
-  MODES_EXECUTION_LOT,
   STATUTS_DECLARES,
   TYPES_BORDEREAU,
 } from "@/features/projets/regles";
@@ -59,6 +59,7 @@ import { ErreurApi } from "@/lib/api";
 import { formaterDate, formaterMontant, formaterSaisieMontant } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+import { ComboboxModeExecution } from "./ComboboxModeExecution";
 import { ComboboxNomLot } from "./ComboboxNomLot";
 import { ImportLots } from "./ImportLots";
 
@@ -284,7 +285,10 @@ function SaisieLot({
 
   const valeurs = useWatch({ control: form.control }) as SaisieLotProjet;
   const enCours = form.formState.isSubmitting;
-  const datesLotFigees = Boolean(lot && (lot.dateDebut || lot.dateFin));
+  // Les dates déjà fixées ne partent plus par le PATCH (RG-11) : on les change par
+  // la reprogrammation, et on garde ici celles qu'elle vient d'écrire.
+  const [datesLot, setDatesLot] = useState({ debut: lot?.dateDebut ?? null, fin: lot?.dateFin ?? null });
+  const verrou = datesVerrouillees(datesLot);
   const [reprogrammationOuverte, setReprogrammationOuverte] = useState(false);
 
   async function soumettre(saisie: SaisieLotProjet) {
@@ -298,8 +302,10 @@ function SaisieLot({
       if (!voitMontants) {
         delete valeurs.budget;
       }
-      if (datesLotFigees) {
+      if (lot && verrou.debut) {
         delete valeurs.dateDebut;
+      }
+      if (lot && verrou.fin) {
         delete valeurs.dateFin;
       }
       // Le serveur renvoie le lot seul : ses activités restent celles qu'on a.
@@ -375,20 +381,16 @@ function SaisieLot({
                 <FormLabel>
                   {tCreation("colonneModeExecution")} <Requis />
                 </FormLabel>
-                <Select value={field.value} onValueChange={field.onChange} disabled={enCours}>
-                  <FormControl>
-                    <SelectTrigger className={cn(CHAMP, "w-full bg-card")} onBlur={field.onBlur}>
-                      <SelectValue placeholder={tCreation("selectionner")} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {MODES_EXECUTION_LOT.map((mode) => (
-                      <SelectItem key={mode} value={mode}>
-                        {tCreation(`modeExecution.${mode}`)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <ComboboxModeExecution
+                    valeur={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    libelleActuel={lot?.modeExecutionLibelle}
+                    className={CHAMP}
+                    disabled={enCours}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -472,13 +474,13 @@ function SaisieLot({
             />
           )}
 
-          {datesLotFigees && lot && (
+          {verrou.reprogrammable && lot && (
             <div className="flex items-center justify-between gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-2.5">
               <span className="text-xs text-neutral-600">
                 {tReprog("datesActuellesFormat", {
                   label: tReprog("datesActuelles"),
-                  debut: formaterDate(lot.dateDebut),
-                  fin: formaterDate(lot.dateFin),
+                  debut: formaterDate(datesLot.debut),
+                  fin: formaterDate(datesLot.fin),
                 })}
               </span>
               <Button
@@ -510,7 +512,7 @@ function SaisieLot({
                       auPlusTard={valeurs.dateFin || datesProjet?.dateFinPrevue || undefined}
                       className={CHAMP}
                       placeholder={tCreation("champDateChoisir")}
-                      disabled={enCours || datesLotFigees}
+                      disabled={enCours || (Boolean(lot) && verrou.debut)}
                     />
                   </FormControl>
                   <FormMessage />
@@ -532,7 +534,7 @@ function SaisieLot({
                       auPlusTard={datesProjet?.dateFinPrevue || undefined}
                       className={CHAMP}
                       placeholder={tCreation("champDateChoisir")}
-                      disabled={enCours || datesLotFigees}
+                      disabled={enCours || (Boolean(lot) && verrou.fin)}
                     />
                   </FormControl>
                   <FormMessage />
@@ -560,7 +562,7 @@ function SaisieLot({
         </Button>
       </SheetFooter>
 
-      {lot && datesLotFigees && (
+      {lot && verrou.reprogrammable && (
         <ModaleReprogrammation
           ouverte={reprogrammationOuverte}
           onFermer={() => setReprogrammationOuverte(false)}
@@ -568,7 +570,7 @@ function SaisieLot({
           id={lot.id}
           nomObjet={lot.nom}
           projetId={projetId}
-          datesActuelles={{ debut: lot.dateDebut, fin: lot.dateFin }}
+          datesActuelles={datesLot}
           bornesParent={
             datesProjet
               ? { debutMin: datesProjet.dateDebutPrevue, finMax: datesProjet.dateFinPrevue }
@@ -577,6 +579,7 @@ function SaisieLot({
           onSucces={(resultat) => {
             form.setValue("dateDebut", resultat.dateDebutPrevue ?? "");
             form.setValue("dateFin", resultat.dateFinPrevue);
+            setDatesLot({ debut: resultat.dateDebutPrevue, fin: resultat.dateFinPrevue });
             onEnregistre({
               ...lot,
               dateDebut: resultat.dateDebutPrevue,

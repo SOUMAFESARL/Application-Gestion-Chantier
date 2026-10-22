@@ -115,6 +115,12 @@ export interface Projet {
    * ensuite.
    */
   chefProjet: Intervenant | null;
+  /**
+   * Le compte courant peut-il retirer, désactiver ou changer le chef de projet ?
+   * Renvoyé par le serveur sur l'affectation : seuls le DG et les rôles qui affectent
+   * les membres le peuvent. Faux tant que le serveur ne l'a pas dit.
+   */
+  chefProjetModifiable: boolean;
   conducteursTravaux: Intervenant[];
   chefsChantier: ChefChantierProjet[];
   autresMembres: AutreMembreProjet[];
@@ -176,10 +182,22 @@ export type FonctionAutreMembre =
   | "QHSE"
   | "AUTRE";
 
-/** Un chef de chantier, et la zone ou le lot dont il a la charge s'il est précisé. */
+/** Le lot dont un chef de chantier a la charge, tel que le serveur le résout. */
+export interface LotAffecte {
+  id: string;
+  code: string;
+  libelle: string;
+}
+
+/**
+ * Un chef de chantier, et le lot ou la zone dont il a la charge s'il est précisé.
+ * Le lot prime sur la zone ; ni l'un ni l'autre : tout le chantier.
+ */
 export interface ChefChantierProjet {
   intervenant: Intervenant;
-  /** « Lot 02 — Gros œuvre », « Bâtiment B »… `null` : tout le chantier. */
+  /** Un lot du projet. `null` : pas de lot (ancienne affectation à zone libre, ou tout le chantier). */
+  lot: LotAffecte | null;
+  /** « Bâtiment B »… la zone libre des affectations antérieures au choix d'un lot. */
   zone: string | null;
   affectationId?: string | null;
 }
@@ -201,14 +219,17 @@ export interface AutreMembreProjet {
  */
 export type AjoutEncadrement =
   | { fonction: "CHEF_PROJET" | "CONDUCTEUR_TRAVAUX"; intervenant: Intervenant }
-  | { fonction: "CHEF_CHANTIER"; intervenant: Intervenant; zone: string | null }
+  /** `lotId` : un lot du projet. `null` : tout le chantier. */
+  | { fonction: "CHEF_CHANTIER"; intervenant: Intervenant; lotId: string | null }
   /** Tout autre rôle de portée Projet, par son code (QSE, VI…) — décision du 16/10/2026. */
   | { fonction: "AUTRE_MEMBRE"; intervenant: Intervenant; roleCode: string };
 
 /** Le planning contractuel, fixé par le chef de projet après la création. */
 export interface PlanningProjet {
-  dateDebutPrevue: string;
-  dateFinPrevue: string;
+  /** Absente : la date déjà fixée ne se réécrit pas, elle se reprogramme (RG-11). */
+  dateDebutPrevue?: string;
+  /** Absente : la date déjà fixée ne se réécrit pas, elle se reprogramme (RG-11). */
+  dateFinPrevue?: string;
 }
 
 /** Un chantier attribué à un collaborateur, et ce qu'il y fait (une personne, une fonction par projet). */
@@ -238,11 +259,26 @@ export type TypeProjetPredefini =
   | "REHABILITATION"
   | "AUTRE";
 
-/** Qui exécute un lot : l'entreprise elle-même, ou un sous-traitant. */
+/**
+ * Le mode de base d'un lot, tel que le journal le lit : le rapport journalier
+ * raisonne sur ces trois-là seuls, quel que soit le mode que le lot porte.
+ */
 export type ModeExecutionLot =
   | "REGIE_DIRECTE"
   | "SOUS_TRAITANCE_STRUCTUREE"
   | "SOUS_TRAITANCE_INFORMELLE";
+
+/**
+ * Les trois modes d'exécution de base, sous le code du serveur. Tout mode du
+ * référentiel (`modes-execution`) se rattache à l'un d'eux : c'est son groupe.
+ */
+export type ModeExecutionBase = "REGIE" | "SOUS_TRAITANCE_STRUCTUREE" | "SOUS_TRAITANCE_INFORMELLE";
+
+/** Une entrée du référentiel des modes d'exécution, pour reconnaître un mode écrit en clair. */
+export interface EntreeModeExecution {
+  code: string;
+  libelle: string;
+}
 
 /** Comment le lot est rémunéré. */
 export type TypeBordereau = "FORFAIT_GLOBAL" | "PRIX_UNITAIRE";
@@ -434,6 +470,20 @@ export interface Equipe extends EquipeChantier {
   membres: MembreEquipe[];
 }
 
+/**
+ * Un collaborateur que l'on peut mettre dans une équipe du chantier : il est
+ * affecté au projet. Une personne peut tenir plusieurs équipes du même projet,
+ * d'où la liste de celles où elle est déjà.
+ */
+export interface CandidatEquipe {
+  id: string;
+  nomComplet: string;
+  /** Le code du rôle qu'il tient sur le projet (`CP`, `CT`, `CC`…) ; vide si le serveur ne le dit pas. */
+  roleProjet: string;
+  /** Les équipes du projet dont il est déjà membre. */
+  equipes: { id: string; nom: string }[];
+}
+
 /** Ce qu'il faut fournir pour constituer une équipe sur un chantier. */
 export interface CreationEquipe {
   nom: string;
@@ -515,7 +565,10 @@ export interface Lot {
   /** `03` : l'ordre du lot dans le chantier. */
   code: string;
   nom: string;
-  modeExecution: ModeExecutionLot;
+  /** Le code d'une entrée du référentiel des modes d'exécution (`REGIE` pour la régie). */
+  modeExecution: string;
+  /** Le libellé du mode, tel que le serveur le résout — à afficher à la lecture. */
+  modeExecutionLibelle: string;
   typeBordereau: TypeBordereau;
   /**
    * En centimes. `null` tant qu'il n'est pas défini. Le budget se tient
@@ -538,7 +591,8 @@ export interface Lot {
 /** Ce qu'il faut fournir pour ajouter un lot à un chantier existant. */
 export interface CreationLotProjet {
   nom: string;
-  modeExecution: ModeExecutionLot;
+  /** Le code d'une entrée du référentiel des modes d'exécution. */
+  modeExecution: string;
   typeBordereau: TypeBordereau;
   /** En centimes. */
   budget?: number;
@@ -588,7 +642,7 @@ export interface LigneImportLot {
   ligne: number;
   nom: string;
   /** `null` : absent ou non reconnu — le choix par défaut de l'import s'applique. */
-  modeExecution: ModeExecutionLot | null;
+  modeExecution: string | null;
   typeBordereau: TypeBordereau | null;
   /** En centimes. */
   budget: number | null;

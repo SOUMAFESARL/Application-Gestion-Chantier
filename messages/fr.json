@@ -651,7 +651,7 @@
       },
       "referentiels": {
         "titre": "Référentiels",
-        "description": "Les types de projet et les noms de lot proposés à toutes les entreprises. Elles peuvent y ajouter les leurs, mais pas supprimer ceux d’ici.",
+        "description": "Les types de projet, les noms de lot et les modes d’exécution proposés à toutes les entreprises. Elles peuvent y ajouter les leurs, mais pas supprimer ceux d’ici.",
         "types-projet": {
           "titre": "Types de projet",
           "nomFichier": "types-projet",
@@ -665,6 +665,13 @@
           "vide": "Aucun nom de lot.",
           "ajouter": "Ajouter un nom de lot",
           "aideGroupe": "Le corps d’état, titre du groupe dans la liste (ex. : Lots architecturaux)."
+        },
+        "modes-execution": {
+          "titre": "Modes d’exécution",
+          "nomFichier": "modes-execution",
+          "vide": "Aucun mode d’exécution.",
+          "ajouter": "Ajouter un mode d’exécution",
+          "aideGroupe": "Le mode de base auquel ce mode se rattache."
         },
         "colonneLibelle": "Libellé",
         "colonneGroupe": "Groupe",
@@ -1688,6 +1695,8 @@
     "filtreActifs": "Actifs",
     "filtreAvecNombre": "{libelle} ({nombre})",
     "filtreInvites": "Invitations en attente",
+    "filtreRole": "Filtrer par rôle",
+    "filtreRoleTous": "Tous les rôles",
     "filtreStatut": "Filtrer par statut",
     "filtreSuspendus": "Suspendus",
     "filtreTous": "Tous",
@@ -1921,7 +1930,8 @@
       "roles": "Créer les rôles et régler ce que chacun peut voir et faire.",
       "listes": "Les types de projet et les noms de lot proposés à toute l’entreprise.",
       "calendrier": "Les jours ouvrés de l’entreprise : semaine type, jours fériés et exceptions.",
-      "configuration": "Les informations de l’entreprise qui figurent sur vos documents officiels."
+      "configuration": "Les informations de l’entreprise qui figurent sur vos documents officiels.",
+      "documentsPdf": "Le logo et les mentions imprimés en haut et en bas de vos PDF."
     }
   },
   "pagination": {
@@ -2428,6 +2438,7 @@
       "actionConstituer": "Constituer une équipe",
       "aucuneEquipeTitre": "Aucune équipe sur ce chantier",
       "aucuneEquipe": "Constituez les équipes du chantier, puis affectez-les à ses activités.",
+      "aucuneEquipeLecture": "Aucune équipe n'a encore été constituée sur ce chantier.",
       "chefTitre": "Chef d'équipe",
       "avatarsCaches": "+{nombre}",
       "chefEtEffectif": "Chef d'équipe : <fort>{chef}</fort> · {nombre, plural, one {# personne} other {# personnes}}",
@@ -2468,7 +2479,7 @@
       "fermer": "Fermer",
       "formEquipe": {
         "titre": "Constituer une équipe",
-        "sousTitre": "Un chef et ses membres, internes ou sous-traitants, sur un même corps d'état.",
+        "sousTitre": "Un chef et ses membres, internes ou sous-traitants, sur un même corps d'état. Les collaborateurs proposés sont ceux affectés au chantier ; un même collaborateur peut tenir plusieurs équipes.",
         "champNom": "Nom de l'équipe",
         "champNomPlaceholder": "ex. Équipe Maçonnerie B",
         "champNature": "Nature",
@@ -2477,11 +2488,12 @@
         "chef": "Chef d'équipe",
         "champPersonneRang": "Membre {rang}",
         "champRoleRang": "Rôle du membre {rang}",
-        "personnePlaceholder": "Choisir un collaborateur ou saisir un nom",
-        "personneRecherche": "Rechercher un collaborateur, ou taper un nom…",
-        "personneAucun": "Aucun collaborateur ne correspond.",
+        "personnePlaceholder": "Choisir un collaborateur du chantier ou saisir un nom",
+        "personneRecherche": "Rechercher un collaborateur du chantier, ou taper un nom…",
+        "personneAucun": "Aucun collaborateur affecté au chantier ne correspond.",
         "personneNouvelle": "Ajouter « {nom} » comme nouvelle personne",
-        "groupeCollaborateurs": "Collaborateurs",
+        "personneEtEquipes": "{nom} · déjà dans {equipes}",
+        "groupeCollaborateurs": "Affectés au chantier",
         "nouvellePersonne": "<fort>Nouvelle personne</fort> · sans compte collaborateur, ajoutée à l'équipe seulement.",
         "champPrenomDe": "Prénom — {personne}",
         "champNomDe": "Nom — {personne}",
@@ -2494,6 +2506,7 @@
         "annuler": "Annuler",
         "constituer": "Constituer l'équipe",
         "erreurGenerique": "L'équipe n'a pas pu être constituée. Réessayez.",
+        "erreurCandidats": "Les collaborateurs du chantier n'ont pas pu être chargés. Fermez et rouvrez cette fenêtre pour réessayer.",
         "erreurNomRequis": "Le nom de l'équipe est requis.",
         "erreurNomTropLong": "Le nom ne doit pas dépasser 80 caractères.",
         "erreurNatureRequise": "Choisissez la nature de l'équipe.",
@@ -2558,12 +2571,13 @@
         },
         "ajout": {
           "titre": "Ajouter un membre",
-          "sousTitre": "Un collaborateur de l'entreprise, ou une personne saisie sur le chantier.",
+          "sousTitre": "Un collaborateur affecté au chantier, ou une personne saisie sur le chantier.",
           "champPersonne": "Personne",
           "champRole": "Rôle dans l'équipe",
           "annuler": "Annuler",
           "ajouter": "Ajouter à l'équipe",
-          "erreurGenerique": "La personne n'a pas pu être ajoutée. Réessayez."
+          "erreurGenerique": "La personne n'a pas pu être ajoutée. Réessayez.",
+          "erreurCandidats": "Les collaborateurs du chantier n'ont pas pu être chargés. Fermez et rouvrez cette fenêtre pour réessayer."
         },
         "changementRole": {
           "titre": "Changer le rôle",
@@ -2659,15 +2673,17 @@
         "utilisateurAucun": "Aucun collaborateur disponible avec ce rôle.",
         "chargementUtilisateurs": "Chargement des utilisateurs…",
         "erreurUtilisateurs": "Impossible de charger les utilisateurs du compte.",
-        "champZone": "Zone ou lot (optionnel)",
-        "zonePlaceholder": "Ex : Lot 02 — Gros œuvre, Bâtiment B",
-        "aideZone": "Un chef de chantier par zone ou par lot. Vide : tout le chantier.",
+        "champLot": "Lot (optionnel)",
+        "chargementLots": "Chargement des lots…",
+        "lotRecherche": "Rechercher un lot…",
+        "lotAucun": "Aucun lot dans ce projet.",
+        "aideLot": "Un chef de chantier par lot. Vide : tout le chantier.",
+        "erreurLots": "Impossible de charger les lots du projet.",
         "champFonctionMembre": "Fonction",
         "selectionner": "Sélectionner…",
         "remplacement": "{nom} est aujourd'hui chef de projet : il sera remplacé.",
         "erreurFonctionRequise": "Choisissez la place dans l'équipe.",
         "erreurUtilisateurRequis": "Sélectionnez un utilisateur.",
-        "erreurZoneTropLongue": "La zone ne doit pas dépasser 80 caractères.",
         "erreurFonctionMembreRequise": "Choisissez la fonction de ce membre.",
         "erreurGenerique": "Le membre n'a pas pu être ajouté.",
         "annuler": "Annuler",
@@ -2724,16 +2740,38 @@
       "ajouter": "Ajouter « {saisie} » à la liste",
       "groupeEntreprise": "Ajoutés par l’entreprise",
       "erreurAjout": "L’ajout à la liste a échoué. Réessayez.",
+      "rechercherMode": "Rechercher un mode d’exécution…",
+      "modeRetire": "Retiré de la liste",
+      "modesBase": {
+        "REGIE": "Régie",
+        "SOUS_TRAITANCE_STRUCTUREE": "Sous-traitance structurée",
+        "SOUS_TRAITANCE_INFORMELLE": "Sous-traitance informelle"
+      },
+      "modeBase": {
+        "libelle": "Mode de base",
+        "aide": "Le rapport journalier s’appuie sur ce mode : le mode ajouté s’y rattache.",
+        "placeholder": "Choisir un mode de base"
+      },
       "gestion": {
         "titrePage": "Listes de l’entreprise",
-        "descriptionPage": "Les types de projet et les noms de lot proposés dans les formulaires. Vos ajouts sont proposés à tous vos collaborateurs ; ceux de la plateforme ne se retirent pas.",
+        "descriptionPage": "Les types de projet, les noms de lot et les modes d’exécution proposés dans les formulaires. Vos ajouts sont proposés à tous vos collaborateurs ; ceux de la plateforme ne se retirent pas.",
         "titre": {
           "types-projet": "Types de projet",
-          "lots": "Noms de lot"
+          "lots": "Noms de lot",
+          "modes-execution": "Modes d’exécution"
         },
         "placeholder": {
           "types-projet": "Nouveau type de projet",
-          "lots": "Nouveau nom de lot"
+          "lots": "Nouveau nom de lot",
+          "modes-execution": "Nouveau mode d’exécution"
+        },
+        "groupe": {
+          "libelle": "Groupe (facultatif)",
+          "placeholder": "Choisir ou saisir un groupe",
+          "rechercher": "Rechercher ou saisir un groupe…",
+          "aucun": "Aucun groupe",
+          "aucunResultat": "Aucun groupe.",
+          "creer": "Créer le groupe « {saisie} »"
         },
         "aide": "Plateforme : proposé à toutes les entreprises, verrouillé. Les autres sont les vôtres.",
         "aidePlateforme": "Défini par la plateforme : il ne se retire pas.",
@@ -2813,6 +2851,74 @@
     "placeholderPersonnalise": "Nom de la localité",
     "rechercher": "Rechercher une ville ou une commune…",
     "utiliserSaisie": "Utiliser « {saisie} »"
+  },
+  "reglageDocuments": {
+    "titre": "En-tête et pied des documents",
+    "metaDescription": "Les mentions de l’entreprise imprimées en haut et en bas de ses PDF : logo, raison sociale, RCCM, NIF, adresse, contacts.",
+    "description": "Ce qui s’imprime en haut et en bas de vos PDF : fiche projet, rapports journaliers, synthèses et bons de réception.",
+    "lectureSeule": "Vous consultez le réglage. Seuls les comptes qui détiennent le droit de gérer les documents peuvent le modifier.",
+    "chargement": "Chargement du réglage…",
+    "erreurs": {
+      "action": "L’action n’a pas abouti. Réessayez."
+    },
+    "entete": {
+      "titre": "En-tête",
+      "aide": "Le logo et les mentions choisies figurent en haut de la première page, sous le nom de l’entreprise."
+    },
+    "pied": {
+      "titre": "Pied de page",
+      "aide": "Les mentions choisies figurent en bas de chaque page, sous la pagination."
+    },
+    "logo": {
+      "libelle": "Afficher le logo de l’entreprise",
+      "aide": "Sans logo, le nom de l’entreprise s’imprime à sa place."
+    },
+    "mentions": {
+      "titre": "Mentions imprimées",
+      "aucune": "Aucune mention choisie.",
+      "ajouter": "Ajouter une mention",
+      "monter": "Monter « {mention} »",
+      "descendre": "Descendre « {mention} »",
+      "retirer": "Retirer « {mention} »"
+    },
+    "codes": {
+      "raison_sociale": "Raison sociale",
+      "nom_commercial": "Nom commercial",
+      "rccm": "RCCM",
+      "nif": "NIF",
+      "adresse": "Adresse",
+      "ville": "Ville",
+      "telephone": "Téléphone",
+      "email": "Email",
+      "site_web": "Site web"
+    },
+    "libellesMentions": {
+      "rccm": "RCCM",
+      "nif": "NIF",
+      "telephone": "Tél",
+      "email": "Email",
+      "siteWeb": "Site web"
+    },
+    "texteLibre": {
+      "libelle": "Texte libre",
+      "aideEntete": "Une ligne ajoutée après les mentions de l’en-tête.",
+      "aidePied": "Une ligne ajoutée après les mentions du pied, par exemple le capital social.",
+      "compteur": "{n} / {max}"
+    },
+    "apercu": {
+      "titre": "Aperçu",
+      "aide": "Il suit vos choix, même avant l’enregistrement. Une mention sans valeur dans la configuration de l’entreprise n’est pas imprimée.",
+      "entete": "En-tête",
+      "pied": "Pied de page",
+      "logoAlt": "Logo de l’entreprise",
+      "vide": "Aucune ligne à imprimer."
+    },
+    "actions": {
+      "enregistrer": "Enregistrer",
+      "enCours": "Enregistrement…",
+      "annuler": "Annuler",
+      "succes": "Le réglage des documents est enregistré."
+    }
   },
   "roles": {
     "actions": "Actions",
@@ -3923,6 +4029,7 @@
       "descStocks": "Entrées, sorties & inventaires",
       "descTiers": "Clients, partenaires & intervenants",
       "documents": "Documents",
+      "documentsPdf": "En-tête et pied des documents",
       "equipements": "Matériel",
       "equipes": "Collaborateurs",
       "finance": "Finance",

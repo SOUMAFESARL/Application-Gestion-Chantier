@@ -19,17 +19,20 @@ import type {
   AffectationProjet,
   AnomalieImportLot,
   BadgeSante,
+  CandidatEquipe,
+  ChefChantierProjet,
   CreationLotProjet,
   DureeProjet,
   Equipe,
   FonctionAutreMembre,
   FonctionProjet,
+  EntreeModeExecution,
   Intervenant,
   LigneImportLot,
   Lot,
   LotPlanning,
   MembreEquipe,
-  ModeExecutionLot,
+  ModeExecutionBase,
   NatureEquipe,
   Projet,
   SanteProjet,
@@ -271,6 +274,24 @@ function joursEntre(debut: string | null, fin: string | null): number | null {
  */
 export function planningDefini(projet: Pick<Projet, "dateDebutPrevue" | "dateFinPrevue">): boolean {
   return Boolean(projet.dateDebutPrevue && projet.dateFinPrevue);
+}
+
+/**
+ * Les dates prévisionnelles déjà fixées d'un projet, d'un lot ou d'une activité
+ * (RG-11). Une date fixée ne se change plus par le `PATCH` ordinaire — le
+ * serveur le refuse — mais par la reprogrammation, avec motif et justification.
+ * Une date encore vide peut, elle, s'écrire par le `PATCH`. La reprogrammation
+ * n'est offerte qu'aux objets qui ont leurs deux dates : le serveur calcule
+ * l'écart de chacune sur l'ancienne valeur.
+ */
+export function datesVerrouillees(dates: { debut: string | null; fin: string | null }): {
+  debut: boolean;
+  fin: boolean;
+  reprogrammable: boolean;
+} {
+  const debut = Boolean(dates.debut);
+  const fin = Boolean(dates.fin);
+  return { debut, fin, reprogrammable: debut && fin };
 }
 
 /** Le projet a-t-il ses deux dates — condition pour créer ou activer un lot (US 3.6). */
@@ -556,12 +577,20 @@ export function refusContrat(fichier: { name: string; type: string; size: number
   return null;
 }
 
-/** De la régie à la sous-traitance la moins encadrée. */
-export const MODES_EXECUTION_LOT: ModeExecutionLot[] = [
-  "REGIE_DIRECTE",
+/**
+ * Les trois modes de base, de la régie à la sous-traitance la moins encadrée.
+ * Tout mode d'exécution du référentiel se rattache à l'un d'eux (son groupe).
+ */
+export const MODES_EXECUTION_BASE: ModeExecutionBase[] = [
+  "REGIE",
   "SOUS_TRAITANCE_STRUCTUREE",
   "SOUS_TRAITANCE_INFORMELLE",
 ];
+
+/** Le groupe d'une entrée de référentiel est-il l'un des trois modes de base ? */
+export function estModeExecutionBase(groupe: string): groupe is ModeExecutionBase {
+  return (MODES_EXECUTION_BASE as string[]).includes(groupe);
+}
 
 export const TYPES_BORDEREAU: TypeBordereau[] = ["FORFAIT_GLOBAL", "PRIX_UNITAIRE"];
 
@@ -1446,6 +1475,53 @@ export function collaborateursDisponibles(
   );
 }
 
+/** Le code qui ouvre la gestion des équipes d'un chantier : constituer, composer, affecter. */
+export const PERMISSION_GERER_EQUIPES = "projets.gerer_equipes";
+
+/**
+ * Peut-on gérer les équipes **de ce chantier** ? Le code, sur ce chantier : le
+ * chef de projet l'a par défaut, un autre rôle ne l'a que s'il le reçoit. Sans
+ * chantier connu — liste encore en chargement —, non : mieux vaut un bouton qui
+ * arrive qu'un bouton que le serveur refusera. `peutSurProjet` est celui de
+ * `useDroits()`, passé en paramètre pour que cette règle reste sans React.
+ */
+export function peutGererEquipes(
+  projet: Projet | null | undefined,
+  peutSurProjet: (code: string, projet: Projet) => boolean,
+): boolean {
+  return projet ? peutSurProjet(PERMISSION_GERER_EQUIPES, projet) : false;
+}
+
+/**
+ * Les collaborateurs que le serveur propose pour une équipe, privés de ceux
+ * qu'elle compte déjà : les siens (`dejaDansEquipe`, les personnes de l'équipe
+ * ou celles déjà choisies dans le formulaire) et ceux dont le serveur dit
+ * qu'ils y sont (`equipeId`). Une personne d'une **autre** équipe du chantier
+ * reste proposée : elle peut tenir plusieurs équipes.
+ * `garde` reste proposé même pris : c'est le choix de la ligne en cours.
+ */
+export function candidatsPourEquipe(
+  candidats: CandidatEquipe[],
+  dejaDansEquipe: readonly string[],
+  equipeId?: string,
+  garde?: string,
+): CandidatEquipe[] {
+  const pris = new Set(dejaDansEquipe);
+  return candidats.filter((candidat) => {
+    if (candidat.id === garde) return true;
+    if (pris.has(candidat.id)) return false;
+    return !equipeId || !candidat.equipes.some((equipe) => equipe.id === equipeId);
+  });
+}
+
+/**
+ * Les noms des équipes où un candidat est déjà, hors celle qu'on compose :
+ * c'est la mention qui accompagne son nom dans la liste.
+ */
+export function nomsEquipesDuCandidat(candidat: CandidatEquipe, equipeId?: string): string[] {
+  return candidat.equipes.filter((equipe) => equipe.id !== equipeId).map((equipe) => equipe.nom);
+}
+
 /**
  * « Koffi Kouassi Yao » → prénom « Koffi », nom « Kouassi Yao ». Le premier
  * mot fait le prénom : c'est l'usage du formulaire, qui les propose ensuite
@@ -1506,7 +1582,11 @@ export function activitesEnCoursEquipe(
 /** Les quatre chiffres de l'en-tête de l'écran « Équipes et affectations ». */
 export interface SyntheseEquipes {
   equipes: number;
-  /** Le total des effectifs de toutes les équipes du chantier. */
+  /**
+   * Les personnes mobilisées sur le chantier. Un collaborateur présent dans
+   * deux équipes compte une fois (`effectifProjet`), comme dans les
+   * statistiques du serveur.
+   */
   effectif: number;
   /** Les activités qui ont une équipe. */
   affectees: number;
@@ -1525,7 +1605,7 @@ export function syntheseEquipes(
   const activites = activitesDuProjet(lots);
   return {
     equipes: equipes.length,
-    effectif: equipes.reduce((total, equipe) => total + equipe.effectif, 0),
+    effectif: effectifProjet(equipes),
     affectees: activites.filter((activite) => activite.equipe !== null).length,
     aAffecter: activites.filter(
       (activite) => activite.equipe === null && statutActivite(activite, maintenant) !== "TERMINE",
@@ -1792,6 +1872,20 @@ export const ROLE_PROJET_PAR_FONCTION: Record<FonctionProjet, "CP" | "CT" | "CC"
   AUTRE_MEMBRE: "VI",
 };
 
+/** Un lot se nomme par son code et son libellé : « 02 — Gros œuvre ». */
+export function intituleLot(lot: { code: string; libelle: string }): string {
+  return `${lot.code} — ${lot.libelle}`;
+}
+
+/**
+ * Ce qui précise la place d'un chef de chantier : son lot, à défaut sa zone libre
+ * (affectations antérieures au choix d'un lot). `null` : il a tout le chantier.
+ */
+export function precisionChefChantier(chef: Pick<ChefChantierProjet, "lot" | "zone">): string | null {
+  if (chef.lot) return intituleLot(chef.lot);
+  return chef.zone || null;
+}
+
 /**
  * Qui peut retirer quelqu'un de ce projet : DG et AD partout ; CP et CT s'ils y sont affectés ;
  * jamais soi-même. Ne protège rien : décide d'un bouton.
@@ -2019,10 +2113,28 @@ const INTITULES_FAMILLES = new Set(
   LOTS_INDICATIFS.map((famille) => sansPrefixeFamille(normaliserImport(famille.famille))),
 );
 
-/** Un mode d'exécution écrit en clair (« Régie directe », « sous-traitance informelle ») ou par son code. */
-export function modeExecutionDepuisTexte(valeur: string): ModeExecutionLot | null {
-  const texte = normaliserImport(valeur).replace(/[^a-z]/g, "");
-  if (texte.includes("regie")) return "REGIE_DIRECTE";
+/** Un texte réduit à ses lettres, pour comparer un libellé et ce qu'une cellule en dit. */
+function lettresSeules(valeur: string): string {
+  return normaliserImport(valeur).replace(/[^a-z]/g, "");
+}
+
+/**
+ * Un mode d'exécution écrit en clair (« Régie directe », « sous-traitance
+ * informelle ») ou par son code, rendu sous le code du référentiel. Une entrée
+ * du référentiel (libellé ou code) l'emporte ; à défaut, un mode de base
+ * reconnu à son mot-clé.
+ */
+export function modeExecutionDepuisTexte(
+  valeur: string,
+  modes: EntreeModeExecution[] = [],
+): string | null {
+  const texte = lettresSeules(valeur);
+  if (texte === "") return null;
+  const entree = modes.find(
+    (mode) => lettresSeules(mode.libelle) === texte || lettresSeules(mode.code) === texte,
+  );
+  if (entree) return entree.code;
+  if (texte.includes("regie")) return "REGIE";
   if (texte.includes("informel")) return "SOUS_TRAITANCE_INFORMELLE";
   if (texte.includes("structur")) return "SOUS_TRAITANCE_STRUCTUREE";
   return null;
@@ -2101,6 +2213,7 @@ export function lireLotsImportes(
   lotsExistants: Lot[],
   budgetProjet: number | null,
   voitMontants: boolean = true,
+  modes: EntreeModeExecution[] = [],
 ): LigneImportLot[] {
   const rangEntete = feuille
     .slice(0, 10)
@@ -2167,7 +2280,7 @@ export function lireLotsImportes(
     lignes.push({
       ligne: premiereLigne + rang,
       nom,
-      modeExecution: modeExecutionDepuisTexte(texteCellule(cellule("modeExecution"))),
+      modeExecution: modeExecutionDepuisTexte(texteCellule(cellule("modeExecution")), modes),
       typeBordereau: typeBordereauDepuisTexte(texteCellule(cellule("typeBordereau"))),
       budget: budget ?? null,
       dateDebut: dateDebut ?? null,
@@ -2191,7 +2304,7 @@ export function ligneRetenueParDefaut(ligne: LigneImportLot): boolean {
 
 /** Les choix de l'écran qui complètent ce que le fichier ne dit pas. */
 export interface DefautsImportLots {
-  modeExecution: ModeExecutionLot | null;
+  modeExecution: string | null;
   typeBordereau: TypeBordereau | null;
 }
 

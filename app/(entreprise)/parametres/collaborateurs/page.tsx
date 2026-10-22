@@ -55,6 +55,7 @@ import {
   initiales,
   reactivationPossible,
   renvoiInvitationPossible,
+  rolesPresents,
   suppressionPossible,
   suspensionPossible,
   type FiltreCollaborateurs,
@@ -97,6 +98,8 @@ export default function PageCollaborateurs() {
   const [moi, setMoi] = useState<ProfilUtilisateur | null>(null);
   const [filtre, setFiltre] = useState<FiltreCollaborateurs>("TOUS");
   const [recherche, setRecherche] = useState("");
+  /** Libellé du rôle retenu ; vide : tous les rôles. */
+  const [filtreRole, setFiltreRole] = useState("");
 
   // Modale d'ajout
   const [modaleOuverte, setModaleOuverte] = useState(false);
@@ -208,9 +211,16 @@ export default function PageCollaborateurs() {
 
   const collaborateurs = useMemo(() => requete.data ?? [], [requete.data]);
 
+  // Les options du filtre viennent de l'annuaire, pas des rôles attribuables :
+  // le serveur en retire le DG et, selon mes droits, d'autres rôles.
+  const optionsFiltreRole = useMemo(
+    () => rolesPresents(collaborateurs).map((libelle) => ({ valeur: libelle, libelle })),
+    [collaborateurs],
+  );
+
   const collaborateursFiltres = useMemo(
-    () => filtrerCollaborateurs(collaborateurs, filtre, recherche),
-    [collaborateurs, filtre, recherche],
+    () => filtrerCollaborateurs(collaborateurs, filtre, recherche, filtreRole),
+    [collaborateurs, filtre, recherche, filtreRole],
   );
 
   const colonnes = useMemo(() => {
@@ -384,12 +394,13 @@ export default function PageCollaborateurs() {
         donnees={collaborateursFiltres}
         cleLigne={(c) => c.id}
         messageVide={t("aucunResultat")}
-        filtresActifs={filtre !== "TOUS" || recherche.trim() !== ""}
+        filtresActifs={filtre !== "TOUS" || recherche.trim() !== "" || filtreRole !== ""}
         onReinitialiser={() => {
           setFiltre("TOUS");
           setRecherche("");
+          setFiltreRole("");
         }}
-        cleCriteres={`${filtre}|${recherche}`}
+        cleCriteres={`${filtre}|${recherche}|${filtreRole}`}
         exporter={exporter}
         actions={
           <Bouton
@@ -421,6 +432,13 @@ export default function PageCollaborateurs() {
                 valeur: f.valeur,
                 libelle: t("filtreAvecNombre", { libelle: f.libelle, nombre: f.nombre }),
               }))}
+            />
+            <FiltreTableau
+              valeur={filtreRole}
+              onChangement={setFiltreRole}
+              libelle={t("filtreRole")}
+              libelleTous={t("filtreRoleTous")}
+              options={optionsFiltreRole}
             />
           </>
         }

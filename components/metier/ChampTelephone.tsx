@@ -2,7 +2,7 @@
 
 import { Check, ChevronsUpDown, Globe } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useId, useState, type Ref } from "react";
 
 import {
   Command,
@@ -48,6 +48,8 @@ interface Props {
   international?: boolean;
   /** Classes ajoutées au cadre du champ — un fond, par exemple. */
   className?: string;
+  /** Accès au champ du numéro — pour lui donner le focus après l'ajout d'une ligne. */
+  refChamp?: Ref<HTMLInputElement>;
 }
 
 /**
@@ -80,13 +82,24 @@ export function ChampTelephone({
   disabled = false,
   international = false,
   className,
+  refChamp,
 }: Props) {
   const t = useTranslations("telephone");
   const identifiant = useId();
   const [listeOuverte, setListeOuverte] = useState(false);
   const idAide = `${identifiant}-aide`;
+  // Le pays choisi à la main, **lié à la valeur qu'il a produite**. Tant que le
+  // numéro est vide, la valeur ne porte aucun indicatif : sans cette mémoire, le
+  // sélecteur reviendrait au pays par défaut dès le choix. Liée à la valeur, elle
+  // se périme seule quand le parent en envoie une autre (un numéro chargé).
+  const [choix, setChoix] = useState<{ pays: string; pourValeur: string } | null>(null);
 
-  const { pays, national } = analyserTelephone(valeur, paysDefaut, { international });
+  const analyse = analyserTelephone(valeur, paysDefaut, { international });
+  const { national } = analyse;
+  // L'indicatif lu dans la valeur l'emporte toujours ; le choix ne sert que là
+  // où la valeur ne dit rien (champ vide, ou ancien numéro sans indicatif).
+  const paysChoisi = choix && choix.pourValeur === valeur ? choix.pays : null;
+  const pays = analyse.indicatifExplicite ? analyse.pays : (paysChoisi ?? analyse.pays);
   const estModeIntl = pays === CODE_INTERNATIONAL;
   const { indicatif, longueurMax } = estModeIntl
     ? { indicatif: "+", longueurMax: 15 }
@@ -96,7 +109,9 @@ export function ChampTelephone({
   function auChangementDePays(code: string) {
     // Le numéro national **suit le changement de pays** : celui qui corrige
     // l'indicatif après avoir tapé le numéro ne veut pas le retaper.
-    onChange(composerTelephone(code, national));
+    const composee = composerTelephone(code, national);
+    setChoix({ pays: code, pourValeur: composee });
+    onChange(composee);
   }
 
   function auChangementDeNumero(saisie: string) {
@@ -104,7 +119,10 @@ export function ChampTelephone({
     // points, tirets, le `+` d'un collage. La mise en forme est rendue juste
     // après, ce qui fait qu'un numéro collé depuis un email s'aligne tout seul.
     const chiffres = saisie.replace(/\D/g, "").slice(0, longueurMax);
-    onChange(composerTelephone(pays, chiffres));
+    const composee = composerTelephone(pays, chiffres);
+    // Vider le champ ne doit pas faire oublier le pays : il reste celui affiché.
+    setChoix({ pays, pourValeur: composee });
+    onChange(composee);
   }
 
   return (
@@ -216,6 +234,7 @@ export function ChampTelephone({
 
         <input
           id={identifiant}
+          ref={refChamp}
           className="min-w-0 flex-1 border-0 bg-transparent px-[var(--input-padding-x)] text-base tracking-[0.02em] text-neutral-900 tabular-nums outline-none disabled:cursor-not-allowed disabled:text-neutral-500"
           type="tel"
           inputMode="tel"

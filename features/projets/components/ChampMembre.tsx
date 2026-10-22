@@ -13,10 +13,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Collaborateur } from "@/features/invitations/types";
 import { cn } from "@/lib/utils";
 
-import { ROLES_MEMBRE_SIMPLE, separerNomComplet } from "../regles";
+import { nomsEquipesDuCandidat, ROLES_MEMBRE_SIMPLE, separerNomComplet } from "../regles";
+import type { CandidatEquipe } from "../types";
 import type { SaisieMembre } from "../validations";
 
 const CHAMP = "h-[var(--input-height-md)]";
@@ -35,8 +35,13 @@ interface Props {
   valeur: SaisieMembre;
   onChange: (valeur: SaisieMembre) => void;
   onBlur?: () => void;
-  /** Les collaborateurs proposés — déjà privés de ceux qui sont pris. */
-  collaborateurs: Collaborateur[];
+  /**
+   * Les collaborateurs proposés — ceux que le serveur dit affectables au projet,
+   * déjà privés de ceux qui sont pris dans cette équipe.
+   */
+  candidats: CandidatEquipe[];
+  /** L'équipe qu'on compose, si elle existe déjà : ses autres équipes seules sont mentionnées. */
+  equipeId?: string;
   erreurs?: ErreursMembre;
   /** Le nom accessible du choix de la personne (« Chef d'équipe », « Membre 2 »). */
   libelle: string;
@@ -84,7 +89,8 @@ export function ChampMembre({
   valeur,
   onChange,
   onBlur,
-  collaborateurs,
+  candidats,
+  equipeId,
   erreurs,
   libelle,
   libelleRole,
@@ -94,11 +100,19 @@ export function ChampMembre({
   const t = useTranslations("projets.equipesAffectations.formEquipe");
   const tEcran = useTranslations("projets.equipesAffectations");
 
-  const options = collaborateurs.map((collaborateur) => ({
-    valeur: collaborateur.id,
-    libelle: collaborateur.nomComplet,
-    groupe: t("groupeCollaborateurs"),
-  }));
+  // Une personne déjà dans une autre équipe du chantier reste proposée : la
+  // mention dit où, pour qu'on ne la double pas sans le savoir.
+  const options = candidats.map((candidat) => {
+    const equipes = nomsEquipesDuCandidat(candidat, equipeId);
+    return {
+      valeur: candidat.id,
+      libelle:
+        equipes.length > 0
+          ? t("personneEtEquipes", { nom: candidat.nomComplet, equipes: equipes.join(", ") })
+          : candidat.nomComplet,
+      groupe: t("groupeCollaborateurs"),
+    };
+  });
 
   // Une personne saisie s'affiche sous son nom : le combobox montre tel quel
   // ce qui n'est pas dans sa liste.
@@ -106,14 +120,14 @@ export function ChampMembre({
     valeur.collaborateurId || (valeur.nouveau ? `${valeur.prenom} ${valeur.nom}`.trim() : "");
 
   function choisir(selection: string) {
-    const collaborateur = collaborateurs.find((candidat) => candidat.id === selection);
+    const candidat = candidats.find((propose) => propose.id === selection);
     onChange(
-      collaborateur
+      candidat
         ? {
             ...valeur,
-            collaborateurId: collaborateur.id,
+            collaborateurId: candidat.id,
             nouveau: false,
-            ...separerNomComplet(collaborateur.nomComplet),
+            ...separerNomComplet(candidat.nomComplet),
           }
         : { ...valeur, collaborateurId: "", nouveau: true, ...separerNomComplet(selection) },
     );

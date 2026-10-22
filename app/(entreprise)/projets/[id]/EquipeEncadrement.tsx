@@ -7,7 +7,12 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { initiales, lienWhatsApp, peutRetirerDuProjet } from "@/features/projets/regles";
+import {
+  initiales,
+  lienWhatsApp,
+  peutRetirerDuProjet,
+  precisionChefChantier,
+} from "@/features/projets/regles";
 import type { FonctionProjet, Intervenant, Projet } from "@/features/projets/types";
 import { afficherTelephone } from "@/features/referentiels/telephone";
 import { ABSENT } from "@/lib/format";
@@ -80,8 +85,9 @@ export function EquipeEncadrement({
           <div className="flex flex-col gap-3 rounded-lg border border-solid border-primary-200 bg-primary-50 p-4">
             <div className="flex items-start justify-between gap-2">
               <Personne intervenant={chef} principal />
+              {/* Le serveur dit si ce compte peut toucher au chef de projet (`modifiable`). */}
               <div className="flex items-center gap-1">
-                {peutDesigner && (
+                {peutDesigner && projet.chefProjetModifiable && (
                   <Button
                     type="button"
                     size="sm"
@@ -91,7 +97,10 @@ export function EquipeEncadrement({
                     {t("changerChefProjet")}
                   </Button>
                 )}
-                {profil && peutRetirerDuProjet(profil, projet, chef.id) && chef.affectationId && (
+                {profil &&
+                  projet.chefProjetModifiable &&
+                  peutRetirerDuProjet(profil, projet, chef.id) &&
+                  chef.affectationId && (
                   <Button
                     type="button"
                     size="sm"
@@ -133,13 +142,14 @@ export function EquipeEncadrement({
 
       <Groupe titre={t("fonction.CHEF_CHANTIER")}>
         <Liste vide={projet.chefsChantier.length === 0}>
-          {projet.chefsChantier.map(({ intervenant, zone, affectationId }) => {
+          {projet.chefsChantier.map((chefChantier) => {
+            const { intervenant, affectationId } = chefChantier;
             const affId = affectationId ?? intervenant.affectationId;
             return (
               <Ligne
                 key={intervenant.id}
                 intervenant={intervenant}
-                precision={zone ?? t("toutLeChantier")}
+                precision={precisionChefChantier(chefChantier) ?? t("toutLeChantier")}
                 onRetirer={
                   profil && peutRetirerDuProjet(profil, projet, intervenant.id) && affId
                     ? () => onRetirer("CHEF_CHANTIER", intervenant, affId)

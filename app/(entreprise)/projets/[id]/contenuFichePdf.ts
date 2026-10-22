@@ -1,5 +1,7 @@
 import type { IndicateursJournalProjet } from "@/features/chantier";
 import type { DonneesEntreprise } from "@/features/configuration/api";
+import { appliquerDocumentsAuPdf } from "@/features/documents";
+import type { DocumentsResolus } from "@/features/documents";
 import {
   avancementLot,
   budgetRestant,
@@ -12,6 +14,7 @@ import {
   niveauBudget,
   niveauConformite,
   pointsDeVigilance,
+  precisionChefChantier,
   prochainesEtapes,
   ratioConsommationBudget,
   statutLot,
@@ -63,15 +66,16 @@ export interface DonneesFiche {
   journal: IndicateursJournalProjet | null;
   entreprise: DonneesEntreprise | null;
   logo: ImagePdf | null;
+  /** `null` : le réglage de l'en-tête et du pied n'a pas pu être lu — la fiche sort sans mentions. */
+  documents: DocumentsResolus | null;
   /** La note libre du chef de projet ; vide, la section 8 n'apparaît pas. */
   note: string;
   /** Le nom de la plateforme : l'émetteur à défaut d'entreprise connue. */
   marque: string;
-  /** Les libellés d'énumération de l'écran (type, statut, mode, bordereau). */
+  /** Les libellés d'énumération de l'écran (type, statut, bordereau) ; le mode du lot vient du serveur. */
   libelles: {
     typeProjet: (type: NonNullable<Projet["typeProjet"]>) => string;
     statutProjet: (statut: Projet["statut"]) => string;
-    modeExecution: (mode: Lot["modeExecution"]) => string;
     typeBordereau: (type: Lot["typeBordereau"]) => string;
     statutActivite: (statut: Exclude<StatutLot, "SANS_ACTIVITE">) => string;
     fonctionAutreMembre: (fonction: FonctionAutreMembre) => string;
@@ -132,8 +136,19 @@ export function emetteurDocument(
 }
 
 export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): DocumentPdf {
-  const { projet, lots, equipes, journal, entreprise, logo, note, marque, libelles, maintenant } =
-    donnees;
+  const {
+    projet,
+    lots,
+    equipes,
+    journal,
+    entreprise,
+    logo,
+    documents,
+    note,
+    marque,
+    libelles,
+    maintenant,
+  } = donnees;
   const genereLe = formaterDateHeure(maintenant);
   const lieu = [projet.quartier, projet.ville].filter(Boolean).join(", ");
   const nomOuAbsent = (intervenant: Intervenant | null) =>
@@ -267,7 +282,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
     return [
       { texte: lot.code, gras: true },
       { texte: lot.nom, gras: true },
-      { texte: libelles.modeExecution(lot.modeExecution) },
+      { texte: lot.modeExecutionLibelle },
       { texte: libelles.typeBordereau(lot.typeBordereau) },
       avancement === null
         ? { texte: ABSENT, ton: "neutre" }
@@ -404,12 +419,15 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
           intervenant: conducteur,
         }))
       : [{ role: t("equipe.conducteurTravaux"), intervenant: null }]),
-    ...projet.chefsChantier.map((chef) => ({
-      role: chef.zone
-        ? t("equipe.chefChantierZone", { zone: chef.zone })
-        : t("equipe.chefChantier"),
-      intervenant: chef.intervenant,
-    })),
+    ...projet.chefsChantier.map((chef) => {
+      const precision = precisionChefChantier(chef);
+      return {
+        role: precision
+          ? t("equipe.chefChantierZone", { zone: precision })
+          : t("equipe.chefChantier"),
+        intervenant: chef.intervenant,
+      };
+    }),
     ...projet.autresMembres.map((membre) => ({
       role: libelles.fonctionAutreMembre(membre.fonction),
       intervenant: membre.intervenant,
@@ -530,7 +548,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
 
   const { emetteur, pied } = emetteurDocument(entreprise, marque);
 
-  return {
+  const document: DocumentPdf = {
     nomFichier: t("nomFichier", {
       reference: projet.reference,
       date: maintenant.toISOString().slice(0, 10),
@@ -569,6 +587,8 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
       droite: (page, total) => t("pied.page", { page, total }),
     },
   };
+
+  return appliquerDocumentsAuPdf(document, documents);
 }
 
 function libelleEcheance(t: Traduire, projet: Projet, joursRestants: number | null): string {

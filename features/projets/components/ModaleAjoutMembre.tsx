@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleX, LoaderCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -18,9 +18,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Form, FormField } from "@/components/ui/form";
-import { CLE_COLLABORATEURS, listerCollaborateurs } from "@/features/invitations/adaptateur";
-import { ajouterMembreEquipe } from "@/features/projets/adaptateur";
-import { collaborateursDisponibles, membresEquipe } from "@/features/projets/regles";
+import { ajouterMembreEquipe, listerCandidatsEquipes } from "@/features/projets/adaptateur";
+import { actualiserEquipes, cleCandidatsEquipes } from "@/features/projets/cles";
+import { candidatsPourEquipe, membresEquipe } from "@/features/projets/regles";
 import type { Equipe } from "@/features/projets/types";
 import {
   membreVide,
@@ -40,19 +40,24 @@ interface Props {
   onFermer: () => void;
   projetId: string;
   equipe: Equipe;
-  onAjoute: (equipe: Equipe) => void;
 }
 
 /**
  * L'arrivée d'une personne dans une équipe déjà constituée : même champ que
- * la constitution — un collaborateur, ou une personne saisie — et son rôle.
- * On n'y entre pas chef : on le devient en changeant de rôle, geste qui dit
- * ce qu'il advient de l'ancien.
+ * la constitution — un collaborateur affecté au chantier, ou une personne
+ * saisie — et son rôle. On n'y entre pas chef : on le devient en changeant de
+ * rôle, geste qui dit ce qu'il advient de l'ancien.
+ *
+ * Les personnes proposées viennent de `/equipes/candidats/` : celles de cette
+ * équipe en sont écartées, celles d'une autre équipe du chantier restent
+ * proposées, avec la mention de celle-ci. L'ajout relit les équipes et tout
+ * ce qui en dépend (`actualiserEquipes`).
  *
  * L'écran le remonte à chaque ouverture (`key`) : il repart toujours vierge.
  */
-export function ModaleAjoutMembre({ ouverte, onFermer, projetId, equipe, onAjoute }: Props) {
+export function ModaleAjoutMembre({ ouverte, onFermer, projetId, equipe }: Props) {
   const t = useTranslations("projets.equipesAffectations.fiche.ajout");
+  const clientRequetes = useQueryClient();
   const [erreur, setErreur] = useState<string | null>(null);
 
   const form = useForm<SaisieAjoutMembre, unknown, ValeursAjoutMembre>({
@@ -62,9 +67,9 @@ export function ModaleAjoutMembre({ ouverte, onFermer, projetId, equipe, onAjout
   });
   const enCours = form.formState.isSubmitting;
 
-  const requeteCollaborateurs = useQuery({
-    queryKey: CLE_COLLABORATEURS,
-    queryFn: listerCollaborateurs,
+  const requeteCandidats = useQuery({
+    queryKey: cleCandidatsEquipes(projetId),
+    queryFn: ({ signal }) => listerCandidatsEquipes(projetId, signal),
     enabled: ouverte,
   });
   const dejaDansEquipe = membresEquipe(equipe)
@@ -74,7 +79,12 @@ export function ModaleAjoutMembre({ ouverte, onFermer, projetId, equipe, onAjout
   async function soumettre(valeurs: ValeursAjoutMembre) {
     setErreur(null);
     try {
-      onAjoute(await ajouterMembreEquipe(projetId, equipe.id, versSaisieMembreEquipe(valeurs.membre)));
+      const modifiee = await ajouterMembreEquipe(
+        projetId,
+        equipe.id,
+        versSaisieMembreEquipe(valeurs.membre),
+      );
+      void actualiserEquipes(clientRequetes, projetId, modifiee);
       onFermer();
     } catch (err) {
       const cause = err as ErreurApi;
@@ -103,6 +113,14 @@ export function ModaleAjoutMembre({ ouverte, onFermer, projetId, equipe, onAjout
                 <AlertDescription>{erreur}</AlertDescription>
               </Alert>
             )}
+            {requeteCandidats.isError && (
+              <Alert variant="erreur">
+                <CircleX />
+                <AlertDescription>
+                  {(requeteCandidats.error as ErreurApi).message || t("erreurCandidats")}
+                </AlertDescription>
+              </Alert>
+            )}
 
             <FormField
               control={form.control}
@@ -113,10 +131,12 @@ export function ModaleAjoutMembre({ ouverte, onFermer, projetId, equipe, onAjout
                   valeur={field.value}
                   onChange={field.onChange}
                   onBlur={field.onBlur}
-                  collaborateurs={collaborateursDisponibles(
-                    requeteCollaborateurs.data ?? [],
+                  candidats={candidatsPourEquipe(
+                    requeteCandidats.data ?? [],
                     dejaDansEquipe,
+                    equipe.id,
                   )}
+                  equipeId={equipe.id}
                   erreurs={messagesMembre(form.formState.errors.membre)}
                   libelle={t("champPersonne")}
                   libelleRole={t("champRole")}

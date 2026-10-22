@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowUpRight, LoaderCircle } from "lucide-react";
+import { ArrowUpRight, LoaderCircle, Pencil } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -39,6 +39,7 @@ import {
   FORMAT_CONTRAT,
   NOMBRE_MAX_CONTRATS,
   TAILLE_MAX_CONTRAT,
+  datesVerrouillees,
   dureeProjet,
   refusContrat,
 } from "@/features/projets/regles";
@@ -56,10 +57,16 @@ import {
 } from "@/features/projets/validations";
 import { ComboboxTiers } from "@/features/tiers/components/ComboboxTiers";
 import type { ErreurApi } from "@/lib/api";
-import { formaterDuree, formaterSaisieMontant, formaterTailleFichier } from "@/lib/format";
+import {
+  formaterDate,
+  formaterDuree,
+  formaterSaisieMontant,
+  formaterTailleFichier,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { ComboboxTypeProjet } from "./ComboboxTypeProjet";
+import { ModaleReprogrammation } from "./ModaleReprogrammation";
 
 const FORM_ID = "form-creation-projet";
 
@@ -135,8 +142,18 @@ export function TiroirCreationProjet({
   onProjetModifie,
 }: Props) {
   const t = useTranslations("projets.tiroirCreation");
+  const tReprog = useTranslations("projets.reprogrammation");
   const { voitMontants } = useDroits();
   const modification = projet !== undefined;
+
+  // Les dates déjà fixées ne partent plus par le PATCH (RG-11) : on les change par
+  // la reprogrammation, et on garde ici celles qu'elle vient d'écrire.
+  const [datesFixees, setDatesFixees] = useState({
+    debut: projet?.dateDebutPrevue ?? null,
+    fin: projet?.dateFinPrevue ?? null,
+  });
+  const verrou = datesVerrouillees(datesFixees);
+  const [reprogrammationOuverte, setReprogrammationOuverte] = useState(false);
 
   // Vide tant que le serveur ne l'a pas dit : la liste des villes en dépend,
   // et un pays deviné serait faux hors de Côte d'Ivoire.
@@ -191,10 +208,10 @@ export function TiroirCreationProjet({
   async function soumettre(saisie: ValeursProjet) {
     try {
       if (projet) {
-        const projetModifie = await modifierProjet(
-          projet.id,
-          versModificationProjet(saisie, projet.peutRenommer),
-        );
+        const modifications = versModificationProjet(saisie, projet.peutRenommer);
+        if (verrou.debut) delete modifications.dateDebutPrevue;
+        if (verrou.fin) delete modifications.dateFinPrevue;
+        const projetModifie = await modifierProjet(projet.id, modifications);
         onProjetModifie?.(projetModifie);
         toast.success(t("succesModification", { nom: projetModifie.nom }));
         onFermer();
@@ -387,6 +404,28 @@ export function TiroirCreationProjet({
                 : t("sectionCalendrierBudget")}
             </TitreSection>
 
+            {modification && verrou.reprogrammable && (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-2.5">
+                <span className="text-xs text-neutral-600">
+                  {tReprog("datesActuellesFormat", {
+                    label: tReprog("datesActuelles"),
+                    debut: formaterDate(datesFixees.debut),
+                    fin: formaterDate(datesFixees.fin),
+                  })}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => setReprogrammationOuverte(true)}
+                >
+                  <Pencil className="size-3.5" aria-hidden="true" />
+                  {tReprog("modifierDates")}
+                </Button>
+              </div>
+            )}
+
             <div className={RANGEE_TROIS}>
               <FormField
                 control={form.control}
@@ -408,7 +447,7 @@ export function TiroirCreationProjet({
                         auPlusTard={valeurs.dateFin || undefined}
                         className={CHAMP}
                         placeholder={t("champDateChoisir")}
-                        disabled={enCours}
+                        disabled={enCours || (modification && verrou.debut)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -429,7 +468,7 @@ export function TiroirCreationProjet({
                         auPlusTot={valeurs.dateDebut || undefined}
                         className={CHAMP}
                         placeholder={t("champDateChoisir")}
-                        disabled={enCours}
+                        disabled={enCours || (modification && verrou.fin)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -567,6 +606,28 @@ export function TiroirCreationProjet({
           </Button>
         </SheetFooter>
       </SheetContent>
+
+      {projet && verrou.reprogrammable && (
+        <ModaleReprogrammation
+          ouverte={reprogrammationOuverte}
+          onFermer={() => setReprogrammationOuverte(false)}
+          objet="projets"
+          id={projet.id}
+          nomObjet={projet.nom}
+          projetId={projet.id}
+          datesActuelles={datesFixees}
+          onSucces={(resultat) => {
+            form.setValue("dateDebut", resultat.dateDebutPrevue ?? "");
+            form.setValue("dateFin", resultat.dateFinPrevue);
+            setDatesFixees({ debut: resultat.dateDebutPrevue, fin: resultat.dateFinPrevue });
+            onProjetModifie?.({
+              ...projet,
+              dateDebutPrevue: resultat.dateDebutPrevue,
+              dateFinPrevue: resultat.dateFinPrevue,
+            });
+          }}
+        />
+      )}
     </Sheet>
   );
 }

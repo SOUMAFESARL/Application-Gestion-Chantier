@@ -8,8 +8,8 @@ import {
   rapportsManquants,
   tauxPresence,
 } from "@/features/chantier";
-import type { SynthesePeriodique } from "@/features/chantier";
-import type { ModeExecutionLot } from "@/features/projets/types";
+import type { LotJournal, SynthesePeriodique } from "@/features/chantier";
+import { appliquerDocumentsAuPdf } from "@/features/documents";
 import { ABSENT, formaterDateHeure, formaterJourMoisNumerique, formaterQuantite } from "@/lib/format";
 import type { BlocPdf, CasePdf, CellulePdf, DocumentPdf, SectionPdf } from "@/lib/export/documentPdf";
 
@@ -33,7 +33,7 @@ export interface DonneesSynthesePdf extends SourcePdf {
   synthese: SynthesePeriodique;
   /** La période, déjà mise en mots par l'écran (« Semaine 39 — du … au … »). */
   periode: string;
-  modeExecution: (mode: ModeExecutionLot) => string;
+  modeExecution: (lot: LotJournal) => string;
 }
 
 /** Un écart signé : « +2 », « −3 », « 0 ». */
@@ -52,7 +52,7 @@ function tableau(entetes: string[], lignes: CellulePdf[][], vide: string): BlocP
 }
 
 export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): DocumentPdf {
-  const { synthese, periode, modeExecution, entreprise, logo, marque, maintenant } = donnees;
+  const { synthese, periode, modeExecution, entreprise, logo, documents, marque, maintenant } = donnees;
   const s = (cle: string, valeurs?: Record<string, string | number>) => t(`synthese.${cle}`, valeurs);
   const pourcent = (valeur: number) => t("rapport.pourcent", { valeur });
   const fraction = (a: number, b: number) => t("rapport.fraction", { a, b });
@@ -288,7 +288,7 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
         ],
         synthese.avancement.flatMap(({ lot, activites }) => [
           [
-            cellule(s("avancement.lot", { code: lot.code, nom: lot.nom, mode: modeExecution(lot.modeExecution) }), {
+            cellule(s("avancement.lot", { code: lot.code, nom: lot.nom, mode: modeExecution(lot) }), {
               gras: true,
             }),
             ...Array.from({ length: 8 }, () => cellule("")),
@@ -508,7 +508,7 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
 
   const { emetteur, pied } = emetteurDocument(entreprise, marque);
 
-  return {
+  const document: DocumentPdf = {
     nomFichier: s("pdf.nomFichier", { reference: synthese.reference }),
     entete: {
       emetteur,
@@ -539,4 +539,6 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
       droite: (page, total) => t("rapport.pdf.page", { page, total }),
     },
   };
+
+  return appliquerDocumentsAuPdf(document, documents);
 }
