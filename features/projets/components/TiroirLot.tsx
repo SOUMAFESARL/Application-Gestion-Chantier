@@ -42,6 +42,7 @@ import { creerLot, modifierLot } from "@/features/projets/adaptateur";
 import {
   budgetDisponible,
   codeLotSuivant,
+  datesVerrouillees,
   lotCreable,
   STATUTS_DECLARES,
   TYPES_BORDEREAU,
@@ -284,7 +285,10 @@ function SaisieLot({
 
   const valeurs = useWatch({ control: form.control }) as SaisieLotProjet;
   const enCours = form.formState.isSubmitting;
-  const datesLotFigees = Boolean(lot && (lot.dateDebut || lot.dateFin));
+  // Les dates déjà fixées ne partent plus par le PATCH (RG-11) : on les change par
+  // la reprogrammation, et on garde ici celles qu'elle vient d'écrire.
+  const [datesLot, setDatesLot] = useState({ debut: lot?.dateDebut ?? null, fin: lot?.dateFin ?? null });
+  const verrou = datesVerrouillees(datesLot);
   const [reprogrammationOuverte, setReprogrammationOuverte] = useState(false);
 
   async function soumettre(saisie: SaisieLotProjet) {
@@ -298,8 +302,10 @@ function SaisieLot({
       if (!voitMontants) {
         delete valeurs.budget;
       }
-      if (datesLotFigees) {
+      if (lot && verrou.debut) {
         delete valeurs.dateDebut;
+      }
+      if (lot && verrou.fin) {
         delete valeurs.dateFin;
       }
       // Le serveur renvoie le lot seul : ses activités restent celles qu'on a.
@@ -468,13 +474,13 @@ function SaisieLot({
             />
           )}
 
-          {datesLotFigees && lot && (
+          {verrou.reprogrammable && lot && (
             <div className="flex items-center justify-between gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-2.5">
               <span className="text-xs text-neutral-600">
                 {tReprog("datesActuellesFormat", {
                   label: tReprog("datesActuelles"),
-                  debut: formaterDate(lot.dateDebut),
-                  fin: formaterDate(lot.dateFin),
+                  debut: formaterDate(datesLot.debut),
+                  fin: formaterDate(datesLot.fin),
                 })}
               </span>
               <Button
@@ -506,7 +512,7 @@ function SaisieLot({
                       auPlusTard={valeurs.dateFin || datesProjet?.dateFinPrevue || undefined}
                       className={CHAMP}
                       placeholder={tCreation("champDateChoisir")}
-                      disabled={enCours || datesLotFigees}
+                      disabled={enCours || (Boolean(lot) && verrou.debut)}
                     />
                   </FormControl>
                   <FormMessage />
@@ -528,7 +534,7 @@ function SaisieLot({
                       auPlusTard={datesProjet?.dateFinPrevue || undefined}
                       className={CHAMP}
                       placeholder={tCreation("champDateChoisir")}
-                      disabled={enCours || datesLotFigees}
+                      disabled={enCours || (Boolean(lot) && verrou.fin)}
                     />
                   </FormControl>
                   <FormMessage />
@@ -556,7 +562,7 @@ function SaisieLot({
         </Button>
       </SheetFooter>
 
-      {lot && datesLotFigees && (
+      {lot && verrou.reprogrammable && (
         <ModaleReprogrammation
           ouverte={reprogrammationOuverte}
           onFermer={() => setReprogrammationOuverte(false)}
@@ -564,7 +570,7 @@ function SaisieLot({
           id={lot.id}
           nomObjet={lot.nom}
           projetId={projetId}
-          datesActuelles={{ debut: lot.dateDebut, fin: lot.dateFin }}
+          datesActuelles={datesLot}
           bornesParent={
             datesProjet
               ? { debutMin: datesProjet.dateDebutPrevue, finMax: datesProjet.dateFinPrevue }
@@ -573,6 +579,7 @@ function SaisieLot({
           onSucces={(resultat) => {
             form.setValue("dateDebut", resultat.dateDebutPrevue ?? "");
             form.setValue("dateFin", resultat.dateFinPrevue);
+            setDatesLot({ debut: resultat.dateDebutPrevue, fin: resultat.dateFinPrevue });
             onEnregistre({
               ...lot,
               dateDebut: resultat.dateDebutPrevue,

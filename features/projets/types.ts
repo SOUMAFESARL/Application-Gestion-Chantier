@@ -207,8 +207,10 @@ export type AjoutEncadrement =
 
 /** Le planning contractuel, fixé par le chef de projet après la création. */
 export interface PlanningProjet {
-  dateDebutPrevue: string;
-  dateFinPrevue: string;
+  /** Absente : la date déjà fixée ne se réécrit pas, elle se reprogramme (RG-11). */
+  dateDebutPrevue?: string;
+  /** Absente : la date déjà fixée ne se réécrit pas, elle se reprogramme (RG-11). */
+  dateFinPrevue?: string;
 }
 
 /** Un chantier attribué à un collaborateur, et ce qu'il y fait (une personne, une fonction par projet). */

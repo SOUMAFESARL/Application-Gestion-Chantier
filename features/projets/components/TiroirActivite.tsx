@@ -52,6 +52,7 @@ import {
   activiteCreable,
   budgetDisponible,
   collaborateursDisponibles,
+  datesVerrouillees,
   STATUTS_DECLARES,
   UNITES_ACTIVITE,
 } from "@/features/projets/regles";
@@ -134,7 +135,13 @@ export function TiroirActivite({
   const tLots = useTranslations("projets.lotsActivites");
   const tReprog = useTranslations("projets.reprogrammation");
   const modification = !!activite;
-  const datesActiviteFigees = Boolean(activite && (activite.dateDebutPrevue || activite.dateFinPrevue));
+  // Les dates déjà fixées ne partent plus par le PATCH (RG-11) : on les change par
+  // la reprogrammation, et on garde ici celles qu'elle vient d'écrire.
+  const [datesActivite, setDatesActivite] = useState({
+    debut: activite?.dateDebutPrevue ?? null,
+    fin: activite?.dateFinPrevue ?? null,
+  });
+  const verrou = datesVerrouillees(datesActivite);
   const [reprogrammationOuverte, setReprogrammationOuverte] = useState(false);
 
   // Le cache des équipes est partagé avec l'écran « Équipes et affectations ».
@@ -206,8 +213,10 @@ export function TiroirActivite({
       if (!voitMontants) {
         delete domaine.budget;
       }
-      if (datesActiviteFigees) {
+      if (activite && verrou.debut) {
         delete domaine.dateDebutPrevue;
+      }
+      if (activite && verrou.fin) {
         delete domaine.dateFinPrevue;
       }
       const enregistree = activite
@@ -434,13 +443,13 @@ export function TiroirActivite({
               />
             )}
 
-            {datesActiviteFigees && activite && (
+            {verrou.reprogrammable && activite && (
               <div className="flex items-center justify-between gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-2.5">
                 <span className="text-xs text-neutral-600">
                   {tReprog("datesActuellesFormat", {
                     label: tReprog("datesActuelles"),
-                    debut: formaterDate(activite.dateDebutPrevue),
-                    fin: formaterDate(activite.dateFinPrevue),
+                    debut: formaterDate(datesActivite.debut),
+                    fin: formaterDate(datesActivite.fin),
                   })}
                 </span>
                 <Button
@@ -475,7 +484,7 @@ export function TiroirActivite({
                         auPlusTard={valeurs.dateFin || lotChoisi?.dateFin || undefined}
                         className={CHAMP}
                         placeholder={t("champDateChoisir")}
-                        disabled={enCours || datesActiviteFigees}
+                        disabled={enCours || (modification && verrou.debut)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -497,7 +506,7 @@ export function TiroirActivite({
                         auPlusTard={lotChoisi?.dateFin || undefined}
                         className={CHAMP}
                         placeholder={t("champDateChoisir")}
-                        disabled={enCours || datesActiviteFigees}
+                        disabled={enCours || (modification && verrou.fin)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -580,7 +589,7 @@ export function TiroirActivite({
         </SheetFooter>
       </SheetContent>
 
-      {activite && datesActiviteFigees && (
+      {activite && verrou.reprogrammable && (
         <ModaleReprogrammation
           ouverte={reprogrammationOuverte}
           onFermer={() => setReprogrammationOuverte(false)}
@@ -588,7 +597,7 @@ export function TiroirActivite({
           id={activite.id}
           nomObjet={activite.libelle}
           projetId={projetId}
-          datesActuelles={{ debut: activite.dateDebutPrevue, fin: activite.dateFinPrevue }}
+          datesActuelles={datesActivite}
           bornesParent={
             lotChoisi
               ? { debutMin: lotChoisi.dateDebut, finMax: lotChoisi.dateFin }
@@ -597,6 +606,7 @@ export function TiroirActivite({
           onSucces={(resultat) => {
             form.setValue("dateDebut", resultat.dateDebutPrevue ?? "");
             form.setValue("dateFin", resultat.dateFinPrevue);
+            setDatesActivite({ debut: resultat.dateDebutPrevue, fin: resultat.dateFinPrevue });
             onEnregistree({
               ...activite,
               dateDebutPrevue: resultat.dateDebutPrevue,

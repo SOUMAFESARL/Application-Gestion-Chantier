@@ -38,7 +38,12 @@ import {
 import { useDroits } from "@/features/habilitations";
 import { cleLots } from "@/features/projets/cles";
 import { ModaleReprogrammation } from "./ModaleReprogrammation";
-import { echeancierProjet, plancherBudget, planningDefini } from "@/features/projets/regles";
+import {
+  datesVerrouillees,
+  echeancierProjet,
+  plancherBudget,
+  planningDefini,
+} from "@/features/projets/regles";
 import type { Projet } from "@/features/projets/types";
 import {
   saisieDepuisPlanning,
@@ -99,8 +104,12 @@ export function ModaleCadrageProjet({ cadrage, onFermer, onModifie }: Props) {
           debut: cadrage.projet.dateDebutPrevue,
           fin: cadrage.projet.dateFinPrevue,
         }}
-        onSucces={() => {
-          onModifie({ ...cadrage.projet });
+        onSucces={(resultat) => {
+          onModifie({
+            ...cadrage.projet,
+            dateDebutPrevue: resultat.dateDebutPrevue,
+            dateFinPrevue: resultat.dateFinPrevue,
+          });
         }}
       />
     );
@@ -136,6 +145,8 @@ function FormulairePlanning({ projet, onFermer, onModifie }: PropsFormulaire) {
     mode: "onTouched",
   });
   const enCours = form.formState.isSubmitting;
+  // Une seule date peut être déjà fixée : elle ne part pas par le PATCH (RG-11).
+  const verrou = datesVerrouillees({ debut: projet.dateDebutPrevue, fin: projet.dateFinPrevue });
   const [dateDebut, dateFin] = useWatch({ control: form.control, name: ["dateDebut", "dateFin"] });
   const { duree } = echeancierProjet({
     ...projet,
@@ -146,7 +157,10 @@ function FormulairePlanning({ projet, onFermer, onModifie }: PropsFormulaire) {
   async function soumettre(valeurs: SaisiePlanning) {
     setErreur(null);
     try {
-      onModifie(await definirPlanningProjet(projet.id, versPlanningProjet(valeurs)));
+      const planning = versPlanningProjet(valeurs);
+      if (verrou.debut) delete planning.dateDebutPrevue;
+      if (verrou.fin) delete planning.dateFinPrevue;
+      onModifie(await definirPlanningProjet(projet.id, planning));
       toast.success(t("planning.succes"));
       onFermer();
     } catch (err) {
@@ -183,7 +197,7 @@ function FormulairePlanning({ projet, onFermer, onModifie }: PropsFormulaire) {
                       onChange={field.onChange}
                       onBlur={field.onBlur}
                       placeholder={t("planning.champDateChoisir")}
-                      disabled={enCours}
+                      disabled={enCours || verrou.debut}
                     />
                   </FormControl>
                   <FormMessage />
@@ -204,7 +218,7 @@ function FormulairePlanning({ projet, onFermer, onModifie }: PropsFormulaire) {
                       onBlur={field.onBlur}
                       placeholder={t("planning.champDateChoisir")}
                       auPlusTot={dateDebut || undefined}
-                      disabled={enCours}
+                      disabled={enCours || verrou.fin}
                     />
                   </FormControl>
                   <FormMessage />

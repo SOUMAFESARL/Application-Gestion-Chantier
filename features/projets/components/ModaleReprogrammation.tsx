@@ -46,6 +46,7 @@ import {
   cleHistoriqueDates,
   cleJournalReports,
   cleLots,
+  clePlanning,
   cleProjet,
   cleStatistiques,
 } from "@/features/projets/cles";
@@ -145,11 +146,20 @@ export function ModaleReprogrammation({
 
       void clientRequetes.invalidateQueries({ queryKey: cleProjet(projetId) });
       void clientRequetes.invalidateQueries({ queryKey: cleLots(projetId) });
+      void clientRequetes.invalidateQueries({ queryKey: clePlanning(projetId) });
       void clientRequetes.invalidateQueries({ queryKey: cleStatistiques(projetId) });
       void clientRequetes.invalidateQueries({ queryKey: CLE_LISTE_PROJETS });
       void clientRequetes.invalidateQueries({ queryKey: cleHistoriqueDates(objet, id) });
       void clientRequetes.invalidateQueries({ queryKey: cleJournalReports(projetId) });
 
+      // La modale reste montée dans les tiroirs : sans cette remise à zéro, une
+      // seconde reprogrammation retrouverait le motif et la justification de la première.
+      form.reset({
+        dateDebut: resultat.dateDebutPrevue ?? "",
+        dateFin: resultat.dateFinPrevue,
+        motifId: "",
+        justification: "",
+      });
       onSucces?.(resultat);
       onFermer();
     } catch (err) {

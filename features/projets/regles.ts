@@ -274,6 +274,24 @@ export function planningDefini(projet: Pick<Projet, "dateDebutPrevue" | "dateFin
   return Boolean(projet.dateDebutPrevue && projet.dateFinPrevue);
 }
 
+/**
+ * Les dates prévisionnelles déjà fixées d'un projet, d'un lot ou d'une activité
+ * (RG-11). Une date fixée ne se change plus par le `PATCH` ordinaire — le
+ * serveur le refuse — mais par la reprogrammation, avec motif et justification.
+ * Une date encore vide peut, elle, s'écrire par le `PATCH`. La reprogrammation
+ * n'est offerte qu'aux objets qui ont leurs deux dates : le serveur calcule
+ * l'écart de chacune sur l'ancienne valeur.
+ */
+export function datesVerrouillees(dates: { debut: string | null; fin: string | null }): {
+  debut: boolean;
+  fin: boolean;
+  reprogrammable: boolean;
+} {
+  const debut = Boolean(dates.debut);
+  const fin = Boolean(dates.fin);
+  return { debut, fin, reprogrammable: debut && fin };
+}
+
 /** Le projet a-t-il ses deux dates — condition pour créer ou activer un lot (US 3.6). */
 export function lotCreable(projet: Pick<Projet, "dateDebutPrevue" | "dateFinPrevue">): boolean {
   return planningDefini(projet);
