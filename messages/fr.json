@@ -1930,7 +1930,8 @@
       "roles": "Créer les rôles et régler ce que chacun peut voir et faire.",
       "listes": "Les types de projet et les noms de lot proposés à toute l’entreprise.",
       "calendrier": "Les jours ouvrés de l’entreprise : semaine type, jours fériés et exceptions.",
-      "configuration": "Les informations de l’entreprise qui figurent sur vos documents officiels."
+      "configuration": "Les informations de l’entreprise qui figurent sur vos documents officiels.",
+      "documentsPdf": "Le logo et les mentions imprimés en haut et en bas de vos PDF."
     }
   },
   "pagination": {
@@ -2844,6 +2845,74 @@
     "placeholderPersonnalise": "Nom de la localité",
     "rechercher": "Rechercher une ville ou une commune…",
     "utiliserSaisie": "Utiliser « {saisie} »"
+  },
+  "reglageDocuments": {
+    "titre": "En-tête et pied des documents",
+    "metaDescription": "Les mentions de l’entreprise imprimées en haut et en bas de ses PDF : logo, raison sociale, RCCM, NIF, adresse, contacts.",
+    "description": "Ce qui s’imprime en haut et en bas de vos PDF : fiche projet, rapports journaliers, synthèses et bons de réception.",
+    "lectureSeule": "Vous consultez le réglage. Seuls les comptes qui détiennent le droit de gérer les documents peuvent le modifier.",
+    "chargement": "Chargement du réglage…",
+    "erreurs": {
+      "action": "L’action n’a pas abouti. Réessayez."
+    },
+    "entete": {
+      "titre": "En-tête",
+      "aide": "Le logo et les mentions choisies figurent en haut de la première page, sous le nom de l’entreprise."
+    },
+    "pied": {
+      "titre": "Pied de page",
+      "aide": "Les mentions choisies figurent en bas de chaque page, sous la pagination."
+    },
+    "logo": {
+      "libelle": "Afficher le logo de l’entreprise",
+      "aide": "Sans logo, le nom de l’entreprise s’imprime à sa place."
+    },
+    "mentions": {
+      "titre": "Mentions imprimées",
+      "aucune": "Aucune mention choisie.",
+      "ajouter": "Ajouter une mention",
+      "monter": "Monter « {mention} »",
+      "descendre": "Descendre « {mention} »",
+      "retirer": "Retirer « {mention} »"
+    },
+    "codes": {
+      "raison_sociale": "Raison sociale",
+      "nom_commercial": "Nom commercial",
+      "rccm": "RCCM",
+      "nif": "NIF",
+      "adresse": "Adresse",
+      "ville": "Ville",
+      "telephone": "Téléphone",
+      "email": "Email",
+      "site_web": "Site web"
+    },
+    "libellesMentions": {
+      "rccm": "RCCM",
+      "nif": "NIF",
+      "telephone": "Tél",
+      "email": "Email",
+      "siteWeb": "Site web"
+    },
+    "texteLibre": {
+      "libelle": "Texte libre",
+      "aideEntete": "Une ligne ajoutée après les mentions de l’en-tête.",
+      "aidePied": "Une ligne ajoutée après les mentions du pied, par exemple le capital social.",
+      "compteur": "{n} / {max}"
+    },
+    "apercu": {
+      "titre": "Aperçu",
+      "aide": "Il suit vos choix, même avant l’enregistrement. Une mention sans valeur dans la configuration de l’entreprise n’est pas imprimée.",
+      "entete": "En-tête",
+      "pied": "Pied de page",
+      "logoAlt": "Logo de l’entreprise",
+      "vide": "Aucune ligne à imprimer."
+    },
+    "actions": {
+      "enregistrer": "Enregistrer",
+      "enCours": "Enregistrement…",
+      "annuler": "Annuler",
+      "succes": "Le réglage des documents est enregistré."
+    }
   },
   "roles": {
     "actions": "Actions",
@@ -3954,6 +4023,7 @@
       "descStocks": "Entrées, sorties & inventaires",
       "descTiers": "Clients, partenaires & intervenants",
       "documents": "Documents",
+      "documentsPdf": "En-tête et pied des documents",
       "equipements": "Matériel",
       "equipes": "Collaborateurs",
       "finance": "Finance",

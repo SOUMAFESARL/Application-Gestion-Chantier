@@ -1,3 +1,4 @@
+import { appliquerDocumentsAuPdf } from "@/features/documents";
 import type { Livraison } from "@/features/stocks";
 import type { CasePdf, CellulePdf, DocumentPdf } from "@/lib/export/documentPdf";
 import { formaterDateHeure, formaterQuantite, formaterTailleFichier } from "@/lib/format";
@@ -28,7 +29,7 @@ export interface DonneesBrv extends SourcePdf {
  * projet pour un équipement.
  */
 export function contenuBrv(t: Traduire, donnees: DonneesBrv): DocumentPdf {
-  const { livraison, entreprise, logo, marque, maintenant } = donnees;
+  const { livraison, entreprise, logo, documents, marque, maintenant } = donnees;
   const { emetteur, pied } = emetteurDocument(entreprise, marque);
 
   const lignes: CellulePdf[][] = livraison.lignes.map((ligne) => [
@@ -72,7 +73,7 @@ export function contenuBrv(t: Traduire, donnees: DonneesBrv): DocumentPdf {
     accent: true,
   });
 
-  return {
+  const document: DocumentPdf = {
     nomFichier: `${livraison.numeroBrv ?? livraison.reference}.pdf`,
     entete: {
       emetteur,
@@ -151,4 +152,6 @@ export function contenuBrv(t: Traduire, donnees: DonneesBrv): DocumentPdf {
       droite: (page, total) => t("page", { page, total }),
     },
   };
+
+  return appliquerDocumentsAuPdf(document, documents);
 }

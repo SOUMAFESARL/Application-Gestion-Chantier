@@ -15,6 +15,7 @@ import {
   totauxEffectifs,
 } from "@/features/chantier";
 import type { EtapeCircuit, LotJournal, RapportJournalier } from "@/features/chantier";
+import { appliquerDocumentsAuPdf } from "@/features/documents";
 import { formaterDate, formaterDateHeure, formaterMontant, formaterQuantite } from "@/lib/format";
 import type {
   BlocPdf,
@@ -73,7 +74,7 @@ function cellule(texte: string | number | null, options?: Omit<CellulePdf, "text
 }
 
 export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): DocumentPdf {
-  const { rapport, entreprise, logo, marque, jour, modeExecution, maintenant } = donnees;
+  const { rapport, entreprise, logo, documents, marque, jour, modeExecution, maintenant } = donnees;
   const r = (cle: string, valeurs?: Record<string, string | number>) => t(`rapport.${cle}`, valeurs);
   const role = (cle: EtapeCircuit["role"]) => t(`circuit.role.${cle}`);
   const neant = r("neant");
@@ -643,7 +644,7 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
 
   const { emetteur, pied } = emetteurDocument(entreprise, marque);
 
-  return {
+  const document: DocumentPdf = {
     nomFichier: r("pdf.nomFichier", { reference: reference || rapport.id }),
     entete: {
       emetteur,
@@ -673,4 +674,6 @@ export function contenuRapportPdf(t: Traduire, donnees: DonneesRapportPdf): Docu
       droite: (page, total) => r("pdf.page", { page, total }),
     },
   };
+
+  return appliquerDocumentsAuPdf(document, documents);
 }

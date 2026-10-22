@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import type { DonneesEntreprise } from "@/features/configuration/api";
 import { lireEntreprise } from "@/features/configuration/api";
+import type { DocumentsResolus } from "@/features/documents";
+import { lireDocumentsOuNull } from "@/features/documents/adaptateur";
 import { useIdentitePlateforme } from "@/features/plateforme/hooks";
 import type { DocumentPdf, ImagePdf } from "@/lib/export/documentPdf";
 import { chargerImagePdf, imprimerDocumentPdf, telechargerDocumentPdf } from "@/lib/export/documentPdf";
@@ -26,6 +28,8 @@ type Sortie = "telecharger" | "imprimer";
 export interface SourcePdf {
   entreprise: DonneesEntreprise | null;
   logo: ImagePdf | null;
+  /** Le réglage de l'en-tête et du pied ; `null` s'il ne s'est pas chargé, le document sort sans. */
+  documents: DocumentsResolus | null;
   /** Le nom de la plateforme : l'émetteur à défaut d'entreprise connue. */
   marque: string;
   maintenant: Date;
@@ -51,10 +55,15 @@ export function useGenerationDocumentPdf(titre: string, construire: (source: Sou
   const generation = useMutation({
     mutationFn: async (sortie: Sortie) => {
       const maintenant = new Date();
-      const entreprise = await lireEntreprise().catch(() => null);
+      const [entreprise, documents] = await Promise.all([
+        lireEntreprise().catch(() => null),
+        lireDocumentsOuNull(),
+      ]);
       const logo = await chargerImagePdf(entreprise?.logo_original ?? entreprise?.logo);
       const sortir = sortie === "imprimer" ? imprimerDocumentPdf : telechargerDocumentPdf;
-      await sortir(construire({ entreprise, logo, marque: identite?.nom || tMarque("nom"), maintenant }));
+      await sortir(
+        construire({ entreprise, logo, documents, marque: identite?.nom || tMarque("nom"), maintenant }),
+      );
     },
   });
 

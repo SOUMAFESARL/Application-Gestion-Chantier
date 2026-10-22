@@ -1,6 +1,14 @@
 "use client";
 
-import { Building2, CalendarDays, ChevronRight, ListChecks, ShieldCheck, Users } from "lucide-react";
+import {
+  Building2,
+  CalendarDays,
+  ChevronRight,
+  FileText,
+  ListChecks,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -18,6 +26,7 @@ const SECTIONS: readonly { href: string; cle: string; icone: LucideIcon }[] = [
   { href: "/parametres/listes", cle: "listes", icone: ListChecks },
   { href: "/parametres/calendrier", cle: "calendrier", icone: CalendarDays },
   { href: "/parametres/configuration", cle: "configuration", icone: Building2 },
+  { href: "/parametres/documents", cle: "documentsPdf", icone: FileText },
 ];
 
 /** Un accès par section que le compte peut ouvrir : une entrée fermée n'est pas proposée. */

@@ -60,6 +60,7 @@ const CARTE_SEGMENTS: Record<string, string> = {
   "/parametres/roles": "roles",
   "/parametres/configuration": "configuration",
   "/parametres/calendrier": "calendrier",
+  "/parametres/documents": "documentsPdf",
 };
 
 /** L'identifiant du projet de `/projets/[id]/…`, s'il y en a un. */

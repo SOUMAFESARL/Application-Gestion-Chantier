@@ -19,6 +19,7 @@ import { indicateursJournalProjet } from "@/features/chantier";
 import { lireJournal } from "@/features/chantier/adaptateur";
 import { CLE_JOURNAL } from "@/features/chantier/cles";
 import { lireEntreprise } from "@/features/configuration/api";
+import { lireDocumentsOuNull } from "@/features/documents/adaptateur";
 import { useIdentitePlateforme } from "@/features/plateforme/hooks";
 import { listerEquipes, listerLots } from "@/features/projets/adaptateur";
 import { cleEquipes, cleLots } from "@/features/projets/cles";
@@ -75,7 +76,7 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
   const generation = useMutation({
     mutationFn: async (projet: Projet): Promise<ApercuPdf> => {
       const maintenant = new Date();
-      const [lots, equipes, journal, entreprise] = await Promise.all([
+      const [lots, equipes, journal, entreprise, documents] = await Promise.all([
         client.fetchQuery({
           queryKey: cleLots(projet.id),
           queryFn: ({ signal }) => listerLots(projet.id, signal),
@@ -93,6 +94,7 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
           }),
         ),
         ouNull(lireEntreprise()),
+        lireDocumentsOuNull(),
       ]);
       const logo = await chargerImagePdf(entreprise?.logo_original ?? entreprise?.logo);
 
@@ -105,6 +107,7 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
           : null,
         entreprise,
         logo,
+        documents,
         note: "",
         marque: identite?.nom || tMarque("nom"),
         libelles: {

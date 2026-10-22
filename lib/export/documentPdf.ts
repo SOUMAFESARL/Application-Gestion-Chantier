@@ -119,6 +119,11 @@ export interface DocumentPdf {
     reference?: string;
     /** La plateforme, calée à droite ; absente, l'en-tête n'en porte pas. */
     marque?: string;
+    /**
+     * Les mentions de l'entreprise (RCCM, NIF, adresse…), une par ligne, sous
+     * l'émetteur ; absentes ou vides, l'en-tête garde sa hauteur d'origine.
+     */
+    lignes?: string[];
   };
   /** Ce dont parle le document : son nom, ses pastilles d'état, un chiffre clé. */
   objet: {
@@ -131,6 +136,12 @@ export interface DocumentPdf {
     gauche: string;
     /** Une mention sous le pied, en italique ; absente, pas de seconde ligne. */
     centre?: string;
+    /**
+     * Les mentions de l'entreprise, une par ligne centrée sous le pied ; absentes
+     * ou vides, le pied garde sa hauteur d'origine. Le pied remonte d'autant et
+     * le contenu s'arrête plus haut.
+     */
+    lignes?: string[];
     droite: (page: number, total: number) => string;
   };
 }
@@ -251,6 +262,8 @@ const LARGEUR = PAGE_LARGEUR - 2 * MARGE;
 const DROITE = PAGE_LARGEUR - MARGE;
 /** Sous cette ordonnée commence le pied de page. */
 const LIMITE_BAS = PAGE_HAUTEUR - 18;
+/** La hauteur d'une ligne de mention de l'en-tête ou du pied, en millimètres. */
+const LIGNE_MENTION = 3.2;
 /** Un point typographique, en millimètres. */
 const POINT = 0.3528;
 
@@ -324,6 +337,10 @@ async function dessinerDocumentPdf(contenu: DocumentPdf) {
   const doc = new JsPdf({ orientation: "portrait", unit: "mm", format: "a4" });
   const palette = lirePalette();
   let y = MARGE;
+  const mentionsEntete = contenu.entete.lignes ?? [];
+  const mentionsPied = contenu.pied.lignes ?? [];
+  /** Le pied porte des lignes de mention : le contenu s'arrête plus haut d'autant. */
+  const limiteBas = LIMITE_BAS - mentionsPied.length * LIGNE_MENTION;
 
   /* --- Les primitives --- */
 
@@ -357,7 +374,7 @@ async function dessinerDocumentPdf(contenu: DocumentPdf) {
 
   /** Passe à la page suivante si `hauteur` ne tient plus sur celle-ci. */
   function assurer(hauteur: number) {
-    if (y + hauteur > LIMITE_BAS) {
+    if (y + hauteur > limiteBas) {
       doc.addPage();
       y = MARGE;
     }
@@ -423,9 +440,16 @@ async function dessinerDocumentPdf(contenu: DocumentPdf) {
       ecrire(entete.marque, DROITE, haut + 7, { align: "right" });
     }
 
+    // Les mentions de l'entreprise, sous le logo ou le cartouche du nom.
+    const decalage = mentionsEntete.length * LIGNE_MENTION;
+    police(6.5, "normal", palette.attenue);
+    mentionsEntete.forEach((ligne, rang) => {
+      ecrire(couper(ligne, LARGEUR)[0], MARGE, haut + 19.5 + rang * LIGNE_MENTION);
+    });
+
     tracer(palette.accent, 0.8);
-    doc.line(MARGE, haut + 20, DROITE, haut + 20);
-    y = haut + 26;
+    doc.line(MARGE, haut + 20 + decalage, DROITE, haut + 20 + decalage);
+    y = haut + 26 + decalage;
   }
 
   /* --- L'objet du document --- */
@@ -574,7 +598,7 @@ async function dessinerDocumentPdf(contenu: DocumentPdf) {
       head: [entetes.map(propre)],
       body: corps,
       startY: y,
-      margin: { left: MARGE, right: MARGE, top: MARGE, bottom: PAGE_HAUTEUR - LIMITE_BAS },
+      margin: { left: MARGE, right: MARGE, top: MARGE, bottom: PAGE_HAUTEUR - limiteBas },
       theme: "plain",
       styles: { fontSize: 7.5, cellPadding: 1.6, textColor: palette.texte, valign: "middle" },
       headStyles: { fillColor: palette.sombre, textColor: palette.blanc, fontStyle: "bold" },
@@ -633,7 +657,7 @@ async function dessinerDocumentPdf(contenu: DocumentPdf) {
     while (reste.length > 0) {
       assurer(20);
       const entete = premier ? 6 : 2;
-      const place = Math.max(1, Math.floor((LIMITE_BAS - y - entete - 4) / interligne(8.5)));
+      const place = Math.max(1, Math.floor((limiteBas - y - entete - 4) / interligne(8.5)));
       const morceau = reste.slice(0, place);
       reste = reste.slice(place);
       const hauteur = entete + morceau.length * interligne(8.5) + 3;
@@ -695,7 +719,7 @@ async function dessinerDocumentPdf(contenu: DocumentPdf) {
     const total = doc.getNumberOfPages();
     for (let page = 1; page <= total; page += 1) {
       doc.setPage(page);
-      const haut = PAGE_HAUTEUR - 13;
+      const haut = PAGE_HAUTEUR - 13 - mentionsPied.length * LIGNE_MENTION;
       tracer(palette.filet);
       doc.line(MARGE, haut, DROITE, haut);
       police(7, "bold", palette.accent);
@@ -706,6 +730,13 @@ async function dessinerDocumentPdf(contenu: DocumentPdf) {
         police(6.5, "italic", palette.tons.erreur.encre);
         ecrire(couper(contenu.pied.centre, LARGEUR)[0], PAGE_LARGEUR / 2, haut + 8, { align: "center" });
       }
+      police(6.5, "normal", palette.attenue);
+      mentionsPied.forEach((ligne, rang) => {
+        const base = contenu.pied.centre ? 8 : 4;
+        ecrire(couper(ligne, LARGEUR)[0], PAGE_LARGEUR / 2, haut + base + (rang + 1) * LIGNE_MENTION, {
+          align: "center",
+        });
+      });
     }
   }
 
