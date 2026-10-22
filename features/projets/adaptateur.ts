@@ -173,6 +173,19 @@ interface ChargeChefChantier {
   affectation_id?: string | null;
 }
 
+/**
+ * Une affectation, telle que `GET /projets/{id}/affectations/` la renvoie. Le détail du
+ * projet n'en porte ni le lot ni `modifiable` : on les y rattache par `id`.
+ */
+interface ChargeAffectation {
+  id: string;
+  lot?: { id: string; code: string; libelle: string } | null;
+  role_projet?: string;
+  utilisateur?: { id: string } | null;
+  /** Faux pour le chef de projet quand le compte courant ne peut pas le gérer. */
+  modifiable?: boolean;
+}
+
 interface ChargeAutreMembre {
   utilisateur: ChargeIntervenant;
   fonction: FonctionAutreMembre;
@@ -252,15 +265,20 @@ function intervenants(charges: ChargeIntervenant[] | undefined): Intervenant[] {
     .filter((intervenant): intervenant is Intervenant => intervenant !== null);
 }
 
-function versChefChantier(charge: ChargeChefChantier): ChefChantierProjet | null {
+function versChefChantier(
+  charge: ChargeChefChantier,
+  affectations: Map<string, ChargeAffectation>,
+): ChefChantierProjet | null {
   const intervenant = versIntervenant(charge.utilisateur);
-  return intervenant
-    ? {
-        intervenant,
-        zone: charge.zone || null,
-        affectationId: charge.affectation_id ?? intervenant.affectationId ?? null,
-      }
-    : null;
+  if (!intervenant) return null;
+  const affectationId = charge.affectation_id ?? intervenant.affectationId ?? null;
+  const lot = (affectationId && affectations.get(affectationId)?.lot) || null;
+  return {
+    intervenant,
+    lot: lot ? { id: lot.id, code: lot.code, libelle: lot.libelle } : null,
+    zone: charge.zone || null,
+    affectationId,
+  };
 }
 
 function versAutreMembre(charge: ChargeAutreMembre): AutreMembreProjet | null {
@@ -341,7 +359,20 @@ function versStatistiques(
  * vide pour un texte, `0` pour une consommation, `null` pour un budget non
  * défini — pour qu'aucun écran n'ait à écrire `?? ""` sur un champ du domaine.
  */
-export function versProjet(charge: ChargeProjet): Projet {
+export function versProjet(charge: ChargeProjet, affectations: ChargeAffectation[] = []): Projet {
+  const parId = new Map(affectations.map((affectation) => [affectation.id, affectation]));
+  const chef = charge.chef_projet;
+  // Le détail du projet ne renvoie `affectation_id` que pour un compte actif dont
+  // l'affectation est en cours : pour un chef de projet invité, on la retrouve par
+  // son rôle et son utilisateur dans la liste des affectations.
+  const affectationChef =
+    (chef?.affectation_id ? parId.get(chef.affectation_id) : undefined) ??
+    (chef
+      ? affectations.find(
+          (affectation) =>
+            affectation.role_projet?.toUpperCase() === "CP" && affectation.utilisateur?.id === chef.id,
+        )
+      : undefined);
   return {
     id: charge.id,
     reference: charge.reference,
@@ -376,9 +407,10 @@ export function versProjet(charge: ChargeProjet): Projet {
     maitreOeuvre: charge.maitre_oeuvre || null,
     contrats: (charge.contrat ?? []).map(versContrat),
     chefProjet: versIntervenant(charge.chef_projet),
+    chefProjetModifiable: affectationChef?.modifiable === true,
     conducteursTravaux: intervenants(charge.conducteurs_travaux),
     chefsChantier: (charge.chefs_chantier ?? [])
-      .map(versChefChantier)
+      .map((chef) => versChefChantier(chef, parId))
       .filter((chef): chef is ChefChantierProjet => chef !== null),
     autresMembres: (charge.autres_membres ?? [])
       .map(versAutreMembre)
@@ -474,11 +506,23 @@ export async function listerProjets(signal?: AbortSignal): Promise<Projet[]> {
     signal,
   );
   const charges = Array.isArray(charge) ? charge : (charge?.results ?? []);
-  return charges.map(versProjet);
+  return charges.map((projet) => versProjet(projet));
 }
 
+/**
+ * Le projet, avec ce que seul le détail des affectations porte : le lot des chefs de chantier
+ * et le droit de gérer le chef de projet (`modifiable`). La lecture des affectations ne doit pas
+ * faire échouer la fiche : sans elle, le projet s'affiche, le chef de projet non modifiable.
+ */
 export async function lireProjet(id: string): Promise<Projet> {
-  return versProjet(await api.lire<ChargeProjet>(`/projets/${id}/`));
+  const [projet, affectations] = await Promise.all([
+    api.lire<ChargeProjet>(`/projets/${id}/`),
+    api
+      .lire<ChargeAffectation[] | ChargeListe<ChargeAffectation>>(`/projets/${id}/affectations/`)
+      .then((charge) => (Array.isArray(charge) ? charge : (charge?.results ?? [])))
+      .catch((): ChargeAffectation[] => []),
+  ]);
+  return versProjet(projet, affectations);
 }
 
 /**
@@ -575,7 +619,7 @@ export async function ajouterMembreEncadrement(
   const payload: {
     utilisateur_id: string;
     role_projet: string;
-    zone?: string | null;
+    lot_id?: string | null;
   } = {
     utilisateur_id: ajout.intervenant.id,
     // Le rôle tenu sur le projet est celui de la plateforme, quel qu'il soit.
@@ -584,7 +628,8 @@ export async function ajouterMembreEncadrement(
   };
 
   if (ajout.fonction === "CHEF_CHANTIER") {
-    payload.zone = ajout.zone ?? null;
+    // Le lot fixe la zone côté serveur ; absent, le chef de chantier a tout le chantier.
+    payload.lot_id = ajout.lotId;
   }
 
   await api.creer(`/projets/${projetId}/affectations/`, payload);
@@ -602,11 +647,11 @@ export async function retirerMembreEncadrement(
 export async function modifierMembreEncadrement(
   projetId: string,
   affectationId: string,
-  modifications: { zone?: string | null; fonctionMembre?: FonctionAutreMembre },
+  modifications: { lotId?: string | null; fonctionMembre?: FonctionAutreMembre },
 ): Promise<Projet> {
-  const payload: { zone?: string | null; fonction_membre?: string } = {};
-  if ("zone" in modifications) {
-    payload.zone = modifications.zone ?? null;
+  const payload: { lot_id?: string | null; fonction_membre?: string } = {};
+  if ("lotId" in modifications) {
+    payload.lot_id = modifications.lotId ?? null;
   }
   if (modifications.fonctionMembre) {
     payload.fonction_membre = modifications.fonctionMembre;

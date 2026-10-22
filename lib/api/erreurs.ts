@@ -55,6 +55,8 @@ export const CODES_METIER = [
   "configuration_terminee",
   // Essai gratuit — T-025 §4.2
   "essai_expire",
+  // Équipe d'encadrement — le chef de projet ne se gère que par la direction (403)
+  "chef_projet_protege",
   // Rôles — changement de portée (apps/accounts/views/role.py)
   "confirmation_requise",
 ] as const;

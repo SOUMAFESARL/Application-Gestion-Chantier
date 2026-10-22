@@ -14,6 +14,7 @@ import {
   niveauBudget,
   niveauConformite,
   pointsDeVigilance,
+  precisionChefChantier,
   prochainesEtapes,
   ratioConsommationBudget,
   statutLot,
@@ -418,12 +419,15 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
           intervenant: conducteur,
         }))
       : [{ role: t("equipe.conducteurTravaux"), intervenant: null }]),
-    ...projet.chefsChantier.map((chef) => ({
-      role: chef.zone
-        ? t("equipe.chefChantierZone", { zone: chef.zone })
-        : t("equipe.chefChantier"),
-      intervenant: chef.intervenant,
-    })),
+    ...projet.chefsChantier.map((chef) => {
+      const precision = precisionChefChantier(chef);
+      return {
+        role: precision
+          ? t("equipe.chefChantierZone", { zone: precision })
+          : t("equipe.chefChantier"),
+        intervenant: chef.intervenant,
+      };
+    }),
     ...projet.autresMembres.map((membre) => ({
       role: libelles.fonctionAutreMembre(membre.fonction),
       intervenant: membre.intervenant,

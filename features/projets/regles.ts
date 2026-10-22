@@ -19,6 +19,7 @@ import type {
   AffectationProjet,
   AnomalieImportLot,
   BadgeSante,
+  ChefChantierProjet,
   CreationLotProjet,
   DureeProjet,
   Equipe,
@@ -1818,6 +1819,20 @@ export const ROLE_PROJET_PAR_FONCTION: Record<FonctionProjet, "CP" | "CT" | "CC"
   CHEF_CHANTIER: "CC",
   AUTRE_MEMBRE: "VI",
 };
+
+/** Un lot se nomme par son code et son libellé : « 02 — Gros œuvre ». */
+export function intituleLot(lot: { code: string; libelle: string }): string {
+  return `${lot.code} — ${lot.libelle}`;
+}
+
+/**
+ * Ce qui précise la place d'un chef de chantier : son lot, à défaut sa zone libre
+ * (affectations antérieures au choix d'un lot). `null` : il a tout le chantier.
+ */
+export function precisionChefChantier(chef: Pick<ChefChantierProjet, "lot" | "zone">): string | null {
+  if (chef.lot) return intituleLot(chef.lot);
+  return chef.zone || null;
+}
 
 /**
  * Qui peut retirer quelqu'un de ce projet : DG et AD partout ; CP et CT s'ils y sont affectés ;

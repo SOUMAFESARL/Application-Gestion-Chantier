@@ -115,6 +115,12 @@ export interface Projet {
    * ensuite.
    */
   chefProjet: Intervenant | null;
+  /**
+   * Le compte courant peut-il retirer, désactiver ou changer le chef de projet ?
+   * Renvoyé par le serveur sur l'affectation : seuls le DG et les rôles qui affectent
+   * les membres le peuvent. Faux tant que le serveur ne l'a pas dit.
+   */
+  chefProjetModifiable: boolean;
   conducteursTravaux: Intervenant[];
   chefsChantier: ChefChantierProjet[];
   autresMembres: AutreMembreProjet[];
@@ -176,10 +182,22 @@ export type FonctionAutreMembre =
   | "QHSE"
   | "AUTRE";
 
-/** Un chef de chantier, et la zone ou le lot dont il a la charge s'il est précisé. */
+/** Le lot dont un chef de chantier a la charge, tel que le serveur le résout. */
+export interface LotAffecte {
+  id: string;
+  code: string;
+  libelle: string;
+}
+
+/**
+ * Un chef de chantier, et le lot ou la zone dont il a la charge s'il est précisé.
+ * Le lot prime sur la zone ; ni l'un ni l'autre : tout le chantier.
+ */
 export interface ChefChantierProjet {
   intervenant: Intervenant;
-  /** « Lot 02 — Gros œuvre », « Bâtiment B »… `null` : tout le chantier. */
+  /** Un lot du projet. `null` : pas de lot (ancienne affectation à zone libre, ou tout le chantier). */
+  lot: LotAffecte | null;
+  /** « Bâtiment B »… la zone libre des affectations antérieures au choix d'un lot. */
   zone: string | null;
   affectationId?: string | null;
 }
@@ -201,7 +219,8 @@ export interface AutreMembreProjet {
  */
 export type AjoutEncadrement =
   | { fonction: "CHEF_PROJET" | "CONDUCTEUR_TRAVAUX"; intervenant: Intervenant }
-  | { fonction: "CHEF_CHANTIER"; intervenant: Intervenant; zone: string | null }
+  /** `lotId` : un lot du projet. `null` : tout le chantier. */
+  | { fonction: "CHEF_CHANTIER"; intervenant: Intervenant; lotId: string | null }
   /** Tout autre rôle de portée Projet, par son code (QSE, VI…) — décision du 16/10/2026. */
   | { fonction: "AUTRE_MEMBRE"; intervenant: Intervenant; roleCode: string };
 

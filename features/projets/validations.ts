@@ -771,21 +771,16 @@ export type SaisieAffectation = z.input<typeof schemaAffectation>;
  * L'équipe d'encadrement et de gestion du projet.
  * ------------------------------------------------------------------ */
 
-/** « Lot 02 — Gros œuvre », « Bâtiment B » : une précision, pas une description. */
-export const LONGUEUR_MAX_ZONE = 80;
-
 /**
- * L'arrivée d'une personne dans l'encadrement. La zone ne vaut que pour un
- * chef de chantier, la fonction précise que pour un autre membre — où elle
- * est exigée : « autre » ne dit pas ce que la personne vient faire.
+ * L'arrivée d'une personne dans l'encadrement. Le lot ne vaut que pour un
+ * chef de chantier, et il est facultatif : vide, la personne a tout le chantier.
  */
 export const schemaAjoutEncadrement = z.object({
   // Le code du rôle de portée Projet choisi (CP, CT, CC, QSE…) : la liste est dynamique.
   role: chaineNonVide(texte("projets.encadrement.ajout.erreurFonctionRequise")),
   utilisateurId: chaineNonVide(texte("projets.encadrement.ajout.erreurUtilisateurRequis")),
-  zone: z.string().trim().max(LONGUEUR_MAX_ZONE, {
-    message: texte("projets.encadrement.ajout.erreurZoneTropLongue"),
-  }),
+  // L'identifiant d'un lot du projet ; vide : tout le chantier.
+  lotId: z.string(),
 });
 
 export type SaisieAjoutEncadrement = z.input<typeof schemaAjoutEncadrement>;
@@ -801,7 +796,7 @@ export function fonctionDuRole(role: string): FonctionProjet {
 
 export function saisieEncadrementVide(fonction: FonctionProjet): SaisieAjoutEncadrement {
   const role = fonction === "AUTRE_MEMBRE" ? "" : ROLE_PROJET_PAR_FONCTION[fonction];
-  return { role, utilisateurId: "", zone: "" };
+  return { role, utilisateurId: "", lotId: "" };
 }
 
 /** La saisie validée, avec la personne choisie dans la liste des utilisateurs du compte. */
@@ -811,7 +806,7 @@ export function versAjoutEncadrement(
 ): AjoutEncadrement {
   switch (fonctionDuRole(valeurs.role)) {
     case "CHEF_CHANTIER":
-      return { fonction: "CHEF_CHANTIER", intervenant, zone: valeurs.zone || null };
+      return { fonction: "CHEF_CHANTIER", intervenant, lotId: valeurs.lotId || null };
     case "AUTRE_MEMBRE":
       return { fonction: "AUTRE_MEMBRE", intervenant, roleCode: valeurs.role };
     case "CONDUCTEUR_TRAVAUX":
