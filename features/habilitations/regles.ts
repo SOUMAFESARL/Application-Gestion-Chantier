@@ -87,6 +87,9 @@ export const CONDITIONS_ROUTES: readonly (readonly [string, ConditionAcces])[] =
   ["/parametres/collaborateurs", permission("administration.collaborateurs_voir")],
   ["/parametres/roles", permission("administration.roles_gerer")],
   ["/parametres/listes", permission("projets.creer")],
+  // Tout le monde consulte le calendrier de l'entreprise ; l'écriture, elle, exige
+  // `administration.calendrier_gerer` (erratum E-4) et se masque dans l'écran.
+  ["/parametres/calendrier", TOUS],
   ["/parametres", DIRECTION],
   ["/abonnement", DIRECTION],
 ];

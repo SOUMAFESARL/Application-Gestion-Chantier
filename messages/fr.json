@@ -1153,6 +1153,94 @@
       "erreurCommentaireCourt": "Le commentaire doit contenir au moins {min} caractères."
     }
   },
+  "calendrier": {
+    "titre": "Calendrier de l’entreprise",
+    "metaDescription": "Les jours ouvrés de l’entreprise : semaine type, jours fériés nationaux et exceptions.",
+    "description": "Un seul calendrier pour toute l’entreprise : il sert à compter les jours ouvrés de tous les chantiers.",
+    "aideFetes": "Les fêtes musulmanes (Korité, Tabaski, Nuit du Destin) ne figurent pas dans les jours fériés nationaux : elles dépendent de l’observation de la lune. Saisissez-les ici chaque année, comme jours non ouvrés.",
+    "lectureSeule": "Vous consultez le calendrier. Seuls les comptes qui détiennent le droit de gérer le calendrier peuvent le modifier.",
+    "chargement": "Chargement du calendrier…",
+    "erreurs": {
+      "action": "L’action n’a pas abouti. Réessayez."
+    },
+    "jours": {
+      "lundi": "Lundi",
+      "mardi": "Mardi",
+      "mercredi": "Mercredi",
+      "jeudi": "Jeudi",
+      "vendredi": "Vendredi",
+      "samedi": "Samedi",
+      "dimanche": "Dimanche"
+    },
+    "joursCourts": {
+      "lundi": "Lun.",
+      "mardi": "Mar.",
+      "mercredi": "Mer.",
+      "jeudi": "Jeu.",
+      "vendredi": "Ven.",
+      "samedi": "Sam.",
+      "dimanche": "Dim."
+    },
+    "etat": {
+      "ouvre": "Ouvré",
+      "nonOuvre": "Non ouvré"
+    },
+    "raison": {
+      "semaineType": "Semaine type",
+      "ferie": "Férié national : {libelle}",
+      "exception": "Exception de l’entreprise : {motif}"
+    },
+    "semaineType": {
+      "titre": "Semaine type",
+      "aide": "Cochez les jours de la semaine que l’entreprise travaille. Les jours fériés nationaux et les exceptions l’emportent sur cette semaine.",
+      "aideLecture": "Les jours de la semaine que l’entreprise travaille.",
+      "jourEtat": "{jour} : {etat}",
+      "enregistrer": "Enregistrer la semaine type",
+      "enCours": "Enregistrement…",
+      "annuler": "Annuler les modifications",
+      "succes": "La semaine type a été enregistrée.",
+      "erreurVide": "Cochez au moins un jour travaillé."
+    },
+    "mois": {
+      "precedent": "Mois précédent",
+      "suivant": "Mois suivant",
+      "courant": "Mois en cours",
+      "resume": "{n, plural, =0 {Aucun jour ouvré} one {# jour ouvré} other {# jours ouvrés}} ce mois-ci.",
+      "aideClic": "Cliquez sur un jour pour le marquer comme ouvré ou non ouvré."
+    },
+    "grille": {
+      "aria": "Jours du mois"
+    },
+    "legende": {
+      "ouvre": "Jour ouvré",
+      "nonOuvre": "Jour non ouvré",
+      "ferie": "Férié national",
+      "exception": "Exception de l’entreprise"
+    },
+    "modale": {
+      "titreNonOuvre": "Marquer le {date} comme non ouvré",
+      "titreOuvre": "Marquer le {date} comme ouvré",
+      "titreRetrait": "Exception du {date}",
+      "descriptionNonOuvre": "Ce jour est ouvré. L’exception le rendra non ouvré, quel que soit le calendrier habituel.",
+      "descriptionOuvre": "Ce jour est non ouvré. L’exception le rendra ouvré, malgré la semaine type ou le jour férié.",
+      "exceptionOuvre": "Ce jour est ouvré par exception. Motif :",
+      "exceptionNonOuvre": "Ce jour est non ouvré par exception. Motif :",
+      "aideRetrait": "En retirant l’exception, le jour reprend son état habituel (semaine type ou jour férié national).",
+      "motif": "Motif",
+      "motifPlaceholder": "Ex. : Tabaski, fermeture de fin d’année, samedi travaillé",
+      "aideMotif": "{n} / {max} caractères",
+      "erreurMotifRequis": "Le motif est obligatoire.",
+      "erreurMotifLong": "Le motif ne peut pas dépasser {max} caractères.",
+      "annuler": "Annuler",
+      "confirmer": "Enregistrer l’exception",
+      "enCours": "Enregistrement…",
+      "retirer": "Retirer l’exception",
+      "retraitEnCours": "Retrait…",
+      "fermer": "Fermer",
+      "succesCreation": "L’exception a été enregistrée.",
+      "succesRetrait": "L’exception a été retirée."
+    }
+  },
   "configuration": {
     "entreprise": {
       "accroche": "Ces informations apparaîtront sur vos documents officiels et vos factures.",
@@ -1822,6 +1910,19 @@
     "renvoyerAttente": "Renvoyer l’email ({secondes} s)",
     "retourConnexion": "Retour à la connexion",
     "titre": "Mot de passe oublié ?"
+  },
+  "pageParametres": {
+    "titre": "Paramètres",
+    "metaDescription": "Les réglages de l’entreprise : collaborateurs, rôles, listes, calendrier et configuration.",
+    "description": "Les réglages de votre entreprise, regroupés au même endroit.",
+    "aucune": "Aucun réglage n’est ouvert à votre compte.",
+    "descriptions": {
+      "collaborateurs": "Inviter les membres de l’équipe, suivre leurs comptes et leurs affectations.",
+      "roles": "Créer les rôles et régler ce que chacun peut voir et faire.",
+      "listes": "Les types de projet et les noms de lot proposés à toute l’entreprise.",
+      "calendrier": "Les jours ouvrés de l’entreprise : semaine type, jours fériés et exceptions.",
+      "configuration": "Les informations de l’entreprise qui figurent sur vos documents officiels."
+    }
   },
   "pagination": {
     "dernierePage": "Dernière page",
@@ -3770,6 +3871,7 @@
       "chantier": "Journal chantier",
       "chargementEntreprise": "Chargement…",
       "collaborateurs": "Collaborateurs",
+      "calendrier": "Calendrier",
       "configuration": "Configuration",
       "listes": "Listes",
       "contrats": "Contrats",

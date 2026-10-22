@@ -350,6 +350,7 @@ export default function LayoutApp({ children }: LayoutAppProps) {
   const estSurRoles = pathname.startsWith("/parametres/roles");
   const estSurConfigurationEntreprise = pathname.startsWith("/parametres/configuration");
   const estSurListes = pathname.startsWith("/parametres/listes");
+  const estSurCalendrier = pathname.startsWith("/parametres/calendrier");
 
   const roleLibelle = profil
     ? profil.is_dg
@@ -671,6 +672,7 @@ export default function LayoutApp({ children }: LayoutAppProps) {
           {(voit("/parametres/collaborateurs") ||
             voit("/parametres/roles") ||
             voit("/parametres/listes") ||
+            voit("/parametres/calendrier") ||
             voit("/parametres/configuration")) && (
             <SidebarGroup>
               <SidebarGroupLabel>{t("parametres")}</SidebarGroupLabel>
@@ -702,6 +704,16 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                         <Link href="/parametres/listes">
                           <ListChecks />
                           <span>{t("listes")}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {voit("/parametres/calendrier") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={estSurCalendrier} tooltip={t("calendrier")}>
+                        <Link href="/parametres/calendrier">
+                          <CalendarDays />
+                          <span>{t("calendrier")}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

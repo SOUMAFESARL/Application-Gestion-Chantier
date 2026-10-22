@@ -1,19 +1,26 @@
-import { useTranslations } from "next-intl";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
 
+import { SectionsParametres } from "./SectionsParametres";
+
 /**
- * Écran « Paramètres »
- *
- * Motif d'interface : Formulaire
- *
- * Squelette posé par la tâche T-005. Le contenu réel est développé
- * au sprint qui porte la fonctionnalité correspondante.
+ * Écran « Paramètres » : l'entrée des réglages de l'entreprise — collaborateurs,
+ * rôles, listes, calendrier, configuration. Chaque section reste un écran à part.
  */
-export default function Page() {
-  const t = useTranslations("squelettes");
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pageParametres");
+  return { title: t("titre"), description: t("metaDescription") };
+}
+
+export default async function Page() {
+  const t = await getTranslations("pageParametres");
 
   return (
-    <EnTetePage titre={t("parametres.titre")} description={t("aConstruire", { motif: t("parametres.motif") })} />
+    <div className="flex flex-col gap-5">
+      <EnTetePage titre={t("titre")} description={t("description")} />
+      <SectionsParametres />
+    </div>
   );
 }
