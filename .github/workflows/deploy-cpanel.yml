@@ -51,6 +51,12 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # Chaque espace ne recoit que ses sections du catalogue (i18n/FournisseurEspace.tsx).
+      # Une section oubliee afficherait la cle brute a l'ecran, sans erreur de lint ni de
+      # typage : la liste est recalculee depuis le code et doit correspondre a celle commitee.
+      - name: Sections de traduction par espace
+        run: npm run i18n:espaces -- --verifier
+
       - name: Build production application
         run: npm run build
 

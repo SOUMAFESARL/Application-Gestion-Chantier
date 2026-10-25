@@ -192,6 +192,19 @@ itself) — see the comments in `eslint.config.mjs` before adding to it. Every
 exemption there must be justifiable in one line; don't add directory-wide
 exemptions.
 
+**Each space ships only its own catalogue sections.** Without a `messages`
+prop, `NextIntlClientProvider` serialised all 39 sections (260 KB) into the
+HTML of every page, login included. `i18n/FournisseurEspace.tsx` now wraps the
+root layout (`racine`) and each route group's server `layout.tsx` —
+`(entreprise)`, `(admin)`, `(admin-auth)`, `(public)`, `design-system`. That is
+why the tenant shell lives in `(entreprise)/CoquilleEntreprise.tsx`: a client
+component cannot read the catalogue. A nested provider **replaces** its
+parent's messages, it does not merge with them. The sections per space are
+**computed** from the import graph into `i18n/espaces.json`: after adding a
+`useTranslations("…")`, run `npm run i18n:espaces` and commit the result. CI
+runs it with `--verifier` and fails on a stale list. A missing section shows
+raw keys on screen, and neither lint nor typecheck catches it.
+
 ## Directory layout
 
 - `app/(entreprise)/`, `(auth)/`, `(public)/` — route groups: authenticated app,
