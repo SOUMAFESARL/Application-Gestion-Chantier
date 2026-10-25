@@ -1,0 +1,77 @@
+{
+  "racine": [
+    "activation",
+    "connexion",
+    "erreurs",
+    "etats",
+    "invitation",
+    "marque",
+    "meta",
+    "motDePasse",
+    "motDePasseDefinir",
+    "motDePasseOublie",
+    "pagination"
+  ],
+  "entreprise": [
+    "abonnement",
+    "alertes",
+    "calendrier",
+    "configuration",
+    "dataTable",
+    "etats",
+    "ficheProjet",
+    "gestionCollaborateurs",
+    "habilitations",
+    "journal",
+    "marque",
+    "meta",
+    "motDePasse",
+    "pageParametres",
+    "pagination",
+    "profil",
+    "projets",
+    "referentielVilles",
+    "reglageDocuments",
+    "roles",
+    "selecteurHeure",
+    "squelettes",
+    "stocks",
+    "tableauDeBord",
+    "telephone",
+    "tiersAjoutRapide",
+    "uiGenerique",
+    "zoneDepot"
+  ],
+  "administration": [
+    "abonnement",
+    "administration",
+    "dataTable",
+    "etats",
+    "marque",
+    "meta",
+    "motDePasse",
+    "pagination",
+    "projets",
+    "uiGenerique"
+  ],
+  "administrationConnexion": [
+    "administration",
+    "etats",
+    "marque",
+    "meta",
+    "motDePasse",
+    "motDePasseDefinir",
+    "pagination"
+  ],
+  "public": [
+    "inscription",
+    "marque",
+    "meta",
+    "squelettes"
+  ],
+  "designSystem": [
+    "etats",
+    "meta",
+    "pagination"
+  ]
+}

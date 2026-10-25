@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "i18n:espaces": "node scripts/espaces-i18n.mjs",
     "recette:capture": "node docs/scripts/recette-visuelle.mjs"
   },
   "dependencies": {

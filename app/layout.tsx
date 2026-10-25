@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 
+import { FournisseurEspace } from "@/i18n/FournisseurEspace";
 import { COULEUR_PRIMAIRE_DEFAUT } from "@/styles/couleurs";
 
 import { Providers } from "./providers";
@@ -40,9 +40,12 @@ export default async function RootLayout({
   return (
     <html lang={locale}>
       <body>
-        <NextIntlClientProvider>
+        {/* La racine n'envoie que ses propres sections : connexion, activation,
+            invitations. Les espaces entreprise, back-office et public ont chacun
+            leur fournisseur — voir i18n/FournisseurEspace.tsx. */}
+        <FournisseurEspace espace="racine">
           <Providers>{children}</Providers>
-        </NextIntlClientProvider>
+        </FournisseurEspace>
       </body>
     </html>
   );
