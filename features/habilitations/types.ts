@@ -34,7 +34,8 @@ export interface Droits {
   estDirection: boolean;
   /**
    * Les codes de permission accordés (`projets.creer`, `projets.voir_montants`…), tels que le
-   * serveur les applique. Vide pour la direction, qui a tout (voir `peutCode`).
+   * serveur les applique. Pour la direction, toutes les permissions des modules ouverts à
+   * l'entreprise : c'est par elles qu'un module désactivé disparaît aussi de son menu.
    */
   codes: readonly string[];
   portee: PorteeProjets;
@@ -44,4 +45,6 @@ export interface Droits {
 export type ConditionAcces =
   | { type: "TOUS" }
   | { type: "DIRECTION" }
-  | { type: "PERMISSION"; code: string };
+  | { type: "PERMISSION"; code: string }
+  /** Au moins une permission sur ce module : la règle des entrées du menu. */
+  | { type: "MODULE"; module: string };

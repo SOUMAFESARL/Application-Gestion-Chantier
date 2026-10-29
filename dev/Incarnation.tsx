@@ -163,7 +163,7 @@ export function IncarnationBarreHaut({
 }) {
   const outils = useOutilsTest();
   const [ouverte, setOuverte] = useState(false);
-  if (!outils || !profil || !versDroits(profil).estDirection) return null;
+  if (!outils || !profil || !versDroits(profil)?.estDirection) return null;
 
   const modale = ouverte && <ModaleIncarnation onFermer={() => setOuverte(false)} />;
 

@@ -25,10 +25,14 @@ import type { Droits, PorteeProjets } from "./types";
  * rôle est une donnée — ses codes, rien de plus.
  *
  * Un profil sans `permissions` (celui que pose la connexion, avant
- * `GET /auth/profil/`) n'accorde rien : un droit ne se devine pas.
+ * `GET /auth/profil/`) ne dit pas encore les droits : `null`, « pas encore
+ * connus ». Le menu attend donc le vrai profil au lieu de s'afficher vide — un
+ * droit ne se devine pas, ni dans un sens ni dans l'autre.
  */
-export function versDroits(profil: ProfilUtilisateur): Droits {
-  if (profil.is_dg || profil.role_global === "DG") return droitsDirection();
+export function versDroits(profil: ProfilUtilisateur): Droits | null {
+  if (!profil.permissions) return null;
+  const codes = profil.permissions.map((c) => c.toLowerCase());
+  if (profil.is_dg || profil.role_global === "DG") return droitsDirection(codes);
 
   const portee: PorteeProjets =
     profil.portee === "ENTREPRISE"
@@ -37,7 +41,7 @@ export function versDroits(profil: ProfilUtilisateur): Droits {
 
   return {
     estDirection: false,
-    codes: (profil.permissions ?? []).map((c) => c.toLowerCase()),
+    codes,
     portee,
   };
 }

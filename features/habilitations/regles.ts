@@ -11,19 +11,38 @@ import type { FonctionProjet, Projet } from "@/features/projets/types";
 
 import type { ConditionAcces, Droits } from "./types";
 
-/** Tous les droits, tous les chantiers : le DG. */
-export function droitsDirection(): Droits {
-  return { estDirection: true, codes: [], portee: { type: "TOUS" } };
+/**
+ * Tous les droits, tous les chantiers : le DG. `codes` est la liste que le serveur lui accorde —
+ * toutes les permissions des modules **ouverts** à l'entreprise, et celles-là seulement.
+ */
+export function droitsDirection(codes: readonly string[] = []): Droits {
+  return { estDirection: true, codes, portee: { type: "TOUS" } };
+}
+
+/** Le module d'un code de permission : `projets` pour `projets.creer`. */
+export function moduleDuCode(code: string): string {
+  return code.toLowerCase().split(".")[0] ?? "";
 }
 
 /**
- * Le compte détient-il ce code ? La direction a tout. Recopie `a_permission`
- * (`apps/core/droits.py`) : la liste du profil est déjà celle que le serveur applique.
- * Un code absent n'accorde rien : un droit ne se devine pas.
+ * Le menu d'un module s'affiche-t-il ? **Dès une permission sur le module, et pas avant** —
+ * pour tout le monde, direction comprise. La liste du profil ne porte que les permissions des
+ * modules que le super admin laisse ouverts : un module désactivé disparaît donc aussi du DG.
+ */
+export function voitModule(droits: Droits | null, module: string): boolean {
+  if (!droits) return false;
+  const prefixe = `${module.toLowerCase()}.`;
+  return droits.codes.some((code) => code.startsWith(prefixe));
+}
+
+/**
+ * Le compte détient-il ce code ? Recopie `a_permission` (`apps/core/droits.py`) : la liste du
+ * profil est déjà celle que le serveur applique. Un code absent n'accorde rien : un droit ne se
+ * devine pas. La direction a tout, **dans les modules ouverts** à l'entreprise.
  */
 export function peutCode(droits: Droits | null, code: string): boolean {
   if (!droits) return false;
-  if (droits.estDirection) return true;
+  if (droits.estDirection) return voitModule(droits, moduleDuCode(code));
   return droits.codes.includes(code.toLowerCase());
 }
 
@@ -47,6 +66,8 @@ export function satisfait(droits: Droits | null, condition: ConditionAcces): boo
       return droits?.estDirection ?? false;
     case "PERMISSION":
       return peutCode(droits, condition.code);
+    case "MODULE":
+      return voitModule(droits, condition.module);
   }
 }
 
@@ -55,35 +76,40 @@ const DIRECTION: ConditionAcces = { type: "DIRECTION" };
 function permission(code: string): ConditionAcces {
   return { type: "PERMISSION", code };
 }
+function module(code: string): ConditionAcces {
+  return { type: "MODULE", module: code };
+}
 
 /**
- * Le code de permission qu'exige chaque écran de l'espace entreprise, par
- * préfixe d'URL. Le préfixe le plus long l'emporte. Une route absente de la
- * table n'est ouverte qu'à la direction : un écran nouveau reste fermé tant
- * qu'on n'a pas dit quel droit l'ouvre.
+ * Ce qu'exige chaque écran de l'espace entreprise, par préfixe d'URL. Le
+ * préfixe le plus long l'emporte. Une route absente de la table n'est ouverte
+ * qu'à la direction : un écran nouveau reste fermé tant qu'on n'a pas dit quel
+ * droit l'ouvre.
  *
- * Les modules que le catalogue du serveur n'a pas encore (finance, achats,
- * stocks…) gardent le code qu'ils auront (`finance.lire`) : personne ne le
- * détient aujourd'hui, l'écran reste à la direction.
+ * **L'écran d'un module s'ouvre dès une permission sur ce module** (`module`),
+ * comme son entrée de menu : le tableau de bord appartient au module
+ * `pilotage`, il disparaît pour qui n'y a aucune permission. Les modules que le
+ * catalogue du serveur n'a pas encore (finance, achats, stocks…) ne portent
+ * aucune permission : ils restent fermés à tous, direction comprise.
  */
 export const CONDITIONS_ROUTES: readonly (readonly [string, ConditionAcces])[] = [
-  ["/tableau-de-bord", TOUS],
+  ["/tableau-de-bord", module("pilotage")],
   ["/notifications", TOUS],
   ["/profil", TOUS],
-  ["/projets", permission("projets.lire")],
-  ["/planning", permission("projets.lire")],
-  ["/rapports", permission("chantier.lire")],
+  ["/projets", module("projets")],
+  ["/planning", module("projets")],
+  ["/rapports", module("chantier")],
   // Rédiger le rapport journalier : le chef de chantier (SFD F2 §3.2).
   ["/rapports/saisie", permission("chantier.rediger")],
-  ["/finance", permission("finance.lire")],
-  ["/achats", permission("achats.lire")],
-  ["/stocks", permission("stocks.lire")],
-  ["/rh", permission("rh.lire")],
-  ["/equipements", permission("equipements.lire")],
-  ["/qhse", permission("qhse.lire")],
-  ["/contrats", permission("contrats.lire")],
-  ["/tiers", permission("tiers.lire")],
-  ["/documents", permission("ged.lire")],
+  ["/finance", module("finance")],
+  ["/achats", module("achats")],
+  ["/stocks", module("stocks")],
+  ["/rh", module("rh")],
+  ["/equipements", module("equipements")],
+  ["/qhse", module("qhse")],
+  ["/contrats", module("contrats")],
+  ["/tiers", module("tiers")],
+  ["/documents", module("ged")],
   ["/parametres/collaborateurs", permission("administration.collaborateurs_voir")],
   ["/parametres/roles", permission("administration.roles_gerer")],
   ["/parametres/listes", permission("projets.creer")],
@@ -113,6 +139,18 @@ export function conditionDeRoute(chemin: string): ConditionAcces {
 
 export function routeAutorisee(droits: Droits | null, chemin: string): boolean {
   return satisfait(droits, conditionDeRoute(chemin));
+}
+
+/** Les pages d'accueil possibles, dans l'ordre de préférence. Le profil est ouvert à tous. */
+const ROUTES_ACCUEIL = ["/tableau-de-bord", "/projets", "/rapports", "/planning", "/documents", "/tiers", "/profil"];
+
+/**
+ * La page où l'on arrive : le tableau de bord, sinon le premier module ouvert au compte.
+ * Sans permission sur le tableau de bord, il n'apparaît pas — on ne peut donc pas y envoyer
+ * quelqu'un par défaut.
+ */
+export function routeAccueil(droits: Droits | null): string {
+  return ROUTES_ACCUEIL.find((route) => routeAutorisee(droits, route)) ?? "/profil";
 }
 
 /**
