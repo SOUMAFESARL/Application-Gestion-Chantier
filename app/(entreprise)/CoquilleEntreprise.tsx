@@ -76,7 +76,7 @@ import type { MeteoProjet } from "@/features/projets/types";
 import { useIdentitePlateforme } from "@/features/plateforme/hooks";
 import { useDefile } from "@/hooks/use-defilement";
 import { cn } from "@/lib/utils";
-import { FournisseurDroits, GardeRoute, routeAutorisee } from "@/features/habilitations";
+import { FournisseurDroits, GardeRoute, routeAccueil, routeAutorisee } from "@/features/habilitations";
 import {
   IncarnationBarreHaut,
   quitterIncarnation,
@@ -301,6 +301,8 @@ export default function LayoutApp({ children }: LayoutAppProps) {
    */
   const { droits, incarnation } = useDroitsEnVigueur(profil);
   const voit = (href: string) => routeAutorisee(droits, href);
+  // Le logo mène à l'accueil du compte : le tableau de bord, s'il y a droit.
+  const accueil = routeAccueil(droits);
 
   useEffect(() => {
     if (!METEO_DANS_BARRE) return;
@@ -460,7 +462,7 @@ export default function LayoutApp({ children }: LayoutAppProps) {
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
-                <Link href="/tableau-de-bord">
+                <Link href={accueil}>
                   <LogoPlateforme logo={identitePlateforme?.logo} taille={28} />
                   {/* Le nom de marque est le seul texte encre de la barre —
                       comme sur `docs/interface.jpg`, où le signe porte la
@@ -478,14 +480,18 @@ export default function LayoutApp({ children }: LayoutAppProps) {
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={estSurTableauDeBord} tooltip={t("accueil")}>
-                    <Link href="/tableau-de-bord">
-                      <LayoutDashboard />
-                      <span>{t("accueil")}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {/* Le tableau de bord est le module « pilotage » : sans aucune
+                    permission sur ce module, son entrée n'existe pas. */}
+                {voit("/tableau-de-bord") && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={estSurTableauDeBord} tooltip={t("accueil")}>
+                      <Link href="/tableau-de-bord">
+                        <LayoutDashboard />
+                        <span>{t("accueil")}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 {/* Panneau volant au survol : pas d'infobulle ici, elle
                     doublerait le panneau quand la barre est repliée. */}
                 {voit("/projets") && (

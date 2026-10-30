@@ -3,9 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { ShieldOff } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { createContext, useCallback, useContext } from "react";
+import { createContext, useCallback, useContext, useEffect } from "react";
 import type { ReactNode } from "react";
 
 import { EtatChargement, EtatVide } from "@/components/ui";
@@ -14,7 +14,14 @@ import { listerProjets } from "@/features/projets/adaptateur";
 import { CLE_LISTE_PROJETS } from "@/features/projets/cles";
 import type { Projet } from "@/features/projets/types";
 
-import { peutCode, peutSurProjet, peutVoirMontants, projetsVisibles, routeAutorisee } from "../regles";
+import {
+  peutCode,
+  peutSurProjet,
+  peutVoirMontants,
+  projetsVisibles,
+  routeAccueil,
+  routeAutorisee,
+} from "../regles";
 import type { Droits } from "../types";
 
 /**
@@ -64,6 +71,7 @@ export function SiDroit({ code, children }: { code: string; children: ReactNode 
 /** L'écran montré à la place d'une page que le compte ne peut pas ouvrir. */
 export function AccesNonAutorise() {
   const t = useTranslations("habilitations");
+  const { droits } = useDroits();
   return (
     <EtatVide
       icone={<ShieldOff size={32} aria-hidden="true" />}
@@ -71,7 +79,7 @@ export function AccesNonAutorise() {
       description={t("accesRefuseDescription")}
       action={
         <Button variant="outline" size="sm" asChild>
-          <Link href="/tableau-de-bord">{t("retourAccueil")}</Link>
+          <Link href={routeAccueil(droits)}>{t("retourAccueil")}</Link>
         </Button>
       }
     />
@@ -87,9 +95,19 @@ export function AccesNonAutorise() {
  */
 export function GardeRoute({ children }: { children: ReactNode }) {
   const chemin = usePathname();
+  const router = useRouter();
   const { droits, connus } = useDroits();
-  if (!connus) return <EtatChargement />;
-  if (!routeAutorisee(droits, chemin)) return <AccesNonAutorise />;
+  const autorisee = routeAutorisee(droits, chemin);
+  // L'accueil par défaut (`/tableau-de-bord`, où mène la connexion) n'existe pas pour qui n'a
+  // aucune permission de pilotage : on l'envoie sur son premier module, pas sur un refus.
+  const accueil = routeAccueil(droits);
+  const versAccueil = connus && !autorisee && chemin === "/tableau-de-bord" && accueil !== chemin;
+  useEffect(() => {
+    if (versAccueil) router.replace(accueil);
+  }, [versAccueil, accueil, router]);
+
+  if (!connus || versAccueil) return <EtatChargement />;
+  if (!autorisee) return <AccesNonAutorise />;
   return <>{children}</>;
 }
 
