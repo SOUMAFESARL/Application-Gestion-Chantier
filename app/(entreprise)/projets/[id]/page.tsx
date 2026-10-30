@@ -1,7 +1,7 @@
 import { FicheProjet } from "./FicheProjet";
 
 /**
- * Écran « Fiche projet »
+ * Écran « Fiche projet » — onglet Synthèse
  *
  * Motif d'interface : Fiche détail avec sous-objets
  *

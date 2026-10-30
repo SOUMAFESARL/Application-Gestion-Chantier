@@ -202,7 +202,7 @@ On suit les numéros, un lot à la fois : la machine n'en supporte pas deux (mé
 |---|---|---|---|---|
 | 1 | B | à faire | | |
 | 2 | F | à faire | | |
-| 3 | F | à faire | | |
+| 3 | F | fait (cloud, nuit du 30/10) — branche `decoupage/lot-3-onglets-tableau` ; lint et typecheck passent | | 30/10 |
 | 4 | F | à faire | | |
 | 5 | B | à faire | | |
 | 6 | F | à faire | | |

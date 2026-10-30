@@ -132,6 +132,11 @@ export interface Projet {
    * montre pas, et l'écran les compte alors lui-même (`syntheseLots`).
    */
   statistiques: StatistiquesProjet | null;
+  /**
+   * Vrai dès que le tableau de démarrage a été appliqué : l'arbre de cases existe. Faux, l'onglet
+   * Découpage propose le tableau de démarrage ; vrai, il montre l'arbre.
+   */
+  decoupageCree: boolean;
 }
 
 /**

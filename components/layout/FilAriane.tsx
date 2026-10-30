@@ -63,6 +63,14 @@ const CARTE_SEGMENTS: Record<string, string> = {
   "/parametres/documents": "documentsPdf",
 };
 
+/** Les onglets de la fiche d'un projet, par suffixe de chemin. */
+const ONGLETS_FIL: Record<string, string> = {
+  "/decoupage": "projetDecoupage",
+  "/avancement": "projetAvancement",
+  "/equipes": "projetEquipes",
+  "/avenants": "projetAvenants",
+};
+
 /** L'identifiant du projet de `/projets/[id]/…`, s'il y en a un. */
 function projetDuChemin(segments: string[]): string | undefined {
   if (segments[0] !== "projets" || !segments[1]) return undefined;
@@ -91,6 +99,9 @@ export function FilAriane() {
       if (projet.data) return projet.data.nom;
       return projet.isError ? humaniser(segmentBrut) : <Skeleton className="h-4 w-32" />;
     }
+    // Les onglets de la fiche projet (`/projets/[id]/decoupage`…) se nomment comme leur onglet.
+    const onglet = projetId !== undefined ? ONGLETS_FIL[chemin.replace(`/projets/${projetId}`, "")] : undefined;
+    if (onglet) return t(onglet);
     // Un rapport journalier (`/rapports/[id]`) se nomme par son type, pas par son identifiant.
     const cle = CARTE_SEGMENTS[chemin] ?? (/^\/rapports\/(rap|abs)-/.test(chemin) ? "chantierRapport" : undefined);
     return cle ? t(cle) : humaniser(segmentBrut);

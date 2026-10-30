@@ -1,19 +1,9 @@
-import { useTranslations } from "next-intl";
-
-import { EnTetePage } from "@/components/layout/EnTetePage";
+import { OngletAVenir } from "../OngletAVenir";
 
 /**
- * Écran « Avancement du projet »
- *
- * Motif d'interface : Visualisation temporelle
- *
- * Squelette posé par la tâche T-005. Le contenu réel est développé
- * au sprint qui porte la fonctionnalité correspondante.
+ * Onglet « Avancement » de la fiche projet : la courbe en S et la fin estimée arrivent avec le
+ * lot 12 du plan du découpage.
  */
 export default function Page() {
-  const t = useTranslations("squelettes");
-
-  return (
-    <EnTetePage titre={t("avancementDuProjet.titre")} description={t("aConstruire", { motif: t("avancementDuProjet.motif") })} />
-  );
+  return <OngletAVenir onglet="avancement" />;
 }

@@ -147,6 +147,8 @@ interface ChargeProjet {
   chefs_chantier?: ChargeChefChantier[];
   autres_membres?: ChargeAutreMembre[];
   statistiques?: ChargeStatistiques | null;
+  /** Vrai dès que l'arbre existe (le tableau de démarrage a été appliqué). */
+  decoupage_cree?: boolean;
 }
 
 /** Les chiffres de structure que le serveur calcule sur les lots du chantier. */
@@ -417,6 +419,7 @@ export function versProjet(charge: ChargeProjet, affectations: ChargeAffectation
       .map(versAutreMembre)
       .filter((membre): membre is AutreMembreProjet => membre !== null),
     statistiques: versStatistiques(charge.statistiques),
+    decoupageCree: charge.decoupage_cree ?? false,
   };
 }
 

@@ -1481,7 +1481,7 @@
       "activites": "Activités",
       "avancementPondere": "Avancement pondéré",
       "enRetard": "Activités en retard",
-      "voirLots": "Lots & activités",
+      "voirLots": "Voir le découpage",
       "voirEquipes": "Équipes & affectations",
       "collaborateurs": "{nombre, plural, =0 {Aucun collaborateur} one {<fort>#</fort> collaborateur} other {<fort>#</fort> collaborateurs}}"
     },
@@ -1636,6 +1636,16 @@
       "pied": {
         "page": "Page {page}/{total}"
       }
+    },
+    "onglets": {
+      "libelle": "Sections du projet",
+      "synthese": "Synthèse",
+      "decoupage": "Découpage",
+      "avancement": "Avancement",
+      "equipes": "Équipes",
+      "avenants": "Avenants",
+      "aVenirTitre": "L’onglet « {onglet} » arrive bientôt",
+      "aVenirDescription": "Cet écran est en cours d’adaptation au découpage du projet en arbre."
     }
   },
   "format": {
@@ -1651,7 +1661,30 @@
   "habilitations": {
     "accesRefuseTitre": "Accès non autorisé",
     "accesRefuseDescription": "Votre rôle ne donne pas accès à cette page. Si vous en avez besoin, demandez au Directeur Général d’ajuster les accès de votre rôle.",
-    "retourAccueil": "Retour au tableau de bord"
+    "retourAccueil": "Retour au tableau de bord",
+    "permissionManquante": "Permission requise : « {permission} ». Demandez-la au responsable des rôles.",
+    "permissions": {
+      "projets_lire": "Consulter les projets",
+      "projets_voir_tout": "Voir tout le projet",
+      "projets_voir_montants": "Voir les montants du projet",
+      "projets_decouper": "Découper le projet",
+      "projets_chiffrer": "Fixer les montants et les quantités",
+      "projets_planifier": "Planifier et reprogrammer les dates",
+      "projets_prolonger": "Prolonger le projet ou une case commencée",
+      "projets_mesurer": "Mesurer l’avancement hors du journal",
+      "projets_affecter_membres": "Affecter des membres aux projets",
+      "projets_retirer_membres": "Retirer un membre du projet",
+      "projets_gerer_equipes": "Gérer les équipes de chantier",
+      "projets_main_oeuvre_gerer": "Gérer le registre de main-d’œuvre",
+      "projets_modeles_gerer": "Gérer les listes et modèles de découpage",
+      "projets_avenants_gerer": "Enregistrer et retirer les avenants",
+      "chantier_lire": "Consulter les rapports",
+      "chantier_rediger": "Rédiger et soumettre un rapport",
+      "chantier_valider": "Valider un rapport",
+      "chantier_approuver": "Approuver un rapport",
+      "chantier_synthese_rediger": "Rédiger la synthèse de la semaine",
+      "chantier_synthese_approuver": "Approuver la synthèse de la semaine"
+    }
   },
   "gestionCollaborateurs": {
     "ajoutEnCours": "Ajout en cours…",
@@ -4150,7 +4183,11 @@
       "tiers": "Tiers",
       "chantierSynthese": "Synthèse périodique",
       "chantierRapport": "Rapport journalier",
-      "monProfil": "Mon profil"
+      "monProfil": "Mon profil",
+      "projetDecoupage": "Découpage",
+      "projetAvancement": "Avancement",
+      "projetEquipes": "Équipes",
+      "projetAvenants": "Avenants"
     },
     "portefeuille": {
       "budgetNonDefini": "Non défini",
@@ -5528,5 +5565,88 @@
     "creer": "Ajouter",
     "erreur": "Le tiers n’a pas pu être ajouté. Réessayez.",
     "erreurFormat": "Saisissez le numéro au format international : + suivi de l’indicatif du pays et du numéro."
+  },
+  "decoupage": {
+    "unites": {
+      "M2": "m²",
+      "ML": "ml",
+      "M3": "m³",
+      "KG": "kg",
+      "U": "u",
+      "FORFAIT": "forfait"
+    },
+    "tableau": {
+      "titre": "Tableau de démarrage",
+      "description": "Une ligne par tâche : ses cases suivent les niveaux, de gauche à droite. Les cases identiques se regroupent sous un même parent. Vérifiez, puis appliquez pour construire l’arbre du projet.",
+      "modele": "Modèle de découpage",
+      "modeleAucun": "Aucun modèle",
+      "modeleParDefaut": "par défaut",
+      "modelePourCeType": "pour ce type de projet",
+      "importer": "Importer un fichier",
+      "exporter": "Exporter (CSV)",
+      "aideImport": "Le fichier reprend les colonnes du tableau : une colonne par niveau, puis, facultatives, Unité, Quantité, Montant (FCFA), Début et Fin. Formats acceptés : .xlsx et .csv.",
+      "importReussi": "{lignes, plural, =0 {Aucune ligne importée} one {# ligne importée} other {# lignes importées}} : vérifiez le tableau avant de l’appliquer.",
+      "erreurImport": "Le fichier n’a pas pu être lu.",
+      "erreurVerification": "La vérification n’a pas abouti. Réessayez.",
+      "erreurApplication": "Le tableau n’a pas pu être appliqué. Réessayez.",
+      "refusBloquants": "Le tableau comporte des erreurs à corriger : elles sont signalées sous la grille.",
+      "applique": "{cases, plural, =0 {Aucune case créée} one {# case créée} other {# cases créées}} : le découpage du projet est en place.",
+      "niveaux": "Niveaux",
+      "niveauxAide": "Le gabarit du projet : un libellé par niveau, une liste de valeurs facultative, et le niveau où alerter en cas de retard.",
+      "ajouterNiveau": "Ajouter un niveau",
+      "niveauRang": "Niveau {rang}",
+      "niveauSansNom": "Niveau {rang}",
+      "niveauLibelle": "Libellé du niveau",
+      "niveauListe": "Liste de valeurs du niveau",
+      "niveauAGauche": "Déplacer ce niveau vers la gauche",
+      "niveauADroite": "Déplacer ce niveau vers la droite",
+      "retirerNiveau": "Retirer ce niveau et sa colonne",
+      "sansListe": "Sans liste de valeurs",
+      "alerter": "Alerter à ce niveau",
+      "numero": "Ligne",
+      "unite": "Unité",
+      "sansUnite": "—",
+      "quantite": "Quantité",
+      "montant": "Montant (FCFA)",
+      "dateDebut": "Début",
+      "dateFin": "Fin",
+      "actionsLigne": "Actions sur la ligne",
+      "insererLigne": "Insérer une ligne en dessous",
+      "retirerLigne": "Retirer cette ligne",
+      "ajouterLigne": "Ajouter une ligne",
+      "verifier": "Vérifier",
+      "appliquer": "Appliquer le découpage",
+      "apercu": "Aperçu : {cases, plural, one {# case} other {# cases}}, dont {feuilles, plural, one {# tâche} other {# tâches}}, sur {niveaux, plural, one {# niveau} other {# niveaux}}.",
+      "verdictBon": "Le tableau est cohérent : il peut être appliqué.",
+      "bloquants": "{nombre, plural, one {# erreur à corriger} other {# erreurs à corriger}}",
+      "avertissements": "{nombre, plural, one {# avertissement} other {# avertissements}}",
+      "coquilles": "{nombre, plural, one {# valeur hors liste} other {# valeurs hors liste}} : coquilles possibles",
+      "confirmationTitre": "Créer malgré les avertissements ?",
+      "confirmationDescription": "{nombre, plural, one {Un avertissement reste ouvert} other {# avertissements restent ouverts}}. Vous pouvez corriger le tableau, ou créer l’arbre tel quel.",
+      "corriger": "Corriger le tableau",
+      "creerQuandMeme": "Créer quand même",
+      "changerModeleTitre": "Remplacer la saisie par ce modèle ?",
+      "changerModeleDescription": "Le tableau sera repris depuis le modèle choisi : vos lignes et vos niveaux actuels seront perdus.",
+      "garderSaisie": "Garder ma saisie",
+      "remplacer": "Remplacer",
+      "colonnesFichier": {
+        "unite": "Unité",
+        "quantite": "Quantité",
+        "montant": "Montant (FCFA)",
+        "dateDebut": "Début",
+        "dateFin": "Fin"
+      },
+      "regles": {
+        "C1": "C-1",
+        "C2": "C-2",
+        "C3": "C-3",
+        "C4": "C-4",
+        "C5": "C-5",
+        "C6": "C-6",
+        "C7": "C-7",
+        "SANS_EFFET": "Sans effet",
+        "AUTRE": "Contrôle"
+      }
+    }
   }
 }
