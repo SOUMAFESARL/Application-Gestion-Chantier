@@ -1646,6 +1646,61 @@
       "avenants": "Avenants",
       "aVenirTitre": "L’onglet « {onglet} » arrive bientôt",
       "aVenirDescription": "Cet écran est en cours d’adaptation au découpage du projet en arbre."
+    },
+    "affectations": {
+      "titre": "Collaborateurs affectés",
+      "description": "Chacun avec son rôle sur ce projet et son périmètre dans l’arbre.",
+      "vide": "Aucun collaborateur affecté à ce projet.",
+      "rolePlateforme": "Sur la plateforme : {role}",
+      "toutLeProjet": "Tout le projet",
+      "colonnes": {
+        "collaborateur": "Collaborateur",
+        "role": "Rôle sur le projet",
+        "perimetre": "Périmètre",
+        "depuis": "Depuis",
+        "actions": "Actions"
+      },
+      "export": {
+        "titre": "Collaborateurs affectés — {projet}",
+        "nomFichier": "affectations",
+        "rolePlateforme": "Rôle sur la plateforme",
+        "jusqua": "Jusqu’au"
+      },
+      "modifier": "Modifier le rôle ou le périmètre",
+      "remplacer": "Remplacer",
+      "retirer": "Retirer du projet",
+      "affecter": "Affecter un collaborateur",
+      "changerChefChantier": "Changer de chef de chantier",
+      "titreAffectation": "Affecter un collaborateur",
+      "titreModification": "Affectation de {nom}",
+      "sousTitre": "Son rôle sur ce projet peut différer de son rôle sur la plateforme ; son périmètre borne où ce rôle s’exerce.",
+      "champCollaborateur": "Collaborateur",
+      "choisirCollaborateur": "Choisir un collaborateur",
+      "chargement": "Chargement…",
+      "champRole": "Rôle sur ce projet",
+      "choisirRole": "Choisir un rôle",
+      "unique": "unique par projet",
+      "aideRole": "Par défaut, le rôle du collaborateur sur la plateforme.",
+      "aideRoleAvecPlateforme": "Sur la plateforme : {role}.",
+      "champPerimetre": "Périmètre",
+      "sansArbre": "Le projet n’est pas encore découpé : l’affectation couvre tout le projet.",
+      "annuler": "Annuler",
+      "enregistrer": "Enregistrer",
+      "affectee": "Collaborateur affecté.",
+      "modifiee": "Affectation enregistrée.",
+      "erreur": "L’opération n’a pas abouti. Réessayez.",
+      "titreRemplacement": "Remplacer {nom} ({role})",
+      "titreChefChantier": "Changer de chef de chantier",
+      "descriptionRemplacement": "L’ancien titulaire perd sa fonction à la date du changement ; son affectation reste dans l’historique. Le nouveau reprend le rôle et le périmètre.",
+      "champNouveauTitulaire": "Nouveau titulaire",
+      "champDateChangement": "Date du changement",
+      "aideDateChangement": "Vide : aujourd’hui.",
+      "confirmerRemplacement": "Remplacer",
+      "remplace": "Remplacement enregistré.",
+      "titreRetrait": "Retirer {nom} du projet ?",
+      "descriptionRetrait": "Il ne tiendra plus le rôle « {role} » sur ce projet.",
+      "retire": "{nom} est retiré du projet.",
+      "candidat": "{nom} — {role}"
     }
   },
   "format": {
@@ -2753,12 +2808,12 @@
         "utilisateurAucun": "Aucun collaborateur disponible avec ce rôle.",
         "chargementUtilisateurs": "Chargement des utilisateurs…",
         "erreurUtilisateurs": "Impossible de charger les utilisateurs du compte.",
-        "champLot": "Lot (optionnel)",
-        "chargementLots": "Chargement des lots…",
-        "lotRecherche": "Rechercher un lot…",
-        "lotAucun": "Aucun lot dans ce projet.",
-        "aideLot": "Un chef de chantier par lot. Vide : tout le chantier.",
-        "erreurLots": "Impossible de charger les lots du projet.",
+        "champLot": "Périmètre (optionnel)",
+        "chargementLots": "Chargement de l’arbre…",
+        "lotRecherche": "Rechercher une case…",
+        "lotAucun": "Aucune case dans l’arbre de ce projet.",
+        "aideLot": "Une branche de l’arbre. Vide : tout le chantier.",
+        "erreurLots": "Impossible de charger l’arbre du projet.",
         "champFonctionMembre": "Fonction",
         "selectionner": "Sélectionner…",
         "remplacement": "{nom} est aujourd'hui chef de projet : il sera remplacé.",
@@ -3083,7 +3138,10 @@
     "titreCreation": "Créer un nouveau rôle personnalisé",
     "titreModification": "Modifier le rôle « {role} »",
     "titreSuppression": "Supprimer le rôle « {role} »",
-    "utilisateursCount": "{n, plural, =0 {0 utilisateur} =1 {1 utilisateur} other {# utilisateurs}}"
+    "utilisateursCount": "{n, plural, =0 {0 utilisateur} =1 {1 utilisateur} other {# utilisateurs}}",
+    "uniqueParProjet": "Unique par projet",
+    "uniqueParProjetAide": "Une seule personne tient ce rôle sur un projet ; pour en changer, on la remplace.",
+    "dejaPlusieursTitulaires": "Déjà plusieurs titulaires sur : {projets}. Ils restent tels quels ; la règle vaut pour les prochaines affectations."
   },
   "simulation": {
     "avertissement": "<fort>Configuration simulée.</fort> Les étapes de ce configurateur ne sont pas encore enregistrées : leurs endpoints n’existent pas. Le reste du produit — inscription, connexion, mot de passe — écrit en base pour de vrai."
@@ -4187,7 +4245,8 @@
       "projetDecoupage": "Découpage",
       "projetAvancement": "Avancement",
       "projetEquipes": "Équipes",
-      "projetAvenants": "Avenants"
+      "projetAvenants": "Avenants",
+      "projetsMainOeuvre": "Main-d’œuvre"
     },
     "portefeuille": {
       "budgetNonDefini": "Non défini",
@@ -5831,6 +5890,67 @@
       "ajouter": "Ajouter le niveau",
       "ajoute": "Niveau « {libelle} » ajouté.",
       "erreur": "Le niveau n’a pas pu être enregistré."
+    },
+    "perimetre": {
+      "rechercher": "Rechercher une case…",
+      "toutLeProjet": "Aucune case cochée : tout le projet.",
+      "aucuneCase": "Aucune case choisie.",
+      "casesChoisies": "{nombre, plural, one {# case choisie} other {# cases choisies}}",
+      "aucunResultat": "Aucune case ne correspond."
+    }
+  },
+  "mainOeuvre": {
+    "titre": "Main-d’œuvre",
+    "description": "Le registre des personnes de l’entreprise et de ses partenaires : c’est là qu’on prend les membres des équipes.",
+    "vide": "Aucune personne dans le registre.",
+    "compte": "Compte",
+    "notreEntreprise": "Notre entreprise",
+    "colonnes": {
+      "personne": "Personne",
+      "metier": "Métier",
+      "entreprise": "Entreprise",
+      "telephone": "Téléphone",
+      "actions": "Actions"
+    },
+    "export": {
+      "titre": "Registre de main-d’œuvre",
+      "nomFichier": "main-oeuvre",
+      "nom": "Nom",
+      "prenom": "Prénom",
+      "compte": "A un compte"
+    },
+    "oui": "Oui",
+    "non": "Non",
+    "modifier": "Modifier",
+    "retirer": "Retirer du registre",
+    "retiree": "{nom} est retiré du registre.",
+    "erreur": "L’opération n’a pas abouti. Réessayez.",
+    "ajouter": "Ajouter une personne",
+    "rechercher": "Rechercher",
+    "rechercherExemple": "Nom, métier, entreprise…",
+    "filtreEntreprise": "Entreprise",
+    "toutes": "Toutes",
+    "origines": {
+      "INTERNE": "Notre entreprise",
+      "PARTENAIRE": "Partenaires"
+    },
+    "fenetre": {
+      "titreAjout": "Ajouter une personne au registre",
+      "titreModification": "Modifier {nom}",
+      "description": "Nom et prénom obligatoires ; téléphone et métier facultatifs.",
+      "prenom": "Prénom",
+      "nom": "Nom",
+      "telephone": "Téléphone",
+      "metier": "Métier",
+      "metierExemple": "Maçon, ferrailleur, coffreur…",
+      "entreprise": "Entreprise",
+      "notreEntreprise": "Notre entreprise",
+      "annuler": "Annuler",
+      "enregistrer": "Enregistrer",
+      "ajoutee": "{nom} est ajouté au registre.",
+      "modifiee": "{nom} est enregistré.",
+      "nomPrenomRequis": "Le nom et le prénom sont obligatoires.",
+      "erreur": "L’enregistrement n’a pas abouti. Réessayez."
     }
   }
 }

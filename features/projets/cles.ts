@@ -117,3 +117,13 @@ export function cleHistoriqueSante(projetId: string) {
   return ["projets", projetId, "sante", "historique"] as const;
 }
 
+
+/** Les affectations des collaborateurs d'un chantier (rôle sur le projet, périmètre). */
+export function cleAffectationsCollaborateurs(projetId: string) {
+  return ["projets", projetId, "affectations"] as const;
+}
+
+/** Les collaborateurs qu'on peut affecter à un chantier (portée Projet, comptes actifs). */
+export function cleAffectables(projetId: string) {
+  return ["projets", projetId, "affectations", "affectables"] as const;
+}

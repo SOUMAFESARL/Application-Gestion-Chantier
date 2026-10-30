@@ -39,6 +39,7 @@ const CARTE_SEGMENTS: Record<string, string> = {
   "/abonnement/historique": "historique",
   "/projets": "projets",
   "/projets/equipe-affectations": "projetsEquipe",
+  "/projets/main-oeuvre": "projetsMainOeuvre",
   "/projets/alertes": "projetsAlertes",
   "/rapports": "chantier",
   "/rapports/synthese": "chantierSynthese",

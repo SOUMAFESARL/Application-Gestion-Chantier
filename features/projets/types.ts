@@ -770,3 +770,55 @@ export interface InstantaneSante {
   tauxReporting: number;
   calculeLe: string;
 }
+
+/* ------------------------------------------------------------------ *
+ * Affectations des collaborateurs (décisions v1.2, §13bis ; décision P13).
+ * ------------------------------------------------------------------ */
+
+/** Une case du périmètre d'une affectation, avec le chemin qui y mène. */
+export interface CasePerimetre {
+  id: string;
+  libelle: string;
+  niveau: string;
+  /** Les intitulés des ancêtres puis de la case : « Bâtiment A › Gros œuvre ». */
+  chemin: string[];
+}
+
+/**
+ * Un collaborateur affecté au projet : **son rôle sur ce projet** (qui peut différer de son rôle
+ * sur la plateforme) et **son périmètre** — des cases de l'arbre, ou tout le projet.
+ */
+export interface AffectationCollaborateur {
+  id: string;
+  utilisateur: { id: string; nomComplet: string; email: string | null; telephone: string | null };
+  roleProjet: string;
+  roleProjetLibelle: string;
+  rolePlateforme: string;
+  /** Vide : tout le projet. */
+  perimetres: CasePerimetre[];
+  dateDebut: string | null;
+  dateFin: string | null;
+  estActif: boolean;
+  /** Faux quand le compte courant ne peut pas gérer cette affectation (le chef de projet). */
+  modifiable: boolean;
+}
+
+export interface SaisieAffectation {
+  utilisateurId: string;
+  /** Le code du rôle sur ce projet ; vide : celui du collaborateur sur la plateforme. */
+  roleProjet: string;
+  /** Vide : tout le projet. */
+  perimetresIds: string[];
+  dateDebut?: string | null;
+  dateFin?: string | null;
+}
+
+/** Le remplacement d'un titulaire : l'ancien est clos ce jour, le nouveau reprend le rôle. */
+export interface Remplacement {
+  roleProjet: string;
+  utilisateurId: string;
+  /** Qui est remplacé ; inutile pour un rôle unique par projet. */
+  affectationRemplaceeId: string | null;
+  perimetresIds: string[];
+  dateChangement?: string | null;
+}

@@ -206,7 +206,7 @@ On suit les numéros, un lot à la fois : la machine n'en supporte pas deux (mé
 | 4 | F | fait (cloud, nuit du 30/10) — branche `decoupage/lot-4-arbre` ; lint et typecheck passent | | non poussé (403) |
 | 5 | B | à faire | | |
 | 6 | F | à faire | | |
-| 7 | F | à faire | | |
+| 7 | F | fait (cloud, nuit du 30/10) — branche `decoupage/lot-7-affectations-main-oeuvre` ; lint et typecheck passent | | non poussé (403) |
 | 8 | F | à faire | | |
 | 9 | F | à faire | | |
 | 10 | B | à faire | | |

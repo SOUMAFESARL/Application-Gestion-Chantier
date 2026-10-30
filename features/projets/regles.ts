@@ -2467,6 +2467,14 @@ export function principalePenalite(
  * ------------------------------------------------------------------ */
 
 /** Les onglets, dans l'ordre d'affichage ; chacun est une page sous `/projets/[id]`. */
+/**
+ * Le périmètre d'une affectation, en clair : le chemin de chaque case (« Bâtiment A › Gros
+ * œuvre »), séparé par des points-virgules. Vide : tout le projet, que l'écran nomme lui-même.
+ */
+export function libellePerimetre(cases: { chemin: string[] }[]): string {
+  return cases.map((une) => une.chemin.join(" › ")).join(" ; ");
+}
+
 export const ONGLETS_PROJET = ["synthese", "decoupage", "avancement", "equipes", "avenants"] as const;
 export type OngletProjet = (typeof ONGLETS_PROJET)[number];
 

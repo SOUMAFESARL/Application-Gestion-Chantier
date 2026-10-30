@@ -78,6 +78,7 @@ import {
   type FondIndicateur,
 } from "../classes";
 import { lienEquipesChantier } from "../equipe-affectations/liens";
+import { AffectationsCollaborateurs } from "./AffectationsCollaborateurs";
 import { EquipeEncadrement } from "./EquipeEncadrement";
 
 /**
@@ -330,6 +331,8 @@ export function FicheProjet({ projetId }: { projetId: string }) {
           }
         />
       </div>
+
+      <AffectationsCollaborateurs projet={projet} />
 
       <HistoriqueDatesProjet projet={projet} />
 

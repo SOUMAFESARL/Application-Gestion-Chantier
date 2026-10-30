@@ -27,6 +27,7 @@ import {
 } from "./regles";
 
 import type {
+  AffectationCollaborateur,
   Activite,
   AjoutEncadrement,
   AlerteIntemperies,
@@ -52,8 +53,10 @@ import type {
   PlanningProjet,
   Projet,
   Reprogrammation,
+  Remplacement,
   ResultatReprogrammation,
   RoleMembreEquipe,
+  SaisieAffectation,
   SaisieMembreEquipe,
   SanteProjet,
   StatistiquesProjet,
@@ -611,7 +614,7 @@ export async function ajouterMembreEncadrement(
   const payload: {
     utilisateur_id: string;
     role_projet: string;
-    lot_id?: string | null;
+    perimetres_ids?: string[];
   } = {
     utilisateur_id: ajout.intervenant.id,
     // Le rôle tenu sur le projet est celui de la plateforme, quel qu'il soit.
@@ -620,8 +623,8 @@ export async function ajouterMembreEncadrement(
   };
 
   if (ajout.fonction === "CHEF_CHANTIER") {
-    // Le lot fixe la zone côté serveur ; absent, le chef de chantier a tout le chantier.
-    payload.lot_id = ajout.lotId;
+    // Une case de l'arbre borne son périmètre ; absente, le chef de chantier a tout le chantier.
+    payload.perimetres_ids = ajout.lotId ? [ajout.lotId] : [];
   }
 
   await api.creer(`/projets/${projetId}/affectations/`, payload);
@@ -641,9 +644,9 @@ export async function modifierMembreEncadrement(
   affectationId: string,
   modifications: { lotId?: string | null; fonctionMembre?: FonctionAutreMembre },
 ): Promise<Projet> {
-  const payload: { lot_id?: string | null; fonction_membre?: string } = {};
+  const payload: { perimetres_ids?: string[]; fonction_membre?: string } = {};
   if ("lotId" in modifications) {
-    payload.lot_id = modifications.lotId ?? null;
+    payload.perimetres_ids = modifications.lotId ? [modifications.lotId] : [];
   }
   if (modifications.fonctionMembre) {
     payload.fonction_membre = modifications.fonctionMembre;
@@ -1360,3 +1363,125 @@ export async function lireHistoriqueSante(
   return aPlat(charge).map(versInstantaneSante);
 }
 
+
+/* ------------------------------------------------------------------ *
+ * Affectations des collaborateurs : rôle propre au projet et périmètre
+ * dans l'arbre (décisions v1.2, §13bis).
+ *
+ *   GET/POST   /projets/{id}/affectations/
+ *   PATCH/DEL  /projets/{id}/affectations/{affectation_id}/
+ *   POST       /projets/{id}/affectations/remplacer/
+ *   POST       /projets/{id}/chef-chantier/
+ * ------------------------------------------------------------------ */
+
+interface ChargeAffectationCollaborateur {
+  id: string;
+  utilisateur: {
+    id: string;
+    nom_complet: string;
+    email?: string;
+    telephone?: string;
+  } | null;
+  role_projet: string;
+  role_projet_libelle?: string;
+  role_plateforme?: string;
+  perimetres?: { id: string; libelle: string; niveau: string; chemin: string[] }[];
+  date_debut?: string | null;
+  date_fin?: string | null;
+  est_actif?: boolean;
+  modifiable?: boolean;
+}
+
+function versAffectationCollaborateur(charge: ChargeAffectationCollaborateur): AffectationCollaborateur {
+  return {
+    id: charge.id,
+    utilisateur: {
+      id: charge.utilisateur?.id ?? "",
+      nomComplet: charge.utilisateur?.nom_complet ?? "",
+      email: charge.utilisateur?.email || null,
+      telephone: charge.utilisateur?.telephone || null,
+    },
+    roleProjet: charge.role_projet,
+    roleProjetLibelle: charge.role_projet_libelle || charge.role_projet,
+    rolePlateforme: charge.role_plateforme ?? "",
+    perimetres: (charge.perimetres ?? []).map((cas) => ({ ...cas, id: String(cas.id) })),
+    dateDebut: charge.date_debut ?? null,
+    dateFin: charge.date_fin ?? null,
+    estActif: charge.est_actif ?? true,
+    modifiable: charge.modifiable ?? false,
+  };
+}
+
+export async function listerAffectationsCollaborateurs(
+  projetId: string,
+  signal?: AbortSignal,
+): Promise<AffectationCollaborateur[]> {
+  const charge = await api.lire<
+    ChargeAffectationCollaborateur[] | ChargeListe<ChargeAffectationCollaborateur>
+  >(`/projets/${projetId}/affectations/`, { actifs_seulement: true }, signal);
+  return aPlat(charge).map(versAffectationCollaborateur);
+}
+
+export async function affecterCollaborateur(
+  projetId: string,
+  saisie: SaisieAffectation,
+): Promise<AffectationCollaborateur> {
+  return versAffectationCollaborateur(
+    await api.creer<ChargeAffectationCollaborateur>(`/projets/${projetId}/affectations/`, {
+      utilisateur_id: saisie.utilisateurId,
+      role_projet: saisie.roleProjet,
+      perimetres_ids: saisie.perimetresIds,
+      date_debut: saisie.dateDebut ?? null,
+      date_fin: saisie.dateFin ?? null,
+    }),
+  );
+}
+
+export async function modifierAffectationCollaborateur(
+  projetId: string,
+  affectationId: string,
+  modification: Partial<Pick<SaisieAffectation, "roleProjet" | "perimetresIds" | "dateFin">>,
+): Promise<AffectationCollaborateur> {
+  const charge: Record<string, unknown> = {};
+  if (modification.roleProjet !== undefined) charge.role_projet = modification.roleProjet;
+  if (modification.perimetresIds !== undefined) charge.perimetres_ids = modification.perimetresIds;
+  if (modification.dateFin !== undefined) charge.date_fin = modification.dateFin;
+  return versAffectationCollaborateur(
+    await api.modifier<ChargeAffectationCollaborateur>(
+      `/projets/${projetId}/affectations/${affectationId}/`,
+      charge,
+    ),
+  );
+}
+
+/** Retire un collaborateur du projet (effacement journalisé côté serveur). */
+export async function retirerAffectationCollaborateur(projetId: string, affectationId: string): Promise<void> {
+  await api.supprimer(`/projets/${projetId}/affectations/${affectationId}/`);
+}
+
+/**
+ * Remplacer le titulaire d'un rôle : l'ancien perd sa fonction ce jour (son affectation reste
+ * dans l'historique), le nouveau la reprend. Seul moyen de changer le titulaire d'un rôle
+ * « unique par projet ».
+ */
+export async function remplacerTitulaire(projetId: string, remplacement: Remplacement): Promise<void> {
+  await api.creer(`/projets/${projetId}/affectations/remplacer/`, {
+    role_projet: remplacement.roleProjet,
+    utilisateur_id: remplacement.utilisateurId,
+    affectation_remplacee_id: remplacement.affectationRemplaceeId,
+    perimetres_ids: remplacement.perimetresIds,
+    date_changement: remplacement.dateChangement ?? null,
+  });
+}
+
+/** Changer de chef de chantier : le remplacement appliqué au rôle CC. */
+export async function changerChefChantier(
+  projetId: string,
+  changement: { utilisateurId: string; perimetresIds: string[]; dateChangement?: string | null },
+): Promise<void> {
+  await api.creer(`/projets/${projetId}/chef-chantier/`, {
+    utilisateur_id: changement.utilisateurId,
+    perimetres_ids: changement.perimetresIds,
+    date_changement: changement.dateChangement ?? null,
+  });
+}

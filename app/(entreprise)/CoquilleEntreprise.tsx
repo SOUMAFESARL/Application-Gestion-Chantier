@@ -91,6 +91,7 @@ interface LayoutAppProps {
 const SOUS_MENU_PROJETS = [
   { href: "/projets", cle: "projetsListe" },
   { href: "/projets/equipe-affectations", cle: "projetsEquipe" },
+  { href: "/projets/main-oeuvre", cle: "projetsMainOeuvre" },
   { href: "/projets/alertes", cle: "projetsAlertes" },
 ] as const;
 
