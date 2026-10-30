@@ -126,11 +126,7 @@ export interface Projet {
   autresMembres: AutreMembreProjet[];
   /** Le contrat du marché et ses avenants, joints à la création. */
   contrats: ContratProjet[];
-  /**
-   * La structure du chantier, comptée par le serveur. `null` tant que les
-   * lots restent simulés : ses chiffres décriraient des lots que l'écran ne
-   * montre pas, et l'écran les compte alors lui-même (`syntheseLots`).
-   */
+  /** La structure du chantier, comptée par le serveur, quand la réponse la joint. */
   statistiques: StatistiquesProjet | null;
   /**
    * Vrai dès que le tableau de démarrage a été appliqué : l'arbre de cases existe. Faux, l'onglet
@@ -140,21 +136,20 @@ export interface Projet {
 }
 
 /**
- * Comment le serveur a pondéré l'avancement : à parts égales, ou au poids
- * du budget. Seul `UNIFORME` a été observé — `BUDGET` reste à confirmer.
+ * Les chiffres de structure d'un chantier, recomptés par le serveur sur l'arbre de cases
+ * (`GET /projets/{id}/statistiques/`).
  */
-export type PonderationAvancement = "UNIFORME" | "BUDGET";
-
-/** Les chiffres de structure d'un chantier, tels que le serveur les tient. */
 export interface StatistiquesProjet {
-  lots: number;
-  activites: number;
-  /** Un pourcentage, de 0 à 100. */
-  avancement: number;
-  ponderation: PonderationAvancement;
+  /** Les cases actives de l'arbre. */
+  cases: number;
+  /** Les tâches (feuilles) actives. */
+  taches: number;
+  /** L'avancement physique, pondéré par les montants ; `null` quand il est indisponible. */
+  avancement: number | null;
+  /** Vrai quand des tâches ne sont pas encore mesurables. */
+  avancementPartiel: boolean;
+  /** Les tâches dont la fin prévue est passée sans qu'elles soient terminées. */
   enRetard: number;
-  /** La somme des budgets portés par les activités. */
-  budgetActivites: number;
 }
 
 /** Un document de contrat joint au projet, servi par le serveur. */

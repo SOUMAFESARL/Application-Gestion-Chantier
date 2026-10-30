@@ -28,8 +28,8 @@ import type { Activite, Equipe, Lot, Projet } from "@/features/projets/types";
 import { ABSENT, formaterDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-import { BADGE_STATUT } from "../lots-activites/classes";
-import { Periode } from "../lots-activites/StructureLots";
+import { BADGE_STATUT } from "../classes";
+import { Periode } from "./Periode";
 import { pastilleEquipe } from "./classes";
 
 const colonne = aideColonnes<Activite>();

@@ -4,10 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 
 import { EtatChargement, EtatErreur } from "@/components/ui";
 import { TableauDemarrage } from "@/features/decoupage/components/TableauDemarrage";
+import { VueArbre } from "@/features/decoupage/components/VueArbre";
 import { lireProjet } from "@/features/projets/adaptateur";
 import { cleProjet } from "@/features/projets/cles";
-
-import { OngletAVenir } from "../OngletAVenir";
 
 /**
  * L'onglet Découpage : le tableau de démarrage tant que l'arbre n'existe pas (`decoupageCree`),
@@ -24,5 +23,5 @@ export function OngletDecoupage({ projetId }: { projetId: string }) {
 
   const projet = requete.data;
   if (!projet.decoupageCree) return <TableauDemarrage projet={projet} />;
-  return <OngletAVenir onglet="decoupage" />;
+  return <VueArbre projet={projet} />;
 }

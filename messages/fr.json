@@ -1477,13 +1477,13 @@
     },
     "structure": {
       "titre": "Structure du projet",
-      "lots": "Lots",
-      "activites": "Activités",
-      "avancementPondere": "Avancement pondéré",
-      "enRetard": "Activités en retard",
+      "avancementPondere": "Avancement physique",
+      "enRetard": "Tâches en retard",
       "voirLots": "Voir le découpage",
       "voirEquipes": "Équipes & affectations",
-      "collaborateurs": "{nombre, plural, =0 {Aucun collaborateur} one {<fort>#</fort> collaborateur} other {<fort>#</fort> collaborateurs}}"
+      "collaborateurs": "{nombre, plural, =0 {Aucun collaborateur} one {<fort>#</fort> collaborateur} other {<fort>#</fort> collaborateurs}}",
+      "cases": "Cases",
+      "taches": "Tâches"
     },
     "modifier": "Modifier",
     "suspendre": "Suspendre",
@@ -5647,6 +5647,190 @@
         "SANS_EFFET": "Sans effet",
         "AUTRE": "Contrôle"
       }
+    },
+    "modesMesure": {
+      "QUANTITE": "Quantité",
+      "POURCENTAGE": "Pourcentage déclaré",
+      "JALON": "Jalon (atteint ou non)"
+    },
+    "validations": {
+      "motifCourt": "Le motif doit compter au moins {minimum} caractères.",
+      "justificationCourte": "La justification doit compter au moins {minimum} caractères.",
+      "libelleRequis": "L’intitulé est obligatoire.",
+      "libelleLong": "L’intitulé ne dépasse pas 200 caractères.",
+      "datesIncoherentes": "La date de fin ne peut pas précéder la date de début."
+    },
+    "arbre": {
+      "avancementProjet": "Avancement physique du projet : {valeur}.",
+      "avancementPartiel": "Avancement physique du projet : {valeur} (partiel : des tâches ne sont pas encore mesurables).",
+      "avancementIndisponible": "Avancement physique du projet : indisponible tant qu’aucune tâche n’est mesurable.",
+      "reglagesNiveaux": "Réglages des niveaux",
+      "exporter": "Exporter",
+      "exporterExcel": "Excel (.xlsx)",
+      "exporterCsv": "CSV (.csv)",
+      "erreurExport": "L’export n’a pas abouti. Réessayez.",
+      "ajouterRacine": "Ajouter : {niveau}",
+      "perimetreReduit": "Vous voyez les branches de votre périmètre sur ce projet, et le chemin qui y mène.",
+      "vide": "Aucune case dans l’arbre",
+      "deplier": "Déplier",
+      "replier": "Replier",
+      "indisponible": "indisponible",
+      "partiel": "partiel",
+      "depassement": "+{valeur} %",
+      "points": "{valeur} pts",
+      "colonnes": {
+        "element": "Élément",
+        "niveau": "Niveau",
+        "dates": "Dates prévues",
+        "montant": "Montant",
+        "physique": "Physique",
+        "temporel": "Temporel",
+        "ecart": "Écart",
+        "statut": "Statut"
+      },
+      "etats": {
+        "desactivee": "Désactivée",
+        "cloturee": "Clôturée",
+        "suspendue": "Suspendue",
+        "aCloturer": "Clôturer ?",
+        "aCompleter": "À compléter",
+        "commencee": "Commencée",
+        "aVenir": "À venir"
+      },
+      "periode": "{debut} → {fin}"
+    },
+    "tiroir": {
+      "horsPerimetre": "Cette case mène à votre périmètre : ses données ne vous sont pas accessibles.",
+      "aCompleter": "Renseignez l’unité et la quantité prévue de cette tâche : sans elles, son avancement ne se calcule pas.",
+      "depasseEnveloppe": "La somme de ses enfants dépasse l’enveloppe de cette case.",
+      "motifDesactivation": "Désactivée : {motif}",
+      "avancement": "Avancement",
+      "physique": "Physique",
+      "ecart": "Écart (temporel − physique)",
+      "modeMesure": "Mesure",
+      "quantites": "Réalisé / prévu",
+      "quantitesValeur": "{realise} / {prevu} {unite}",
+      "pourcentageDeclare": "Pourcentage déclaré",
+      "tachesEnDepassement": "Tâches en dépassement",
+      "dates": "Dates",
+      "prevues": "Prévues",
+      "origine": "Origine",
+      "finContractuelle": "Fin contractuelle",
+      "reelles": "Réelles",
+      "montants": "Montants",
+      "montant": "Montant",
+      "poids": "Poids (somme des tâches)",
+      "enveloppe": "Enveloppe",
+      "execution": "Exécution",
+      "modeExecution": "Mode d’exécution",
+      "equipes": "Équipes",
+      "heritees": "(héritées d’une case parente)",
+      "gestes": "Gestes",
+      "dejaPlanifiee": "Les dates de cette case sont fixées : elles se reprogramment, avec un motif."
+    },
+    "gestes": {
+      "annuler": "Annuler",
+      "enregistrer": "Enregistrer",
+      "erreur": "L’opération n’a pas abouti. Réessayez.",
+      "boutons": {
+        "ajouter": "Ajouter dessous",
+        "modifier": "Modifier",
+        "planifier": "Planifier",
+        "mesurer": "Mesurer",
+        "cloturer": "Clôturer",
+        "desactiver": "Désactiver",
+        "reactiver": "Réactiver"
+      },
+      "champs": {
+        "libelle": "Intitulé",
+        "code": "Code libre",
+        "codeAide": "Facultatif : la numérotation du bordereau du client.",
+        "motif": "Motif",
+        "modeMesure": "Mode de mesure",
+        "unite": "Unité",
+        "sansUnite": "Sans unité",
+        "quantitePrevue": "Quantité prévue",
+        "montant": "Montant (FCFA)",
+        "enveloppe": "Enveloppe (FCFA)",
+        "enveloppeAide": "Le plafond des tâches en dessous : leur somme est comparée à l’enveloppe.",
+        "debut": "Début prévu",
+        "fin": "Fin prévue",
+        "motifReport": "Motif de la prolongation",
+        "choisirMotif": "Choisir un motif",
+        "justification": "Justification",
+        "commentaire": "Commentaire"
+      },
+      "ajout": {
+        "titreRacine": "Ajouter une case au plus haut niveau",
+        "titreSous": "Ajouter sous « {libelle} »",
+        "description": "La nouvelle case prend le niveau qui suit celui de son parent.",
+        "motifAide": "Cette case est déjà commencée : expliquez l’ajout (10 caractères au moins).",
+        "action": "Ajouter",
+        "succes": "« {libelle} » ajoutée."
+      },
+      "modification": {
+        "titre": "Modifier « {libelle} »",
+        "descriptionFeuille": "Intitulé, code, mesure et montant de la tâche.",
+        "descriptionParent": "Intitulé, code et enveloppe de la case.",
+        "motifAide": "Tâche commencée : changer sa quantité ou son montant est une modification tracée.",
+        "succes": "« {libelle} » enregistrée."
+      },
+      "planification": {
+        "titre": "Planifier « {libelle} »",
+        "description": "La première saisie des dates de la case : elle fixe aussi son origine.",
+        "action": "Planifier",
+        "prolonger": "Prolonger et planifier",
+        "prolongationRequise": "Ces dates dépassent celles de cases parentes. Pour planifier, il faut les prolonger :",
+        "leProjet": "le projet « {libelle} »",
+        "periode": "du {debutAvant} au {finAvant}, puis du {debutApres} au {finApres}",
+        "motifRequis": "Choisissez le motif de la prolongation.",
+        "justificationAide": "30 caractères au moins : elle reste dans l’historique des dates.",
+        "succes": "Dates de « {libelle} » enregistrées."
+      },
+      "mesure": {
+        "titre": "Mesurer « {libelle} »",
+        "description": "Une mise à jour tracée, hors du journal de chantier.",
+        "quantiteRealisee": "Quantité réalisée {unite}",
+        "surPrevu": "Prévu : {prevu}",
+        "pourcentage": "Pourcentage réalisé",
+        "jalonAtteint": "Le jalon est atteint",
+        "commentaireRequis": "Un commentaire explique la mise à jour.",
+        "valeurRequise": "Indiquez la valeur mesurée.",
+        "succes": "Mesure de « {libelle} » enregistrée."
+      },
+      "cloturer": {
+        "titre": "Clôturer « {libelle} » ?",
+        "description": "La tâche passe à 100 %. Elle pourra être rouverte, avec un motif.",
+        "action": "Clôturer",
+        "succes": "« {libelle} » clôturée."
+      },
+      "reactiver": {
+        "titre": "Réactiver « {libelle} » ?",
+        "description": "La case revient dans les calculs du projet.",
+        "action": "Réactiver",
+        "succes": "« {libelle} » réactivée."
+      },
+      "desactiver": {
+        "titre": "Désactiver « {libelle} » ?",
+        "description": "La case et sa branche sortent des calculs ; leur historique est gardé. Le motif est obligatoire.",
+        "action": "Désactiver",
+        "succes": "« {libelle} » désactivée."
+      }
+    },
+    "niveaux": {
+      "titre": "Réglages des niveaux",
+      "description": "Le libellé d’un niveau, sa liste de valeurs et le niveau où alerter en cas de retard.",
+      "rang": "Niveau {rang}",
+      "libelle": "Libellé du niveau",
+      "liste": "Liste de valeurs",
+      "sansListe": "Sans liste de valeurs",
+      "alerter": "Alerter à ce niveau",
+      "enregistrer": "Enregistrer",
+      "enregistre": "Niveau « {libelle} » enregistré.",
+      "nouveauNiveau": "Nouveau niveau, à la fin",
+      "ajouter": "Ajouter le niveau",
+      "ajoute": "Niveau « {libelle} » ajouté.",
+      "erreur": "Le niveau n’a pas pu être enregistré."
     }
   }
 }

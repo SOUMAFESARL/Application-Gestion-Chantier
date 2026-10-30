@@ -10,6 +10,12 @@
  *   POST       /projets/{id}/decoupage/verifier/     vérification C-1 à C-7, sans écrire
  *   POST       /projets/{id}/decoupage/importer/     un fichier Excel ou CSV devient un tableau
  *   GET        /projets/{id}/decoupage/exporter/     l'arbre au format du tableau
+ *   GET        /projets/{id}/arbre/                  l'arbre, filtré par périmètre
+ *   GET        /projets/{id}/planning/               temporel et écart de chaque case active
+ *   POST/PATCH /projets/{id}/niveaux/[{niveau_id}/]  réglages des niveaux
+ *   POST       /projets/{id}/elements/               ajouter une case
+ *   PATCH      /elements/{id}/                       renommer, chiffrer, métrer
+ *   POST       /elements/{id}/planifier|mesure|cloturer|desactiver|reactiver/
  *
  * Les charges (`Charge*`) sont privées : elles décrivent un transport.
  */
@@ -18,7 +24,18 @@ import { api, ErreurApi } from "@/lib/api";
 
 import { nouvelleCleLigne } from "./regles";
 import type {
+  ArbreProjet,
+  CaseArbre,
   ConstatTableau,
+  CreationCase,
+  EquipeCase,
+  Mesure,
+  ModeMesure,
+  ModificationCase,
+  ModificationNiveau,
+  NiveauProjet,
+  Planification,
+  Prolongation,
   LigneTableau,
   ListeValeurs,
   ModeleApplique,
@@ -33,7 +50,7 @@ import type {
   UniteMesure,
   VerdictTableau,
 } from "./types";
-import { UNITES_MESURE } from "./types";
+import { MODES_MESURE, UNITES_MESURE } from "./types";
 
 /* ------------------------------------------------------------------ *
  * Les charges utiles du serveur — la seule zone en `snake_case`.
@@ -368,4 +385,377 @@ export async function appliquerTableau(
     casesCreees: charge.cases_creees,
     lignesDejaPresentes: charge.lignes_deja_presentes ?? [],
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * L'arbre et ses gestes.
+ * ------------------------------------------------------------------ */
+
+interface ChargeNiveauProjet {
+  id: string;
+  ordre: number;
+  libelle: string;
+  alerter?: boolean;
+  liste: ChargeReference | null;
+}
+
+interface ChargeEquipeCase {
+  affectation_id: string;
+  equipe_id: string;
+  nom: string;
+  nature?: string;
+}
+
+/** Une case : les champs au-delà de `acces` manquent quand l'accès est `CHEMIN`. */
+interface ChargeCase {
+  id: string;
+  parent_id: string | null;
+  libelle: string;
+  numero: string | null;
+  niveau: { id: string; ordre: number | null; libelle: string | null };
+  est_feuille: boolean;
+  acces: "COMPLET" | "CHEMIN";
+  code?: string;
+  ordre?: number;
+  est_actif?: boolean;
+  statut?: string;
+  suspendu?: boolean;
+  cloture?: boolean;
+  commence?: boolean;
+  motif?: string;
+  mode_mesure?: string | null;
+  unite?: string | null;
+  /** Des `DecimalField` : chaînes possibles. */
+  quantite_initiale?: number | string | null;
+  quantite_prevue?: number | string | null;
+  quantite_realisee?: number | string | null;
+  pourcentage_declare?: number | string | null;
+  a_completer?: boolean;
+  depassement?: number | null;
+  a_cloturer?: boolean;
+  taches_en_depassement?: number | null;
+  avancement?: number | string | null;
+  avancement_partiel?: boolean;
+  avancement_disponible?: boolean;
+  poids?: number | null;
+  montant?: number | null;
+  montant_initial?: number | null;
+  enveloppe?: number | null;
+  somme_enfants?: number | null;
+  depasse_enveloppe?: boolean;
+  date_debut_prevue?: string | null;
+  date_fin_prevue?: string | null;
+  date_debut_baseline?: string | null;
+  date_fin_baseline?: string | null;
+  date_debut_reelle?: string | null;
+  date_fin_reelle?: string | null;
+  jours_accordes?: number;
+  date_fin_contractuelle?: string | null;
+  mode_execution?: string;
+  mode_execution_effectif?: string;
+  type_bordereau?: string;
+  type_bordereau_effectif?: string;
+  titulaire_id?: string | null;
+  titulaire_effectif_id?: string | null;
+  equipes?: ChargeEquipeCase[];
+  equipes_heritees_de?: string | null;
+  enfants?: ChargeCase[];
+}
+
+interface ChargeArbre {
+  projet_id: string;
+  niveaux: ChargeNiveauProjet[];
+  avancement: number | null;
+  avancement_disponible?: boolean;
+  avancement_partiel?: boolean;
+  voit_tout?: boolean;
+  cases: ChargeCase[];
+}
+
+/** Une case du planning du serveur : seuls le temporel et l'écart en sont repris. */
+interface ChargeCasePlanning {
+  id: string;
+  avancement_temporel: number | null;
+  delta_retard: number | null;
+  enfants?: ChargeCasePlanning[];
+}
+
+interface ChargePlanningArbre {
+  aujourdhui: string;
+  cases: ChargeCasePlanning[];
+}
+
+interface ChargeProlongation {
+  type: "PROJET" | "ELEMENT";
+  id: string;
+  libelle: string | null;
+  date_debut_avant: string | null;
+  date_fin_avant: string | null;
+  date_debut_apres: string | null;
+  date_fin_apres: string | null;
+}
+
+function versModeMesure(valeur: string | null | undefined): ModeMesure | null {
+  return (MODES_MESURE as readonly string[]).includes(valeur ?? "") ? (valeur as ModeMesure) : null;
+}
+
+function versNiveauProjet(charge: ChargeNiveauProjet): NiveauProjet {
+  return {
+    id: charge.id,
+    ordre: charge.ordre,
+    libelle: charge.libelle,
+    alerter: charge.alerter ?? false,
+    liste: versReference(charge.liste),
+  };
+}
+
+function versEquipeCase(charge: ChargeEquipeCase): EquipeCase {
+  return {
+    affectationId: charge.affectation_id,
+    equipeId: charge.equipe_id,
+    nom: charge.nom,
+    nature: charge.nature ?? "",
+  };
+}
+
+type Temporels = Map<string, { temporel: number | null; ecart: number | null }>;
+
+function versCase(charge: ChargeCase, temporels: Temporels): CaseArbre {
+  const temporel = temporels.get(charge.id);
+  return {
+    id: charge.id,
+    parentId: charge.parent_id,
+    libelle: charge.libelle,
+    numero: charge.numero,
+    niveau: charge.niveau,
+    estFeuille: charge.est_feuille,
+    acces: charge.acces,
+    code: charge.code ?? "",
+    ordre: charge.ordre ?? 0,
+    estActif: charge.est_actif ?? true,
+    statut: charge.statut ?? "",
+    suspendu: charge.suspendu ?? false,
+    cloture: charge.cloture ?? false,
+    commence: charge.commence ?? false,
+    motif: charge.motif ?? "",
+    modeMesure: versModeMesure(charge.mode_mesure),
+    unite: versUnite(charge.unite),
+    quantiteInitiale: versNombre(charge.quantite_initiale),
+    quantitePrevue: versNombre(charge.quantite_prevue),
+    quantiteRealisee: versNombre(charge.quantite_realisee),
+    pourcentageDeclare: versNombre(charge.pourcentage_declare),
+    aCompleter: charge.a_completer ?? false,
+    depassement: charge.depassement ?? null,
+    aCloturer: charge.a_cloturer ?? false,
+    tachesEnDepassement: charge.taches_en_depassement ?? null,
+    avancement: versNombre(charge.avancement),
+    avancementPartiel: charge.avancement_partiel ?? false,
+    avancementDisponible: charge.avancement_disponible ?? false,
+    avancementTemporel: temporel?.temporel ?? null,
+    ecart: temporel?.ecart ?? null,
+    poids: charge.poids ?? null,
+    montant: charge.montant ?? null,
+    montantInitial: charge.montant_initial ?? null,
+    enveloppe: charge.enveloppe ?? null,
+    sommeEnfants: charge.somme_enfants ?? null,
+    depasseEnveloppe: charge.depasse_enveloppe ?? false,
+    dateDebutPrevue: charge.date_debut_prevue ?? null,
+    dateFinPrevue: charge.date_fin_prevue ?? null,
+    dateDebutBaseline: charge.date_debut_baseline ?? null,
+    dateFinBaseline: charge.date_fin_baseline ?? null,
+    dateDebutReelle: charge.date_debut_reelle ?? null,
+    dateFinReelle: charge.date_fin_reelle ?? null,
+    joursAccordes: charge.jours_accordes ?? 0,
+    dateFinContractuelle: charge.date_fin_contractuelle ?? null,
+    modeExecution: charge.mode_execution ?? "",
+    modeExecutionEffectif: charge.mode_execution_effectif ?? "",
+    typeBordereau: charge.type_bordereau ?? "",
+    typeBordereauEffectif: charge.type_bordereau_effectif ?? "",
+    titulaireId: charge.titulaire_id ?? null,
+    titulaireEffectifId: charge.titulaire_effectif_id ?? null,
+    equipes: (charge.equipes ?? []).map(versEquipeCase),
+    equipesHeriteesDe: charge.equipes_heritees_de ?? null,
+    enfants: (charge.enfants ?? []).map((enfant) => versCase(enfant, temporels)),
+  };
+}
+
+function aplatirTemporels(cases: ChargeCasePlanning[], dans: Temporels = new Map()): Temporels {
+  for (const charge of cases) {
+    dans.set(charge.id, { temporel: charge.avancement_temporel, ecart: charge.delta_retard });
+    aplatirTemporels(charge.enfants ?? [], dans);
+  }
+  return dans;
+}
+
+function versProlongation(charge: ChargeProlongation): Prolongation {
+  return {
+    type: charge.type,
+    id: charge.id,
+    libelle: charge.libelle ?? "",
+    dateDebutAvant: charge.date_debut_avant,
+    dateFinAvant: charge.date_fin_avant,
+    dateDebutApres: charge.date_debut_apres,
+    dateFinApres: charge.date_fin_apres,
+  };
+}
+
+/**
+ * L'arbre du projet, imbriqué, tel que le périmètre de la personne le laisse voir.
+ *
+ * Le serveur ne porte le temporel et l'écart de chaque case que sur son planning : les deux
+ * lectures partent ensemble et sont réunies ici. Un planning illisible ne fait pas échouer
+ * l'arbre : ses deux colonnes restent vides.
+ */
+export async function lireArbre(projetId: string, signal?: AbortSignal): Promise<ArbreProjet> {
+  const [arbre, planning] = await Promise.all([
+    api.lire<ChargeArbre>(`/projets/${projetId}/arbre/`, undefined, signal),
+    api
+      .lire<ChargePlanningArbre>(`/projets/${projetId}/planning/`, undefined, signal)
+      .catch((): ChargePlanningArbre | null => null),
+  ]);
+  const temporels = aplatirTemporels(planning?.cases ?? []);
+  return {
+    projetId: arbre.projet_id,
+    niveaux: (arbre.niveaux ?? []).map(versNiveauProjet),
+    avancement: arbre.avancement,
+    avancementDisponible: arbre.avancement_disponible ?? arbre.avancement !== null,
+    avancementPartiel: arbre.avancement_partiel ?? false,
+    voitTout: arbre.voit_tout ?? true,
+    cases: (arbre.cases ?? []).map((charge) => versCase(charge, temporels)),
+  };
+}
+
+/** Le refus d'une planification qui déborde du parent : les cases à prolonger. */
+export function prolongationsRequises(erreur: unknown): Prolongation[] | null {
+  if (!(erreur instanceof ErreurApi) || erreur.code !== "prolongation_requise") return null;
+  const details = erreur.details as unknown as { prolongations?: ChargeProlongation[] };
+  return (details.prolongations ?? []).map(versProlongation);
+}
+
+function sansIndefinis(charge: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(charge).filter(([, valeur]) => valeur !== undefined));
+}
+
+export async function creerCase(projetId: string, creation: CreationCase): Promise<CaseArbre> {
+  const charge = await api.creer<ChargeCase>(
+    `/projets/${projetId}/elements/`,
+    sansIndefinis({
+      parent_id: creation.parentId,
+      libelle: creation.libelle,
+      code: creation.code,
+      mode_mesure: creation.modeMesure,
+      unite: creation.unite,
+      quantite_prevue: creation.quantitePrevue,
+      montant: creation.montant,
+      date_debut_prevue: creation.dateDebutPrevue,
+      date_fin_prevue: creation.dateFinPrevue,
+      motif: creation.motif,
+    }),
+  );
+  return versCase(charge, new Map());
+}
+
+export async function modifierCase(caseId: string, modification: ModificationCase): Promise<CaseArbre> {
+  const charge = await api.modifier<ChargeCase>(
+    `/elements/${caseId}/`,
+    sansIndefinis({
+      libelle: modification.libelle,
+      code: modification.code,
+      mode_mesure: modification.modeMesure,
+      unite: modification.unite,
+      quantite_prevue: modification.quantitePrevue,
+      montant: modification.montant,
+      enveloppe: modification.enveloppe,
+      motif: modification.motif,
+    }),
+  );
+  return versCase(charge, new Map());
+}
+
+/**
+ * La première saisie des dates d'une case. Des dates qui débordent du parent sont refusées
+ * (`prolongation_requise`, voir `prolongationsRequises`) ; on confirme avec `prolonger`, un
+ * motif de report et une justification.
+ */
+export async function planifierCase(
+  caseId: string,
+  planification: Planification,
+): Promise<{ case: CaseArbre; prolongations: Prolongation[] }> {
+  const charge = await api.creer<{ case: ChargeCase; prolongations?: ChargeProlongation[] }>(
+    `/elements/${caseId}/planifier/`,
+    sansIndefinis({
+      date_debut_prevue: planification.dateDebutPrevue,
+      date_fin_prevue: planification.dateFinPrevue,
+      prolonger: planification.prolonger,
+      motif_id: planification.motifId ?? undefined,
+      justification: planification.justification,
+    }),
+  );
+  return {
+    case: versCase(charge.case, new Map()),
+    prolongations: (charge.prolongations ?? []).map(versProlongation),
+  };
+}
+
+export async function mesurerCase(caseId: string, mesure: Mesure): Promise<CaseArbre> {
+  const charge = await api.creer<ChargeCase>(
+    `/elements/${caseId}/mesure/`,
+    sansIndefinis({
+      quantite_realisee: mesure.quantiteRealisee,
+      pourcentage_declare: mesure.pourcentageDeclare,
+      atteint: mesure.atteint,
+      commentaire: mesure.commentaire,
+    }),
+  );
+  return versCase(charge, new Map());
+}
+
+export async function cloturerCase(caseId: string): Promise<CaseArbre> {
+  return versCase(await api.creer<ChargeCase>(`/elements/${caseId}/cloturer/`, {}), new Map());
+}
+
+/** Sortir une case des calculs ; elle garde son historique. Motif de 10 caractères au moins. */
+export async function desactiverCase(caseId: string, motif: string): Promise<CaseArbre> {
+  return versCase(
+    await api.creer<ChargeCase>(`/elements/${caseId}/desactiver/`, { motif }),
+    new Map(),
+  );
+}
+
+export async function reactiverCase(caseId: string): Promise<CaseArbre> {
+  return versCase(await api.creer<ChargeCase>(`/elements/${caseId}/reactiver/`, {}), new Map());
+}
+
+export async function modifierNiveau(
+  projetId: string,
+  niveauId: string,
+  modification: ModificationNiveau,
+): Promise<NiveauProjet> {
+  return versNiveauProjet(
+    await api.modifier<ChargeNiveauProjet>(
+      `/projets/${projetId}/niveaux/${niveauId}/`,
+      sansIndefinis({
+        libelle: modification.libelle,
+        liste:
+          modification.liste === undefined
+            ? undefined
+            : modification.liste && { origine: modification.liste.origine, id: modification.liste.id },
+        alerter: modification.alerter,
+      }),
+    ),
+  );
+}
+
+/** Ajoute un niveau à la fin du gabarit (A-3). */
+export async function ajouterNiveauProjet(
+  projetId: string,
+  niveau: { libelle: string; liste: Pick<ReferenceListe, "origine" | "id"> | null; alerter: boolean },
+): Promise<NiveauProjet> {
+  return versNiveauProjet(
+    await api.creer<ChargeNiveauProjet>(`/projets/${projetId}/niveaux/`, {
+      libelle: niveau.libelle,
+      liste: niveau.liste && { origine: niveau.liste.origine, id: niveau.liste.id },
+      alerter: niveau.alerter,
+    }),
+  );
 }

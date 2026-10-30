@@ -33,12 +33,10 @@ import {
   lireSanteProjet,
   lireStatistiques,
   listerEquipes,
-  listerLots,
 } from "@/features/projets/adaptateur";
 import {
   cleEquipes,
   cleHistoriqueSante,
-  cleLots,
   cleProjet,
   cleSanteProjet,
   cleStatistiques,
@@ -56,7 +54,6 @@ import {
   niveauBudget,
   principalePenalite,
   ratioConsommationBudget,
-  syntheseLots,
   tonSante,
 } from "@/features/projets/regles";
 import { REFERENTIEL_TYPES_PROJET, useReferentiel } from "@/features/projets/referentiels";
@@ -144,10 +141,6 @@ export function FicheProjet({ projetId }: { projetId: string }) {
     queryKey: cleProjet(projetId),
     queryFn: () => lireProjet(projetId),
   });
-  const requeteLots = useQuery({
-    queryKey: cleLots(projetId),
-    queryFn: ({ signal }) => listerLots(projetId, signal),
-  });
   const requeteEquipes = useQuery({
     queryKey: cleEquipes(projetId),
     queryFn: ({ signal }) => listerEquipes(projetId, signal),
@@ -176,13 +169,8 @@ export function FicheProjet({ projetId }: { projetId: string }) {
     };
   }, [requeteProfil.data]);
 
-  const lots = useMemo(() => requeteLots.data ?? [], [requeteLots.data]);
-
-  // Les chiffres du serveur quand il les tient ; sinon, ceux des lots affichés.
-  const synthese = useMemo(
-    () => requeteStatistiques.data ?? requete.data?.statistiques ?? syntheseLots(lots),
-    [requeteStatistiques.data, requete.data?.statistiques, lots],
-  );
+  // Les chiffres de structure, recomptés par le serveur sur l'arbre de cases.
+  const synthese = requeteStatistiques.data ?? requete.data?.statistiques ?? null;
 
   // Le cadre (`CadreFicheProjet`) n'affiche l'onglet qu'une fois le projet lu et visible.
   const projet = requete.data;
@@ -215,7 +203,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
         <CarteAvancement
           projet={projet}
           avancementReel={
-            requeteStatistiques.data?.avancement ?? requete.data?.statistiques?.avancement
+            requeteStatistiques.data?.avancement ?? requete.data?.statistiques?.avancement ?? undefined
           }
         />
         <CarteSante projet={projet} />
@@ -276,20 +264,20 @@ export function FicheProjet({ projetId }: { projetId: string }) {
           </Bloc>
 
           <Bloc titre={t("structure.titre")}>
-            {requeteLots.isPending && <EtatChargement />}
-            {requeteLots.isError && (
-              <EtatErreur onReessayer={() => void requeteLots.refetch()} />
+            {!synthese && requeteStatistiques.isPending && <EtatChargement />}
+            {!synthese && requeteStatistiques.isError && (
+              <EtatErreur onReessayer={() => void requeteStatistiques.refetch()} />
             )}
-            {requeteLots.isSuccess && (
+            {synthese && (
               <div className="grid grid-cols-4 gap-3 max-md:grid-cols-2">
                 <ChiffreStructure
-                  libelle={t("structure.lots")}
-                  valeur={String(synthese.lots)}
+                  libelle={t("structure.cases")}
+                  valeur={String(synthese.cases)}
                   teinte="primaire"
                 />
                 <ChiffreStructure
-                  libelle={t("structure.activites")}
-                  valeur={String(synthese.activites)}
+                  libelle={t("structure.taches")}
+                  valeur={String(synthese.taches)}
                   teinte="secondaire"
                 />
                 <ChiffreStructure

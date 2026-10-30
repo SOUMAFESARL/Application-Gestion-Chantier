@@ -5,7 +5,11 @@
  * tenir la saisie en forme et à présenter ce qu'il a dit.
  */
 
+import { PERMISSIONS, type CodePermission } from "@/features/habilitations/permissions";
+
 import type {
+  ArbreProjet,
+  CaseArbre,
   ConstatTableau,
   LigneTableau,
   NiveauGabarit,
@@ -151,3 +155,83 @@ export function lignesFichier(
       }),
     ]);
 }
+
+/* ------------------------------------------------------------------ *
+ * L'arbre.
+ * ------------------------------------------------------------------ */
+
+/** Les cases de l'arbre à plat, dans l'ordre de lecture (parent puis enfants). */
+export function aplatirCases(cases: CaseArbre[]): CaseArbre[] {
+  return cases.flatMap((une) => [une, ...aplatirCases(une.enfants)]);
+}
+
+export function trouverCase(cases: CaseArbre[], id: string | null): CaseArbre | null {
+  if (!id) return null;
+  return aplatirCases(cases).find((une) => une.id === id) ?? null;
+}
+
+/** Les chiffres de structure d'un arbre : cases et tâches actives, niveaux. */
+export function compterArbre(arbre: ArbreProjet): { cases: number; taches: number; niveaux: number } {
+  const actives = aplatirCases(arbre.cases).filter((une) => une.acces === "COMPLET" && une.estActif);
+  return {
+    cases: actives.length,
+    taches: actives.filter((une) => une.estFeuille).length,
+    niveaux: arbre.niveaux.length,
+  };
+}
+
+/**
+ * Ce que l'avancement d'une case permet d'afficher (lot 12, « partiel » et « indisponible ») :
+ * jamais un faux 0 % quand rien n'est mesurable.
+ */
+export type EtatAvancement = "indisponible" | "partiel" | "complet";
+
+export function etatAvancement(
+  une: Pick<CaseArbre, "avancement" | "avancementDisponible" | "avancementPartiel">,
+): EtatAvancement {
+  if (!une.avancementDisponible || une.avancement === null) return "indisponible";
+  return une.avancementPartiel ? "partiel" : "complet";
+}
+
+/** Les gestes de la vue en arbre (lot 4) ; les autres arrivent avec le lot 6. */
+export type GesteCase =
+  | "ajouter"
+  | "modifier"
+  | "planifier"
+  | "mesurer"
+  | "cloturer"
+  | "desactiver"
+  | "reactiver";
+
+/**
+ * Les gestes qui ont un sens sur cette case, d'après sa position et son état — la permission se
+ * juge à part. Le serveur reste juge : une règle qu'il applique et que l'écran ignore produit un
+ * refus explicite, affiché tel quel.
+ */
+export function gestesPossibles(une: CaseArbre): GesteCase[] {
+  if (une.acces !== "COMPLET") return [];
+  if (!une.estActif) return ["reactiver"];
+  const gestes: GesteCase[] = ["modifier"];
+  // Une tâche commencée ne se découpe plus par ajout : elle se « détaille » (A-5, lot 6).
+  if (!(une.estFeuille && une.commence)) gestes.unshift("ajouter");
+  if (!une.dateDebutPrevue || !une.dateFinPrevue) gestes.push("planifier");
+  if (une.estFeuille && !une.cloture) gestes.push("mesurer", "cloturer");
+  gestes.push("desactiver");
+  return gestes;
+}
+
+/** La permission qu'exige chaque geste (registre du serveur). */
+export const PERMISSION_DU_GESTE: Record<GesteCase, CodePermission> = {
+  ajouter: PERMISSIONS.DECOUPER,
+  modifier: PERMISSIONS.DECOUPER,
+  planifier: PERMISSIONS.PLANIFIER,
+  mesurer: PERMISSIONS.MESURER,
+  cloturer: PERMISSIONS.MESURER,
+  desactiver: PERMISSIONS.DECOUPER,
+  reactiver: PERMISSIONS.DECOUPER,
+};
+
+/** Le motif d'un geste tracé : 10 caractères au moins (`_exiger_motif` du serveur). */
+export const LONGUEUR_MIN_MOTIF = 10;
+/** La justification d'un report : 30 caractères au moins (RG-11). */
+export const LONGUEUR_MIN_JUSTIFICATION = 30;

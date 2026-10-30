@@ -17,10 +17,9 @@
  */
 
 import { texte } from "@/i18n/horsReact";
-import { api, type ErreurApi } from "@/lib/api";
+import { api } from "@/lib/api";
 
 import {
-  lireLotsImportes,
   ROLE_MEMBRE_PAR_DEFAUT,
   ROLE_PROJET_PAR_FONCTION,
   STATUT_DECLARE_PAR_DEFAUT,
@@ -29,7 +28,6 @@ import {
 
 import type {
   Activite,
-  ActivitePlanning,
   AjoutEncadrement,
   AlerteIntemperies,
   AutreMembreProjet,
@@ -37,34 +35,25 @@ import type {
   CandidatEquipe,
   ClientProjet,
   CreationEquipe,
-  CreationLotProjet,
   ContratProjet,
   CreationProjet,
-  DonneesPlanning,
-  EntreeModeExecution,
   Equipe,
-  EvenementAvancement,
   EvenementDate,
   FonctionAutreMembre,
   EquipeChantier,
   InstantaneSante,
   Intervenant,
-  LigneImportLot,
   Lot,
-  LotPlanning,
   MembreEquipe,
   MeteoProjet,
-  MiseAJourAvancement,
   ModificationProjet,
   MotifReport,
   NatureEquipe,
   PlanningProjet,
-  PonderationAvancement,
   Projet,
   Reprogrammation,
   ResultatReprogrammation,
   RoleMembreEquipe,
-  SaisieActiviteDomaine,
   SaisieMembreEquipe,
   SanteProjet,
   StatistiquesProjet,
@@ -153,13 +142,13 @@ interface ChargeProjet {
 
 /** Les chiffres de structure que le serveur calcule sur les lots du chantier. */
 interface ChargeStatistiques {
-  lots_count: number;
-  activites_count: number;
-  avancement_pondere: number;
-  ponderation: PonderationAvancement;
-  activites_en_retard: number;
-  /** Un `DecimalField`, comme le budget initial. */
-  budget_activites_montant: number | string | null;
+  cases_count: number;
+  feuilles_count: number;
+  /** Nul quand aucune tâche n'est mesurable. */
+  avancement_pondere: number | null;
+  avancement_partiel?: boolean;
+  ponderation?: string;
+  feuilles_en_retard: number;
 }
 
 interface ChargeContrat {
@@ -346,12 +335,11 @@ function versStatistiques(
 ): StatistiquesProjet | null {
   if (!charge) return null;
   return {
-    lots: charge.lots_count,
-    activites: charge.activites_count,
+    cases: charge.cases_count,
+    taches: charge.feuilles_count,
     avancement: charge.avancement_pondere,
-    ponderation: charge.ponderation,
-    enRetard: charge.activites_en_retard,
-    budgetActivites: versMontant(charge.budget_activites_montant) ?? 0,
+    avancementPartiel: charge.avancement_partiel ?? false,
+    enRetard: charge.feuilles_en_retard,
   };
 }
 
@@ -692,16 +680,10 @@ export async function obtenirMeteo(params?: {
 }
 
 /* ------------------------------------------------------------------ *
- * Lots et activités — routes livrées par Django.
- *
- *   GET/POST   /projets/{id}/lots/          les lots d'un chantier
- *   PATCH/DEL  /lots/{id}/                  un lot (suppression logique)
- *   GET/POST   /lots/{lot_id}/activites/    les activités d'un lot
- *   PATCH/DEL  /activites/{id}/             une activité
- *   GET        /projets/{id}/statistiques/  les chiffres de structure
- *
- * Pas encore branchées : `activation/` (lot et activité) et `lots/import/` —
- * l'import passe d'ici là par la création, lot par lot.
+ * Lots et activités — **routes retirées du serveur** le 30/10/2026 (découpage en
+ * arbre, `features/decoupage`). Les écritures sont parties avec l'écran
+ * « Lots & activités » (lot 4 du plan du découpage) ; `listerLots` reste le temps
+ * que ses derniers lecteurs passent à l'arbre (équipes, encadrement, PDF).
  * ------------------------------------------------------------------ */
 
 interface ChargeEquipe {
@@ -920,322 +902,6 @@ export async function listerLots(projetId: string, signal?: AbortSignal): Promis
       versLot(lot, lot.activites_count === 0 ? [] : await listerActivites(projetId, lot, signal)),
     ),
   );
-}
-
-function versChargeLot(creation: CreationLotProjet) {
-  const charge: Record<string, unknown> = {
-    nom: creation.nom,
-    mode_execution: creation.modeExecution,
-    type_bordereau: TYPE_BORDEREAU_SERVEUR[creation.typeBordereau],
-    statut: STATUT_SERVEUR[creation.statut ?? STATUT_DECLARE_PAR_DEFAUT],
-  };
-  if (creation.budget !== undefined) {
-    charge.budget_initial_montant = creation.budget;
-  }
-  if (creation.dateDebut !== undefined) {
-    charge.date_debut_prevue = creation.dateDebut;
-  }
-  if (creation.dateFin !== undefined) {
-    charge.date_fin_prevue = creation.dateFin;
-  }
-  return charge;
-}
-
-export async function creerLot(projetId: string, creation: CreationLotProjet): Promise<Lot> {
-  return versLot(await api.creer<ChargeLot>(`/projets/${projetId}/lots/`, versChargeLot(creation)));
-}
-
-/**
- * Les champs du lot, réécrits ; son code et ses activités ne bougent pas. Le
- * serveur ne renvoie que le lot : ses activités sont à reprendre du cache.
- */
-export async function modifierLot(lotId: string, modification: CreationLotProjet): Promise<Lot> {
-  return versLot(await api.modifier<ChargeLot>(`/lots/${lotId}/`, versChargeLot(modification)));
-}
-
-/**
- * Suppression logique du lot et de ses activités. Le serveur peut refuser un
- * lot dont une activité a déjà avancé — même règle que `lotSupprimable`.
- */
-export async function supprimerLot(lotId: string): Promise<void> {
-  await api.supprimer(`/lots/${lotId}/`);
-}
-
-/**
- * La première feuille d'un fichier Excel de lots, lue et interprétée par
- * `lireLotsImportes`. La bibliothèque n'est chargée qu'ici, au premier
- * import : elle n'a rien à faire dans le paquet des autres écrans.
- *
- * Rejette si le fichier n'est pas un `.xlsx` lisible.
- */
-export async function lireFichierLots(
-  fichier: File,
-  lotsExistants: Lot[],
-  budgetProjet: number | null,
-  voitMontants: boolean = true,
-  modes: EntreeModeExecution[] = [],
-): Promise<LigneImportLot[]> {
-  const { readSheet } = await import("read-excel-file/browser");
-  const feuille = await readSheet(fichier);
-  return lireLotsImportes(feuille as unknown[][], lotsExistants, budgetProjet, voitMontants, modes);
-}
-
-/**
- * Import atomique de lots depuis un classeur Excel envoyé au serveur.
- * Si le serveur rejette le fichier ou une seule ligne, aucun lot n'est créé.
- */
-export async function importerLots(
-  projetId: string,
-  fichier: File,
-): Promise<Lot[]> {
-  const donnees = new FormData();
-  donnees.append("fichier", fichier);
-  const charge = await api.creer<ChargeLot[] | ChargeListe<ChargeLot>>(
-    `/projets/${projetId}/lots/import/`,
-    donnees,
-  );
-  return aPlat(charge).map((lot) => versLot(lot, []));
-}
-
-/**
- * Télécharge le modèle officiel Excel (.xlsx) pour l'import des lots.
- */
-export async function telechargerModeleLots(
-  projetId: string,
-  signal?: AbortSignal,
-): Promise<Blob> {
-  return api.telecharger(`/projets/${projetId}/lots/modele/`, undefined, signal);
-}
-
-function versChargeActivite(saisie: SaisieActiviteDomaine) {
-  const charge: Record<string, unknown> = {
-    lot_id: saisie.lotId,
-    libelle: saisie.libelle,
-    quantite_prevue: saisie.quantitePrevue,
-    unite: saisie.unite,
-    responsable: saisie.responsableId,
-    statut: STATUT_SERVEUR[saisie.statut],
-  };
-  if (saisie.budget !== undefined) {
-    charge.budget_initial_montant = saisie.budget;
-  }
-  if (saisie.dateDebutPrevue !== undefined) {
-    charge.date_debut_prevue = saisie.dateDebutPrevue;
-  }
-  if (saisie.dateFinPrevue !== undefined) {
-    charge.date_fin_prevue = saisie.dateFinPrevue;
-  }
-  return charge;
-}
-
-/**
- * À la création, un champ non saisi n'est pas envoyé du tout : le serveur
- * applique son défaut, là où un `null` explicite peut être refusé. Le lot
- * est dans l'adresse, il ne se répète pas dans le corps. (La modification,
- * elle, envoie les `null` : c'est ainsi qu'on vide un champ.)
- */
-function sansVides(charge: ReturnType<typeof versChargeActivite>): Partial<typeof charge> {
-  return Object.fromEntries(
-    Object.entries(charge).filter(
-      ([cle, valeur]) => cle !== "lot_id" && valeur !== null && valeur !== undefined,
-    ),
-  );
-}
-
-export async function creerActivite(
-  projetId: string,
-  saisie: SaisieActiviteDomaine,
-): Promise<Activite> {
-  let creee = versActivite(
-    await api.creer<ChargeActivite>(
-      `/lots/${saisie.lotId}/activites/`,
-      sansVides(versChargeActivite(saisie)),
-    ),
-  );
-  if (saisie.equipeId) {
-    creee = await affecterEquipe(projetId, creee, saisie.equipeId);
-  }
-  return creee;
-}
-
-export async function modifierActivite(
-  projetId: string,
-  activiteId: string,
-  saisie: SaisieActiviteDomaine,
-): Promise<Activite> {
-  let modifiee = versActivite(
-    await api.modifier<ChargeActivite>(`/activites/${activiteId}/`, versChargeActivite(saisie)),
-  );
-  if (saisie.equipeId !== undefined) {
-    const equipeActuelle = modifiee.equipe?.id ?? null;
-    if (saisie.equipeId !== equipeActuelle) {
-      modifiee = await affecterEquipe(projetId, modifiee, saisie.equipeId);
-    }
-  }
-  return modifiee;
-}
-
-/**
- * Les champs du formulaire d'activité que désigne un refus du serveur. Les
- * noms du serveur ne sont pas ceux du formulaire : la correspondance se tient
- * ici, avec le reste de la charge. Un champ sans équivalent (`lot_id`,
- * `non_field_errors`…) est rendu sous sa clé serveur, pour le message général.
- */
-const CHAMPS_ACTIVITE: Record<string, string> = {
-  lot_id: "lotId",
-  libelle: "libelle",
-  quantite_prevue: "quantite",
-  unite: "unite",
-  budget_initial_montant: "budget",
-  date_debut_prevue: "dateDebut",
-  date_fin_prevue: "dateFin",
-  responsable: "responsableId",
-  equipe_ids: "equipeId",
-  statut: "statut",
-};
-
-export function erreursChampsActivite(erreur: ErreurApi): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(erreur.erreursParChamp).map(([champ, message]) => [
-      CHAMPS_ACTIVITE[champ] ?? champ,
-      message,
-    ]),
-  );
-}
-
-/**
- * Suppression logique de l'activité. Le serveur peut refuser une activité
- * qui a déjà avancé — même règle que `activiteSupprimable`.
- */
-export async function supprimerActivite(activiteId: string): Promise<void> {
-  await api.supprimer(`/activites/${activiteId}/`);
-}
-
-/*
- * L'avancement d'une activité ne s'écrit **pas** par `modifierActivite` : le
- * serveur refuse `quantite_realisee` et `avancement` au PATCH ordinaire (403).
- * Il passe par une route dédiée, qui journalise la mise à jour (F3, SFD §5).
- */
-
-/** Une ligne de `GET /activites/{id}/avancement/historique/`. */
-interface ChargeEvenementAvancement {
-  id: string;
-  auteur: string;
-  date: string;
-  /** Des `DecimalField`, en chaîne. */
-  quantite_avant?: number | string | null;
-  quantite_apres?: number | string | null;
-  avancement_avant?: number | string | null;
-  avancement_apres?: number | string | null;
-  commentaire: string;
-}
-
-function versEvenementAvancement(charge: ChargeEvenementAvancement): EvenementAvancement {
-  return {
-    id: charge.id,
-    auteur: charge.auteur,
-    quantiteAvant: versNombre(charge.quantite_avant),
-    quantiteApres: versNombre(charge.quantite_apres),
-    avancementAvant: versNombre(charge.avancement_avant),
-    avancementApres: versNombre(charge.avancement_apres),
-    commentaire: charge.commentaire,
-    le: new Date(charge.date),
-  };
-}
-
-/**
- * La mise à jour manuelle de l'avancement (CT et CP du chantier). Le serveur
- * refuse une quantité en baisse (422) et un autre rôle (403) : l'écran
- * affiche alors son message. Renvoie l'activité telle que le serveur l'a
- * recalculée.
- */
-export async function mettreAJourAvancement(
-  activiteId: string,
-  miseAJour: MiseAJourAvancement,
-): Promise<Activite> {
-  return versActivite(
-    await api.modifier<ChargeActivite>(`/activites/${activiteId}/avancement/`, {
-      quantite_realisee: miseAJour.quantiteRealisee,
-      commentaire: miseAJour.commentaire,
-    }),
-  );
-}
-
-/** Les mises à jour manuelles d'une activité, de la plus récente à la plus ancienne. */
-export async function lireHistoriqueAvancement(
-  activiteId: string,
-  signal?: AbortSignal,
-): Promise<EvenementAvancement[]> {
-  const charge = await api.lire<
-    ChargeEvenementAvancement[] | ChargeListe<ChargeEvenementAvancement>
-  >(`/activites/${activiteId}/avancement/historique/`, undefined, signal);
-  return aPlat(charge).map(versEvenementAvancement);
-}
-
-/** Une activité de `GET /projets/{id}/planning/`. */
-interface ChargeActivitePlanning {
-  id: string;
-  libelle: string;
-  debut: string | null;
-  fin: string | null;
-  avancement: number;
-  statut: string;
-}
-
-/** Un lot de `GET /projets/{id}/planning/`. */
-interface ChargeLotPlanning {
-  id: string;
-  code: string;
-  libelle: string;
-  debut: string | null;
-  fin: string | null;
-  avancement: number;
-  avancement_temporel: number | null;
-  delta_retard: number | null;
-  activites: ChargeActivitePlanning[];
-}
-
-interface ChargePlanning {
-  aujourdhui: string;
-  lots: ChargeLotPlanning[];
-}
-
-function versActivitePlanning(charge: ChargeActivitePlanning): ActivitePlanning {
-  return {
-    id: charge.id,
-    libelle: charge.libelle,
-    debut: charge.debut,
-    fin: charge.fin,
-    avancement: charge.avancement,
-    statut: depuisServeur(STATUT_SERVEUR, charge.statut, STATUT_DECLARE_PAR_DEFAUT),
-  };
-}
-
-function versLotPlanning(charge: ChargeLotPlanning): LotPlanning {
-  return {
-    id: charge.id,
-    code: charge.code,
-    libelle: charge.libelle,
-    debut: charge.debut,
-    fin: charge.fin,
-    avancement: charge.avancement,
-    avancementTemporel: charge.avancement_temporel,
-    deltaRetard: charge.delta_retard,
-    activites: (charge.activites ?? []).map(versActivitePlanning),
-  };
-}
-
-/**
- * Les données de la frise d'un chantier : lots et activités avec leurs dates
- * contractuelles et leur avancement physique, et, par lot, l'avancement
- * temporel et le retard calculés par le serveur.
- */
-export async function lirePlanning(
-  projetId: string,
-  signal?: AbortSignal,
-): Promise<DonneesPlanning> {
-  const charge = await api.lire<ChargePlanning>(`/projets/${projetId}/planning/`, undefined, signal);
-  return { aujourdhui: charge.aujourdhui, lots: (charge.lots ?? []).map(versLotPlanning) };
 }
 
 /**

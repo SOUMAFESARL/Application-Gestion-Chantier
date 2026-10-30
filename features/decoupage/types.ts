@@ -146,3 +146,170 @@ export interface RefusTableau {
   avertissements: ConstatTableau[];
   confirmationRequise: boolean;
 }
+
+/* ------------------------------------------------------------------ *
+ * L'arbre d'un projet (`GET /projets/{id}/arbre/`).
+ * ------------------------------------------------------------------ */
+
+/** Un niveau du gabarit d'un projet découpé. */
+export interface NiveauProjet {
+  id: string;
+  ordre: number;
+  libelle: string;
+  alerter: boolean;
+  liste: ReferenceListe | null;
+}
+
+/**
+ * Ce que la personne voit d'une case : tout (`COMPLET`), ou seulement son intitulé, parce qu'elle
+ * est sur le chemin d'une branche de son périmètre (`CHEMIN`, §13bis).
+ */
+export type AccesCase = "COMPLET" | "CHEMIN";
+
+/** Une équipe posée sur une case, directement ou par héritage. */
+export interface EquipeCase {
+  affectationId: string;
+  equipeId: string;
+  nom: string;
+  nature: string;
+}
+
+export interface CaseArbre {
+  id: string;
+  parentId: string | null;
+  libelle: string;
+  /** « 1.2.3 » : un affichage recalculé, jamais un identifiant (A-4). */
+  numero: string | null;
+  niveau: { id: string; ordre: number | null; libelle: string | null };
+  estFeuille: boolean;
+  acces: AccesCase;
+  /** Le code libre, repris du bordereau du client (A-4). */
+  code: string;
+  ordre: number;
+  estActif: boolean;
+  statut: string;
+  suspendu: boolean;
+  cloture: boolean;
+  /** Au moins une feuille en dessous porte une mesure. */
+  commence: boolean;
+  motif: string;
+  modeMesure: ModeMesure | null;
+  unite: UniteMesure | null;
+  quantiteInitiale: number | null;
+  quantitePrevue: number | null;
+  quantiteRealisee: number | null;
+  pourcentageDeclare: number | null;
+  /** Une feuille mesurée en quantité, sans unité ou sans quantité prévue. */
+  aCompleter: boolean;
+  /** Le dépassement d'une feuille, en % du prévu (430 sur 400 : 7,5) ; `null` sinon. */
+  depassement: number | null;
+  /** À 100 %, le serveur propose « Clôturer ? » ; il ne clôture jamais seul. */
+  aCloturer: boolean;
+  tachesEnDepassement: number | null;
+  /** L'avancement physique (F3) ; `null` quand il est indisponible, jamais un faux 0 %. */
+  avancement: number | null;
+  avancementPartiel: boolean;
+  avancementDisponible: boolean;
+  /** Le temporel et l'écart (temporel − physique), lus sur le planning du serveur. */
+  avancementTemporel: number | null;
+  ecart: number | null;
+  /** Montants en centimes ; `null` sans `projets.voir_montants`. */
+  poids: number | null;
+  montant: number | null;
+  montantInitial: number | null;
+  enveloppe: number | null;
+  sommeEnfants: number | null;
+  depasseEnveloppe: boolean;
+  dateDebutPrevue: string | null;
+  dateFinPrevue: string | null;
+  dateDebutBaseline: string | null;
+  dateFinBaseline: string | null;
+  dateDebutReelle: string | null;
+  dateFinReelle: string | null;
+  joursAccordes: number;
+  dateFinContractuelle: string | null;
+  modeExecution: string;
+  modeExecutionEffectif: string;
+  typeBordereau: string;
+  typeBordereauEffectif: string;
+  titulaireId: string | null;
+  titulaireEffectifId: string | null;
+  equipes: EquipeCase[];
+  /** La case d'où viennent les équipes, quand elles sont héritées. */
+  equipesHeriteesDe: string | null;
+  enfants: CaseArbre[];
+}
+
+export interface ArbreProjet {
+  projetId: string;
+  niveaux: NiveauProjet[];
+  avancement: number | null;
+  avancementDisponible: boolean;
+  avancementPartiel: boolean;
+  /** Faux quand le périmètre de la personne n'en montre qu'une partie. */
+  voitTout: boolean;
+  cases: CaseArbre[];
+}
+
+/* ------------------------------------------------------------------ *
+ * Les gestes sur une case.
+ * ------------------------------------------------------------------ */
+
+export interface CreationCase {
+  parentId: string | null;
+  libelle: string;
+  code?: string;
+  modeMesure?: ModeMesure;
+  unite?: UniteMesure;
+  quantitePrevue?: number | null;
+  montant?: number | null;
+  dateDebutPrevue?: string | null;
+  dateFinPrevue?: string | null;
+  /** Obligatoire (10 caractères) pour ajouter sous une case commencée. */
+  motif?: string;
+}
+
+export interface ModificationCase {
+  libelle?: string;
+  code?: string;
+  modeMesure?: ModeMesure;
+  unite?: UniteMesure | null;
+  quantitePrevue?: number | null;
+  montant?: number | null;
+  enveloppe?: number | null;
+  /** Obligatoire pour changer la quantité ou le montant d'une tâche commencée. */
+  motif?: string;
+}
+
+export interface Planification {
+  dateDebutPrevue: string | null;
+  dateFinPrevue: string | null;
+  /** Confirme la prolongation des cases parentes que le serveur a listées. */
+  prolonger?: boolean;
+  motifId?: string | null;
+  justification?: string;
+}
+
+/** Une case (ou le projet) que des dates obligent à élargir (§11). */
+export interface Prolongation {
+  type: "PROJET" | "ELEMENT";
+  id: string;
+  libelle: string;
+  dateDebutAvant: string | null;
+  dateFinAvant: string | null;
+  dateDebutApres: string | null;
+  dateFinApres: string | null;
+}
+
+export interface Mesure {
+  quantiteRealisee?: number | null;
+  pourcentageDeclare?: number | null;
+  atteint?: boolean | null;
+  commentaire: string;
+}
+
+export interface ModificationNiveau {
+  libelle?: string;
+  liste?: Pick<ReferenceListe, "origine" | "id"> | null;
+  alerter?: boolean;
+}

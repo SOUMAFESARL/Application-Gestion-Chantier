@@ -42,7 +42,7 @@ import type {
 } from "@/lib/export/documentPdf";
 
 import { TON_STATUT } from "../classes";
-import { BADGE_STATUT } from "../lots-activites/classes";
+import { BADGE_STATUT } from "../classes";
 
 /**
  * Le contenu de la fiche projet générée — F1 §9.4, ses huit sections dans
