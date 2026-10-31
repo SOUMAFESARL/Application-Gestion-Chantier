@@ -313,3 +313,29 @@ export interface ModificationNiveau {
   liste?: Pick<ReferenceListe, "origine" | "id"> | null;
   alerter?: boolean;
 }
+
+/* ------------------------------------------------------------------ *
+ * La courbe en S (`GET /projets/{id}/courbe/?element=`).
+ * ------------------------------------------------------------------ */
+
+export interface PointCourbe {
+  date: string;
+  /** Un pourcentage ; `null` quand il n'est pas calculable à cette date. */
+  valeur: number | null;
+}
+
+export interface CourbeAvancement {
+  /** `null` : le projet entier. */
+  caseId: string | null;
+  debut: string | null;
+  finPrevue: string | null;
+  finContractuelle: string | null;
+  /** Le prévu, une valeur par semaine, d'après les dates et les montants. */
+  prevu: PointCourbe[];
+  /** Le réel : les relevés de chaque nuit, puis la valeur du jour. */
+  reel: PointCourbe[];
+  /** Points gagnés par semaine sur les 4 dernières ; `null` sans assez de relevés. */
+  rythmeParSemaine: number | null;
+  /** Le rythme récent prolongé jusqu'à 100 % : affichée, jamais appliquée aux dates. */
+  finEstimee: string | null;
+}

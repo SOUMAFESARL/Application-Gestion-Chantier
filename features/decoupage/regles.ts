@@ -10,6 +10,7 @@ import { PERMISSIONS, type CodePermission } from "@/features/habilitations/permi
 import type {
   ArbreProjet,
   CaseArbre,
+  CourbeAvancement,
   ConstatTableau,
   LigneTableau,
   NiveauGabarit,
@@ -263,4 +264,52 @@ export function deriveSurOrigine(dates: {
   if (!dates.finPrevue || !dates.finOrigine) return null;
   const jours = Math.round(enJours(dates.finPrevue) - enJours(dates.finOrigine));
   return { jours, accordes: dates.joursAccordes, horsAvenant: jours - dates.joursAccordes };
+}
+
+/* ------------------------------------------------------------------ *
+ * Avancement (lot 12).
+ * ------------------------------------------------------------------ */
+
+/** Un point du graphique : le prévu et le réel d'une même date (l'un ou l'autre peut manquer). */
+export interface PointGraphique {
+  date: string;
+  prevu: number | null;
+  reel: number | null;
+}
+
+/** Le prévu et le réel réunis par date, dans l'ordre : une ligne par date pour le graphique. */
+export function pointsCourbe(courbe: Pick<CourbeAvancement, "prevu" | "reel">): PointGraphique[] {
+  const parDate = new Map<string, PointGraphique>();
+  for (const point of courbe.prevu) {
+    parDate.set(point.date, { date: point.date, prevu: point.valeur, reel: null });
+  }
+  for (const point of courbe.reel) {
+    const existant = parDate.get(point.date);
+    parDate.set(point.date, { date: point.date, prevu: existant?.prevu ?? null, reel: point.valeur });
+  }
+  return [...parDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** Les tâches qu'on peut clôturer (100 % atteint, le serveur propose « Clôturer ? »). */
+export function tachesACloturer(cases: CaseArbre[]): CaseArbre[] {
+  return aplatirCases(cases).filter((une) => une.acces === "COMPLET" && une.estActif && une.aCloturer);
+}
+
+/** Les tâches dont le réalisé dépasse le prévu, du plus fort dépassement au plus faible. */
+export function tachesEnDepassement(cases: CaseArbre[]): CaseArbre[] {
+  return aplatirCases(cases)
+    .filter((une) => une.acces === "COMPLET" && une.estActif && une.depassement !== null)
+    .sort((a, b) => (b.depassement ?? 0) - (a.depassement ?? 0));
+}
+
+/** Les tâches dont l'avancement n'est pas mesurable : elles rendent le total « partiel ». */
+export function tachesIndisponibles(cases: CaseArbre[]): CaseArbre[] {
+  return aplatirCases(cases).filter(
+    (une) => une.acces === "COMPLET" && une.estActif && une.estFeuille && etatAvancement(une) === "indisponible",
+  );
+}
+
+/** Les cases dont on peut demander la courbe : les parents visibles et actifs. */
+export function casesAvecCourbe(cases: CaseArbre[]): CaseArbre[] {
+  return aplatirCases(cases).filter((une) => une.acces === "COMPLET" && une.estActif && !une.estFeuille);
 }

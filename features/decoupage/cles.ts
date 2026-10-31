@@ -27,3 +27,8 @@ export function cleModeles(typeProjet: string | null) {
 
 /** Les listes de valeurs (plateforme et entreprise), avec leurs valeurs. */
 export const CLE_LISTES = ["decoupage", "listes"] as const;
+
+/** La courbe en S du projet, ou d'une de ses cases. */
+export function cleCourbe(projetId: string, caseId: string | null) {
+  return ["projets", projetId, "decoupage", "courbe", caseId ?? ""] as const;
+}

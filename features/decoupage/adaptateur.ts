@@ -12,6 +12,7 @@
  *   GET        /projets/{id}/decoupage/exporter/     l'arbre au format du tableau
  *   GET        /projets/{id}/arbre/                  l'arbre, filtré par périmètre
  *   GET        /projets/{id}/planning/               temporel et écart de chaque case active
+ *   GET        /projets/{id}/courbe/?element=        courbe en S du projet ou d'une case
  *   POST/PATCH /projets/{id}/niveaux/[{niveau_id}/]  réglages des niveaux
  *   POST       /projets/{id}/elements/               ajouter une case
  *   PATCH      /elements/{id}/                       renommer, chiffrer, métrer
@@ -27,6 +28,7 @@ import type {
   ArbreProjet,
   CaseArbre,
   ConstatTableau,
+  CourbeAvancement,
   CreationCase,
   EquipeCase,
   Mesure,
@@ -758,4 +760,42 @@ export async function ajouterNiveauProjet(
       alerter: niveau.alerter,
     }),
   );
+}
+
+/* ------------------------------------------------------------------ *
+ * La courbe en S.
+ * ------------------------------------------------------------------ */
+
+interface ChargeCourbe {
+  element_id: string | null;
+  debut: string | null;
+  fin_prevue: string | null;
+  fin_contractuelle: string | null;
+  prevu: { date: string; valeur: number | null }[];
+  reel: { date: string; valeur: number | null }[];
+  rythme_par_semaine: number | null;
+  fin_estimee: string | null;
+}
+
+/** Le prévu, le réel et la fin estimée du projet, ou d'une case (`caseId`). */
+export async function lireCourbe(
+  projetId: string,
+  caseId: string | null,
+  signal?: AbortSignal,
+): Promise<CourbeAvancement> {
+  const charge = await api.lire<ChargeCourbe>(
+    `/projets/${projetId}/courbe/`,
+    caseId ? { element: caseId } : undefined,
+    signal,
+  );
+  return {
+    caseId: charge.element_id,
+    debut: charge.debut,
+    finPrevue: charge.fin_prevue,
+    finContractuelle: charge.fin_contractuelle,
+    prevu: charge.prevu ?? [],
+    reel: charge.reel ?? [],
+    rythmeParSemaine: charge.rythme_par_semaine,
+    finEstimee: charge.fin_estimee,
+  };
 }

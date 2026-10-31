@@ -1643,9 +1643,7 @@
       "decoupage": "Découpage",
       "avancement": "Avancement",
       "equipes": "Équipes",
-      "avenants": "Avenants",
-      "aVenirTitre": "L’onglet « {onglet} » arrive bientôt",
-      "aVenirDescription": "Cet écran est en cours d’adaptation au découpage du projet en arbre."
+      "avenants": "Avenants"
     },
     "affectations": {
       "titre": "Collaborateurs affectés",
@@ -5907,6 +5905,37 @@
       "surOrigine": "Dans les dates d’origine",
       "derive": "{jours} j sur l’origine",
       "deriveAvecAvenants": "{jours} j sur l’origine, dont {accordes} accordés"
+    },
+    "avancement": {
+      "sansDecoupage": "Pas encore d’avancement à suivre",
+      "sansDecoupageDescription": "L’avancement se calcule sur l’arbre du projet : appliquez d’abord le tableau de démarrage, dans l’onglet Découpage.",
+      "physique": "Avancement physique",
+      "indisponible": "Indisponible",
+      "partiel": "partiel",
+      "partielExplication": "{nombre, plural, one {Une tâche n’est pas encore mesurable} other {# tâches ne sont pas encore mesurables}} (unité ou quantité prévue manquante) : le total ne les compte pas.",
+      "finEstimee": "Fin estimée",
+      "pasDEstimation": "Pas d’estimation",
+      "rythme": "Rythme récent",
+      "rythmeValeur": "{valeur} pts / semaine",
+      "pasDeRythme": "Pas assez de relevés",
+      "courbe": "Courbe en S",
+      "courbeAide": "Le prévu suit les dates et les montants ; le réel, les relevés de chaque nuit. La fin estimée prolonge le rythme des quatre dernières semaines : elle est affichée, jamais appliquée aux dates.",
+      "choisirCase": "Projet ou case",
+      "projetEntier": "Le projet entier",
+      "caseNumerotee": "{numero} {libelle}",
+      "pasDePoints": "Pas encore de points : il faut des dates et au moins un relevé.",
+      "prevu": "Prévu",
+      "reel": "Réel",
+      "repereFinPrevue": "Fin prévue",
+      "repereFinContractuelle": "Contractuelle",
+      "repereFinEstimee": "Estimée",
+      "aCloturer": "Clôturer ? ({nombre})",
+      "aucuneACloturer": "Aucune tâche à 100 % en attente de clôture.",
+      "cent": "100 %",
+      "cloturer": "Clôturer",
+      "depassements": "Dépassements ({nombre})",
+      "aucunDepassement": "Aucune tâche ne dépasse sa quantité prévue.",
+      "depassement": "+{valeur} % sur le prévu"
     }
   },
   "mainOeuvre": {
