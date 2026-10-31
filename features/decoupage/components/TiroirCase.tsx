@@ -17,6 +17,7 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { EquipesDeLaCase } from "@/features/equipes/components/EquipesDeLaCase";
 import { BoutonPermis, useDroits } from "@/features/habilitations";
 import type { Projet } from "@/features/projets/types";
 import { ABSENT, formaterDate, formaterMontant, formaterQuantite } from "@/lib/format";
@@ -161,12 +162,12 @@ export function TiroirCase({
                   <Section titre={t("execution")}>
                     <Ligne libelle={t("modeExecution")}>{cible.modeExecutionEffectif || ABSENT}</Ligne>
                     <Ligne libelle={t("equipes")}>
-                      {cible.equipes.length === 0
-                        ? ABSENT
-                        : cible.equipes.map((equipe) => equipe.nom).join(", ")}
-                      {cible.equipesHeriteesDe && (
-                        <span className="ml-1 text-xs text-neutral-500">{t("heritees")}</span>
-                      )}
+                      <EquipesDeLaCase
+                        projet={projet}
+                        caseId={cible.id}
+                        equipes={cible.equipes}
+                        heriteesDe={cible.equipesHeriteesDe}
+                      />
                     </Ligne>
                   </Section>
                 </>

@@ -1,6 +1,7 @@
-import { OngletAVenir } from "../OngletAVenir";
+import { OngletEquipesProjet } from "./OngletEquipesProjet";
 
-/** Onglet de la fiche projet : livré avec son lot du plan du découpage. */
-export default function Page() {
-  return <OngletAVenir onglet="equipes" />;
+/** Onglet « Équipes » de la fiche projet (décision P12). */
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <OngletEquipesProjet projetId={id} />;
 }

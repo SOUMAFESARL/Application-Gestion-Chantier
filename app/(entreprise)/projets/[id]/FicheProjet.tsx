@@ -77,7 +77,6 @@ import {
   TON_SANTE,
   type FondIndicateur,
 } from "../classes";
-import { lienEquipesChantier } from "../equipe-affectations/liens";
 import { AffectationsCollaborateurs } from "./AffectationsCollaborateurs";
 import { EquipeEncadrement } from "./EquipeEncadrement";
 
@@ -299,7 +298,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
               >
                 {t("structure.voirLots")}
               </LienSection>
-              <LienSection href={lienEquipesChantier(projet.id)}>
+              <LienSection href={`/projets/${projet.id}/equipes`}>
                 {t("structure.voirEquipes")}
               </LienSection>
               {/* Pas de chiffre tant qu'on ne le connaît pas : « 0 » se lirait comme un fait. */}

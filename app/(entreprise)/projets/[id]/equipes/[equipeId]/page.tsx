@@ -1,19 +1,10 @@
-import { FicheEquipe } from "./FicheEquipe";
+import { OngletEquipesProjet } from "../OngletEquipesProjet";
 
 /**
- * Écran « Fiche équipe »
- *
- * Motif d'interface : Fiche détail
- *
- * Les membres d'une équipe de chantier et leur rôle : on y ajoute une
- * personne, on change son rôle, on la retire. On y arrive en cliquant une
- * carte de « Équipes et affectations ».
+ * Le lien d'une équipe : l'onglet Équipes, son tiroir ouvert. Garde vivants les liens déjà
+ * partagés vers l'ancienne fiche d'équipe.
  */
-export default async function Page({
-  params,
-}: {
-  params: Promise<{ id: string; equipeId: string }>;
-}) {
+export default async function Page({ params }: { params: Promise<{ id: string; equipeId: string }> }) {
   const { id, equipeId } = await params;
-  return <FicheEquipe projetId={id} equipeId={equipeId} />;
+  return <OngletEquipesProjet projetId={id} equipeId={equipeId} />;
 }

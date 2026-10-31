@@ -33,9 +33,7 @@ import type {
   AlerteIntemperies,
   AutreMembreProjet,
   ChefChantierProjet,
-  CandidatEquipe,
   ClientProjet,
-  CreationEquipe,
   ContratProjet,
   CreationProjet,
   Equipe,
@@ -57,7 +55,6 @@ import type {
   ResultatReprogrammation,
   RoleMembreEquipe,
   SaisieAffectation,
-  SaisieMembreEquipe,
   SanteProjet,
   StatistiquesProjet,
   StatutDeclare,
@@ -926,6 +923,8 @@ export async function lireStatistiques(
 
 interface ChargeMembre {
   id: string;
+  /** Le registre de main-d'œuvre : un membre est une personne datée dans l'équipe. */
+  personne?: { id: string; nom: string; prenom: string } | null;
   prenom?: string;
   nom?: string;
   role?: RoleMembreEquipe;
@@ -945,25 +944,11 @@ interface ChargeEquipeDetail extends ChargeEquipe {
 function versMembre(charge: ChargeMembre, chef = false): MembreEquipe {
   return {
     id: charge.id,
-    prenom: charge.prenom ?? "",
-    nom: charge.nom ?? "",
+    prenom: charge.personne?.prenom ?? charge.prenom ?? "",
+    nom: charge.personne?.nom ?? charge.nom ?? "",
     // Un serveur qui ne renverrait pas encore le rôle : la place dans l'équipe le dit.
     role: charge.role ?? (chef ? "CHEF_EQUIPE" : ROLE_MEMBRE_PAR_DEFAUT),
-    collaborateurId: charge.collaborateur_id ?? charge.utilisateur_id ?? null,
-  };
-}
-
-function versChargeMembre(membre: SaisieMembreEquipe): Record<string, unknown> {
-  if (membre.collaborateurId) {
-    return {
-      collaborateur_id: membre.collaborateurId,
-      role: membre.role,
-    };
-  }
-  return {
-    prenom: membre.prenom,
-    nom: membre.nom,
-    role: membre.role,
+    collaborateurId: charge.personne?.id ?? charge.collaborateur_id ?? charge.utilisateur_id ?? null,
   };
 }
 
@@ -987,128 +972,6 @@ export async function listerEquipes(projetId: string, signal?: AbortSignal): Pro
   );
   const charges = Array.isArray(charge) ? charge : (charge?.results ?? []);
   return charges.map(versEquipeDetail);
-}
-
-interface ChargeCandidatEquipe {
-  id: string;
-  nom_complet: string;
-  role_projet?: string;
-  equipes?: { id: string; nom: string }[];
-}
-
-/**
- * Les collaborateurs que l'on peut proposer pour une équipe du chantier : ceux
- * qui lui sont affectés, avec les équipes où ils sont déjà. Le serveur refuse
- * (403) qui ne gère pas les équipes du projet : ne l'appeler qu'avec ce droit.
- */
-export async function listerCandidatsEquipes(
-  projetId: string,
-  signal?: AbortSignal,
-): Promise<CandidatEquipe[]> {
-  const charge = await api.lire<ChargeCandidatEquipe[] | ChargeListe<ChargeCandidatEquipe>>(
-    `/projets/${projetId}/equipes/candidats/`,
-    undefined,
-    signal,
-  );
-  const charges = Array.isArray(charge) ? charge : (charge?.results ?? []);
-  return charges.map((candidat) => ({
-    id: candidat.id,
-    nomComplet: candidat.nom_complet,
-    roleProjet: candidat.role_projet ?? "",
-    equipes: candidat.equipes ?? [],
-  }));
-}
-
-export async function creerEquipe(projetId: string, creation: CreationEquipe): Promise<Equipe> {
-  return versEquipeDetail(
-    await api.creer<ChargeEquipeDetail>(`/projets/${projetId}/equipes/`, {
-      nom: creation.nom,
-      nature: creation.nature,
-      specialite: creation.specialite,
-      chef: versChargeMembre(creation.chef),
-      membres: creation.membres.map(versChargeMembre),
-    }),
-  );
-}
-
-/*
- * Les membres d'une équipe constituée. Chaque écriture renvoie **l'équipe
- * entière** : nommer un chef en fait redescendre un autre, retirer quelqu'un
- * change l'effectif — l'écran repart de ce que le serveur a retenu plutôt que
- * de refaire le calcul de son côté.
- */
-
-export async function ajouterMembreEquipe(
-  projetId: string,
-  equipeId: string,
-  membre: SaisieMembreEquipe,
-): Promise<Equipe> {
-  return versEquipeDetail(
-    await api.creer<ChargeEquipeDetail>(
-      `/projets/${projetId}/equipes/${equipeId}/membres/`,
-      versChargeMembre(membre),
-    ),
-  );
-}
-
-export async function changerRoleMembreEquipe(
-  projetId: string,
-  equipeId: string,
-  membreId: string,
-  role: RoleMembreEquipe,
-): Promise<Equipe> {
-  return versEquipeDetail(
-    await api.modifier<ChargeEquipeDetail>(
-      `/projets/${projetId}/equipes/${equipeId}/membres/${membreId}/`,
-      { role },
-    ),
-  );
-}
-
-/** Le retrait ne renvoie rien (204) : l'équipe est relue derrière. */
-export async function retirerMembreEquipe(
-  projetId: string,
-  equipeId: string,
-  membreId: string,
-): Promise<Equipe> {
-  await api.supprimer(`/projets/${projetId}/equipes/${equipeId}/membres/${membreId}/`);
-  return versEquipeDetail(
-    await api.lire<ChargeEquipeDetail>(`/projets/${projetId}/equipes/${equipeId}/`),
-  );
-}
-
-/**
- * L'équipe d'une activité — `null` la retire. Une écriture à part plutôt que
- * `modifierActivite` : affecter ne doit pas renvoyer (et risquer d'écraser)
- * les dates ou le budget qu'un autre aurait changés entre-temps.
- */
-export async function affecterEquipe(
-  projetId: string,
-  activite: Activite | string,
-  equipeId: string | null,
-): Promise<Activite> {
-  const activiteId = typeof activite === "string" ? activite : activite.id;
-
-  if (equipeId) {
-    await api.creer(`/projets/${projetId}/equipes/affectations/`, {
-      equipe_id: equipeId,
-      activite_id: activiteId,
-    });
-  } else {
-    let affectationId: string | undefined;
-    if (typeof activite === "object" && activite.equipe?.affectationId) {
-      affectationId = activite.equipe.affectationId;
-    } else {
-      const chargeAct = await api.lire<ChargeActivite>(`/activites/${activiteId}/`);
-      affectationId = chargeAct.equipe_chantier?.affectation_id;
-    }
-
-    if (affectationId) {
-      await api.supprimer(`/projets/${projetId}/equipes/affectations/${affectationId}/`);
-    }
-  }
-
-  return versActivite(await api.lire<ChargeActivite>(`/activites/${activiteId}/`));
 }
 
 /* ------------------------------------------------------------------ *

@@ -27,3 +27,18 @@ export function filtrerRegistre(
     );
   });
 }
+
+/** Les personnes du registre qu'on peut encore ajouter à une équipe : actives, pas déjà présentes. */
+export function personnesAjoutables(
+  registre: Personne[],
+  membres: { personne: { id: string }; enCours: boolean }[],
+): Personne[] {
+  const presents = new Set(membres.filter((m) => m.enCours).map((m) => m.personne.id));
+  return registre.filter((personne) => personne.estActive && !presents.has(personne.id));
+}
+
+/** La date du jour au format ISO (AAAA-MM-JJ), heure locale : la date d'arrivée par défaut. */
+export function aujourdhuiIso(maintenant: Date = new Date()): string {
+  const decalage = maintenant.getTimezoneOffset() * 60_000;
+  return new Date(maintenant.getTime() - decalage).toISOString().slice(0, 10);
+}

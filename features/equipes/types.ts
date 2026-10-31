@@ -44,3 +44,74 @@ export interface FiltresRegistre {
   entreprise?: string;
   inactives?: boolean;
 }
+
+/* ------------------------------------------------------------------ *
+ * Les équipes d'un projet.
+ * ------------------------------------------------------------------ */
+
+export const FONCTIONS_MEMBRE = [
+  "CHEF_EQUIPE",
+  "OUVRIER_QUALIFIE",
+  "OUVRIER",
+  "MANOEUVRE",
+  "CONDUCTEUR_ENGIN",
+  "APPRENTI",
+] as const;
+export type FonctionMembre = (typeof FONCTIONS_MEMBRE)[number];
+
+/** Un membre d'une équipe : une personne du registre, sur une période datée. */
+export interface MembreEquipe {
+  id: string;
+  personne: Personne;
+  fonction: FonctionMembre;
+  estChef: boolean;
+  dateArrivee: string | null;
+  /** `null` : toujours dans l'équipe. */
+  dateDepart: string | null;
+  enCours: boolean;
+}
+
+/** Une case de l'arbre où l'équipe est posée (ses descendants en héritent). */
+export interface CaseEquipe {
+  affectationId: string;
+  caseId: string;
+  libelle: string;
+  niveau: string;
+}
+
+export interface EquipeProjet {
+  id: string;
+  projetId: string;
+  nom: string;
+  corpsEtat: string;
+  entreprise: EntrepriseRattachement;
+  nature: string;
+  chef: MembreEquipe | null;
+  effectif: number;
+  membres: MembreEquipe[];
+  cases: CaseEquipe[];
+  estActive: boolean;
+}
+
+/**
+ * Ce que le serveur signale sans refuser : une personne dans deux équipes le même jour, un
+ * membre d'une autre entreprise que l'équipe… Le message se lit tel quel.
+ */
+export interface Avertissement {
+  code: string;
+  message: string;
+}
+
+export interface SaisieEquipe {
+  nom: string;
+  corpsEtat: string;
+  entreprisePartenaireId: string | null;
+}
+
+export interface SaisieMembre {
+  personneId: string;
+  fonction: FonctionMembre;
+  estChef: boolean;
+  dateArrivee: string | null;
+  dateDepart?: string | null;
+}
