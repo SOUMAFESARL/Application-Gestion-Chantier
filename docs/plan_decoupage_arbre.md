@@ -200,16 +200,16 @@ On suit les numéros, un lot à la fois : la machine n'en supporte pas deux (mé
 
 | Lot | Dépôts | État | Fusionné le | Poussé le |
 |---|---|---|---|---|
-| 1 | B | à faire | | |
+| 1 | B | fait (cloud, nuit du 30/10), `7e946f8` | 31/10/2026 (`a8039d9`) | 31/10/2026, déployé |
 | 2 | F | à faire | | |
 | 3 | F | fait (cloud, nuit du 30/10) — branche `decoupage/lot-3-onglets-tableau` ; lint et typecheck passent | | non poussé (403) |
 | 4 | F | fait (cloud, nuit du 30/10) — branche `decoupage/lot-4-arbre` ; lint et typecheck passent | | non poussé (403) |
-| 5 | B | à faire | | |
+| 5 | B | fait (cloud, nuit du 30/10), `dc63ba8` | 31/10/2026 (`a8039d9`) | 31/10/2026, déployé |
 | 6 | F | à faire | | |
 | 7 | F | fait (cloud, nuit du 30/10) — branche `decoupage/lot-7-affectations-main-oeuvre` ; lint et typecheck passent | | non poussé (403) |
 | 8 | F | fait (cloud, nuit du 30/10) — branche `decoupage/lot-8-equipes` ; lint et typecheck passent | | non poussé (403) |
 | 9 | F | fait (cloud, nuit du 30/10) — branche `decoupage/lot-9-dates-avenants` ; lint et typecheck passent | | non poussé (403) |
-| 10 | B | à faire | | |
+| 10 | B | fait (cloud, nuit du 30/10), `0b99783` | 31/10/2026 (`a8039d9`) | 31/10/2026, déployé |
 | 11 | F | à faire | | |
 | 12 | F | fait (cloud, nuit du 30/10) — branche `decoupage/lot-12-avancement` ; lint et typecheck passent | | non poussé (403) |
 | 13 | F | fait en partie (cloud, nuit du 30/10) — branche `decoupage/lot-13-journal` : équipes et présents, heures, production par ouvrier, signataires attendus ; voir le compte rendu | | non poussé (403) |

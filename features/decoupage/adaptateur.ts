@@ -330,9 +330,8 @@ export async function verifierTableau(
 /**
  * Un fichier Excel (.xlsx) ou CSV devient un tableau, vérifié ; rien n'est écrit.
  *
- * La colonne « Montant (FCFA) » est lue par le serveur **sans conversion** et rangée telle
- * quelle dans un champ en centimes — c'est aussi ce que son export écrit. Le domaine reprend
- * donc la valeur comme des centimes, pour qu'un fichier exporté se réimporte à l'identique.
+ * La colonne « Montant (FCFA) » du fichier est en francs ; le serveur la convertit en centimes à
+ * la lecture (et en francs à l'export) : la réponse porte des centimes, comme le domaine.
  */
 export async function importerFichier(projetId: string, fichier: File): Promise<TableauImporte> {
   const corps = new FormData();

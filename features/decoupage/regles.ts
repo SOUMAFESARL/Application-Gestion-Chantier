@@ -129,7 +129,8 @@ export type ColonneFichier = (typeof COLONNES_FICHIER)[number];
 
 /**
  * Les lignes d'un fichier tiré du tableau : une colonne par niveau puis les données. Les
- * montants partent **tels que le serveur les lit** (`Montant (FCFA)`, voir `importerFichier`).
+ * montants partent **en francs**, comme la colonne `Montant (FCFA)` que le serveur lit et écrit
+ * (`import_export._centimes`) : le domaine les tient en centimes.
  */
 export function lignesFichier(
   tableau: TableauDemarrage,
@@ -147,7 +148,7 @@ export function lignesFichier(
           case "quantite":
             return ligne.quantite ?? "";
           case "montant":
-            return ligne.montant ?? "";
+            return ligne.montant === null ? "" : ligne.montant / 100;
           case "dateDebut":
             return ligne.dateDebut ?? "";
           case "dateFin":
