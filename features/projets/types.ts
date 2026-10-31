@@ -133,6 +133,13 @@ export interface Projet {
    * Découpage propose le tableau de démarrage ; vrai, il montre l'arbre.
    */
   decoupageCree: boolean;
+  /** L'origine (baseline v0) : les dates du premier planning, qui ne bougent plus. */
+  dateDebutBaseline: string | null;
+  dateFinBaseline: string | null;
+  /** Les jours accordés par les avenants sur le projet entier. */
+  joursAccordes: number;
+  /** L'origine plus les jours accordés par avenant. */
+  dateFinContractuelle: string | null;
 }
 
 /**
@@ -670,6 +677,8 @@ export interface Reprogrammation {
   dateFinPrevue: string;
   motifId: string;
   justification: string;
+  /** Confirme la prolongation des cases parentes (et du projet) que le serveur a listées. */
+  prolonger?: boolean;
 }
 
 /** Résultat synthétique renvoyé après une reprogrammation réussie. */

@@ -2,6 +2,7 @@
 
 import {
   CalendarCheck,
+  CalendarClock,
   CalendarPlus,
   CheckCheck,
   Gauge,
@@ -24,12 +25,13 @@ import { ABSENT, formaterDate, formaterMontant, formaterQuantite } from "@/lib/f
 
 import { gestesPossibles, PERMISSION_DU_GESTE, type GesteCase } from "../regles";
 import type { CaseArbre } from "../types";
-import { Ecart, Montant, MONTANT_MASQUE, Periode, Physique, Statut } from "./CellulesCase";
+import { Derive, Ecart, Montant, MONTANT_MASQUE, Periode, Physique, Statut } from "./CellulesCase";
 
 const ICONE_GESTE: Record<GesteCase, ReactNode> = {
   ajouter: <Plus />,
   modifier: <Pencil />,
   planifier: <CalendarPlus />,
+  reprogrammer: <CalendarClock />,
   mesurer: <Gauge />,
   cloturer: <CheckCheck />,
   desactiver: <PowerOff />,
@@ -141,6 +143,13 @@ export function TiroirCase({
                       <Periode debut={cible.dateDebutBaseline} fin={cible.dateFinBaseline} />
                     </Ligne>
                     <Ligne libelle={t("finContractuelle")}>{formaterDate(cible.dateFinContractuelle)}</Ligne>
+                    <Ligne libelle={t("derive")}>
+                      <Derive
+                        finPrevue={cible.dateFinPrevue}
+                        finOrigine={cible.dateFinBaseline}
+                        joursAccordes={cible.joursAccordes}
+                      />
+                    </Ligne>
                     {(cible.dateDebutReelle || cible.dateFinReelle) && (
                       <Ligne libelle={t("reelles")}>
                         <Periode debut={cible.dateDebutReelle} fin={cible.dateFinReelle} />

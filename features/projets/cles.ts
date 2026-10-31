@@ -44,7 +44,7 @@ export function cleHistoriqueAvancement(activiteId: string) {
 export const CLE_MOTIFS_REPORT = ["referentiels", "motifs-report"] as const;
 
 /** L'historique des modifications de dates pour un objet donné. */
-export function cleHistoriqueDates(objet: "projets" | "lots" | "activites", id: string) {
+export function cleHistoriqueDates(objet: "projets" | "lots" | "activites" | "elements", id: string) {
   return [objet, id, "historique-dates"] as const;
 }
 

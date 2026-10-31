@@ -2970,7 +2970,10 @@
       "placeholderRecherche": "Rechercher par libellé, motif, auteur…",
       "tousLesTypes": "Tous les types",
       "datesActuellesFormat": "{label} : {debut} → {fin}",
-      "systeme": "Système"
+      "systeme": "Système",
+      "prolongationRequise": "Ces dates dépassent celles de cases parentes : enregistrer les prolongera.",
+      "prolongation": "« {libelle} » : fin du {finAvant} au {finApres}",
+      "prolongerEtEnregistrer": "Prolonger et enregistrer"
     }
   },
   "referentielVilles": {
@@ -5785,7 +5788,8 @@
       "equipes": "Équipes",
       "heritees": "(héritées d’une case parente)",
       "gestes": "Gestes",
-      "dejaPlanifiee": "Les dates de cette case sont fixées : elles se reprogramment, avec un motif."
+      "dejaPlanifiee": "Les dates de cette case sont fixées : « Reprogrammer » les change, avec un motif et une justification.",
+      "derive": "Dérive"
     },
     "gestes": {
       "annuler": "Annuler",
@@ -5798,7 +5802,8 @@
         "mesurer": "Mesurer",
         "cloturer": "Clôturer",
         "desactiver": "Désactiver",
-        "reactiver": "Réactiver"
+        "reactiver": "Réactiver",
+        "reprogrammer": "Reprogrammer"
       },
       "champs": {
         "libelle": "Intitulé",
@@ -5897,6 +5902,11 @@
       "aucuneCase": "Aucune case choisie.",
       "casesChoisies": "{nombre, plural, one {# case choisie} other {# cases choisies}}",
       "aucunResultat": "Aucune case ne correspond."
+    },
+    "dates": {
+      "surOrigine": "Dans les dates d’origine",
+      "derive": "{jours} j sur l’origine",
+      "deriveAvecAvenants": "{jours} j sur l’origine, dont {accordes} accordés"
     }
   },
   "mainOeuvre": {
@@ -6025,6 +6035,56 @@
       "retirerCase": "Retirer l’équipe de « {libelle} »",
       "affectee": "Équipe posée sur la case.",
       "affecter": "Poser ici"
+    }
+  },
+  "avenants": {
+    "resume": "Jours accordés au projet par avenant : {jours}. Fin contractuelle : {fin}.",
+    "vide": "Aucun avenant enregistré.",
+    "erreur": "L’opération n’a pas abouti. Réessayez.",
+    "jours": "{nombre, plural, =0 {0 j} other {# j}}",
+    "projetEntier": "Le projet entier",
+    "document": "Télécharger le document signé",
+    "retirer": "Retirer l’avenant",
+    "enregistrer": "Enregistrer un avenant",
+    "colonnes": {
+      "numero": "N°",
+      "date": "Signé le",
+      "objet": "Objet",
+      "jours": "Jours accordés",
+      "montant": "Montant",
+      "porteSur": "Porte sur",
+      "actions": "Actions"
+    },
+    "export": {
+      "titre": "Avenants — {projet}",
+      "nomFichier": "avenants",
+      "montantFrancs": "Montant (FCFA)"
+    },
+    "creation": {
+      "titre": "Enregistrer un avenant signé",
+      "description": "Les jours accordés repoussent la fin contractuelle du projet, ou des cases visées.",
+      "numero": "Numéro",
+      "dateSignature": "Date de signature",
+      "objet": "Objet",
+      "joursAccordes": "Jours accordés",
+      "joursAide": "Jours calendaires ; négatifs, ils raccourcissent le délai.",
+      "montant": "Montant (FCFA)",
+      "montantAide": "En plus ou en moins du budget ; négatif pour une moins-value.",
+      "porteSur": "Porte sur",
+      "projetEntier": "Le projet entier : il n’est pas encore découpé.",
+      "document": "Document signé (PDF ou image)",
+      "annuler": "Annuler",
+      "enregistrer": "Enregistrer",
+      "succes": "Avenant {numero} enregistré.",
+      "erreur": "L’avenant n’a pas pu être enregistré."
+    },
+    "retrait": {
+      "titre": "Retirer l’avenant {numero} ?",
+      "description": "À faire seulement s’il a été enregistré par erreur : ses {jours} jours accordés et son montant sont retirés.",
+      "annuler": "Annuler",
+      "retirer": "Retirer",
+      "succes": "Avenant {numero} retiré.",
+      "erreur": "L’avenant n’a pas pu être retiré."
     }
   }
 }

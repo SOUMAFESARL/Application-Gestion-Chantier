@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Derive } from "@/features/decoupage/components/CellulesCase";
 import { AccesNonAutorise, projetVisible, useDroits } from "@/features/habilitations";
 import { lireProjet } from "@/features/projets/adaptateur";
 import { cleProjet } from "@/features/projets/cles";
@@ -134,6 +135,14 @@ export function CadreFicheProjet({ projetId, children }: { projetId: string; chi
             <span className="mt-1 flex flex-wrap items-center gap-2">
               {projet.typeProjet && <Badge variante="neutre">{libelleType(projet.typeProjet)}</Badge>}
               <Badge variante={TON_STATUT[projet.statut]}>{tProjets(`statut.${projet.statut}`)}</Badge>
+              {/* « +45 j sur l'origine, dont 30 accordés » (décision P9). */}
+              <span className="text-sm">
+                <Derive
+                  finPrevue={projet.dateFinPrevue}
+                  finOrigine={projet.dateFinBaseline}
+                  joursAccordes={projet.joursAccordes}
+                />
+              </span>
             </span>
           }
           actions={

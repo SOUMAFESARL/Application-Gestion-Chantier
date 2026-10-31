@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui";
 import { ABSENT, formaterDate, formaterMontant, formaterPourcentage } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-import { etatAvancement } from "../regles";
+import { deriveSurOrigine, etatAvancement } from "../regles";
 import type { CaseArbre } from "../types";
 
 /*
@@ -74,6 +74,33 @@ export function Periode({ debut, fin }: { debut: string | null; fin: string | nu
   return (
     <span className="whitespace-nowrap tabular-nums">
       {t("periode", { debut: formaterDate(debut), fin: formaterDate(fin) })}
+    </span>
+  );
+}
+
+/**
+ * « +45 j sur l'origine, dont 30 accordés » (décision P9) : la dérive de la fin prévue, et ce que
+ * les avenants en couvrent. Rouge quand la dérive dépasse les jours accordés.
+ */
+export function Derive({
+  finPrevue,
+  finOrigine,
+  joursAccordes,
+}: {
+  finPrevue: string | null;
+  finOrigine: string | null;
+  joursAccordes: number;
+}) {
+  const t = useTranslations("decoupage.dates");
+  const derive = deriveSurOrigine({ finPrevue, finOrigine, joursAccordes });
+  if (!derive) return null;
+  if (derive.jours === 0 && derive.accordes === 0) return <span className="text-succes">{t("surOrigine")}</span>;
+  const signe = derive.jours > 0 ? `+${derive.jours}` : String(derive.jours);
+  return (
+    <span className={cn("tabular-nums", derive.horsAvenant > 0 ? "text-erreur" : "text-neutral-700")}>
+      {derive.accordes !== 0
+        ? t("deriveAvecAvenants", { jours: signe, accordes: derive.accordes })
+        : t("derive", { jours: signe })}
     </span>
   );
 }

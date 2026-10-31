@@ -15,6 +15,7 @@
   "entreprise": [
     "abonnement",
     "alertes",
+    "avenants",
     "calendrier",
     "configuration",
     "dataTable",

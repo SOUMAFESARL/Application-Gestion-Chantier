@@ -198,6 +198,7 @@ export type GesteCase =
   | "ajouter"
   | "modifier"
   | "planifier"
+  | "reprogrammer"
   | "mesurer"
   | "cloturer"
   | "desactiver"
@@ -214,7 +215,8 @@ export function gestesPossibles(une: CaseArbre): GesteCase[] {
   const gestes: GesteCase[] = ["modifier"];
   // Une tâche commencée ne se découpe plus par ajout : elle se « détaille » (A-5, lot 6).
   if (!(une.estFeuille && une.commence)) gestes.unshift("ajouter");
-  if (!une.dateDebutPrevue || !une.dateFinPrevue) gestes.push("planifier");
+  // La première saisie des dates se planifie ; des dates fixées se reprogramment, avec un motif.
+  gestes.push(!une.dateDebutPrevue || !une.dateFinPrevue ? "planifier" : "reprogrammer");
   if (une.estFeuille && !une.cloture) gestes.push("mesurer", "cloturer");
   gestes.push("desactiver");
   return gestes;
@@ -225,6 +227,7 @@ export const PERMISSION_DU_GESTE: Record<GesteCase, CodePermission> = {
   ajouter: PERMISSIONS.DECOUPER,
   modifier: PERMISSIONS.DECOUPER,
   planifier: PERMISSIONS.PLANIFIER,
+  reprogrammer: PERMISSIONS.PLANIFIER,
   mesurer: PERMISSIONS.MESURER,
   cloturer: PERMISSIONS.MESURER,
   desactiver: PERMISSIONS.DECOUPER,
@@ -235,3 +238,29 @@ export const PERMISSION_DU_GESTE: Record<GesteCase, CodePermission> = {
 export const LONGUEUR_MIN_MOTIF = 10;
 /** La justification d'un report : 30 caractères au moins (RG-11). */
 export const LONGUEUR_MIN_JUSTIFICATION = 30;
+
+/* ------------------------------------------------------------------ *
+ * Dates : origine, contractuelle, prévue (§11, avenants du 30/10/2026).
+ * ------------------------------------------------------------------ */
+
+const JOUR_MS = 86_400_000;
+
+function enJours(iso: string): number {
+  const [annee, mois, jour] = iso.slice(0, 10).split("-").map(Number);
+  return Date.UTC(annee, mois - 1, jour) / JOUR_MS;
+}
+
+/**
+ * La dérive de la fin prévue sur l'origine, et la part que les avenants accordent : « +45 j sur
+ * l'origine, dont 30 accordés ». `null` tant que l'une des deux dates manque. Jours calendaires,
+ * comme les jours accordés par avenant.
+ */
+export function deriveSurOrigine(dates: {
+  finPrevue: string | null;
+  finOrigine: string | null;
+  joursAccordes: number;
+}): { jours: number; accordes: number; horsAvenant: number } | null {
+  if (!dates.finPrevue || !dates.finOrigine) return null;
+  const jours = Math.round(enJours(dates.finPrevue) - enJours(dates.finOrigine));
+  return { jours, accordes: dates.joursAccordes, horsAvenant: jours - dates.joursAccordes };
+}

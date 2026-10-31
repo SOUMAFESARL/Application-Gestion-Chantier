@@ -138,6 +138,10 @@ interface ChargeProjet {
   statistiques?: ChargeStatistiques | null;
   /** Vrai dès que l'arbre existe (le tableau de démarrage a été appliqué). */
   decoupage_cree?: boolean;
+  date_debut_baseline?: string | null;
+  date_fin_baseline?: string | null;
+  jours_accordes?: number;
+  date_fin_contractuelle?: string | null;
 }
 
 /** Les chiffres de structure que le serveur calcule sur les lots du chantier. */
@@ -408,6 +412,10 @@ export function versProjet(charge: ChargeProjet, affectations: ChargeAffectation
       .filter((membre): membre is AutreMembreProjet => membre !== null),
     statistiques: versStatistiques(charge.statistiques),
     decoupageCree: charge.decoupage_cree ?? false,
+    dateDebutBaseline: charge.date_debut_baseline ?? null,
+    dateFinBaseline: charge.date_fin_baseline ?? null,
+    joursAccordes: charge.jours_accordes ?? 0,
+    dateFinContractuelle: charge.date_fin_contractuelle ?? null,
   };
 }
 
@@ -1073,7 +1081,7 @@ export async function listerMotifsReport(signal?: AbortSignal): Promise<MotifRep
 
 /** Reprogrammer un projet, un lot ou une activité (US 3.8, RG-11). */
 export async function reprogrammer(
-  objet: "projets" | "lots" | "activites",
+  objet: "projets" | "lots" | "activites" | "elements",
   id: string,
   reprogrammation: Reprogrammation,
 ): Promise<ResultatReprogrammation> {
@@ -1084,6 +1092,7 @@ export async function reprogrammer(
       date_fin_prevue: reprogrammation.dateFinPrevue,
       motif_id: reprogrammation.motifId,
       justification: reprogrammation.justification,
+      prolonger: reprogrammation.prolonger ?? false,
     },
   );
   return versResultatReprogrammation(charge);

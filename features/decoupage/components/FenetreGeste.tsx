@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useDroits } from "@/features/habilitations";
 import { listerMotifsReport } from "@/features/projets/adaptateur";
 import { CLE_MOTIFS_REPORT } from "@/features/projets/cles";
+import { ModaleReprogrammation } from "@/features/projets/components/ModaleReprogrammation";
 import type { Projet } from "@/features/projets/types";
 import { ErreurApi } from "@/lib/api";
 import { formaterDate } from "@/lib/format";
@@ -78,6 +79,22 @@ export function FenetreGeste({
       return ouvert.cible && <FenetreModification key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />;
     case "planifier":
       return ouvert.cible && <FenetrePlanification key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />;
+    case "reprogrammer":
+      return (
+        ouvert.cible && (
+          <ModaleReprogrammation
+            key={cle}
+            ouverte
+            onFermer={onFermer}
+            objet="elements"
+            id={ouvert.cible.id}
+            nomObjet={ouvert.cible.libelle}
+            projetId={projet.id}
+            datesActuelles={{ debut: ouvert.cible.dateDebutPrevue, fin: ouvert.cible.dateFinPrevue }}
+            datesBaseline={{ debut: ouvert.cible.dateDebutBaseline, fin: ouvert.cible.dateFinBaseline }}
+          />
+        )
+      );
     case "mesurer":
       return ouvert.cible && <FenetreMesure key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />;
     case "cloturer":
