@@ -2935,6 +2935,8 @@
       "erreurFinRequise": "La date de fin prévisionnelle est obligatoire.",
       "erreurMotifRequis": "Le motif est obligatoire.",
       "erreurJustificationCourte": "La justification doit comporter au moins 30 caractères.",
+      "erreurGenerique": "Une erreur est survenue lors de l'enregistrement de la reprogrammation.",
+      "annuler": "Annuler",
       "enregistrer": "Enregistrer la reprogrammation",
       "enCours": "Enregistrement en cours…",
       "succes": "Les dates ont été reprogrammées avec succès.",
@@ -2958,6 +2960,7 @@
       },
       "typesObjet": {
         "PROJET": "Projet",
+        "ELEMENT": "Élément",
         "LOT": "Lot",
         "ACTIVITE": "Activité"
       },
@@ -5628,6 +5631,7 @@
       "erreurActuelRequis": "Le mot de passe actuel est requis.",
       "erreurNouveauRequis": "Le nouveau mot de passe est requis.",
       "erreurConfirmationRequise": "La confirmation du mot de passe est requise.",
+      "identique": "Le nouveau mot de passe doit être différent de l'actuel.",
       "erreurIdentique": "Le nouveau mot de passe doit être différent de l’actuel.",
       "ancienIncorrect": "L’ancien mot de passe est incorrect."
     }
