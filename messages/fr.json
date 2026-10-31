@@ -4568,7 +4568,15 @@
       "delai": "Délai : {quand}",
       "enAttentePrecedente": "En attente de l'étape précédente",
       "signatureNumerique": "Signature numérique horodatée",
-      "signatureAttendue": "Signature attendue"
+      "signatureAttendue": "Signature attendue",
+      "signataire": {
+        "SIGNE": "Signé",
+        "EN_ATTENTE": "En attente",
+        "A_VENIR": "À venir",
+        "REJETE": "Rejeté",
+        "RETIRE": "N’a plus la fonction"
+      },
+      "sansSignataire": "Étape sautée : personne n’a cette fonction sur la partie du rapport."
     },
     "relance": {
       "envoyee": "Relancé à {quand}",
@@ -5167,7 +5175,9 @@
         "prix": "Prix unitaire",
         "ajouter": "Ajouter un intervenant",
         "total": "Montant estimé du jour",
-        "validation": "Quantité × prix du bordereau = bon de paiement, après validation du conducteur de travaux."
+        "validation": "Quantité × prix du bordereau = bon de paiement, après validation du conducteur de travaux.",
+        "ouvrier": "Ouvrier",
+        "choisirOuvrier": "Un membre de {equipe}"
       },
       "avancement": {
         "lotsTravailles": "Lots travaillés ce jour",
@@ -5384,7 +5394,8 @@
         "noteCourte": "{min} caractères au minimum.",
         "retardsPresents": "Pas plus de retards que de présents.",
         "dureeArret": "La durée d'arrêt, entre 0 et {max} heures.",
-        "tropDePieces": "{max} pièces jointes au plus."
+        "tropDePieces": "{max} pièces jointes au plus.",
+        "motifAbsenceEquipe": "Une absence ou un retard dans l’équipe exige un motif."
       },
       "rubriques": {
         "journee": "Journée",
@@ -5447,7 +5458,22 @@
         "traitement": "Document en cours de lecture",
         "nonDocument": "« {nom} » n'est pas un document (PDF, Word ou Excel) : il n'a pas été joint."
       },
-      "choisirHeure": "Choisir l'heure"
+      "choisirHeure": "Choisir l'heure",
+      "equipes": {
+        "titre": "Équipes et présents",
+        "description": "Cochez les présents de chaque équipe ce jour, ceux arrivés en retard, et ses heures. Une absence ou un retard se motive.",
+        "aucune": "Aucune équipe à pointer ce jour.",
+        "attendue": "Attendue",
+        "compte": "{presents} / {total} présents",
+        "sansMembre": "Aucun membre dans l’équipe ce jour : complétez-la dans l’onglet Équipes du projet.",
+        "chef": "Chef d’équipe",
+        "present": "Présent",
+        "retard": "En retard",
+        "heures": "Heures de l’équipe",
+        "uniteHeures": "h",
+        "qualite": "Qualité du travail",
+        "observation": "Motif d’une absence ou d’un retard, observation"
+      }
     },
     "signature": {
       "titre": {

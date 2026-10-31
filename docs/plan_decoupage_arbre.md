@@ -212,7 +212,7 @@ On suit les numéros, un lot à la fois : la machine n'en supporte pas deux (mé
 | 10 | B | à faire | | |
 | 11 | F | à faire | | |
 | 12 | F | fait (cloud, nuit du 30/10) — branche `decoupage/lot-12-avancement` ; lint et typecheck passent | | non poussé (403) |
-| 13 | F | à faire | | |
+| 13 | F | fait en partie (cloud, nuit du 30/10) — branche `decoupage/lot-13-journal` : équipes et présents, heures, production par ouvrier, signataires attendus ; voir le compte rendu | | non poussé (403) |
 | 14 | F | à faire | | |
 
 ## 7. Exécution dans le cloud (nuit du 30 au 31/10/2026)

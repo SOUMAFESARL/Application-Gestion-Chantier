@@ -34,6 +34,7 @@ import type {
   EntreeJournal,
   EtapeCircuit,
   EtatEtape,
+  EtatSignataire,
   Incident,
   IncidentSaisi,
   Journal,
@@ -50,6 +51,7 @@ import type {
   Photo,
   PreparationSaisie,
   Prevision,
+  QualiteExecution,
   RapportExistant,
   RapportJournalier,
   RapportsProjet,
@@ -97,6 +99,15 @@ interface ChargeEtape {
   signe_le: string | null;
   echeance: string | null;
   commentaire?: string | null;
+  /** Tous ceux qui signent l'étape et où chacun en est (30/10/2026). */
+  signataires?: {
+    utilisateur_id: string;
+    nom: string;
+    etat: EtatSignataire;
+    signe_le: string | null;
+    commentaire: string | null;
+  }[];
+  sans_signataire?: boolean;
 }
 
 interface ChargeEntree {
@@ -331,6 +342,14 @@ function versEtape(charge: ChargeEtape): EtapeCircuit {
     signeLe: charge.signe_le,
     echeance: charge.echeance,
     commentaire: charge.commentaire ?? null,
+    signataires: (charge.signataires ?? []).map((ligne) => ({
+      utilisateurId: ligne.utilisateur_id,
+      nom: ligne.nom,
+      etat: ligne.etat,
+      signeLe: ligne.signe_le,
+      commentaire: ligne.commentaire,
+    })),
+    sansSignataire: charge.sans_signataire ?? false,
   };
 }
 
@@ -776,9 +795,20 @@ interface ChargeSaisie {
   presence_sous_traitant: SaisieRapport["presenceSousTraitant"];
   production: {
     intervenant: string;
+    /** L'ouvrier, parmi les membres de l'équipe de la tâche ; nul sans équipe. */
+    personne_id?: string | null;
     activite_id: string;
     quantite_jour: number | null;
     prix_unitaire: number | null;
+  }[];
+  /** Les présents des équipes des tâches (30/10/2026) ; absent des saisies antérieures. */
+  equipes?: {
+    equipe_id: string;
+    presents: string[];
+    retards: string[];
+    heures: number | null;
+    qualite: QualiteExecution | "";
+    observation: string;
   }[];
   lots_travailles: { lot_id: string; observation: string }[];
   activites: { activite_id: string; quantite_jour: number | null; localisation: string; observation: string }[];
@@ -874,8 +904,27 @@ interface ChargePreparation {
       operateur: string;
     }[];
     /** `prix_unitaire` vaut `null` pour qui n'a pas le droit de voir les montants. */
-    intervenants: { intervenant: string; activite_id: string; prix_unitaire: number | null }[];
+    intervenants: {
+      intervenant: string;
+      personne_id?: string | null;
+      activite_id: string;
+      prix_unitaire: number | null;
+    }[];
+    equipes?: { equipe_id: string; presents: string[] }[];
   };
+  /** Les équipes des tâches et leurs membres ce jour ; absent d'une photographie ancienne. */
+  equipes?: {
+    equipe_id: string;
+    nom: string;
+    nature?: string;
+    entreprise?: string;
+    corps_etat?: string;
+    activites: string[];
+    presence: boolean;
+    attendue: boolean;
+    qualite: boolean;
+    membres: { personne_id: string; nom: string; fonction: string; est_chef: boolean }[];
+  }[];
   rapport: ChargeRapportExistant | null;
 }
 
@@ -900,9 +949,18 @@ function versChargeSaisie(saisie: SaisieRapport): ChargeSaisie {
     presence_sous_traitant: saisie.presenceSousTraitant,
     production: saisie.production.map((ligne) => ({
       intervenant: ligne.intervenant,
+      personne_id: ligne.personneId,
       activite_id: ligne.activiteId,
       quantite_jour: ligne.quantiteJour,
       prix_unitaire: ligne.prixUnitaire,
+    })),
+    equipes: saisie.equipes.map((ligne) => ({
+      equipe_id: ligne.equipeId,
+      presents: ligne.presents,
+      retards: ligne.retards,
+      heures: ligne.heures,
+      qualite: ligne.qualite,
+      observation: ligne.observation,
     })),
     lots_travailles: saisie.lotsTravailles.map((point) => ({
       lot_id: point.lotId,
@@ -983,9 +1041,18 @@ function versSaisieDomaine(charge: ChargeSaisie): SaisieRapport {
     presenceSousTraitant: charge.presence_sous_traitant,
     production: charge.production.map((ligne) => ({
       intervenant: ligne.intervenant,
+      personneId: ligne.personne_id ?? null,
       activiteId: ligne.activite_id,
       quantiteJour: ligne.quantite_jour,
       prixUnitaire: ligne.prix_unitaire,
+    })),
+    equipes: (charge.equipes ?? []).map((ligne) => ({
+      equipeId: ligne.equipe_id,
+      presents: ligne.presents ?? [],
+      retards: ligne.retards ?? [],
+      heures: ligne.heures,
+      qualite: ligne.qualite ?? "",
+      observation: ligne.observation ?? "",
     })),
     lotsTravailles: charge.lots_travailles.map((point) => ({
       lotId: point.lot_id,
@@ -1090,10 +1157,32 @@ function versPreparation(charge: ChargePreparation): PreparationSaisie {
       equipements: charge.reprises.equipements,
       intervenants: charge.reprises.intervenants.map((ligne) => ({
         intervenant: ligne.intervenant,
+        personneId: ligne.personne_id ?? null,
         activiteId: ligne.activite_id,
         prixUnitaire: ligne.prix_unitaire,
       })),
+      equipes: (charge.reprises.equipes ?? []).map((ligne) => ({
+        equipeId: ligne.equipe_id,
+        presents: ligne.presents,
+      })),
     },
+    equipes: (charge.equipes ?? []).map((equipe) => ({
+      equipeId: equipe.equipe_id,
+      nom: equipe.nom,
+      nature: equipe.nature ?? "",
+      entreprise: equipe.entreprise ?? "",
+      corpsEtat: equipe.corps_etat ?? "",
+      activites: equipe.activites,
+      presence: equipe.presence,
+      attendue: equipe.attendue,
+      qualite: equipe.qualite,
+      membres: equipe.membres.map((membre) => ({
+        personneId: membre.personne_id,
+        nom: membre.nom,
+        fonction: membre.fonction,
+        estChef: membre.est_chef,
+      })),
+    })),
     rapport: charge.rapport ? versRapportExistant(charge.rapport) : null,
   };
 }

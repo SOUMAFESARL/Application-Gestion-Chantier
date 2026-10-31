@@ -55,6 +55,24 @@ export interface EtapeCircuit {
   echeance: string | null;
   /** Le motif d'un rejet. */
   commentaire: string | null;
+  /**
+   * Tous ceux qui signent cette étape (30/10/2026) : les personnes qui en ont la permission sur
+   * la partie du projet du rapport, et où chacune en est. Vide pour le rédacteur.
+   */
+  signataires: SignataireAttendu[];
+  /** Étape sautée : personne n'avait la permission sur la partie du rapport. */
+  sansSignataire: boolean;
+}
+
+/** `RETIRE` : n'a plus la fonction sur le projet, n'est plus attendu. */
+export type EtatSignataire = EtatEtape | "RETIRE";
+
+export interface SignataireAttendu {
+  utilisateurId: string;
+  nom: string;
+  etat: EtatSignataire;
+  signeLe: string | null;
+  commentaire: string | null;
 }
 
 /* ------------------------------------------------------------------ *
@@ -491,7 +509,9 @@ export type SectionSaisie =
   | "AVANCEMENT"
   | "MATERIAUX"
   | "LIVRAISONS"
-  | "EQUIPEMENTS";
+  | "EQUIPEMENTS"
+  /** Les équipes des tâches : on coche leurs présents au lieu des effectifs par catégorie. */
+  | "EQUIPES";
 
 /** Une journée sans travaux (SFD §4.4) : comptée dans le taux de remise, sans avancement ni consommation. */
 export type MotifArret = "INTEMPERIES" | "JOUR_FERIE" | "AUTRE";
@@ -544,7 +564,50 @@ export interface ReprisesRapport {
   effectifs: { categorie: string; prevus: number }[];
   equipements: Pick<LigneEquipement, "designation" | "reference" | "propriete" | "operateur">[];
   /** `prixUnitaire` vaut `null` pour qui n'a pas le droit de voir les montants. */
-  intervenants: { intervenant: string; activiteId: string; prixUnitaire: number | null }[];
+  intervenants: { intervenant: string; personneId: string | null; activiteId: string; prixUnitaire: number | null }[];
+  /** Les présents de la veille, à recocher. */
+  equipes: { equipeId: string; presents: string[] }[];
+}
+
+/** Un membre d'une équipe, présent dans l'équipe à la date du rapport. */
+export interface MembreDuJour {
+  personneId: string;
+  nom: string;
+  fonction: string;
+  estChef: boolean;
+}
+
+/**
+ * Une équipe posée sur des tâches du rapport (30/10/2026), avec ses membres ce jour : on coche
+ * ses présents, ses retards et ses heures ; ses ouvriers déclarent la production.
+ */
+export interface EquipeDuJour {
+  equipeId: string;
+  nom: string;
+  nature: string;
+  /** Le partenaire ; vide : notre entreprise. */
+  entreprise: string;
+  corpsEtat: string;
+  /** Les tâches (activités) qu'elle tient. */
+  activites: string[];
+  /** Sa présence se coche dans le journal. */
+  presence: boolean;
+  /** Sa ligne est requise : elle tient une tâche commencée ce jour. */
+  attendue: boolean;
+  /** La qualité du travail se note (sous-traitance structurée). */
+  qualite: boolean;
+  membres: MembreDuJour[];
+}
+
+/** La présence d'une équipe ce jour, telle que le rédacteur la coche. */
+export interface PresenceEquipe {
+  equipeId: string;
+  presents: string[];
+  retards: string[];
+  heures: number | null;
+  qualite: QualiteExecution | "";
+  /** Le motif d'une absence ou d'un retard. */
+  observation: string;
 }
 
 /** Le point d'un lot travaillé ce jour : ce qui s'y est passé, au-delà des quantités. */
@@ -662,7 +725,16 @@ export interface SaisieRapport {
     qualite: QualiteExecution;
     observation: string;
   } | null;
-  production: { intervenant: string; activiteId: string; quantiteJour: number | null; prixUnitaire: number | null }[];
+  /** Par ouvrier quand la tâche a une équipe (`personneId`), sinon par intervenant nommé. */
+  production: {
+    intervenant: string;
+    personneId: string | null;
+    activiteId: string;
+    quantiteJour: number | null;
+    prixUnitaire: number | null;
+  }[];
+  /** Les présents des équipes des tâches, une ligne par équipe. */
+  equipes: PresenceEquipe[];
   /**
    * Les lots suivis à l'avancement sur lesquels on a travaillé ce jour, et le
    * point du chef de chantier sur chacun. Le rapport couvre le chantier : c'est
@@ -721,6 +793,8 @@ export interface PreparationSaisie {
   sections: SectionSaisie[];
   activites: ActivitePreparee[];
   materiaux: MateriauDisponible[];
+  /** Les équipes des tâches du rapport, et leurs membres ce jour. */
+  equipes: EquipeDuJour[];
   reprises: ReprisesRapport;
   rapport: RapportExistant | null;
 }
