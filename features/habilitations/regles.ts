@@ -97,6 +97,8 @@ export const CONDITIONS_ROUTES: readonly (readonly [string, ConditionAcces])[] =
   ["/notifications", TOUS],
   ["/profil", TOUS],
   ["/projets", module("projets")],
+  // Le registre de main-d'œuvre se lit avec `projets.lire` ; l'écriture se grise dans l'écran.
+  ["/projets/main-oeuvre", permission("projets.lire")],
   ["/planning", module("projets")],
   ["/rapports", module("chantier")],
   // Rédiger le rapport journalier : le chef de chantier (SFD F2 §3.2).

@@ -108,9 +108,18 @@ export default function ParametresRolesPage() {
   ) {
     setActionEnCours(true);
     try {
-      await modifierRole(roleId, payload);
+      const modifie = await modifierRole(roleId, payload);
       setRoleAEditer(null);
       toast.success(t("succesModification", { role: payload.libelle ?? "" }));
+      // Un rôle devenu unique : les projets qui ont déjà plusieurs titulaires restent tels quels.
+      const depassements = modifie.projets_en_depassement ?? [];
+      if (payload.unique_par_projet && depassements.length > 0) {
+        toast.warning(
+          t("dejaPlusieursTitulaires", {
+            projets: depassements.map((p) => `${p.projet_nom} (${p.nombre})`).join(", "),
+          }),
+        );
+      }
       await chargerDonnees();
     } catch (err: unknown) {
       const touches = personnesTouchees(err);

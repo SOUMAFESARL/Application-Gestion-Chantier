@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Alerte, Bouton } from "@/components/ui";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -65,6 +66,7 @@ export function ModalNouveauRole({
   const [description, setDescription] = useState("");
   const [modele, setModele] = useState("");
   const [portee, setPortee] = useState<PorteeRole>("PROJET");
+  const [unique, setUnique] = useState(false);
   const [codes, setCodes] = useState<string[]>([]);
   const [nbCodesEcartes, setNbCodesEcartes] = useState(0);
   const [erreurs, setErreurs] = useState<Record<string, string>>({});
@@ -128,6 +130,7 @@ export function ModalNouveauRole({
       libelle: libelleNettoye,
       description: description.trim(),
       portee,
+      unique_par_projet: portee === "PROJET" ? unique : false,
       permissions: codes,
     });
   }
@@ -216,6 +219,21 @@ export function ModalNouveauRole({
               </div>
             </RadioGroup>
           </div>
+
+          {portee === "PROJET" && (
+            <label className="flex cursor-pointer items-start gap-2 text-sm text-neutral-800">
+              <Checkbox
+                checked={unique}
+                onCheckedChange={(valeur) => setUnique(valeur === true)}
+                disabled={enCours}
+                className="mt-0.5"
+              />
+              <span className="flex flex-col gap-0.5">
+                <span className="font-medium">{t("uniqueParProjet")}</span>
+                <span className="text-xs text-neutral-500">{t("uniqueParProjetAide")}</span>
+              </span>
+            </label>
+          )}
 
           <div className="flex flex-col gap-1">
             <Label htmlFor="role-modele" className="font-normal">

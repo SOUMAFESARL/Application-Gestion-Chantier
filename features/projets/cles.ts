@@ -7,8 +7,6 @@
  * donnée, dont un seul est invalidé après une écriture.
  */
 
-import type { QueryClient } from "@tanstack/react-query";
-
 /** La liste des chantiers de l'entreprise. */
 export const CLE_LISTE_PROJETS = ["projets", "liste"] as const;
 
@@ -32,58 +30,6 @@ export function cleEquipes(projetId: string) {
   return ["projets", projetId, "equipes"] as const;
 }
 
-/**
- * Les collaborateurs que l'on peut proposer pour une équipe du chantier. Sous
- * `cleEquipes` : toute écriture sur les équipes la périme avec elles.
- */
-export function cleCandidatsEquipes(projetId: string) {
-  return ["projets", projetId, "equipes", "candidats"] as const;
-}
-
-/** Les chiffres des équipes d'un chantier, recomptés par le serveur. */
-export function cleStatistiquesEquipes(projetId: string) {
-  return ["projets", projetId, "equipes", "statistiques"] as const;
-}
-
-/** Les affectations équipe-activité d'un chantier. */
-export function cleAffectationsEquipes(projetId: string) {
-  return ["projets", projetId, "equipes", "affectations"] as const;
-}
-
-/**
- * Tout ce qu'une écriture sur les équipes d'un chantier périme : les équipes
- * (et, sous leur clé, candidats, statistiques et affectations), les lots — où
- * chaque activité porte le nom et l'effectif de son équipe — et les chiffres
- * de structure du chantier.
- */
-export function clesEquipesAInvalider(projetId: string) {
-  return [cleEquipes(projetId), cleLots(projetId), cleStatistiques(projetId)] as const;
-}
-
-/**
- * Après une écriture sur les équipes : l'équipe que le serveur renvoie est
- * posée dans le cache — la carte ou la ligne change au moment où la fenêtre
- * se referme — puis tout ce qui en dépend est relu. `equipe` absente : seule
- * la relecture a lieu.
- */
-export function actualiserEquipes<E extends { id: string }>(
-  client: QueryClient,
-  projetId: string,
-  equipe?: E,
-): Promise<unknown> {
-  if (equipe) {
-    client.setQueryData<E[]>(cleEquipes(projetId), (anciennes) => {
-      const liste = anciennes ?? [];
-      return liste.some((candidate) => candidate.id === equipe.id)
-        ? liste.map((candidate) => (candidate.id === equipe.id ? equipe : candidate))
-        : [...liste, equipe];
-    });
-  }
-  return Promise.all(
-    clesEquipesAInvalider(projetId).map((queryKey) => client.invalidateQueries({ queryKey })),
-  );
-}
-
 /** Un chantier dans son détail, pour sa fiche. */
 export function cleProjet(projetId: string) {
   return ["projets", projetId, "detail"] as const;
@@ -98,7 +44,7 @@ export function cleHistoriqueAvancement(activiteId: string) {
 export const CLE_MOTIFS_REPORT = ["referentiels", "motifs-report"] as const;
 
 /** L'historique des modifications de dates pour un objet donné. */
-export function cleHistoriqueDates(objet: "projets" | "lots" | "activites", id: string) {
+export function cleHistoriqueDates(objet: "projets" | "lots" | "activites" | "elements", id: string) {
   return [objet, id, "historique-dates"] as const;
 }
 
@@ -117,3 +63,13 @@ export function cleHistoriqueSante(projetId: string) {
   return ["projets", projetId, "sante", "historique"] as const;
 }
 
+
+/** Les affectations des collaborateurs d'un chantier (rôle sur le projet, périmètre). */
+export function cleAffectationsCollaborateurs(projetId: string) {
+  return ["projets", projetId, "affectations"] as const;
+}
+
+/** Les collaborateurs qu'on peut affecter à un chantier (portée Projet, comptes actifs). */
+export function cleAffectables(projetId: string) {
+  return ["projets", projetId, "affectations", "affectables"] as const;
+}

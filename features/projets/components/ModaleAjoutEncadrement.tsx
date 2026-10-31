@@ -35,13 +35,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  ajouterMembreEncadrement,
-  listerAffectables,
-  listerLots,
-} from "@/features/projets/adaptateur";
-import { cleLots } from "@/features/projets/cles";
-import { intituleLot } from "@/features/projets/regles";
+import { lireArbre } from "@/features/decoupage/adaptateur";
+import { cleArbre } from "@/features/decoupage/cles";
+import { aplatirCases } from "@/features/decoupage/regles";
+import { ajouterMembreEncadrement, listerAffectables } from "@/features/projets/adaptateur";
 import type { FonctionProjet, Intervenant, Projet } from "@/features/projets/types";
 import {
   fonctionDuRole,
@@ -140,18 +137,19 @@ export function ModaleAjoutEncadrement({
     libelle: candidat.nom,
   }));
 
-  // Les lots du projet, pour le chef de chantier : le premier choix, vide, est « tout le chantier ».
+  // Les cases de l'arbre, pour borner le périmètre du chef de chantier : le premier choix, vide,
+  // est « tout le chantier ». Les tâches du bas sont laissées de côté : un chef de chantier tient
+  // une branche, pas une tâche.
   const requeteLots = useQuery({
-    queryKey: cleLots(projet.id),
-    queryFn: ({ signal }) => listerLots(projet.id, signal),
-    enabled: ouverte && fonction === "CHEF_CHANTIER",
+    queryKey: cleArbre(projet.id),
+    queryFn: ({ signal }) => lireArbre(projet.id, signal),
+    enabled: ouverte && fonction === "CHEF_CHANTIER" && projet.decoupageCree,
   });
   const optionsLots = [
     { valeur: "", libelle: t("toutLeChantier") },
-    ...(requeteLots.data ?? []).map((lot) => ({
-      valeur: lot.id,
-      libelle: intituleLot({ code: lot.code, libelle: lot.nom }),
-    })),
+    ...aplatirCases(requeteLots.data?.cases ?? [])
+      .filter((une) => une.acces === "COMPLET" && une.estActif && !une.estFeuille)
+      .map((une) => ({ valeur: une.id, libelle: `${une.numero ?? ""} ${une.libelle}`.trim() })),
   ];
 
   function changerRole(nouveau: string) {
@@ -295,11 +293,11 @@ export function ModaleAjoutEncadrement({
                         onChange={field.onChange}
                         onBlur={field.onBlur}
                         placeholder={
-                          requeteLots.isPending ? t("ajout.chargementLots") : t("toutLeChantier")
+                          requeteLots.isLoading ? t("ajout.chargementLots") : t("toutLeChantier")
                         }
                         placeholderRecherche={t("ajout.lotRecherche")}
                         aucunResultat={t("ajout.lotAucun")}
-                        disabled={enCours || requeteLots.isPending}
+                        disabled={enCours || requeteLots.isLoading}
                       />
                     </FormControl>
                     <FormDescription>{t("ajout.aideLot")}</FormDescription>

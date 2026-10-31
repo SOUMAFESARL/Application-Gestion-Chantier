@@ -77,10 +77,14 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
     mutationFn: async (projet: Projet): Promise<ApercuPdf> => {
       const maintenant = new Date();
       const [lots, equipes, journal, entreprise, documents] = await Promise.all([
-        client.fetchQuery({
-          queryKey: cleLots(projet.id),
-          queryFn: ({ signal }) => listerLots(projet.id, signal),
-        }),
+        // La route des lots a disparu avec le découpage en arbre : le PDF sort sans eux en
+        // attendant de reprendre tous les niveaux de l'arbre (lot 14, décision P8).
+        client
+          .fetchQuery({
+            queryKey: cleLots(projet.id),
+            queryFn: ({ signal }) => listerLots(projet.id, signal),
+          })
+          .catch(() => []),
         ouNull(
           client.fetchQuery({
             queryKey: cleEquipes(projet.id),

@@ -352,6 +352,24 @@ export function CircuitSignatures({ circuit }: { circuit: EtapeCircuit[] }) {
             {etape.commentaire && (
               <span className="rounded-md bg-erreur-fond px-2 py-1.5 text-xs text-erreur">{etape.commentaire}</span>
             )}
+            {/* Tous ceux qui signent l'étape, et où chacun en est (30/10/2026). */}
+            {etape.signataires.length > 1 && (
+              <ul className="m-0 flex list-none flex-col gap-1 p-0 text-xs">
+                {etape.signataires.map((signataire) => (
+                  <li key={signataire.utilisateurId} className="flex items-center justify-between gap-2">
+                    <span className={cn("text-neutral-800", signataire.etat === "RETIRE" && "text-neutral-400 line-through")}>
+                      {signataire.nom}
+                    </span>
+                    <span className="text-neutral-500">
+                      {signataire.signeLe
+                        ? t("signeLe", { quand: formaterDateHeure(signataire.signeLe) })
+                        : t(`signataire.${signataire.etat}`)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {etape.sansSignataire && <span className="text-xs text-neutral-500">{t("sansSignataire")}</span>}
             <span className="mt-auto border-t border-dashed border-neutral-300 pt-2 text-xs text-neutral-400">
               {etape.signeLe ? t("signatureNumerique") : t("signatureAttendue")}
             </span>

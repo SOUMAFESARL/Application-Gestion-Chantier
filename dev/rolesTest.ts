@@ -65,6 +65,7 @@ function roleTest(code: string, libelle: string, codes: string[]): RoleItem {
     est_actif: true,
     nb_utilisateurs: 0,
     portee: "PROJET",
+    unique_par_projet: false,
     avertissements: [],
     modules,
   };

@@ -42,6 +42,7 @@ import {
 } from "./SectionsEvenements";
 import { SectionBesoins, SectionEquipements, SectionLivraisons, SectionMateriaux } from "./SectionsRessources";
 import { SectionAvancement, SectionEffectifs, SectionPresenceSousTraitant, SectionProduction } from "./SectionsTerrain";
+import { SectionEquipes } from "./SectionEquipes";
 
 /**
  * Les étapes de l'écran : les six rubriques du cahier « Journal de chantier
@@ -457,18 +458,22 @@ export function FormulaireRapport({
                   complement={lotsDuMode(preparation.lots, "SOUS_TRAITANCE_INFORMELLE")}
                   activites={activitesProduction}
                   lots={preparation.lots}
+                  equipes={preparation.equipes}
                 />
               )}
             </CarteSection>
 
             <CarteSection {...rubrique("rh")}>
+              {sections.includes("EQUIPES") && <SectionEquipes equipes={preparation.equipes} />}
               {sections.includes("EFFECTIFS") && (
                 <SectionEffectifs />
               )}
               {sections.includes("PRESENCE_SOUS_TRAITANT") && (
                 <SectionPresenceSousTraitant />
               )}
-              {!sections.includes("EFFECTIFS") && !sections.includes("PRESENCE_SOUS_TRAITANT") && (
+              {!sections.includes("EFFECTIFS") &&
+                !sections.includes("PRESENCE_SOUS_TRAITANT") &&
+                !sections.includes("EQUIPES") && (
                 <Signal ton="information">{t("sansObjet.rh")}</Signal>
               )}
             </CarteSection>

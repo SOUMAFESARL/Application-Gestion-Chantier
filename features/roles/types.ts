@@ -47,6 +47,16 @@ export interface RoleItem {
   est_actif: boolean;
   nb_utilisateurs: number;
   portee: PorteeRole;
+  /**
+   * Un seul titulaire par projet (chef de projet, chef de chantier…). Le changer de titulaire
+   * passe alors par « Remplacer » (décision P13).
+   */
+  unique_par_projet: boolean;
+  /**
+   * Rôle unique : les projets où plusieurs personnes le tiennent déjà, tels que le détail du rôle
+   * les rend. Ils restent tels quels ; la règle vaut pour les prochaines affectations.
+   */
+  projets_en_depassement?: { projet_id: string; projet_nom: string; nombre: number }[];
   avertissements: string[];
   modules: ModuleRole[];
 }

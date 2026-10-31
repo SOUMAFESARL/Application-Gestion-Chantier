@@ -8,7 +8,7 @@
  */
 
 import type { VarianteBadge } from "@/components/ui";
-import type { StatutProjet } from "@/features/projets/types";
+import type { StatutActivite, StatutProjet } from "@/features/projets/types";
 import type { couleurIndiceSante } from "@/lib/format";
 
 /** La carte d'un bloc d'écran. */
@@ -89,4 +89,13 @@ export const TON_SANTE: Record<ReturnType<typeof couleurIndiceSante>, string> = 
   orange: "text-avertissement",
   rouge: "text-erreur",
   inconnu: "text-neutral-400",
+};
+
+/** Le ton d'un statut de tâche (`A_VENIR`, `EN_COURS`…), dans les listes et la fiche PDF. */
+export const BADGE_STATUT: Record<StatutActivite, VarianteBadge> = {
+  A_VENIR: "neutre",
+  EN_COURS: "information",
+  EN_RETARD: "erreur",
+  BLOQUE: "avertissement",
+  TERMINE: "succes",
 };

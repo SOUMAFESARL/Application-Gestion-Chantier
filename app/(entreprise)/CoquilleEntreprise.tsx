@@ -90,8 +90,7 @@ interface LayoutAppProps {
 /** Les entrées du sous-menu « Projets », dans l'ordre d'affichage. */
 const SOUS_MENU_PROJETS = [
   { href: "/projets", cle: "projetsListe" },
-  { href: "/projets/lots-activites", cle: "projetsLots" },
-  { href: "/projets/equipe-affectations", cle: "projetsEquipe" },
+  { href: "/projets/main-oeuvre", cle: "projetsMainOeuvre" },
   { href: "/projets/alertes", cle: "projetsAlertes" },
 ] as const;
 
@@ -100,9 +99,9 @@ const MODULES_SECONDAIRES = ["/stocks", "/rh", "/equipements", "/qhse", "/contra
 
 /**
  * Les segments de `/projets/*` qui sont des écrans, pas des identifiants de
- * projet : sans ce filtre, la météo serait demandée pour le projet « lots-activites ».
+ * projet : sans ce filtre, la météo serait demandée pour le projet « alertes ».
  */
-const SEGMENTS_PROJETS_STATIQUES = new Set(["lots-activites", "equipe-affectations", "alertes"]);
+const SEGMENTS_PROJETS_STATIQUES = new Set(["alertes", "main-oeuvre"]);
 
 const abonnementVide = () => () => {};
 

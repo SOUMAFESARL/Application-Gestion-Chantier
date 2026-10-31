@@ -2461,3 +2461,30 @@ export function principalePenalite(
   if (penaliteBlocages === max) return "blocages";
   return "reporting";
 }
+
+/* ------------------------------------------------------------------ *
+ * Les onglets de la fiche projet (décision P5 du plan du découpage).
+ * ------------------------------------------------------------------ */
+
+/** Les onglets, dans l'ordre d'affichage ; chacun est une page sous `/projets/[id]`. */
+/**
+ * Le périmètre d'une affectation, en clair : le chemin de chaque case (« Bâtiment A › Gros
+ * œuvre »), séparé par des points-virgules. Vide : tout le projet, que l'écran nomme lui-même.
+ */
+export function libellePerimetre(cases: { chemin: string[] }[]): string {
+  return cases.map((une) => une.chemin.join(" › ")).join(" ; ");
+}
+
+export const ONGLETS_PROJET = ["synthese", "decoupage", "avancement", "equipes", "avenants"] as const;
+export type OngletProjet = (typeof ONGLETS_PROJET)[number];
+
+/**
+ * L'onglet actif d'après l'URL : le premier segment après l'identifiant du projet, la synthèse
+ * sinon. `/projets/{id}/equipes/{equipeId}` reste dans l'onglet Équipes.
+ */
+export function ongletDuChemin(chemin: string): OngletProjet {
+  const segment = chemin.split("/").filter(Boolean)[2] ?? "";
+  return (ONGLETS_PROJET as readonly string[]).includes(segment) && segment !== "synthese"
+    ? (segment as OngletProjet)
+    : "synthese";
+}

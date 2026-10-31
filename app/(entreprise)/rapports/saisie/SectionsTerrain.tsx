@@ -23,7 +23,7 @@ import {
   SEUIL_ALERTE_PRESENCE,
   tauxPresence,
 } from "@/features/chantier";
-import type { ActivitePreparee, LotJournal } from "@/features/chantier";
+import type { ActivitePreparee, EquipeDuJour, LotJournal } from "@/features/chantier";
 import {
   estRenseigne,
   ligneEffectifVide,
@@ -275,11 +275,14 @@ export function SectionProduction({
   complement,
   activites,
   lots,
+  equipes = [],
 }: {
   complement: string;
   /** Les activités des lots en sous-traitance informelle seulement. */
   activites: ActivitePreparee[];
   lots: LotJournal[];
+  /** Les équipes des tâches : une tâche tenue par une équipe déclare la production par ouvrier. */
+  equipes?: EquipeDuJour[];
 }) {
   const t = useTranslations("journal.saisie");
   const unite = useUnite();
@@ -320,8 +323,12 @@ export function SectionProduction({
             libelleSupprimer={t("production.supprimer", { intervenant: valeur?.intervenant ?? "" })}
             onSupprimer={() => lignes.remove(rang)}
           >
-            <ChampTexte name={`production.${rang}.intervenant`} libelle={t("production.intervenant")} requis />
             <ChampActivite name={`production.${rang}.activiteId`} activites={activites} lots={lots} />
+            {equipeDeLaTache(equipes, valeur?.activiteId ?? "") ? (
+              <ChampOuvrier rang={rang} equipe={equipeDeLaTache(equipes, valeur?.activiteId ?? "")!} />
+            ) : (
+              <ChampTexte name={`production.${rang}.intervenant`} libelle={t("production.intervenant")} requis />
+            )}
             <div className={PAIRE}>
               <ChampTexte
                 name={`production.${rang}.quantiteJour`}
@@ -351,6 +358,60 @@ export function SectionProduction({
       )}
       <Signal ton="information">{t("production.validation")}</Signal>
     </SousRubrique>
+  );
+}
+
+/** L'équipe garnie qui tient la tâche, s'il y en a une : sa production se déclare par ouvrier. */
+function equipeDeLaTache(equipes: EquipeDuJour[], activiteId: string): EquipeDuJour | undefined {
+  return equipes.find((equipe) => equipe.activites.includes(activiteId) && equipe.membres.length > 0);
+}
+
+/**
+ * L'ouvrier d'une ligne de production, choisi parmi les membres de l'équipe de la tâche — et,
+ * quand leur présence est cochée, parmi les présents (le serveur refuse un absent).
+ */
+function ChampOuvrier({ rang, equipe }: { rang: number; equipe: EquipeDuJour }) {
+  const t = useTranslations("journal.saisie");
+  const { control, setValue } = useFormContext<ValeursRapport>();
+  const lignesEquipes = useWatch({ control, name: "equipes" }) ?? [];
+  const presence = lignesEquipes.find((ligne) => ligne.equipeId === equipe.equipeId);
+  const proposes = presence
+    ? equipe.membres.filter((membre) => presence.presents.includes(membre.personneId))
+    : equipe.membres;
+  return (
+    <FormField
+      control={control}
+      name={`production.${rang}.personneId`}
+      render={({ field }) => (
+        <FormItem className="gap-1.5">
+          <FormLabel>
+            {t("production.ouvrier")} <Requis />
+          </FormLabel>
+          <Select
+            value={field.value}
+            onValueChange={(valeur) => {
+              field.onChange(valeur);
+              const membre = equipe.membres.find((m) => m.personneId === valeur);
+              setValue(`production.${rang}.intervenant`, membre?.nom ?? "", { shouldDirty: true });
+            }}
+          >
+            <FormControl>
+              <SelectTrigger className={cn(CHAMP, "w-full bg-card")} onBlur={field.onBlur}>
+                <SelectValue placeholder={t("production.choisirOuvrier", { equipe: equipe.nom })} />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              {proposes.map((membre) => (
+                <SelectItem key={membre.personneId} value={membre.personneId}>
+                  {membre.nom}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
   );
 }
 

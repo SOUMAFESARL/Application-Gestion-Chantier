@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowUpRight, LoaderCircle, Pencil } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -144,6 +145,7 @@ export function TiroirCreationProjet({
   const t = useTranslations("projets.tiroirCreation");
   const tReprog = useTranslations("projets.reprogrammation");
   const { voitMontants } = useDroits();
+  const router = useRouter();
   const modification = projet !== undefined;
 
   // Les dates déjà fixées ne partent plus par le PATCH (RG-11) : on les change par
@@ -227,6 +229,8 @@ export function TiroirCreationProjet({
       onProjetCree?.(projetCree);
       toast.success(t("succesCreation", { nom: projetCree.nom }));
       onFermer();
+      // Le projet créé se découpe aussitôt : le tableau de démarrage l'attend (décision P4).
+      router.push(`/projets/${projetCree.id}/decoupage`);
     } catch (err) {
       const cause = err as ErreurApi;
       toast.error(cause.message || t("erreurGenerique"));

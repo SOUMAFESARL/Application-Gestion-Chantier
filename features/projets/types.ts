@@ -126,30 +126,37 @@ export interface Projet {
   autresMembres: AutreMembreProjet[];
   /** Le contrat du marché et ses avenants, joints à la création. */
   contrats: ContratProjet[];
-  /**
-   * La structure du chantier, comptée par le serveur. `null` tant que les
-   * lots restent simulés : ses chiffres décriraient des lots que l'écran ne
-   * montre pas, et l'écran les compte alors lui-même (`syntheseLots`).
-   */
+  /** La structure du chantier, comptée par le serveur, quand la réponse la joint. */
   statistiques: StatistiquesProjet | null;
+  /**
+   * Vrai dès que le tableau de démarrage a été appliqué : l'arbre de cases existe. Faux, l'onglet
+   * Découpage propose le tableau de démarrage ; vrai, il montre l'arbre.
+   */
+  decoupageCree: boolean;
+  /** L'origine (baseline v0) : les dates du premier planning, qui ne bougent plus. */
+  dateDebutBaseline: string | null;
+  dateFinBaseline: string | null;
+  /** Les jours accordés par les avenants sur le projet entier. */
+  joursAccordes: number;
+  /** L'origine plus les jours accordés par avenant. */
+  dateFinContractuelle: string | null;
 }
 
 /**
- * Comment le serveur a pondéré l'avancement : à parts égales, ou au poids
- * du budget. Seul `UNIFORME` a été observé — `BUDGET` reste à confirmer.
+ * Les chiffres de structure d'un chantier, recomptés par le serveur sur l'arbre de cases
+ * (`GET /projets/{id}/statistiques/`).
  */
-export type PonderationAvancement = "UNIFORME" | "BUDGET";
-
-/** Les chiffres de structure d'un chantier, tels que le serveur les tient. */
 export interface StatistiquesProjet {
-  lots: number;
-  activites: number;
-  /** Un pourcentage, de 0 à 100. */
-  avancement: number;
-  ponderation: PonderationAvancement;
+  /** Les cases actives de l'arbre. */
+  cases: number;
+  /** Les tâches (feuilles) actives. */
+  taches: number;
+  /** L'avancement physique, pondéré par les montants ; `null` quand il est indisponible. */
+  avancement: number | null;
+  /** Vrai quand des tâches ne sont pas encore mesurables. */
+  avancementPartiel: boolean;
+  /** Les tâches dont la fin prévue est passée sans qu'elles soient terminées. */
   enRetard: number;
-  /** La somme des budgets portés par les activités. */
-  budgetActivites: number;
 }
 
 /** Un document de contrat joint au projet, servi par le serveur. */
@@ -670,6 +677,8 @@ export interface Reprogrammation {
   dateFinPrevue: string;
   motifId: string;
   justification: string;
+  /** Confirme la prolongation des cases parentes (et du projet) que le serveur a listées. */
+  prolonger?: boolean;
 }
 
 /** Résultat synthétique renvoyé après une reprogrammation réussie. */
@@ -769,4 +778,56 @@ export interface InstantaneSante {
   avancementTemporel: number;
   tauxReporting: number;
   calculeLe: string;
+}
+
+/* ------------------------------------------------------------------ *
+ * Affectations des collaborateurs (décisions v1.2, §13bis ; décision P13).
+ * ------------------------------------------------------------------ */
+
+/** Une case du périmètre d'une affectation, avec le chemin qui y mène. */
+export interface CasePerimetre {
+  id: string;
+  libelle: string;
+  niveau: string;
+  /** Les intitulés des ancêtres puis de la case : « Bâtiment A › Gros œuvre ». */
+  chemin: string[];
+}
+
+/**
+ * Un collaborateur affecté au projet : **son rôle sur ce projet** (qui peut différer de son rôle
+ * sur la plateforme) et **son périmètre** — des cases de l'arbre, ou tout le projet.
+ */
+export interface AffectationCollaborateur {
+  id: string;
+  utilisateur: { id: string; nomComplet: string; email: string | null; telephone: string | null };
+  roleProjet: string;
+  roleProjetLibelle: string;
+  rolePlateforme: string;
+  /** Vide : tout le projet. */
+  perimetres: CasePerimetre[];
+  dateDebut: string | null;
+  dateFin: string | null;
+  estActif: boolean;
+  /** Faux quand le compte courant ne peut pas gérer cette affectation (le chef de projet). */
+  modifiable: boolean;
+}
+
+export interface SaisieAffectation {
+  utilisateurId: string;
+  /** Le code du rôle sur ce projet ; vide : celui du collaborateur sur la plateforme. */
+  roleProjet: string;
+  /** Vide : tout le projet. */
+  perimetresIds: string[];
+  dateDebut?: string | null;
+  dateFin?: string | null;
+}
+
+/** Le remplacement d'un titulaire : l'ancien est clos ce jour, le nouveau reprend le rôle. */
+export interface Remplacement {
+  roleProjet: string;
+  utilisateurId: string;
+  /** Qui est remplacé ; inutile pour un rôle unique par projet. */
+  affectationRemplaceeId: string | null;
+  perimetresIds: string[];
+  dateChangement?: string | null;
 }

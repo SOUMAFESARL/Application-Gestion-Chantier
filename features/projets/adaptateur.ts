@@ -17,10 +17,9 @@
  */
 
 import { texte } from "@/i18n/horsReact";
-import { api, type ErreurApi } from "@/lib/api";
+import { api } from "@/lib/api";
 
 import {
-  lireLotsImportes,
   ROLE_MEMBRE_PAR_DEFAUT,
   ROLE_PROJET_PAR_FONCTION,
   STATUT_DECLARE_PAR_DEFAUT,
@@ -28,44 +27,34 @@ import {
 } from "./regles";
 
 import type {
+  AffectationCollaborateur,
   Activite,
-  ActivitePlanning,
   AjoutEncadrement,
   AlerteIntemperies,
   AutreMembreProjet,
   ChefChantierProjet,
-  CandidatEquipe,
   ClientProjet,
-  CreationEquipe,
-  CreationLotProjet,
   ContratProjet,
   CreationProjet,
-  DonneesPlanning,
-  EntreeModeExecution,
   Equipe,
-  EvenementAvancement,
   EvenementDate,
   FonctionAutreMembre,
   EquipeChantier,
   InstantaneSante,
   Intervenant,
-  LigneImportLot,
   Lot,
-  LotPlanning,
   MembreEquipe,
   MeteoProjet,
-  MiseAJourAvancement,
   ModificationProjet,
   MotifReport,
   NatureEquipe,
   PlanningProjet,
-  PonderationAvancement,
   Projet,
   Reprogrammation,
+  Remplacement,
   ResultatReprogrammation,
   RoleMembreEquipe,
-  SaisieActiviteDomaine,
-  SaisieMembreEquipe,
+  SaisieAffectation,
   SanteProjet,
   StatistiquesProjet,
   StatutDeclare,
@@ -147,17 +136,23 @@ interface ChargeProjet {
   chefs_chantier?: ChargeChefChantier[];
   autres_membres?: ChargeAutreMembre[];
   statistiques?: ChargeStatistiques | null;
+  /** Vrai dès que l'arbre existe (le tableau de démarrage a été appliqué). */
+  decoupage_cree?: boolean;
+  date_debut_baseline?: string | null;
+  date_fin_baseline?: string | null;
+  jours_accordes?: number;
+  date_fin_contractuelle?: string | null;
 }
 
 /** Les chiffres de structure que le serveur calcule sur les lots du chantier. */
 interface ChargeStatistiques {
-  lots_count: number;
-  activites_count: number;
-  avancement_pondere: number;
-  ponderation: PonderationAvancement;
-  activites_en_retard: number;
-  /** Un `DecimalField`, comme le budget initial. */
-  budget_activites_montant: number | string | null;
+  cases_count: number;
+  feuilles_count: number;
+  /** Nul quand aucune tâche n'est mesurable. */
+  avancement_pondere: number | null;
+  avancement_partiel?: boolean;
+  ponderation?: string;
+  feuilles_en_retard: number;
 }
 
 interface ChargeContrat {
@@ -344,12 +339,11 @@ function versStatistiques(
 ): StatistiquesProjet | null {
   if (!charge) return null;
   return {
-    lots: charge.lots_count,
-    activites: charge.activites_count,
+    cases: charge.cases_count,
+    taches: charge.feuilles_count,
     avancement: charge.avancement_pondere,
-    ponderation: charge.ponderation,
-    enRetard: charge.activites_en_retard,
-    budgetActivites: versMontant(charge.budget_activites_montant) ?? 0,
+    avancementPartiel: charge.avancement_partiel ?? false,
+    enRetard: charge.feuilles_en_retard,
   };
 }
 
@@ -417,6 +411,11 @@ export function versProjet(charge: ChargeProjet, affectations: ChargeAffectation
       .map(versAutreMembre)
       .filter((membre): membre is AutreMembreProjet => membre !== null),
     statistiques: versStatistiques(charge.statistiques),
+    decoupageCree: charge.decoupage_cree ?? false,
+    dateDebutBaseline: charge.date_debut_baseline ?? null,
+    dateFinBaseline: charge.date_fin_baseline ?? null,
+    joursAccordes: charge.jours_accordes ?? 0,
+    dateFinContractuelle: charge.date_fin_contractuelle ?? null,
   };
 }
 
@@ -620,7 +619,7 @@ export async function ajouterMembreEncadrement(
   const payload: {
     utilisateur_id: string;
     role_projet: string;
-    lot_id?: string | null;
+    perimetres_ids?: string[];
   } = {
     utilisateur_id: ajout.intervenant.id,
     // Le rôle tenu sur le projet est celui de la plateforme, quel qu'il soit.
@@ -629,8 +628,8 @@ export async function ajouterMembreEncadrement(
   };
 
   if (ajout.fonction === "CHEF_CHANTIER") {
-    // Le lot fixe la zone côté serveur ; absent, le chef de chantier a tout le chantier.
-    payload.lot_id = ajout.lotId;
+    // Une case de l'arbre borne son périmètre ; absente, le chef de chantier a tout le chantier.
+    payload.perimetres_ids = ajout.lotId ? [ajout.lotId] : [];
   }
 
   await api.creer(`/projets/${projetId}/affectations/`, payload);
@@ -650,9 +649,9 @@ export async function modifierMembreEncadrement(
   affectationId: string,
   modifications: { lotId?: string | null; fonctionMembre?: FonctionAutreMembre },
 ): Promise<Projet> {
-  const payload: { lot_id?: string | null; fonction_membre?: string } = {};
+  const payload: { perimetres_ids?: string[]; fonction_membre?: string } = {};
   if ("lotId" in modifications) {
-    payload.lot_id = modifications.lotId ?? null;
+    payload.perimetres_ids = modifications.lotId ? [modifications.lotId] : [];
   }
   if (modifications.fonctionMembre) {
     payload.fonction_membre = modifications.fonctionMembre;
@@ -689,16 +688,10 @@ export async function obtenirMeteo(params?: {
 }
 
 /* ------------------------------------------------------------------ *
- * Lots et activités — routes livrées par Django.
- *
- *   GET/POST   /projets/{id}/lots/          les lots d'un chantier
- *   PATCH/DEL  /lots/{id}/                  un lot (suppression logique)
- *   GET/POST   /lots/{lot_id}/activites/    les activités d'un lot
- *   PATCH/DEL  /activites/{id}/             une activité
- *   GET        /projets/{id}/statistiques/  les chiffres de structure
- *
- * Pas encore branchées : `activation/` (lot et activité) et `lots/import/` —
- * l'import passe d'ici là par la création, lot par lot.
+ * Lots et activités — **routes retirées du serveur** le 30/10/2026 (découpage en
+ * arbre, `features/decoupage`). Les écritures sont parties avec l'écran
+ * « Lots & activités » (lot 4 du plan du découpage) ; `listerLots` reste le temps
+ * que ses derniers lecteurs passent à l'arbre (équipes, encadrement, PDF).
  * ------------------------------------------------------------------ */
 
 interface ChargeEquipe {
@@ -919,322 +912,6 @@ export async function listerLots(projetId: string, signal?: AbortSignal): Promis
   );
 }
 
-function versChargeLot(creation: CreationLotProjet) {
-  const charge: Record<string, unknown> = {
-    nom: creation.nom,
-    mode_execution: creation.modeExecution,
-    type_bordereau: TYPE_BORDEREAU_SERVEUR[creation.typeBordereau],
-    statut: STATUT_SERVEUR[creation.statut ?? STATUT_DECLARE_PAR_DEFAUT],
-  };
-  if (creation.budget !== undefined) {
-    charge.budget_initial_montant = creation.budget;
-  }
-  if (creation.dateDebut !== undefined) {
-    charge.date_debut_prevue = creation.dateDebut;
-  }
-  if (creation.dateFin !== undefined) {
-    charge.date_fin_prevue = creation.dateFin;
-  }
-  return charge;
-}
-
-export async function creerLot(projetId: string, creation: CreationLotProjet): Promise<Lot> {
-  return versLot(await api.creer<ChargeLot>(`/projets/${projetId}/lots/`, versChargeLot(creation)));
-}
-
-/**
- * Les champs du lot, réécrits ; son code et ses activités ne bougent pas. Le
- * serveur ne renvoie que le lot : ses activités sont à reprendre du cache.
- */
-export async function modifierLot(lotId: string, modification: CreationLotProjet): Promise<Lot> {
-  return versLot(await api.modifier<ChargeLot>(`/lots/${lotId}/`, versChargeLot(modification)));
-}
-
-/**
- * Suppression logique du lot et de ses activités. Le serveur peut refuser un
- * lot dont une activité a déjà avancé — même règle que `lotSupprimable`.
- */
-export async function supprimerLot(lotId: string): Promise<void> {
-  await api.supprimer(`/lots/${lotId}/`);
-}
-
-/**
- * La première feuille d'un fichier Excel de lots, lue et interprétée par
- * `lireLotsImportes`. La bibliothèque n'est chargée qu'ici, au premier
- * import : elle n'a rien à faire dans le paquet des autres écrans.
- *
- * Rejette si le fichier n'est pas un `.xlsx` lisible.
- */
-export async function lireFichierLots(
-  fichier: File,
-  lotsExistants: Lot[],
-  budgetProjet: number | null,
-  voitMontants: boolean = true,
-  modes: EntreeModeExecution[] = [],
-): Promise<LigneImportLot[]> {
-  const { readSheet } = await import("read-excel-file/browser");
-  const feuille = await readSheet(fichier);
-  return lireLotsImportes(feuille as unknown[][], lotsExistants, budgetProjet, voitMontants, modes);
-}
-
-/**
- * Import atomique de lots depuis un classeur Excel envoyé au serveur.
- * Si le serveur rejette le fichier ou une seule ligne, aucun lot n'est créé.
- */
-export async function importerLots(
-  projetId: string,
-  fichier: File,
-): Promise<Lot[]> {
-  const donnees = new FormData();
-  donnees.append("fichier", fichier);
-  const charge = await api.creer<ChargeLot[] | ChargeListe<ChargeLot>>(
-    `/projets/${projetId}/lots/import/`,
-    donnees,
-  );
-  return aPlat(charge).map((lot) => versLot(lot, []));
-}
-
-/**
- * Télécharge le modèle officiel Excel (.xlsx) pour l'import des lots.
- */
-export async function telechargerModeleLots(
-  projetId: string,
-  signal?: AbortSignal,
-): Promise<Blob> {
-  return api.telecharger(`/projets/${projetId}/lots/modele/`, undefined, signal);
-}
-
-function versChargeActivite(saisie: SaisieActiviteDomaine) {
-  const charge: Record<string, unknown> = {
-    lot_id: saisie.lotId,
-    libelle: saisie.libelle,
-    quantite_prevue: saisie.quantitePrevue,
-    unite: saisie.unite,
-    responsable: saisie.responsableId,
-    statut: STATUT_SERVEUR[saisie.statut],
-  };
-  if (saisie.budget !== undefined) {
-    charge.budget_initial_montant = saisie.budget;
-  }
-  if (saisie.dateDebutPrevue !== undefined) {
-    charge.date_debut_prevue = saisie.dateDebutPrevue;
-  }
-  if (saisie.dateFinPrevue !== undefined) {
-    charge.date_fin_prevue = saisie.dateFinPrevue;
-  }
-  return charge;
-}
-
-/**
- * À la création, un champ non saisi n'est pas envoyé du tout : le serveur
- * applique son défaut, là où un `null` explicite peut être refusé. Le lot
- * est dans l'adresse, il ne se répète pas dans le corps. (La modification,
- * elle, envoie les `null` : c'est ainsi qu'on vide un champ.)
- */
-function sansVides(charge: ReturnType<typeof versChargeActivite>): Partial<typeof charge> {
-  return Object.fromEntries(
-    Object.entries(charge).filter(
-      ([cle, valeur]) => cle !== "lot_id" && valeur !== null && valeur !== undefined,
-    ),
-  );
-}
-
-export async function creerActivite(
-  projetId: string,
-  saisie: SaisieActiviteDomaine,
-): Promise<Activite> {
-  let creee = versActivite(
-    await api.creer<ChargeActivite>(
-      `/lots/${saisie.lotId}/activites/`,
-      sansVides(versChargeActivite(saisie)),
-    ),
-  );
-  if (saisie.equipeId) {
-    creee = await affecterEquipe(projetId, creee, saisie.equipeId);
-  }
-  return creee;
-}
-
-export async function modifierActivite(
-  projetId: string,
-  activiteId: string,
-  saisie: SaisieActiviteDomaine,
-): Promise<Activite> {
-  let modifiee = versActivite(
-    await api.modifier<ChargeActivite>(`/activites/${activiteId}/`, versChargeActivite(saisie)),
-  );
-  if (saisie.equipeId !== undefined) {
-    const equipeActuelle = modifiee.equipe?.id ?? null;
-    if (saisie.equipeId !== equipeActuelle) {
-      modifiee = await affecterEquipe(projetId, modifiee, saisie.equipeId);
-    }
-  }
-  return modifiee;
-}
-
-/**
- * Les champs du formulaire d'activité que désigne un refus du serveur. Les
- * noms du serveur ne sont pas ceux du formulaire : la correspondance se tient
- * ici, avec le reste de la charge. Un champ sans équivalent (`lot_id`,
- * `non_field_errors`…) est rendu sous sa clé serveur, pour le message général.
- */
-const CHAMPS_ACTIVITE: Record<string, string> = {
-  lot_id: "lotId",
-  libelle: "libelle",
-  quantite_prevue: "quantite",
-  unite: "unite",
-  budget_initial_montant: "budget",
-  date_debut_prevue: "dateDebut",
-  date_fin_prevue: "dateFin",
-  responsable: "responsableId",
-  equipe_ids: "equipeId",
-  statut: "statut",
-};
-
-export function erreursChampsActivite(erreur: ErreurApi): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(erreur.erreursParChamp).map(([champ, message]) => [
-      CHAMPS_ACTIVITE[champ] ?? champ,
-      message,
-    ]),
-  );
-}
-
-/**
- * Suppression logique de l'activité. Le serveur peut refuser une activité
- * qui a déjà avancé — même règle que `activiteSupprimable`.
- */
-export async function supprimerActivite(activiteId: string): Promise<void> {
-  await api.supprimer(`/activites/${activiteId}/`);
-}
-
-/*
- * L'avancement d'une activité ne s'écrit **pas** par `modifierActivite` : le
- * serveur refuse `quantite_realisee` et `avancement` au PATCH ordinaire (403).
- * Il passe par une route dédiée, qui journalise la mise à jour (F3, SFD §5).
- */
-
-/** Une ligne de `GET /activites/{id}/avancement/historique/`. */
-interface ChargeEvenementAvancement {
-  id: string;
-  auteur: string;
-  date: string;
-  /** Des `DecimalField`, en chaîne. */
-  quantite_avant?: number | string | null;
-  quantite_apres?: number | string | null;
-  avancement_avant?: number | string | null;
-  avancement_apres?: number | string | null;
-  commentaire: string;
-}
-
-function versEvenementAvancement(charge: ChargeEvenementAvancement): EvenementAvancement {
-  return {
-    id: charge.id,
-    auteur: charge.auteur,
-    quantiteAvant: versNombre(charge.quantite_avant),
-    quantiteApres: versNombre(charge.quantite_apres),
-    avancementAvant: versNombre(charge.avancement_avant),
-    avancementApres: versNombre(charge.avancement_apres),
-    commentaire: charge.commentaire,
-    le: new Date(charge.date),
-  };
-}
-
-/**
- * La mise à jour manuelle de l'avancement (CT et CP du chantier). Le serveur
- * refuse une quantité en baisse (422) et un autre rôle (403) : l'écran
- * affiche alors son message. Renvoie l'activité telle que le serveur l'a
- * recalculée.
- */
-export async function mettreAJourAvancement(
-  activiteId: string,
-  miseAJour: MiseAJourAvancement,
-): Promise<Activite> {
-  return versActivite(
-    await api.modifier<ChargeActivite>(`/activites/${activiteId}/avancement/`, {
-      quantite_realisee: miseAJour.quantiteRealisee,
-      commentaire: miseAJour.commentaire,
-    }),
-  );
-}
-
-/** Les mises à jour manuelles d'une activité, de la plus récente à la plus ancienne. */
-export async function lireHistoriqueAvancement(
-  activiteId: string,
-  signal?: AbortSignal,
-): Promise<EvenementAvancement[]> {
-  const charge = await api.lire<
-    ChargeEvenementAvancement[] | ChargeListe<ChargeEvenementAvancement>
-  >(`/activites/${activiteId}/avancement/historique/`, undefined, signal);
-  return aPlat(charge).map(versEvenementAvancement);
-}
-
-/** Une activité de `GET /projets/{id}/planning/`. */
-interface ChargeActivitePlanning {
-  id: string;
-  libelle: string;
-  debut: string | null;
-  fin: string | null;
-  avancement: number;
-  statut: string;
-}
-
-/** Un lot de `GET /projets/{id}/planning/`. */
-interface ChargeLotPlanning {
-  id: string;
-  code: string;
-  libelle: string;
-  debut: string | null;
-  fin: string | null;
-  avancement: number;
-  avancement_temporel: number | null;
-  delta_retard: number | null;
-  activites: ChargeActivitePlanning[];
-}
-
-interface ChargePlanning {
-  aujourdhui: string;
-  lots: ChargeLotPlanning[];
-}
-
-function versActivitePlanning(charge: ChargeActivitePlanning): ActivitePlanning {
-  return {
-    id: charge.id,
-    libelle: charge.libelle,
-    debut: charge.debut,
-    fin: charge.fin,
-    avancement: charge.avancement,
-    statut: depuisServeur(STATUT_SERVEUR, charge.statut, STATUT_DECLARE_PAR_DEFAUT),
-  };
-}
-
-function versLotPlanning(charge: ChargeLotPlanning): LotPlanning {
-  return {
-    id: charge.id,
-    code: charge.code,
-    libelle: charge.libelle,
-    debut: charge.debut,
-    fin: charge.fin,
-    avancement: charge.avancement,
-    avancementTemporel: charge.avancement_temporel,
-    deltaRetard: charge.delta_retard,
-    activites: (charge.activites ?? []).map(versActivitePlanning),
-  };
-}
-
-/**
- * Les données de la frise d'un chantier : lots et activités avec leurs dates
- * contractuelles et leur avancement physique, et, par lot, l'avancement
- * temporel et le retard calculés par le serveur.
- */
-export async function lirePlanning(
-  projetId: string,
-  signal?: AbortSignal,
-): Promise<DonneesPlanning> {
-  const charge = await api.lire<ChargePlanning>(`/projets/${projetId}/planning/`, undefined, signal);
-  return { aujourdhui: charge.aujourdhui, lots: (charge.lots ?? []).map(versLotPlanning) };
-}
-
 /**
  * Les chiffres de structure du chantier, recomptés par le serveur. Même forme
  * que ceux joints au projet : la traduction est commune.
@@ -1254,6 +931,8 @@ export async function lireStatistiques(
 
 interface ChargeMembre {
   id: string;
+  /** Le registre de main-d'œuvre : un membre est une personne datée dans l'équipe. */
+  personne?: { id: string; nom: string; prenom: string } | null;
   prenom?: string;
   nom?: string;
   role?: RoleMembreEquipe;
@@ -1273,25 +952,11 @@ interface ChargeEquipeDetail extends ChargeEquipe {
 function versMembre(charge: ChargeMembre, chef = false): MembreEquipe {
   return {
     id: charge.id,
-    prenom: charge.prenom ?? "",
-    nom: charge.nom ?? "",
+    prenom: charge.personne?.prenom ?? charge.prenom ?? "",
+    nom: charge.personne?.nom ?? charge.nom ?? "",
     // Un serveur qui ne renverrait pas encore le rôle : la place dans l'équipe le dit.
     role: charge.role ?? (chef ? "CHEF_EQUIPE" : ROLE_MEMBRE_PAR_DEFAUT),
-    collaborateurId: charge.collaborateur_id ?? charge.utilisateur_id ?? null,
-  };
-}
-
-function versChargeMembre(membre: SaisieMembreEquipe): Record<string, unknown> {
-  if (membre.collaborateurId) {
-    return {
-      collaborateur_id: membre.collaborateurId,
-      role: membre.role,
-    };
-  }
-  return {
-    prenom: membre.prenom,
-    nom: membre.nom,
-    role: membre.role,
+    collaborateurId: charge.personne?.id ?? charge.collaborateur_id ?? charge.utilisateur_id ?? null,
   };
 }
 
@@ -1315,128 +980,6 @@ export async function listerEquipes(projetId: string, signal?: AbortSignal): Pro
   );
   const charges = Array.isArray(charge) ? charge : (charge?.results ?? []);
   return charges.map(versEquipeDetail);
-}
-
-interface ChargeCandidatEquipe {
-  id: string;
-  nom_complet: string;
-  role_projet?: string;
-  equipes?: { id: string; nom: string }[];
-}
-
-/**
- * Les collaborateurs que l'on peut proposer pour une équipe du chantier : ceux
- * qui lui sont affectés, avec les équipes où ils sont déjà. Le serveur refuse
- * (403) qui ne gère pas les équipes du projet : ne l'appeler qu'avec ce droit.
- */
-export async function listerCandidatsEquipes(
-  projetId: string,
-  signal?: AbortSignal,
-): Promise<CandidatEquipe[]> {
-  const charge = await api.lire<ChargeCandidatEquipe[] | ChargeListe<ChargeCandidatEquipe>>(
-    `/projets/${projetId}/equipes/candidats/`,
-    undefined,
-    signal,
-  );
-  const charges = Array.isArray(charge) ? charge : (charge?.results ?? []);
-  return charges.map((candidat) => ({
-    id: candidat.id,
-    nomComplet: candidat.nom_complet,
-    roleProjet: candidat.role_projet ?? "",
-    equipes: candidat.equipes ?? [],
-  }));
-}
-
-export async function creerEquipe(projetId: string, creation: CreationEquipe): Promise<Equipe> {
-  return versEquipeDetail(
-    await api.creer<ChargeEquipeDetail>(`/projets/${projetId}/equipes/`, {
-      nom: creation.nom,
-      nature: creation.nature,
-      specialite: creation.specialite,
-      chef: versChargeMembre(creation.chef),
-      membres: creation.membres.map(versChargeMembre),
-    }),
-  );
-}
-
-/*
- * Les membres d'une équipe constituée. Chaque écriture renvoie **l'équipe
- * entière** : nommer un chef en fait redescendre un autre, retirer quelqu'un
- * change l'effectif — l'écran repart de ce que le serveur a retenu plutôt que
- * de refaire le calcul de son côté.
- */
-
-export async function ajouterMembreEquipe(
-  projetId: string,
-  equipeId: string,
-  membre: SaisieMembreEquipe,
-): Promise<Equipe> {
-  return versEquipeDetail(
-    await api.creer<ChargeEquipeDetail>(
-      `/projets/${projetId}/equipes/${equipeId}/membres/`,
-      versChargeMembre(membre),
-    ),
-  );
-}
-
-export async function changerRoleMembreEquipe(
-  projetId: string,
-  equipeId: string,
-  membreId: string,
-  role: RoleMembreEquipe,
-): Promise<Equipe> {
-  return versEquipeDetail(
-    await api.modifier<ChargeEquipeDetail>(
-      `/projets/${projetId}/equipes/${equipeId}/membres/${membreId}/`,
-      { role },
-    ),
-  );
-}
-
-/** Le retrait ne renvoie rien (204) : l'équipe est relue derrière. */
-export async function retirerMembreEquipe(
-  projetId: string,
-  equipeId: string,
-  membreId: string,
-): Promise<Equipe> {
-  await api.supprimer(`/projets/${projetId}/equipes/${equipeId}/membres/${membreId}/`);
-  return versEquipeDetail(
-    await api.lire<ChargeEquipeDetail>(`/projets/${projetId}/equipes/${equipeId}/`),
-  );
-}
-
-/**
- * L'équipe d'une activité — `null` la retire. Une écriture à part plutôt que
- * `modifierActivite` : affecter ne doit pas renvoyer (et risquer d'écraser)
- * les dates ou le budget qu'un autre aurait changés entre-temps.
- */
-export async function affecterEquipe(
-  projetId: string,
-  activite: Activite | string,
-  equipeId: string | null,
-): Promise<Activite> {
-  const activiteId = typeof activite === "string" ? activite : activite.id;
-
-  if (equipeId) {
-    await api.creer(`/projets/${projetId}/equipes/affectations/`, {
-      equipe_id: equipeId,
-      activite_id: activiteId,
-    });
-  } else {
-    let affectationId: string | undefined;
-    if (typeof activite === "object" && activite.equipe?.affectationId) {
-      affectationId = activite.equipe.affectationId;
-    } else {
-      const chargeAct = await api.lire<ChargeActivite>(`/activites/${activiteId}/`);
-      affectationId = chargeAct.equipe_chantier?.affectation_id;
-    }
-
-    if (affectationId) {
-      await api.supprimer(`/projets/${projetId}/equipes/affectations/${affectationId}/`);
-    }
-  }
-
-  return versActivite(await api.lire<ChargeActivite>(`/activites/${activiteId}/`));
 }
 
 /* ------------------------------------------------------------------ *
@@ -1538,7 +1081,7 @@ export async function listerMotifsReport(signal?: AbortSignal): Promise<MotifRep
 
 /** Reprogrammer un projet, un lot ou une activité (US 3.8, RG-11). */
 export async function reprogrammer(
-  objet: "projets" | "lots" | "activites",
+  objet: "projets" | "lots" | "activites" | "elements",
   id: string,
   reprogrammation: Reprogrammation,
 ): Promise<ResultatReprogrammation> {
@@ -1549,6 +1092,7 @@ export async function reprogrammer(
       date_fin_prevue: reprogrammation.dateFinPrevue,
       motif_id: reprogrammation.motifId,
       justification: reprogrammation.justification,
+      prolonger: reprogrammation.prolonger ?? false,
     },
   );
   return versResultatReprogrammation(charge);
@@ -1691,3 +1235,125 @@ export async function lireHistoriqueSante(
   return aPlat(charge).map(versInstantaneSante);
 }
 
+
+/* ------------------------------------------------------------------ *
+ * Affectations des collaborateurs : rôle propre au projet et périmètre
+ * dans l'arbre (décisions v1.2, §13bis).
+ *
+ *   GET/POST   /projets/{id}/affectations/
+ *   PATCH/DEL  /projets/{id}/affectations/{affectation_id}/
+ *   POST       /projets/{id}/affectations/remplacer/
+ *   POST       /projets/{id}/chef-chantier/
+ * ------------------------------------------------------------------ */
+
+interface ChargeAffectationCollaborateur {
+  id: string;
+  utilisateur: {
+    id: string;
+    nom_complet: string;
+    email?: string;
+    telephone?: string;
+  } | null;
+  role_projet: string;
+  role_projet_libelle?: string;
+  role_plateforme?: string;
+  perimetres?: { id: string; libelle: string; niveau: string; chemin: string[] }[];
+  date_debut?: string | null;
+  date_fin?: string | null;
+  est_actif?: boolean;
+  modifiable?: boolean;
+}
+
+function versAffectationCollaborateur(charge: ChargeAffectationCollaborateur): AffectationCollaborateur {
+  return {
+    id: charge.id,
+    utilisateur: {
+      id: charge.utilisateur?.id ?? "",
+      nomComplet: charge.utilisateur?.nom_complet ?? "",
+      email: charge.utilisateur?.email || null,
+      telephone: charge.utilisateur?.telephone || null,
+    },
+    roleProjet: charge.role_projet,
+    roleProjetLibelle: charge.role_projet_libelle || charge.role_projet,
+    rolePlateforme: charge.role_plateforme ?? "",
+    perimetres: (charge.perimetres ?? []).map((cas) => ({ ...cas, id: String(cas.id) })),
+    dateDebut: charge.date_debut ?? null,
+    dateFin: charge.date_fin ?? null,
+    estActif: charge.est_actif ?? true,
+    modifiable: charge.modifiable ?? false,
+  };
+}
+
+export async function listerAffectationsCollaborateurs(
+  projetId: string,
+  signal?: AbortSignal,
+): Promise<AffectationCollaborateur[]> {
+  const charge = await api.lire<
+    ChargeAffectationCollaborateur[] | ChargeListe<ChargeAffectationCollaborateur>
+  >(`/projets/${projetId}/affectations/`, { actifs_seulement: true }, signal);
+  return aPlat(charge).map(versAffectationCollaborateur);
+}
+
+export async function affecterCollaborateur(
+  projetId: string,
+  saisie: SaisieAffectation,
+): Promise<AffectationCollaborateur> {
+  return versAffectationCollaborateur(
+    await api.creer<ChargeAffectationCollaborateur>(`/projets/${projetId}/affectations/`, {
+      utilisateur_id: saisie.utilisateurId,
+      role_projet: saisie.roleProjet,
+      perimetres_ids: saisie.perimetresIds,
+      date_debut: saisie.dateDebut ?? null,
+      date_fin: saisie.dateFin ?? null,
+    }),
+  );
+}
+
+export async function modifierAffectationCollaborateur(
+  projetId: string,
+  affectationId: string,
+  modification: Partial<Pick<SaisieAffectation, "roleProjet" | "perimetresIds" | "dateFin">>,
+): Promise<AffectationCollaborateur> {
+  const charge: Record<string, unknown> = {};
+  if (modification.roleProjet !== undefined) charge.role_projet = modification.roleProjet;
+  if (modification.perimetresIds !== undefined) charge.perimetres_ids = modification.perimetresIds;
+  if (modification.dateFin !== undefined) charge.date_fin = modification.dateFin;
+  return versAffectationCollaborateur(
+    await api.modifier<ChargeAffectationCollaborateur>(
+      `/projets/${projetId}/affectations/${affectationId}/`,
+      charge,
+    ),
+  );
+}
+
+/** Retire un collaborateur du projet (effacement journalisé côté serveur). */
+export async function retirerAffectationCollaborateur(projetId: string, affectationId: string): Promise<void> {
+  await api.supprimer(`/projets/${projetId}/affectations/${affectationId}/`);
+}
+
+/**
+ * Remplacer le titulaire d'un rôle : l'ancien perd sa fonction ce jour (son affectation reste
+ * dans l'historique), le nouveau la reprend. Seul moyen de changer le titulaire d'un rôle
+ * « unique par projet ».
+ */
+export async function remplacerTitulaire(projetId: string, remplacement: Remplacement): Promise<void> {
+  await api.creer(`/projets/${projetId}/affectations/remplacer/`, {
+    role_projet: remplacement.roleProjet,
+    utilisateur_id: remplacement.utilisateurId,
+    affectation_remplacee_id: remplacement.affectationRemplaceeId,
+    perimetres_ids: remplacement.perimetresIds,
+    date_changement: remplacement.dateChangement ?? null,
+  });
+}
+
+/** Changer de chef de chantier : le remplacement appliqué au rôle CC. */
+export async function changerChefChantier(
+  projetId: string,
+  changement: { utilisateurId: string; perimetresIds: string[]; dateChangement?: string | null },
+): Promise<void> {
+  await api.creer(`/projets/${projetId}/chef-chantier/`, {
+    utilisateur_id: changement.utilisateurId,
+    perimetres_ids: changement.perimetresIds,
+    date_changement: changement.dateChangement ?? null,
+  });
+}

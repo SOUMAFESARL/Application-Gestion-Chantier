@@ -147,7 +147,25 @@ const forme = z.object({
     observation: z.string(),
   }),
   production: z.array(
-    z.object({ intervenant: z.string(), activiteId: z.string(), quantiteJour: z.string(), prixUnitaire: z.string() }),
+    z.object({
+      intervenant: z.string(),
+      /** L'ouvrier, parmi les membres de l'équipe de la tâche ; vide sans équipe. */
+      personneId: z.string(),
+      activiteId: z.string(),
+      quantiteJour: z.string(),
+      prixUnitaire: z.string(),
+    }),
+  ),
+  /** Une ligne par équipe dont la présence se coche (section `EQUIPES`). */
+  equipes: z.array(
+    z.object({
+      equipeId: z.string(),
+      presents: z.array(z.string()),
+      retards: z.array(z.string()),
+      heures: z.string(),
+      qualite: z.string(),
+      observation: z.string(),
+    }),
   ),
   lotsTravailles: z.array(z.object({ lotId: z.string(), observation: z.string() })),
   activites: z.array(
@@ -238,9 +256,11 @@ const erreur = (cle: CleErreur, valeurs?: Record<string, string | number>) =>
  * sections du chantier. Un brouillon, lui, s'enregistre sans passer par ici.
  */
 export function schemaRapport(
-  preparation: Pick<PreparationSaisie, "sections" | "aujourdhui" | "activites">,
+  preparation: Pick<PreparationSaisie, "sections" | "aujourdhui" | "activites"> &
+    Partial<Pick<PreparationSaisie, "equipes">>,
 ) {
   const avancement = activitesSuivies(preparation, "AVANCEMENT");
+  const equipes = preparation.equipes ?? [];
   return forme.superRefine((valeurs, ctx) => {
     const signaler = (path: (string | number)[], message: string) => ctx.addIssue({ code: "custom", path, message });
     const sections = sectionsActives(preparation.sections, valeurs.arret);
@@ -310,6 +330,24 @@ export function schemaRapport(
       }
     }
 
+    // Les équipes des tâches (30/10/2026) : présents cochés, heures, motif d'une absence.
+    if (sections.includes("EQUIPES")) {
+      valeurs.equipes.forEach((ligne, rang) => {
+        const equipe = equipes.find((e) => e.equipeId === ligne.equipeId);
+        if (!equipe) return;
+        const manquants = equipe.membres.length - ligne.presents.length;
+        if ((manquants > 0 || ligne.retards.length > 0) && !ligne.observation.trim()) {
+          signaler(["equipes", rang, "observation"], erreur("motifAbsenceEquipe"));
+        }
+        if (ligne.presents.length > 0 && versNombre(ligne.heures) === null) {
+          signaler(["equipes", rang, "heures"], requis);
+        }
+        if (equipe.qualite && ligne.presents.length > 0 && !ligne.qualite) {
+          signaler(["equipes", rang, "qualite"], requis);
+        }
+      });
+    }
+
     // La production des tâcherons — sous-traitance informelle.
     if (sections.includes("PRODUCTION")) {
       // Seule, la production est la seule preuve de la journée ; à côté de
@@ -318,7 +356,8 @@ export function schemaRapport(
         signaler(["production"], erreur("productionVide"));
       }
       valeurs.production.forEach((ligne, rang) => {
-        if (!ligne.intervenant.trim()) signaler(["production", rang, "intervenant"], requis);
+        // Une tâche tenue par une équipe : l'ouvrier se choisit parmi ses membres.
+        if (!ligne.intervenant.trim() && !ligne.personneId) signaler(["production", rang, "intervenant"], requis);
         if (!ligne.activiteId) signaler(["production", rang, "activiteId"], requis);
         const quantite = versNombre(ligne.quantiteJour);
         if (quantite === null || quantite < 0) signaler(["production", rang, "quantiteJour"], erreur("quantite"));
@@ -500,16 +539,19 @@ export function valeursDepuis(preparation: PreparationSaisie, date: string): Val
     production: existant
       ? existant.production.map((ligne) => ({
           intervenant: ligne.intervenant,
+          personneId: ligne.personneId ?? "",
           activiteId: ligne.activiteId,
           quantiteJour: enChaine(ligne.quantiteJour),
           prixUnitaire: ligne.prixUnitaire === null ? "" : String(ligne.prixUnitaire / 100),
         }))
       : reprises.intervenants.map((ligne) => ({
           intervenant: ligne.intervenant,
+          personneId: ligne.personneId ?? "",
           activiteId: ligne.activiteId,
           quantiteJour: "",
           prixUnitaire: ligne.prixUnitaire === null ? "" : String(ligne.prixUnitaire / 100),
         })),
+    equipes: valeursEquipes(preparation),
     // Un rapport neuf part sans lot : le chef de chantier choisit ceux qu'il a
     // travaillés — sauf quand le chantier n'en a qu'un.
     lotsTravailles: existant
@@ -580,6 +622,7 @@ export function versSaisie(
     effectifs: [],
     presenceSousTraitant: null,
     production: [],
+    equipes: [],
     lotsTravailles: [],
     activites: [],
     materiaux: [],
@@ -638,9 +681,18 @@ function versSaisieComplete(
       : null,
     production: valeurs.production.map((ligne) => ({
       intervenant: ligne.intervenant.trim(),
+      personneId: ligne.personneId || null,
       activiteId: ligne.activiteId,
       quantiteJour: versNombre(ligne.quantiteJour),
       prixUnitaire: saisieEnCentimes(ligne.prixUnitaire),
+    })),
+    equipes: valeurs.equipes.map((ligne) => ({
+      equipeId: ligne.equipeId,
+      presents: ligne.presents,
+      retards: ligne.retards.filter((id) => ligne.presents.includes(id)),
+      heures: versNombre(ligne.heures),
+      qualite: ligne.qualite as QualiteExecution | "",
+      observation: ligne.observation.trim(),
     })),
     lotsTravailles: valeurs.lotsTravailles.map((point) => ({
       lotId: point.lotId,
@@ -728,6 +780,7 @@ export const ligneEffectifVide = (): ValeursRapport["effectifs"][number] => ({
 
 export const ligneProductionVide = (): ValeursRapport["production"][number] => ({
   intervenant: "",
+  personneId: "",
   activiteId: "",
   quantiteJour: "",
   prixUnitaire: "",
@@ -785,3 +838,36 @@ export const previsionVide = (): ValeursRapport["previsions"][number] => ({
   objectif: "",
   prerequis: "",
 });
+
+/**
+ * Les lignes de présence des équipes : celles du rapport déjà commencé, sinon les présents de la
+ * veille à recocher — limités aux membres du jour —, sinon personne de coché.
+ */
+function valeursEquipes(preparation: PreparationSaisie): ValeursRapport["equipes"] {
+  const existantes = new Map((preparation.rapport?.saisie.equipes ?? []).map((ligne) => [ligne.equipeId, ligne]));
+  const veille = new Map(preparation.reprises.equipes.map((ligne) => [ligne.equipeId, ligne.presents]));
+  return preparation.equipes
+    .filter((equipe) => equipe.presence)
+    .map((equipe) => {
+      const membres = new Set(equipe.membres.map((membre) => membre.personneId));
+      const existante = existantes.get(equipe.equipeId);
+      if (existante) {
+        return {
+          equipeId: equipe.equipeId,
+          presents: existante.presents,
+          retards: existante.retards,
+          heures: enChaine(existante.heures),
+          qualite: existante.qualite,
+          observation: existante.observation,
+        };
+      }
+      return {
+        equipeId: equipe.equipeId,
+        presents: (veille.get(equipe.equipeId) ?? []).filter((id) => membres.has(id)),
+        retards: [],
+        heures: HEURES_PAR_DEFAUT,
+        qualite: "",
+        observation: "",
+      };
+    });
+}

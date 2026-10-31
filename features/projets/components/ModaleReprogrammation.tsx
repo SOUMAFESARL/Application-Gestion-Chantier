@@ -57,6 +57,9 @@ import {
   versReprogrammation,
   type SaisieReprogrammation,
 } from "@/features/projets/validations";
+import { prolongationsRequises } from "@/features/decoupage/adaptateur";
+import { cleDecoupage } from "@/features/decoupage/cles";
+import type { Prolongation } from "@/features/decoupage/types";
 import { ErreurApi } from "@/lib/api";
 import { ABSENT, formaterDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -67,7 +70,7 @@ const CHAMP = "h-[var(--input-height-md)]";
 export interface PropsModaleReprogrammation {
   ouverte: boolean;
   onFermer: () => void;
-  objet: "projets" | "lots" | "activites";
+  objet: "projets" | "lots" | "activites" | "elements";
   id: string;
   nomObjet: string;
   projetId: string;
@@ -102,6 +105,8 @@ export function ModaleReprogrammation({
   const t = useTranslations("projets.reprogrammation");
   const clientRequetes = useQueryClient();
   const [erreur, setErreur] = useState<string | null>(null);
+  // Des dates qui débordent du parent : le serveur liste qui prolonger, l'utilisateur confirme.
+  const [prolongations, setProlongations] = useState<Prolongation[] | null>(null);
 
   const requeteMotifs = useQuery({
     queryKey: CLE_MOTIFS_REPORT,
@@ -115,6 +120,7 @@ export function ModaleReprogrammation({
       schemaReprogrammation({
         debutMin: bornesParent?.debutMin,
         finMax: bornesParent?.finMax,
+        // Une case de l'arbre se borne comme une activité : par les dates de son parent.
         typeObjet: objet === "projets" ? "PROJET" : objet === "lots" ? "LOT" : "ACTIVITE",
       }),
     [bornesParent, objet],
@@ -138,7 +144,10 @@ export function ModaleReprogrammation({
   async function soumettre(valeurs: SaisieReprogrammation) {
     setErreur(null);
     try {
-      const resultat = await reprogrammer(objet, id, versReprogrammation(valeurs));
+      const resultat = await reprogrammer(objet, id, {
+        ...versReprogrammation(valeurs),
+        prolonger: prolongations !== null,
+      });
       toast.success(t("succes"));
       if (resultat.alerteDg) {
         toast.info(t("alerteDg"));
@@ -151,6 +160,8 @@ export function ModaleReprogrammation({
       void clientRequetes.invalidateQueries({ queryKey: CLE_LISTE_PROJETS });
       void clientRequetes.invalidateQueries({ queryKey: cleHistoriqueDates(objet, id) });
       void clientRequetes.invalidateQueries({ queryKey: cleJournalReports(projetId) });
+      void clientRequetes.invalidateQueries({ queryKey: cleDecoupage(projetId) });
+      setProlongations(null);
 
       // La modale reste montée dans les tiroirs : sans cette remise à zéro, une
       // seconde reprogrammation retrouverait le motif et la justification de la première.
@@ -163,6 +174,11 @@ export function ModaleReprogrammation({
       onSucces?.(resultat);
       onFermer();
     } catch (err) {
+      const aProlonger = prolongationsRequises(err);
+      if (aProlonger) {
+        setProlongations(aProlonger);
+        return;
+      }
       if (err instanceof ErreurApi) {
         if (err.erreursParChamp) {
           if (err.erreursParChamp.date_debut_prevue) {
@@ -226,6 +242,25 @@ export function ModaleReprogrammation({
           <Alert variant="erreur">
             <CircleX className="size-4" />
             <AlertDescription>{erreur}</AlertDescription>
+          </Alert>
+        )}
+
+        {prolongations && (
+          <Alert variant="avertissement">
+            <AlertDescription>
+              <p className="m-0">{t("prolongationRequise")}</p>
+              <ul className="m-0 mt-2 list-disc pl-5">
+                {prolongations.map((p) => (
+                  <li key={`${p.type}-${p.id}`}>
+                    {t("prolongation", {
+                      libelle: p.libelle,
+                      finAvant: formaterDate(p.dateFinAvant),
+                      finApres: formaterDate(p.dateFinApres),
+                    })}
+                  </li>
+                ))}
+              </ul>
+            </AlertDescription>
           </Alert>
         )}
 
@@ -357,7 +392,7 @@ export function ModaleReprogrammation({
             aria-busy={enCours}
           >
             {enCours && <LoaderCircle className="animate-spin" />}
-            {t("enregistrer")}
+            {prolongations ? t("prolongerEtEnregistrer") : t("enregistrer")}
           </Button>
         </DialogFooter>
       </DialogContent>

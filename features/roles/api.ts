@@ -19,6 +19,7 @@ export interface CreationRolePayload {
   libelle: string;
   description: string;
   portee: PorteeRole;
+  unique_par_projet?: boolean;
   permissions: string[];
 }
 
@@ -28,6 +29,7 @@ export interface ModificationRolePayload {
   /** La liste complète : elle remplace toute la matrice. Absente : la matrice ne change pas. */
   permissions?: string[];
   portee?: PorteeRole;
+  unique_par_projet?: boolean;
   /** Confirme un changement de portée que le serveur a fait confirmer (409). */
   confirmer?: boolean;
 }
@@ -93,9 +95,10 @@ export interface ChargeModuleRole {
 
 type ChargeRole<T extends RoleItem> = Omit<
   T,
-  "portee" | "avertissements" | "modules"
+  "portee" | "avertissements" | "modules" | "unique_par_projet"
 > & {
   portee?: PorteeRole;
+  unique_par_projet?: boolean;
   avertissements?: string[];
   modules?: ChargeModuleRole[];
 };
@@ -123,6 +126,7 @@ function versRole<T extends RoleItem>(charge: ChargeRole<T>): T {
   return {
     ...charge,
     portee: charge.portee ?? "PROJET",
+    unique_par_projet: charge.unique_par_projet ?? false,
     avertissements: charge.avertissements ?? [],
     modules,
   } as T;
