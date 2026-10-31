@@ -6020,6 +6020,50 @@
       "modifiee": "{nom} est enregistré.",
       "nomPrenomRequis": "Le nom et le prénom sont obligatoires.",
       "erreur": "L’enregistrement n’a pas abouti. Réessayez."
+    },
+    "importer": "Importer depuis Excel",
+    "import": {
+      "titre": "Importer des personnes depuis Excel",
+      "description": "Nom et prénom obligatoires ; téléphone, métier et entreprise facultatifs. Une entreprise vide, c’est la nôtre. Corrigez les lignes sur place avant d’enregistrer.",
+      "choisirFichier": "Choisir un fichier",
+      "autreFichier": "Choisir un autre fichier",
+      "telechargerModele": "Télécharger le modèle",
+      "consigne": "Formats .xlsx ou .csv, 5 Mo au plus.",
+      "verification": "Vérification…",
+      "comptes": {
+        "VALIDE": "{nombre, plural, =0 {Aucune ligne valide} one {# ligne valide} other {# lignes valides}}",
+        "DOUBLON": "{nombre, plural, =0 {Aucun doublon} one {# doublon} other {# doublons}}",
+        "ERREUR": "{nombre, plural, =0 {Aucune erreur} one {# ligne en erreur} other {# lignes en erreur}}"
+      },
+      "statuts": {
+        "VALIDE": "Valide",
+        "DOUBLON": "Doublon, ignoré",
+        "ERREUR": "À corriger",
+        "CREEE": "Enregistrée"
+      },
+      "colonnes": {
+        "ligne": "Ligne",
+        "nom": "Nom",
+        "prenom": "Prénom",
+        "telephone": "Téléphone",
+        "metier": "Métier",
+        "entreprise": "Entreprise",
+        "statut": "Statut",
+        "actions": "Actions"
+      },
+      "notreEntreprise": "Notre entreprise",
+      "entrepriseInconnue": "« {nom} » : à choisir",
+      "abandonner": "Ne pas importer cette ligne",
+      "enregistrer": "{nombre, plural, =0 {Aucune personne à enregistrer} one {Enregistrer # personne} other {Enregistrer # personnes}}",
+      "enregistrees": "{nombre, plural, one {# personne ajoutée au registre.} other {# personnes ajoutées au registre.}}",
+      "bilan": "{creees, plural, =0 {Aucune personne créée} one {# personne créée} other {# personnes créées}} · {doublons, plural, =0 {aucun doublon} one {# doublon ignoré} other {# doublons ignorés}} · {erreurs, plural, =0 {aucune erreur} one {# ligne en erreur} other {# lignes en erreur}}.",
+      "toutEnregistre": "Toutes les lignes ont été traitées.",
+      "annuler": "Annuler",
+      "fermer": "Fermer",
+      "erreurLecture": "Le fichier n’a pas pu être lu. Partez du modèle à télécharger.",
+      "erreurModele": "Le modèle n’a pas pu être téléchargé. Réessayez.",
+      "erreurVerification": "La vérification n’a pas abouti. Réessayez.",
+      "erreurEnregistrement": "L’enregistrement n’a pas abouti. Réessayez."
     }
   },
   "equipes": {

@@ -4,6 +4,9 @@
  *
  *   GET/POST       /main-oeuvre/                 le registre (lecture `projets.lire`)
  *   GET/PATCH/DEL  /main-oeuvre/{id}/            une personne (écriture `projets.main_oeuvre_gerer`)
+ *   POST           /main-oeuvre/import/          lire un fichier ou revérifier des lignes, sans écrire
+ *   POST           /main-oeuvre/import/appliquer/  enregistrer les lignes valides
+ *   GET            /main-oeuvre/import/modele/   le modèle Excel à remplir
  *   GET/POST       /projets/{id}/equipes/                             équipes du projet
  *   GET/PATCH/DEL  /projets/{id}/equipes/{equipe_id}/                 une équipe
  *   POST           /projets/{id}/equipes/{equipe_id}/membres/         ajouter un membre daté
@@ -19,15 +22,19 @@ import { api } from "@/lib/api";
 
 import type {
   Avertissement,
+  BilanImport,
   EntrepriseRattachement,
   EquipeProjet,
   FiltresRegistre,
   FonctionMembre,
+  ImportVerifie,
+  LigneImport,
   MembreEquipe,
   Personne,
   SaisieEquipe,
   SaisieMembre,
   SaisiePersonne,
+  StatutLigneImport,
 } from "./types";
 
 interface ChargeListePaginee<T> {
@@ -320,4 +327,99 @@ export async function affecterEquipeCase(
 
 export async function retirerAffectationEquipe(projetId: string, affectationId: string): Promise<void> {
   await api.supprimer(`/projets/${projetId}/equipes/affectations/${affectationId}/`);
+}
+
+/* ------------------------------------------------------------------ *
+ * Import du registre depuis Excel.
+ * ------------------------------------------------------------------ */
+
+interface ChargeLigneImport {
+  numero?: number | null;
+  nom?: string;
+  prenom?: string;
+  telephone?: string;
+  metier?: string;
+  entreprise_partenaire_id?: string | null;
+  entreprise_saisie?: string;
+  statut?: StatutLigneImport;
+  erreurs?: Record<string, string>;
+  message?: string;
+}
+
+interface ChargeImportVerifie {
+  lignes?: ChargeLigneImport[];
+  partenaires?: { id: string; nom: string }[];
+}
+
+interface ChargeBilanImport {
+  creees?: number;
+  doublons?: number;
+  erreurs?: number;
+  lignes?: ChargeLigneImport[];
+}
+
+function versLigneImport(charge: ChargeLigneImport): LigneImport {
+  return {
+    numero: charge.numero ?? null,
+    nom: charge.nom ?? "",
+    prenom: charge.prenom ?? "",
+    telephone: charge.telephone ?? "",
+    metier: charge.metier ?? "",
+    entreprisePartenaireId: charge.entreprise_partenaire_id ? String(charge.entreprise_partenaire_id) : null,
+    entrepriseSaisie: charge.entreprise_saisie ?? "",
+    statut: charge.statut ?? "ERREUR",
+    erreurs: charge.erreurs ?? {},
+    message: charge.message ?? "",
+  };
+}
+
+function versChargeLigneImport(ligne: LigneImport): ChargeLigneImport {
+  return {
+    numero: ligne.numero,
+    nom: ligne.nom,
+    prenom: ligne.prenom,
+    telephone: ligne.telephone,
+    metier: ligne.metier,
+    entreprise_partenaire_id: ligne.entreprisePartenaireId,
+    entreprise_saisie: ligne.entreprisePartenaireId ? "" : ligne.entrepriseSaisie,
+  };
+}
+
+function versImportVerifie(charge: ChargeImportVerifie): ImportVerifie {
+  return {
+    lignes: (charge.lignes ?? []).map(versLigneImport),
+    partenaires: (charge.partenaires ?? []).map((p) => ({ id: String(p.id), nom: p.nom })),
+  };
+}
+
+/** Lire un fichier `.xlsx` ou `.csv` : les lignes vérifiées, rien n'est enregistré. */
+export async function verifierFichierImport(fichier: File): Promise<ImportVerifie> {
+  const corps = new FormData();
+  corps.append("fichier", fichier, fichier.name);
+  return versImportVerifie(await api.creer<ChargeImportVerifie>("/main-oeuvre/import/", corps));
+}
+
+/** Refaire la vérification des lignes corrigées à l'écran. */
+export async function verifierLignesImport(lignes: LigneImport[]): Promise<ImportVerifie> {
+  return versImportVerifie(
+    await api.creer<ChargeImportVerifie>("/main-oeuvre/import/", { lignes: lignes.map(versChargeLigneImport) }),
+  );
+}
+
+/** Enregistrer les lignes valides ; doublons sautés, erreurs rendues avec leur raison. */
+export async function appliquerImport(lignes: LigneImport[]): Promise<BilanImport> {
+  const charge = await api.creer<ChargeBilanImport>("/main-oeuvre/import/appliquer/", {
+    lignes: lignes.map(versChargeLigneImport),
+  });
+  return {
+    creees: charge.creees ?? 0,
+    doublons: charge.doublons ?? 0,
+    erreurs: charge.erreurs ?? 0,
+    lignes: (charge.lignes ?? []).map(versLigneImport),
+  };
+}
+
+/** Le modèle Excel à remplir (en-têtes, ligne d'exemple, liste des partenaires). */
+export async function telechargerModeleImport(): Promise<Blob> {
+  return api.telecharger("/main-oeuvre/import/modele/");
 }

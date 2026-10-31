@@ -115,3 +115,47 @@ export interface SaisieMembre {
   dateArrivee: string | null;
   dateDepart?: string | null;
 }
+
+/* ------------------------------------------------------------------ *
+ * Import du registre depuis Excel.
+ * ------------------------------------------------------------------ */
+
+/** `CREEE` n'apparaît qu'après l'enregistrement. */
+export type StatutLigneImport = "VALIDE" | "DOUBLON" | "ERREUR" | "CREEE";
+
+/** Une ligne du fichier, telle que le serveur l'a lue et vérifiée — modifiable à l'écran. */
+export interface LigneImport {
+  /** Le numéro de la ligne dans le fichier : il désigne la ligne dans les messages. */
+  numero: number | null;
+  nom: string;
+  prenom: string;
+  telephone: string;
+  metier: string;
+  /** `null` : notre entreprise — sauf si `entrepriseSaisie` dit un nom non reconnu. */
+  entreprisePartenaireId: string | null;
+  /** Le nom lu dans le fichier et retrouvé parmi aucun tiers partenaire. */
+  entrepriseSaisie: string;
+  statut: StatutLigneImport;
+  /** Les erreurs par champ : `nom`, `prenom`, `telephone`, `metier`, `entreprise`. */
+  erreurs: Record<string, string>;
+  /** Pourquoi la ligne est sautée (doublon) ou refusée au dernier moment. */
+  message: string;
+}
+
+/** Une entreprise à laquelle rattacher une personne : un tiers sous-traitant, tâcheron, prestataire. */
+export interface PartenaireImport {
+  id: string;
+  nom: string;
+}
+
+export interface ImportVerifie {
+  lignes: LigneImport[];
+  partenaires: PartenaireImport[];
+}
+
+export interface BilanImport {
+  creees: number;
+  doublons: number;
+  erreurs: number;
+  lignes: LigneImport[];
+}
