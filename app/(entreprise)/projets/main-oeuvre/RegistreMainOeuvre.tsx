@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Trash2, UserPlus } from "lucide-react";
+import { FileUp, Pencil, Trash2, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/tableau-liste";
 import { retirerPersonne, listerPersonnes } from "@/features/equipes/adaptateur";
 import { CLE_REGISTRE, cleRegistre } from "@/features/equipes/cles";
+import { FenetreImportPersonnes } from "@/features/equipes/components/FenetreImportPersonnes";
 import { FenetrePersonne } from "@/features/equipes/components/FenetrePersonne";
 import { filtrerRegistre, ORIGINES_PERSONNE, type OriginePersonne } from "@/features/equipes/regles";
 import type { Personne } from "@/features/equipes/types";
@@ -36,6 +37,7 @@ export function RegistreMainOeuvre() {
   const [recherche, setRecherche] = useState("");
   const [origine, setOrigine] = useState<OriginePersonne | "">("");
   const [fenetre, setFenetre] = useState<{ personne: Personne | null } | null>(null);
+  const [importOuvert, setImportOuvert] = useState(false);
 
   const requete = useQuery({
     queryKey: cleRegistre(),
@@ -170,15 +172,27 @@ export function RegistreMainOeuvre() {
             </>
           }
           actions={
-            <BoutonPermis
-              size="sm"
-              permis={peutGerer}
-              permission={PERMISSIONS.MAIN_OEUVRE_GERER}
-              onClick={() => setFenetre({ personne: null })}
-            >
-              <UserPlus />
-              {t("ajouter")}
-            </BoutonPermis>
+            <>
+              <BoutonPermis
+                size="sm"
+                variant="outline"
+                permis={peutGerer}
+                permission={PERMISSIONS.MAIN_OEUVRE_GERER}
+                onClick={() => setImportOuvert(true)}
+              >
+                <FileUp />
+                {t("importer")}
+              </BoutonPermis>
+              <BoutonPermis
+                size="sm"
+                permis={peutGerer}
+                permission={PERMISSIONS.MAIN_OEUVRE_GERER}
+                onClick={() => setFenetre({ personne: null })}
+              >
+                <UserPlus />
+                {t("ajouter")}
+              </BoutonPermis>
+            </>
           }
         />
       )}
@@ -189,6 +203,7 @@ export function RegistreMainOeuvre() {
           onFermer={() => setFenetre(null)}
         />
       )}
+      {importOuvert && <FenetreImportPersonnes onFermer={() => setImportOuvert(false)} />}
     </div>
   );
 }

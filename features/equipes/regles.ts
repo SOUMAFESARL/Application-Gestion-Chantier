@@ -2,7 +2,7 @@
  * Les règles du domaine Équipes — pures, sans React.
  */
 
-import type { Personne } from "./types";
+import type { LigneImport, Personne, StatutLigneImport } from "./types";
 
 /** D'où vient une personne du registre : notre entreprise, ou un partenaire. */
 export const ORIGINES_PERSONNE = ["INTERNE", "PARTENAIRE"] as const;
@@ -42,3 +42,39 @@ export function aujourdhuiIso(maintenant: Date = new Date()): string {
   const decalage = maintenant.getTimezoneOffset() * 60_000;
   return new Date(maintenant.getTime() - decalage).toISOString().slice(0, 10);
 }
+
+/* ------------------------------------------------------------------ *
+ * Import du registre depuis Excel.
+ * ------------------------------------------------------------------ */
+
+/** Ce que l'import fera des lignes, compté par statut. */
+export function compterLignesImport(lignes: LigneImport[]): Record<StatutLigneImport, number> {
+  const comptes: Record<StatutLigneImport, number> = { VALIDE: 0, DOUBLON: 0, ERREUR: 0, CREEE: 0 };
+  for (const ligne of lignes) comptes[ligne.statut] += 1;
+  return comptes;
+}
+
+/** Les champs qu'une correction à l'écran touche — leur changement relance la vérification. */
+export type ChampLigneImport = "nom" | "prenom" | "telephone" | "metier" | "entreprisePartenaireId";
+
+/**
+ * Corriger une cellule. Choisir une entreprise (ou « notre entreprise », `null`) efface le nom
+ * non reconnu du fichier : le choix vient désormais des tiers.
+ */
+export function corrigerLigneImport(ligne: LigneImport, champ: ChampLigneImport, valeur: string | null): LigneImport {
+  if (champ === "entreprisePartenaireId") {
+    return { ...ligne, entreprisePartenaireId: valeur, entrepriseSaisie: "" };
+  }
+  return { ...ligne, [champ]: valeur ?? "" };
+}
+
+/** Après l'enregistrement, restent à l'écran les lignes non créées, à corriger ou abandonner. */
+export function lignesRestantes(lignes: LigneImport[]): LigneImport[] {
+  return lignes.filter((ligne) => ligne.statut !== "CREEE");
+}
+
+/** Le nom du fichier modèle téléchargé. */
+export const NOM_MODELE_IMPORT = "modele-main-oeuvre.xlsx";
+
+/** Les extensions acceptées à l'import, comme le serveur. */
+export const EXTENSIONS_IMPORT = ".xlsx,.csv";
