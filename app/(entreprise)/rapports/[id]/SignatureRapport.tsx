@@ -22,7 +22,7 @@ import { LONGUEUR_MIN_COMMENTAIRE_REJET } from "@/features/chantier";
 import type { RapportJournalier } from "@/features/chantier";
 import { approuverRapport, rejeterRapport, validerRapport } from "@/features/chantier/adaptateur";
 import { CLE_JOURNAL, cleRapport } from "@/features/chantier/cles";
-import { etapeASigner, personneQuiSigne, useDroits, useProjetsVisibles } from "@/features/habilitations";
+import { etapeASigner, personneQuiSigne, useDroits } from "@/features/habilitations";
 import { ErreurApi } from "@/lib/api";
 
 type Geste = "signer" | "rejeter";
@@ -38,15 +38,13 @@ type Geste = "signer" | "rejeter";
 export function SignatureRapport({ rapport }: { rapport: RapportJournalier }) {
   const t = useTranslations("journal.signature");
   const { droits } = useDroits();
-  const projets = useProjetsVisibles();
   const cache = useQueryClient();
   const [geste, setGeste] = useState<Geste | null>(null);
   const [texte, setTexte] = useState("");
   const idTexte = useId();
 
-  const projet = projets.data?.find((candidat) => candidat.id === rapport.chantier.projetId);
   const moi = personneQuiSigne(droits, lireProfilLocal());
-  const etape = etapeASigner(rapport.situation, projet, droits, moi);
+  const etape = etapeASigner(rapport.situation, rapport.circuit, moi);
 
   const mutation = useMutation({
     mutationFn: (choix: Geste) => {

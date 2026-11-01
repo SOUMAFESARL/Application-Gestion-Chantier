@@ -8,6 +8,7 @@
 
 import { fonctionsDansProjet, projetModifiable } from "@/features/projets/regles";
 import type { FonctionProjet, Projet } from "@/features/projets/types";
+import type { EtapeCircuit } from "@/features/chantier/types";
 
 import type { ConditionAcces, Droits } from "./types";
 
@@ -225,25 +226,26 @@ export function estRedacteurJournal(droits: Droits | null): boolean {
 /**
  * L'étape du circuit que ce compte doit signer sur ce rapport, ou `null`.
  *
- * **Signe celui qui tient la fonction sur le chantier, et lui seul** —
- * décision du 14/10/2026, appliquée de la même façon par le serveur :
+ * **Le serveur désigne les signataires, le frontend le lit** : à la soumission, Django fige
+ * ceux qui ont `chantier.valider` puis `chantier.approuver` sur la partie du projet du rapport
+ * (`apps/chantier/services/signatures.py`) et les renvoie dans `circuit[].signataires`. Ce compte
+ * signe s'il est, à l'étape en cours (`SOUMIS` : CT, `VALIDE_CT` : CP), un signataire
+ * `EN_ATTENTE`. Aucun nom de fonction ni code de permission n'est recopié ici : un rôle
+ * personnalisé, un périmètre ou un remplacement jouent sans changer le code.
  *
- * - un rapport **soumis** attend le **conducteur de travaux** du chantier,
- *   qui tient `chantier.valider` ;
- * - un rapport **validé par le CT** attend le **chef de projet** du chantier.
- *
- * Le directeur général ne signe pas : il ne tient aucune fonction de
- * chantier, il consulte et relance. `collaborateurId` vient de
+ * Le directeur général ne signe pas : il n'est jamais attendu, et `collaborateurId` vient de
  * `personneQuiSigne`, qui le lui refuse.
  */
 export function etapeASigner(
   situation: string,
-  projet: Projet | undefined,
-  droits: Droits | null,
+  circuit: readonly EtapeCircuit[],
   collaborateurId: string | null,
 ): "CT" | "CP" | null {
   const etape = situation === "SOUMIS" ? "CT" : situation === "VALIDE_CT" ? "CP" : null;
-  return etape && tientEtape(etape, projet, droits, collaborateurId) ? etape : null;
+  if (!etape || !collaborateurId) return null;
+  const attendus = circuit.find((ligne) => ligne.role === etape)?.signataires ?? [];
+  const attendu = attendus.some((s) => s.utilisateurId === collaborateurId && s.etat === "EN_ATTENTE");
+  return attendu ? etape : null;
 }
 
 /**
