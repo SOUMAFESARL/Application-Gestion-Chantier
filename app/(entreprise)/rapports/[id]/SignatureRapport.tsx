@@ -21,7 +21,10 @@ import { lireProfilLocal } from "@/features/auth/api";
 import { LONGUEUR_MIN_COMMENTAIRE_REJET } from "@/features/chantier";
 import type { RapportJournalier } from "@/features/chantier";
 import { approuverRapport, rejeterRapport, validerRapport } from "@/features/chantier/adaptateur";
-import { CLE_JOURNAL, cleRapport } from "@/features/chantier/cles";
+import { CLE_JOURNAL, CLE_SUIVI_SYNTHESES, cleRapport } from "@/features/chantier/cles";
+import { cleDecoupage } from "@/features/decoupage/cles";
+import { CLE_LISTE_PROJETS, cleProjet } from "@/features/projets/cles";
+import { CLE_TABLEAU_DE_BORD } from "@/features/tableauDeBord";
 import { etapeASigner, personneQuiSigne, useDroits } from "@/features/habilitations";
 import { ErreurApi } from "@/lib/api";
 
@@ -54,6 +57,15 @@ export function SignatureRapport({ rapport }: { rapport: RapportJournalier }) {
     onSuccess: (aJour, choix) => {
       cache.setQueryData(cleRapport(rapport.id), aJour);
       void cache.invalidateQueries({ queryKey: CLE_JOURNAL });
+      if (choix === "signer" && aJour.situation === "APPROUVE_CP") {
+        const projetId = rapport.chantier.projetId;
+        void cache.invalidateQueries({ queryKey: cleDecoupage(projetId) });
+        void cache.invalidateQueries({ queryKey: cleProjet(projetId) });
+        void cache.invalidateQueries({ queryKey: CLE_LISTE_PROJETS });
+        void cache.invalidateQueries({ queryKey: CLE_TABLEAU_DE_BORD });
+        void cache.invalidateQueries({ queryKey: ["chantier", "syntheses", projetId] });
+        void cache.invalidateQueries({ queryKey: CLE_SUIVI_SYNTHESES });
+      }
       toast.success(choix === "rejeter" ? t("succes.rejet") : t(`succes.${etape ?? "CT"}`));
       fermer();
     },

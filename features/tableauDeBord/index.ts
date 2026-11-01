@@ -4,3 +4,4 @@
  */
 export * from "./types";
 export * from "./regles";
+export * from "./cles";
