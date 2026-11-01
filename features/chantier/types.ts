@@ -463,6 +463,8 @@ export interface SynthesePeriodique {
   statut: StatutSynthese;
   /** Sa rédaction en cours — renvoyée au seul conducteur de travaux du chantier. */
   redaction: RedactionSynthese | null;
+  /** L'étape que le serveur autorise ce compte à signer maintenant, ou `null`. */
+  etapeASigner: "CT" | "CP" | null;
   reference: string;
   type: TypePeriode;
   debut: string;

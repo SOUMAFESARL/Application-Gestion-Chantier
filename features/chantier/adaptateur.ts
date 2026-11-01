@@ -253,6 +253,8 @@ interface ChargeSynthese {
   statut: StatutSynthese;
   /** Renvoyée au seul conducteur de travaux du chantier, tant qu'il peut écrire. */
   redaction: { appreciation: string; objectifs: ChargeObjectif[] } | null;
+  /** L'étape que le serveur autorise ce compte à signer maintenant (permissions de la synthèse). */
+  etape_a_signer: "CT" | "CP" | null;
   reference: string;
   type: TypePeriode;
   date_debut: string;
@@ -510,6 +512,7 @@ function versSynthese(charge: ChargeSynthese): SynthesePeriodique {
   return {
     id: charge.id,
     statut: charge.statut,
+    etapeASigner: charge.etape_a_signer ?? null,
     redaction: charge.redaction
       ? { appreciation: charge.redaction.appreciation, objectifs: charge.redaction.objectifs.map(versObjectif) }
       : null,

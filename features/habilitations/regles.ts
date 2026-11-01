@@ -267,35 +267,6 @@ export function personneQuiSigne(
   return profil.id;
 }
 
-/** Les permissions de chaque étape du rapport journalier (30/10/2026) : valider, puis approuver. */
-export const PERMISSIONS_RAPPORT = { CT: "chantier.valider", CP: "chantier.approuver" } as const;
-
-/** Les permissions de chaque étape de la synthèse périodique : le CT la rédige, le CP l'approuve. */
-export const PERMISSIONS_SYNTHESE = {
-  CT: "chantier.synthese_rediger",
-  CP: "chantier.synthese_approuver",
-} as const;
-
-/**
- * Ce compte tient-il cette étape du circuit sur ce chantier ? La fonction sur
- * le chantier, et le code qui va avec, comme le serveur : `PERMISSIONS_RAPPORT`
- * (`chantier.valider` pour le conducteur de travaux, `chantier.approuver` pour le
- * chef de projet) ou `PERMISSIONS_SYNTHESE` (rédiger, approuver la synthèse).
- * Sert au rapport (`etapeASigner`) comme à la synthèse périodique.
- */
-export function tientEtape(
-  etape: "CT" | "CP",
-  projet: Projet | undefined,
-  droits: Droits | null,
-  collaborateurId: string | null,
-  permissions: Record<"CT" | "CP", string> = PERMISSIONS_RAPPORT,
-): boolean {
-  if (!projet || !collaborateurId) return false;
-  const fonctions = fonctionsDansProjet(projet, collaborateurId);
-  const fonction = etape === "CT" ? "CONDUCTEUR_TRAVAUX" : "CHEF_PROJET";
-  return fonctions.includes(fonction) && peutCode(droits, permissions[etape]);
-}
-
 /**
  * Désigner (ou remplacer) le chef de projet : acte de portée entreprise (décision du 14/10/2026).
  * Recopie la règle serveur (`projets.affecter_membres` et portée entreprise, le CP ne se désigne pas un successeur).

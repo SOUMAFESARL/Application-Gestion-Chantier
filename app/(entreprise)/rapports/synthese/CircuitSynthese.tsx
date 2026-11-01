@@ -19,9 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { lireProfilLocal } from "@/features/auth/api";
 import {
-  etapeSynthese,
   LONGUEUR_MIN_APPRECIATION,
   LONGUEUR_MIN_COMMENTAIRE_REJET,
   objectifComplet,
@@ -36,13 +34,6 @@ import {
   soumettreSynthese,
 } from "@/features/chantier/adaptateur";
 import { CLE_SUIVI_SYNTHESES, cleSynthese } from "@/features/chantier/cles";
-import {
-  PERMISSIONS_SYNTHESE,
-  personneQuiSigne,
-  tientEtape,
-  useDroits,
-  useProjetsVisibles,
-} from "@/features/habilitations";
 import { ErreurApi } from "@/lib/api";
 
 /** Un objectif sans lot : `SelectItem` n'accepte pas la chaîne vide. */
@@ -60,13 +51,9 @@ const OBJECTIF_VIDE: ObjectifSuivant = { lotCode: "", activite: "", objectif: ""
  * personnalisée ou en cours n'attend personne (`etapeSynthese`).
  */
 export function CircuitSynthese({ synthese, demande }: { synthese: SynthesePeriodique; demande: DemandeSynthese }) {
-  const { droits } = useDroits();
-  const projets = useProjetsVisibles();
-  const projet = projets.data?.find((candidat) => candidat.id === synthese.projetId);
-  const moi = personneQuiSigne(droits, lireProfilLocal());
-  const etape = etapeSynthese(synthese.statut);
+  const etape = synthese.etapeASigner;
 
-  if (!etape || !tientEtape(etape, projet, droits, moi, PERMISSIONS_SYNTHESE)) return null;
+  if (!etape) return null;
   if (etape === "CP" && synthese.id) return <DecisionChefProjet synthese={synthese} demande={demande} id={synthese.id} />;
   if (etape === "CT") return <RedactionConducteur synthese={synthese} demande={demande} />;
   return null;
