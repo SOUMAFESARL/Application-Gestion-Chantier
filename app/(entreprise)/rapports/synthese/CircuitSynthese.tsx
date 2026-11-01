@@ -36,7 +36,13 @@ import {
   soumettreSynthese,
 } from "@/features/chantier/adaptateur";
 import { CLE_SUIVI_SYNTHESES, cleSynthese } from "@/features/chantier/cles";
-import { personneQuiSigne, tientEtape, useDroits, useProjetsVisibles } from "@/features/habilitations";
+import {
+  PERMISSIONS_SYNTHESE,
+  personneQuiSigne,
+  tientEtape,
+  useDroits,
+  useProjetsVisibles,
+} from "@/features/habilitations";
 import { ErreurApi } from "@/lib/api";
 
 /** Un objectif sans lot : `SelectItem` n'accepte pas la chaîne vide. */
@@ -60,7 +66,7 @@ export function CircuitSynthese({ synthese, demande }: { synthese: SynthesePerio
   const moi = personneQuiSigne(droits, lireProfilLocal());
   const etape = etapeSynthese(synthese.statut);
 
-  if (!etape || !tientEtape(etape, projet, droits, moi)) return null;
+  if (!etape || !tientEtape(etape, projet, droits, moi, PERMISSIONS_SYNTHESE)) return null;
   if (etape === "CP" && synthese.id) return <DecisionChefProjet synthese={synthese} demande={demande} id={synthese.id} />;
   if (etape === "CT") return <RedactionConducteur synthese={synthese} demande={demande} />;
   return null;
