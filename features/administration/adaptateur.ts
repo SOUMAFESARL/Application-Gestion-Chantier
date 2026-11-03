@@ -67,6 +67,9 @@ import type {
   RoleSysteme,
   CategorieReferentielPlateforme,
   EntreeReferentielPlateforme,
+  ListeDecoupagePlateforme,
+  ResultatAjoutValeursPlateforme,
+  ValeurListeDecoupagePlateforme,
 } from "./types";
 
 /* ------------------------------------------------------------------ *
@@ -1414,4 +1417,162 @@ export async function supprimerReferentielPlateforme(
   id: string,
 ): Promise<void> {
   await apiAdministration.supprimer(`/admins/referentiels/${categorie}/${id}/`);
+}
+
+/* ------------------------------------------------------------------ *
+ * Listes de valeurs du découpage (plateforme)
+ * ------------------------------------------------------------------ */
+
+interface ChargeValeurListePlateforme {
+  id: string;
+  libelle: string;
+  groupe?: string;
+  ordre?: number;
+}
+
+interface ChargeListeDecoupagePlateforme {
+  id: string;
+  libelle: string;
+  description?: string;
+  ordre?: number;
+  nombre_valeurs?: number;
+  modeles?: { id: string; nom: string }[];
+  valeurs?: ChargeValeurListePlateforme[];
+}
+
+interface ChargeResultatAjoutValeursPlateforme {
+  ajoutees?: { id: string; libelle: string; groupe?: string }[];
+  ignorees?: string[];
+}
+
+function versValeurListePlateforme(charge: ChargeValeurListePlateforme): ValeurListeDecoupagePlateforme {
+  return {
+    id: charge.id,
+    libelle: charge.libelle,
+    groupe: charge.groupe ?? "",
+    ordre: charge.ordre ?? 0,
+  };
+}
+
+function versListeDecoupagePlateforme(charge: ChargeListeDecoupagePlateforme): ListeDecoupagePlateforme {
+  const valeurs = (charge.valeurs ?? []).map(versValeurListePlateforme);
+  return {
+    id: charge.id,
+    libelle: charge.libelle,
+    description: charge.description ?? "",
+    ordre: charge.ordre ?? 0,
+    nombreValeurs: charge.nombre_valeurs ?? valeurs.length,
+    modeles: charge.modeles ?? [],
+    valeurs,
+  };
+}
+
+function versResultatAjoutPlateforme(
+  charge: ChargeResultatAjoutValeursPlateforme,
+): ResultatAjoutValeursPlateforme {
+  return {
+    ajoutees: (charge.ajoutees ?? []).map((v) => ({
+      id: v.id,
+      libelle: v.libelle,
+      groupe: v.groupe ?? "",
+    })),
+    ignorees: charge.ignorees ?? [],
+  };
+}
+
+/** `GET /admins/decoupage/listes/`. */
+export async function listerListesDecoupagePlateforme(
+  signal?: AbortSignal,
+): Promise<ListeDecoupagePlateforme[]> {
+  const charges = await apiAdministration.lire<ChargeListeDecoupagePlateforme[]>(
+    "/admins/decoupage/listes/",
+    undefined,
+    signal,
+  );
+  return (Array.isArray(charges) ? charges : []).map(versListeDecoupagePlateforme);
+}
+
+/** `POST /admins/decoupage/listes/`. */
+export async function creerListeDecoupagePlateforme(saisie: {
+  libelle: string;
+  description?: string;
+  valeurs?: string[];
+}): Promise<ListeDecoupagePlateforme> {
+  const charge = await apiAdministration.creer<ChargeListeDecoupagePlateforme>(
+    "/admins/decoupage/listes/",
+    {
+      libelle: saisie.libelle.trim(),
+      description: saisie.description?.trim() ?? "",
+      valeurs: saisie.valeurs ?? [],
+    },
+  );
+  return versListeDecoupagePlateforme(charge);
+}
+
+/** `PATCH /admins/decoupage/listes/{id}/`. */
+export async function modifierListeDecoupagePlateforme(
+  id: string,
+  saisie: { libelle?: string; description?: string; ordre?: number },
+): Promise<ListeDecoupagePlateforme> {
+  const charge = await apiAdministration.modifier<ChargeListeDecoupagePlateforme>(
+    `/admins/decoupage/listes/${id}/`,
+    saisie,
+  );
+  return versListeDecoupagePlateforme(charge);
+}
+
+/** `DELETE /admins/decoupage/listes/{id}/`. */
+export async function supprimerListeDecoupagePlateforme(id: string): Promise<void> {
+  await apiAdministration.supprimer(`/admins/decoupage/listes/${id}/`);
+}
+
+/** `POST /admins/decoupage/listes/{id}/valeurs/`. */
+export async function ajouterValeursListePlateforme(
+  listeId: string,
+  saisie: { valeurs: string[]; groupe?: string },
+): Promise<ResultatAjoutValeursPlateforme> {
+  const charge = await apiAdministration.creer<ChargeResultatAjoutValeursPlateforme>(
+    `/admins/decoupage/listes/${listeId}/valeurs/`,
+    {
+      valeurs: saisie.valeurs,
+      groupe: saisie.groupe?.trim() ?? "",
+    },
+  );
+  return versResultatAjoutPlateforme(charge);
+}
+
+/** `POST /admins/decoupage/listes/{id}/valeurs/importer/`. */
+export async function importerValeursListePlateforme(
+  listeId: string,
+  fichier: File,
+): Promise<ResultatAjoutValeursPlateforme> {
+  const corps = new FormData();
+  corps.append("fichier", fichier, fichier.name);
+  const charge = await apiAdministration.creer<ChargeResultatAjoutValeursPlateforme>(
+    `/admins/decoupage/listes/${listeId}/valeurs/importer/`,
+    corps,
+  );
+  return versResultatAjoutPlateforme(charge);
+}
+
+/** `GET /admins/decoupage/listes/modele-excel/`. */
+export async function telechargerModeleExcelListePlateforme(): Promise<Blob> {
+  return apiAdministration.telecharger("/admins/decoupage/listes/modele-excel/");
+}
+
+/** `PATCH /admins/decoupage/valeurs/{id}/`. */
+export async function modifierValeurListePlateforme(
+  valeurId: string,
+  saisie: { libelle?: string; groupe?: string; ordre?: number },
+): Promise<ValeurListeDecoupagePlateforme> {
+  const charge = await apiAdministration.modifier<ChargeValeurListePlateforme>(
+    `/admins/decoupage/valeurs/${valeurId}/`,
+    saisie,
+  );
+  return versValeurListePlateforme(charge);
+}
+
+/** `DELETE /admins/decoupage/valeurs/{id}/`. */
+export async function supprimerValeurListePlateforme(valeurId: string): Promise<void> {
+  await apiAdministration.supprimer(`/admins/decoupage/valeurs/${valeurId}/`);
 }

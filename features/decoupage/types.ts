@@ -36,6 +36,11 @@ export interface ListeValeurs extends ReferenceListe {
   valeurs: ValeurListe[];
 }
 
+export interface ResultatAjoutValeurs {
+  ajoutees: { id: string; libelle: string; groupe: string }[];
+  ignorees: string[];
+}
+
 /** Un modèle de découpage, tel que la liste des modèles le résume. */
 export interface ResumeModele {
   origine: OrigineReference;

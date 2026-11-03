@@ -597,4 +597,13 @@ export const apiAdministration = {
       base: basePlateforme(),
       espace: "administration",
     }),
+
+  telecharger: (chemin: string, parametres?: Options["parametres"], signal?: AbortSignal) =>
+    appelerBlob(chemin, {
+      methode: "GET",
+      parametres,
+      signal,
+      base: basePlateforme(),
+      espace: "administration",
+    }),
 };

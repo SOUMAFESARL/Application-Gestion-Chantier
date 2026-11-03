@@ -45,6 +45,7 @@ import type {
   OrigineReference,
   ReferenceListe,
   RefusTableau,
+  ResultatAjoutValeurs,
   ResultatApplication,
   ResumeModele,
   TableauDemarrage,
@@ -276,6 +277,95 @@ export async function listerListes(signal?: AbortSignal): Promise<ListeValeurs[]
     signal,
   );
   return aPlat(charge).map(versListe);
+}
+
+interface ChargeResultatAjoutValeurs {
+  ajoutees?: { id: string; libelle: string; groupe?: string }[];
+  ignorees?: string[];
+}
+
+function versResultatAjoutValeurs(charge: ChargeResultatAjoutValeurs): ResultatAjoutValeurs {
+  return {
+    ajoutees: (charge.ajoutees ?? []).map((v) => ({
+      id: v.id,
+      libelle: v.libelle,
+      groupe: v.groupe ?? "",
+    })),
+    ignorees: charge.ignorees ?? [],
+  };
+}
+
+/** Crée une nouvelle liste de valeurs propre à l'entreprise. */
+export async function creerListeValeurs(saisie: {
+  libelle: string;
+  description?: string;
+  valeurs?: string[];
+}): Promise<ListeValeurs> {
+  const charge = await api.creer<ChargeListeValeurs>("/decoupage/listes/", {
+    libelle: saisie.libelle.trim(),
+    description: saisie.description?.trim() ?? "",
+    valeurs: saisie.valeurs ?? [],
+  });
+  return versListe(charge);
+}
+
+/** Renomme ou décrit une liste créée par l'entreprise. */
+export async function modifierListeValeurs(
+  origine: OrigineReference,
+  id: string,
+  saisie: { libelle?: string; description?: string },
+): Promise<ListeValeurs> {
+  const charge = await api.modifier<ChargeListeValeurs>(`/decoupage/listes/${origine}/${id}/`, saisie);
+  return versListe(charge);
+}
+
+/** Retire une liste créée par l'entreprise. */
+export async function supprimerListeValeurs(
+  origine: OrigineReference,
+  id: string,
+): Promise<void> {
+  await api.supprimer(`/decoupage/listes/${origine}/${id}/`);
+}
+
+/** Ajoute une ou plusieurs valeurs (avec groupe optionnel) à une liste plateforme ou entreprise. */
+export async function ajouterValeursListe(
+  origine: OrigineReference,
+  id: string,
+  saisie: { valeurs: string[]; groupe?: string },
+): Promise<ResultatAjoutValeurs> {
+  const charge = await api.creer<ChargeResultatAjoutValeurs>(
+    `/decoupage/listes/${origine}/${id}/valeurs/`,
+    {
+      valeurs: saisie.valeurs,
+      groupe: saisie.groupe?.trim() ?? "",
+    },
+  );
+  return versResultatAjoutValeurs(charge);
+}
+
+/** Importe un fichier Excel (.xlsx) ou CSV (Libellé | Groupe) dans une liste de valeurs. */
+export async function importerValeursListe(
+  origine: OrigineReference,
+  id: string,
+  fichier: File,
+): Promise<ResultatAjoutValeurs> {
+  const corps = new FormData();
+  corps.append("fichier", fichier, fichier.name);
+  const charge = await api.creer<ChargeResultatAjoutValeurs>(
+    `/decoupage/listes/${origine}/${id}/valeurs/importer/`,
+    corps,
+  );
+  return versResultatAjoutValeurs(charge);
+}
+
+/** Télécharge l'exemple type Excel (.xlsx) à remplir pour importer les valeurs d'une liste. */
+export async function telechargerModeleExcelListe(): Promise<Blob> {
+  return api.telecharger("/decoupage/listes/modele-excel/");
+}
+
+/** Retire une valeur ajoutée par l'entreprise. */
+export async function retirerValeurListe(valeurId: string): Promise<void> {
+  await api.supprimer(`/decoupage/valeurs/${valeurId}/`);
 }
 
 /** Les modèles, ceux du type de projet en tête et le modèle par défaut d'abord. */

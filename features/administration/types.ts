@@ -527,7 +527,7 @@ export interface DemandeRoleSysteme {
 }
 
 /** Les référentiels de la plateforme, proposés à toutes les entreprises. */
-export const CATEGORIES_REFERENTIEL_PLATEFORME = ["types-projet", "lots", "modes-execution"] as const;
+export const CATEGORIES_REFERENTIEL_PLATEFORME = ["types-projet", "modes-execution"] as const;
 
 export type CategorieReferentielPlateforme = (typeof CATEGORIES_REFERENTIEL_PLATEFORME)[number];
 
@@ -535,6 +535,28 @@ export interface EntreeReferentielPlateforme {
   id: string;
   code: string;
   libelle: string;
-  /** Le titre de groupe — le corps d'état d'un lot ; pour un mode d'exécution, son mode de base. */
+  /** Pour un mode d'exécution, son mode de base ; pour un type de projet, sa famille éventuelle. */
   groupe: string;
+}
+
+export interface ValeurListeDecoupagePlateforme {
+  id: string;
+  libelle: string;
+  groupe: string;
+  ordre: number;
+}
+
+export interface ListeDecoupagePlateforme {
+  id: string;
+  libelle: string;
+  description: string;
+  ordre: number;
+  nombreValeurs: number;
+  modeles: { id: string; nom: string }[];
+  valeurs: ValeurListeDecoupagePlateforme[];
+}
+
+export interface ResultatAjoutValeursPlateforme {
+  ajoutees: { id: string; libelle: string; groupe: string }[];
+  ignorees: string[];
 }
