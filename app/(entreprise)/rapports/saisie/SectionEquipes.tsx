@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useFormContext, useWatch } from "react-hook-form";
 
 import { Badge } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { EquipeDuJour } from "@/features/chantier";
 import { QUALITES_EXECUTION, type ValeursRapport } from "@/features/chantier/validations";
@@ -13,11 +14,9 @@ import { cn } from "@/lib/utils";
 import { ChampPuces, ChampTexte, PAIRE, Signal, SousRubrique, useErreurSection } from "./elementsSaisie";
 
 /**
- * Les équipes des tâches du jour (30/10/2026) : pour chacune, ses membres ce jour, à cocher
- * présents ou en retard, ses heures, la qualité du travail quand elle se note, et le motif d'une
- * absence. Remplace les effectifs par catégorie sur les tâches tenues par une équipe.
- *
- * Pensé pour le téléphone (P16) : une personne par ligne, des cases larges, aucun tableau.
+ * Le pointage nominatif par équipe (`EquipeChantier`) : membres présents ou en retard,
+ * heures travaillées, appréciation qualité éventuelle et motif d'absence.
+ * Une équipe configurée mais non mobilisée aujourd'hui (0 présent) ne bloque jamais la soumission.
  */
 export function SectionEquipes({ equipes }: { equipes: EquipeDuJour[] }) {
   const t = useTranslations("journal.saisie.equipes");
@@ -49,7 +48,6 @@ function CarteEquipe({ equipe, rang }: { equipe: EquipeDuJour; rang: number }) {
     const actuelle = liste === "presents" ? presents : retards;
     const suivante = coche ? [...actuelle, personneId] : actuelle.filter((id) => id !== personneId);
     setValue(`equipes.${rang}.${liste}`, suivante, { shouldDirty: true });
-    // Un absent n'est pas en retard.
     if (liste === "presents" && !coche) {
       setValue(
         `equipes.${rang}.retards`,
@@ -59,6 +57,19 @@ function CarteEquipe({ equipe, rang }: { equipe: EquipeDuJour; rang: number }) {
     }
   }
 
+  function pointerTous() {
+    setValue(
+      `equipes.${rang}.presents`,
+      equipe.membres.map((membre) => membre.personneId),
+      { shouldDirty: true },
+    );
+  }
+
+  function viderPresents() {
+    setValue(`equipes.${rang}.presents`, [], { shouldDirty: true });
+    setValue(`equipes.${rang}.retards`, [], { shouldDirty: true });
+  }
+
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-solid border-neutral-200 bg-card p-3">
       <header className="flex flex-wrap items-center gap-2">
@@ -66,54 +77,76 @@ function CarteEquipe({ equipe, rang }: { equipe: EquipeDuJour; rang: number }) {
         <span className="flex-1 font-semibold text-neutral-900">{equipe.nom}</span>
         {equipe.entreprise && <Badge variante="neutre">{equipe.entreprise}</Badge>}
         {equipe.attendue && <Badge variante="information">{t("attendue")}</Badge>}
-        <span className="text-xs text-neutral-600">
+        <span className="text-xs text-neutral-600 tabular-nums">
           {t("compte", { presents: presents.length, total: equipe.membres.length })}
         </span>
       </header>
       {equipe.membres.length === 0 ? (
         <p className="m-0 text-sm text-neutral-500">{t("sansMembre")}</p>
       ) : (
-        <ul className="m-0 flex list-none flex-col gap-1 p-0">
-          {equipe.membres.map((membre) => {
-            const present = presents.includes(membre.personneId);
-            return (
-              <li
-                key={membre.personneId}
-                className={cn(
-                  "flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md px-2 py-1.5",
-                  present ? "bg-succes-fond" : "bg-neutral-50",
-                )}
-              >
-                <span className="flex min-w-0 flex-1 items-center gap-1.5 text-sm text-neutral-900">
-                  {membre.estChef && <Crown size={14} className="text-primary-600" aria-label={t("chef")} />}
-                  {membre.nom}
-                </span>
-                <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm text-neutral-700">
-                  <Checkbox
-                    checked={present}
-                    onCheckedChange={(coche) => basculer("presents", membre.personneId, coche === true)}
-                    className="size-5"
-                  />
-                  {t("present")}
-                </label>
-                <label
+        <>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={pointerTous}
+              disabled={presents.length === equipe.membres.length}
+            >
+              {t("tousPresents")}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={viderPresents}
+              disabled={presents.length === 0}
+            >
+              {t("aucunPresent")}
+            </Button>
+          </div>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+            {equipe.membres.map((membre) => {
+              const present = presents.includes(membre.personneId);
+              return (
+                <li
+                  key={membre.personneId}
                   className={cn(
-                    "flex min-h-10 cursor-pointer items-center gap-2 text-sm text-neutral-700",
-                    !present && "opacity-50",
+                    "flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md px-2 py-1.5",
+                    present ? "bg-succes-fond" : "bg-neutral-50",
                   )}
                 >
-                  <Checkbox
-                    checked={retards.includes(membre.personneId)}
-                    onCheckedChange={(coche) => basculer("retards", membre.personneId, coche === true)}
-                    disabled={!present}
-                    className="size-5"
-                  />
-                  {t("retard")}
-                </label>
-              </li>
-            );
-          })}
-        </ul>
+                  <span className="flex min-w-0 flex-1 items-center gap-1.5 text-sm text-neutral-900">
+                    {membre.estChef && <Crown size={14} className="text-primary-600" aria-label={t("chef")} />}
+                    {membre.nom}
+                  </span>
+                  <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm text-neutral-700">
+                    <Checkbox
+                      checked={present}
+                      onCheckedChange={(coche) => basculer("presents", membre.personneId, coche === true)}
+                      className="size-5"
+                    />
+                    {t("present")}
+                  </label>
+                  <label
+                    className={cn(
+                      "flex min-h-10 cursor-pointer items-center gap-2 text-sm text-neutral-700",
+                      !present && "opacity-50",
+                    )}
+                  >
+                    <Checkbox
+                      checked={retards.includes(membre.personneId)}
+                      onCheckedChange={(coche) => basculer("retards", membre.personneId, coche === true)}
+                      disabled={!present}
+                      className="size-5"
+                    />
+                    {t("retard")}
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
       <div className={PAIRE}>
         <ChampTexte
@@ -140,7 +173,7 @@ function CarteEquipe({ equipe, rang }: { equipe: EquipeDuJour; rang: number }) {
       <ChampTexte
         name={`equipes.${rang}.observation`}
         libelle={t("observation")}
-        requis={absents > 0 || retards.length > 0}
+        requis={presents.length > 0 && (absents > 0 || retards.length > 0)}
         multiligne
         lignes={2}
       />

@@ -42,20 +42,20 @@ const SANS_LOT = "__sans_lot__";
 const OBJECTIF_VIDE: ObjectifSuivant = { lotCode: "", activite: "", objectif: "", cible: 0, prerequis: "" };
 
 /**
- * Le geste attendu sur la synthèse, posé au-dessus du document : le
- * conducteur de travaux la rédige et la signe, le chef de projet l'approuve
- * ou la lui renvoie.
- *
- * Personne d'autre ne voit ce panneau : signe celui qui tient la fonction sur
- * le chantier (`tientEtape`), comme pour le rapport journalier. Une période
- * personnalisée ou en cours n'attend personne (`etapeSynthese`).
+ * Le geste attendu sur la synthèse, posé au-dessus du document : le validateur
+ * (`journal.valider`) la rédige et la signe (`VALIDATION`), l'approbateur
+ * (`journal.approuver`) l'approuve ou la lui renvoie (`APPROBATION`).
  */
 export function CircuitSynthese({ synthese, demande }: { synthese: SynthesePeriodique; demande: DemandeSynthese }) {
   const etape = synthese.etapeASigner;
 
   if (!etape) return null;
-  if (etape === "CP" && synthese.id) return <DecisionChefProjet synthese={synthese} demande={demande} id={synthese.id} />;
-  if (etape === "CT") return <RedactionConducteur synthese={synthese} demande={demande} />;
+  if (etape === "APPROBATION" && synthese.id) {
+    return <DecisionApprobation synthese={synthese} demande={demande} id={synthese.id} />;
+  }
+  if (etape === "VALIDATION") {
+    return <RedactionValidation synthese={synthese} demande={demande} />;
+  }
   return null;
 }
 
@@ -72,10 +72,10 @@ function messageErreur(err: unknown, repli: string): string {
 }
 
 /* ------------------------------------------------------------------ *
- * Le conducteur de travaux.
+ * Rédaction et validation de la synthèse.
  * ------------------------------------------------------------------ */
 
-function RedactionConducteur({ synthese, demande }: { synthese: SynthesePeriodique; demande: DemandeSynthese }) {
+function RedactionValidation({ synthese, demande }: { synthese: SynthesePeriodique; demande: DemandeSynthese }) {
   const t = useTranslations("journal.syntheseCircuit.redaction");
   const tCircuit = useTranslations("journal.syntheseCircuit");
   const mettreAJour = useMiseAJour(demande);
@@ -84,7 +84,7 @@ function RedactionConducteur({ synthese, demande }: { synthese: SynthesePeriodiq
     synthese.redaction ?? { appreciation: "", objectifs: [] },
   );
   const [confirmation, setConfirmation] = useState(false);
-  const rejet = synthese.circuit.find((etape) => etape.role === "CP" && etape.etat === "REJETE");
+  const rejet = synthese.circuit.find((etape) => etape.role === "APPROBATION" && etape.etat === "REJETE");
 
   const mutation = useMutation({
     mutationFn: (signer: boolean) =>
@@ -329,12 +329,12 @@ function LigneObjectif({
 }
 
 /* ------------------------------------------------------------------ *
- * Le chef de projet.
+ * Approbation de la synthèse.
  * ------------------------------------------------------------------ */
 
 type Decision = "approuver" | "rejeter";
 
-function DecisionChefProjet({
+function DecisionApprobation({
   synthese,
   demande,
   id,
@@ -387,7 +387,7 @@ function DecisionChefProjet({
               {t("titre")}
             </h2>
             <p className="m-0 text-sm text-neutral-600">
-              {t("description", { conducteur: synthese.conducteurTravaux })}
+              {t("description", { validateur: synthese.validateurs })}
             </p>
           </div>
         </div>

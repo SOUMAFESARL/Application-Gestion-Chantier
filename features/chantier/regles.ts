@@ -1,36 +1,38 @@
 /**
- * Les règles du journal de chantier — plan de refonte, lot 4, couche 2.
+ * Les règles pures du journal de chantier — ni React, ni HTTP.
  *
- * Pures : ni React, ni HTTP. Tout ce que les écrans du journal comptent,
- * trient ou déduisent passe par ici — qu'un rapport soit « déposé », qu'une
- * validation soit hors délai, ce que vaut une semaine — pour qu'un même
- * chiffre ne soit jamais calculé deux fois, de deux façons.
+ * Tout ce que les écrans du journal comptent, trient ou déduisent passe par ici :
+ * fenêtre de saisie sur jours ouvrés, étapes de circuit par permission
+ * (`REDACTION` → `VALIDATION` → `APPROBATION`), avancement des feuilles selon
+ * leurs trois modes de mesure (`QUANTITE`, `POURCENTAGE`, `JALON`), pointage
+ * nominatif par équipe et alertes immédiates.
  *
  * **Les dates sont des jours `AAAA-MM-JJ`, lus en UTC** : un jour de journal
- * est un jour de chantier, pas un instant ; lu en heure locale il reculerait
- * d'un jour à l'ouest de Greenwich.
+ * est un jour de chantier, pas un instant horaire.
  */
 
 import type { ConditionMeteo } from "@/features/projets/types";
 
 import type {
   ActivitePreparee,
+  ActiviteSaisie,
   AlerteImmediate,
   EntreeJournal,
   EtapeCircuit,
+  EtapeSignable,
   IncidentSynthese,
   LigneActivite,
   LigneEffectif,
   LigneMateriau,
-  LigneProduction,
   LotJournal,
   MateriauDisponible,
   Meteo,
   NatureEvenement,
-  NiveauBlocageSaisi,
+  NiveauBlocage,
   ObjectifSuivant,
   PointLot,
   PreparationSaisie,
+  PresenceEquipeRapport,
   RapportDuJour,
   RapportEnAttente,
   RapportJournalier,
@@ -50,19 +52,21 @@ import type {
  * Les constantes du circuit.
  * ------------------------------------------------------------------ */
 
-/** L'heure à laquelle un chantier sans rapport déclenche la relance automatique du CC. */
+/** L'heure à laquelle un chantier sans rapport déclenche la relance automatique du rédacteur. */
 export const HEURE_ALERTE_NON_SOUMIS = "17:30";
-/** L'heure à laquelle le CT et le CP sont alertés à leur tour. */
+/** L'heure à laquelle les validateurs et approbateurs sont alertés à leur tour. */
 export const HEURE_ESCALADE = "18:00";
-/** Le CT valide sous 24 h — au plus tard le lendemain 07:30. */
-export const DELAI_VALIDATION_CT_HEURES = 24;
+/** Chaque étape de validation dispose de 24 h. */
+export const DELAI_VALIDATION_HEURES = 24;
+/** Alias conservé pour compatibilité interne. */
+export const DELAI_VALIDATION_CT_HEURES = DELAI_VALIDATION_HEURES;
 /** La note d'un rejet doit dire pourquoi : 20 caractères au moins. */
 export const LONGUEUR_MIN_COMMENTAIRE_REJET = 20;
-/** La cible de présence des équipes en régie. */
+/** La cible de présence des équipes sur le chantier. */
 export const CIBLE_PRESENCE = 92;
 
 /* ------------------------------------------------------------------ *
- * Les jours.
+ * Les jours et périodes.
  * ------------------------------------------------------------------ */
 
 function versDateUtc(jour: string): Date {
@@ -73,7 +77,7 @@ function versJour(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** Le jour courant du poste, au format du journal. */
+/** Le jour courant du poste, au format `AAAA-MM-JJ`. */
 export function jourDe(date: Date): string {
   const mois = String(date.getMonth() + 1).padStart(2, "0");
   const jour = String(date.getDate()).padStart(2, "0");
@@ -91,13 +95,13 @@ export function jourDeSemaine(jour: string): number {
   return versDateUtc(jour).getUTCDay();
 }
 
-/** Les chantiers rendent un rapport du lundi au vendredi. */
+/** Repli local lundi–vendredi lorsque le calendrier serveur n'est pas fourni. */
 export function estJourOuvre(jour: string): boolean {
   const rang = jourDeSemaine(jour);
   return rang >= 1 && rang <= 5;
 }
 
-/** Les jours ouvrés de `debut` à `fin`, bornes comprises. */
+/** Les jours ouvrés de repli entre `debut` et `fin`, bornes comprises. */
 export function joursOuvres(debut: string, fin: string): string[] {
   const jours: string[] = [];
   for (let jour = debut; jour <= fin; jour = ajouterJours(jour, 1)) {
@@ -106,7 +110,7 @@ export function joursOuvres(debut: string, fin: string): string[] {
   return jours;
 }
 
-/** Le `nombre`-ième jour ouvré avant `jour` (0 : `jour` lui-même s'il est ouvré). */
+/** Le `nombre`-ième jour ouvré avant `jour` (0 : `jour` lui-même s'il est ouvré, sinon le précédent). */
 export function jourOuvreAvant(jour: string, nombre: number): string {
   let courant = jour;
   while (!estJourOuvre(courant)) courant = ajouterJours(courant, -1);
@@ -132,11 +136,14 @@ export interface Periode {
   fin: string;
 }
 
-/** La semaine de chantier qui contient `jour` : du lundi au vendredi. */
+/**
+ * La semaine complète qui contient `jour` : du lundi au dimanche, afin d'inclure
+ * le samedi (ou dimanche exceptionnel) lorsque le calendrier d'entreprise l'ouvre.
+ */
 export function semaineDe(jour: string): Periode {
   const rang = jourDeSemaine(jour) || 7;
   const lundi = ajouterJours(jour, 1 - rang);
-  return { type: "HEBDOMADAIRE", debut: lundi, fin: ajouterJours(lundi, 4) };
+  return { type: "HEBDOMADAIRE", debut: lundi, fin: ajouterJours(lundi, 6) };
 }
 
 /** Le mois civil qui contient `jour`. */
@@ -182,9 +189,9 @@ export function estDepose(situation: SituationRapport): boolean {
   return situation !== "NON_SOUMIS";
 }
 
-/** Un rapport validé par le CT au moins : ses chiffres comptent. */
+/** Seuls les rapports validés ou approuvés alimentent les chiffres consolidés. */
 export function estValide(situation: SituationRapport): boolean {
-  return situation === "VALIDE_CT" || situation === "APPROUVE_CP";
+  return situation === "VALIDE" || situation === "APPROUVE";
 }
 
 /** Un rapport qui manque au soir : jamais commencé, ou resté en brouillon. */
@@ -197,16 +204,13 @@ export function aUnDocument(entree: EntreeJournal): boolean {
   return entree.reference !== null && entree.situation !== "NON_SOUMIS";
 }
 
-/**
- * L'ordre de lecture d'une journée : d'abord ce qui manque, puis ce qui
- * attend, enfin ce qui est clos.
- */
+/** L'ordre de lecture d'une journée : d'abord ce qui manque, puis ce qui attend, enfin ce qui est clos. */
 const ORDRE_SITUATION: Record<SituationRapport, number> = {
   NON_SOUMIS: 0,
   REJETE: 1,
   SOUMIS: 2,
-  VALIDE_CT: 3,
-  APPROUVE_CP: 4,
+  VALIDE: 3,
+  APPROUVE: 4,
 };
 
 export function comparerSituations(a: EntreeJournal, b: EntreeJournal): number {
@@ -238,15 +242,15 @@ export interface ValidationEnAttente {
 }
 
 /**
- * Les rapports déposés qui attendent une signature — CT ou CP — rangés par
- * urgence : les hors délai d'abord, puis par échéance.
+ * Les rapports déposés qui attendent une signature (`VALIDATION` ou `APPROBATION`),
+ * rangés par urgence : les hors délai d'abord, puis par échéance.
  */
 export function validationsEnAttente(
   entrees: EntreeJournal[],
   maintenant: Date,
 ): ValidationEnAttente[] {
   return entrees
-    .filter((entree) => entree.situation === "SOUMIS" || entree.situation === "VALIDE_CT")
+    .filter((entree) => entree.situation === "SOUMIS" || entree.situation === "VALIDE")
     .flatMap((entree) => {
       const etape = etapeEnAttente(entree.circuit);
       return etape ? [{ entree, etape, horsDelai: estHorsDelai(entree.circuit, maintenant) }] : [];
@@ -258,7 +262,7 @@ export function validationsEnAttente(
     );
 }
 
-/** Les rapports rejetés, en attente de correction par le chef de chantier. */
+/** Les rapports rejetés, en attente de correction par le rédacteur. */
 export function rapportsRejetes(entrees: EntreeJournal[]): EntreeJournal[] {
   return entrees
     .filter((entree) => entree.situation === "REJETE")
@@ -273,8 +277,8 @@ export interface SituationJour {
   attendus: number;
   deposes: number;
   manquants: number;
-  enAttenteCt: number;
-  enAttenteCp: number;
+  enAttenteValidation: number;
+  enAttenteApprobation: number;
   approuves: number;
   rejetes: number;
   chantiers: number;
@@ -291,9 +295,9 @@ export function situationDuJour(entrees: EntreeJournal[], jour: string): Situati
     attendus: duJour.length,
     deposes,
     manquants: duJour.filter((entree) => estManquant(entree.situation)).length,
-    enAttenteCt: compter("SOUMIS"),
-    enAttenteCp: compter("VALIDE_CT"),
-    approuves: compter("APPROUVE_CP"),
+    enAttenteValidation: compter("SOUMIS"),
+    enAttenteApprobation: compter("VALIDE"),
+    approuves: compter("APPROUVE"),
     rejetes: compter("REJETE"),
     chantiers: new Set(duJour.map((entree) => entree.chantier.projetId)).size,
     taux: pourcentage(deposes, duJour.length),
@@ -379,12 +383,15 @@ export function filtrerEntrees(
             entree.reference ?? "",
             entree.chantier.projetNom,
             entree.chantier.projetReference,
-            entree.chantier.chefChantier,
+            entree.chantier.redacteur,
             ...entree.lots.flatMap((lot) => [lot.code, lot.nom]),
           ].join(" "),
         ).includes(recherche),
     )
-    .sort((a, b) => b.date.localeCompare(a.date) || a.chantier.projetNom.localeCompare(b.chantier.projetNom));
+    .sort(
+      (a, b) =>
+        b.date.localeCompare(a.date) || a.chantier.projetNom.localeCompare(b.chantier.projetNom),
+    );
 }
 
 export function criteresActifs(criteres: CriteresJournal): boolean {
@@ -410,7 +417,10 @@ export function tauxPresence(presents: number | null, prevus: number | null): nu
 }
 
 /** Le retard d'un chantier ou d'un lot sur son planning, en points (positif : en retard). */
-export function retardPoints(entree: { avancement: number | null; avancementTheorique: number | null }): number | null {
+export function retardPoints(entree: {
+  avancement: number | null;
+  avancementTheorique: number | null;
+}): number | null {
   if (entree.avancement === null || entree.avancementTheorique === null) return null;
   return Math.round(entree.avancementTheorique - entree.avancement);
 }
@@ -420,10 +430,7 @@ export function codesLots(lots: Pick<LotJournal, "code">[]): string {
   return lots.map((lot) => lot.code).join(" · ");
 }
 
-/**
- * Le mode d'exécution d'un lot en toutes lettres : celui que le serveur
- * résout dans le référentiel, à défaut le libellé de son mode de base.
- */
+/** Le mode d'exécution d'un lot en toutes lettres : celui du référentiel, sinon le mode de base. */
 export function libelleModeLot(
   lot: Pick<LotJournal, "modeExecution" | "modeExecutionLibelle">,
   libelleBase: (mode: LotJournal["modeExecution"]) => string,
@@ -451,38 +458,58 @@ export function totauxEffectifs(lignes: LigneEffectif[]): TotauxEffectifs {
   };
 }
 
+/** Totaux de présence calculés sur les équipes nominatives d'un rapport. */
+export function totauxEquipes(equipes: PresenceEquipeRapport[]): TotauxEffectifs {
+  const prevus = equipes.reduce((total, equipe) => total + equipe.membres, 0);
+  const presents = equipes.reduce((total, equipe) => total + equipe.presents.length, 0);
+  const absents = equipes.reduce((total, equipe) => total + equipe.absents.length, 0);
+  const heures = equipes.reduce(
+    (total, equipe) => total + equipe.presents.length * (equipe.heures ?? 0),
+    0,
+  );
+  return {
+    prevus,
+    presents,
+    absents,
+    heures: Math.round(heures * 10) / 10,
+    taux: pourcentage(presents, prevus),
+  };
+}
+
 /** La présence est acceptable à partir de 85 %, bonne à partir de la cible. */
-export function presenceSuffisante(taux: number | null): "BONNE" | "ACCEPTABLE" | "INSUFFISANTE" | null {
+export function presenceSuffisante(
+  taux: number | null,
+): "BONNE" | "ACCEPTABLE" | "INSUFFISANTE" | null {
   if (taux === null) return null;
   if (taux >= CIBLE_PRESENCE) return "BONNE";
   if (taux >= 85) return "ACCEPTABLE";
   return "INSUFFISANTE";
 }
 
-/**
- * Le montant d'un bon de tâcheron : quantité du jour × prix du bordereau.
- * `null` quand le prix est masqué — le serveur ne le donne qu'à qui peut voir
- * les montants, et un total calculé sans lui serait faux sans le paraître.
- */
-export function montantProduction(ligne: LigneProduction): number | null {
-  return ligne.prixUnitaire === null ? null : Math.round(ligne.prixUnitaire * ligne.quantiteJour);
-}
-
-export function totalProduction(lignes: LigneProduction[]): number | null {
-  const montants = lignes.map(montantProduction);
-  return montants.some((montant) => montant === null)
-    ? null
-    : montants.reduce<number>((total, montant) => total + (montant ?? 0), 0);
-}
-
 export function cumulActivite(ligne: LigneActivite): number {
-  return ligne.cumulVeille + ligne.quantiteJour;
+  return Math.round((ligne.cumulVeille + ligne.quantiteJour) * 1000) / 1000;
 }
 
 export function avancementActivite(ligne: LigneActivite): number {
+  if (ligne.modeMesure === "POURCENTAGE") {
+    return Math.min(100, Math.max(0, Math.round(ligne.pourcentageJour ?? ligne.pourcentageVeille)));
+  }
+  if (ligne.modeMesure === "JALON") {
+    return ligne.jalonAtteint ? 100 : 0;
+  }
   return ligne.quantitePrevue > 0
     ? Math.min(100, Math.round((cumulActivite(ligne) / ligne.quantitePrevue) * 100))
     : 0;
+}
+
+export function activiteAvanceeCeJour(ligne: LigneActivite): boolean {
+  if (ligne.modeMesure === "POURCENTAGE") {
+    return ligne.pourcentageJour !== null && ligne.pourcentageJour > ligne.pourcentageVeille;
+  }
+  if (ligne.modeMesure === "JALON") {
+    return ligne.jalonAtteint;
+  }
+  return ligne.quantiteJour > 0;
 }
 
 /** `null` : un matériau saisi librement, dont le stock n'est pas suivi. */
@@ -495,9 +522,9 @@ export function enAlerteStock(stock: number | null, seuil: number | null): boole
   return stock !== null && seuil !== null && stock <= seuil;
 }
 
-/** Les activités qui avancent ce jour. */
+/** Les activités qui avancent ce jour, tous modes de mesure confondus. */
 export function activitesActives(lignes: LigneActivite[]): number {
-  return lignes.filter((ligne) => ligne.quantiteJour > 0).length;
+  return lignes.filter(activiteAvanceeCeJour).length;
 }
 
 /** Toutes les activités d'un rapport, lots confondus. */
@@ -507,9 +534,6 @@ export function activitesDuRapport(rapport: Pick<RapportJournalier, "travaux">):
 
 /* ------------------------------------------------------------------ *
  * La synthèse périodique.
- *
- * Django l'agrège des rapports (`apps/chantier/selectors/synthese.py`) ;
- * ne reste ici que ce que l'écran en déduit, et son circuit.
  * ------------------------------------------------------------------ */
 
 function arrondi(valeur: number, decimales = 0): number {
@@ -517,17 +541,16 @@ function arrondi(valeur: number, decimales = 0): number {
   return Math.round(valeur * facteur) / facteur;
 }
 
-/** Une appréciation signée doit dire quelque chose : 20 caractères au moins, comme un motif de rejet. */
+/** Une appréciation signée doit dire quelque chose : 20 caractères au moins. */
 export const LONGUEUR_MIN_APPRECIATION = 20;
 
 /**
- * Qui la synthèse attend : le conducteur de travaux tant qu'il n'a pas signé
- * — ou après un rejet du chef de projet —, le chef de projet ensuite. Une
- * période libre, en cours ou une synthèse approuvée n'attendent personne.
+ * L'étape attendue sur une synthèse périodique : `VALIDATION` tant que la
+ * rédaction n'est pas signée (ou après rejet), `APPROBATION` une fois soumise.
  */
-export function etapeSynthese(statut: StatutSynthese): "CT" | "CP" | null {
-  if (statut === "A_REDIGER" || statut === "BROUILLON" || statut === "REJETEE") return "CT";
-  if (statut === "SOUMISE") return "CP";
+export function etapeSynthese(statut: StatutSynthese): EtapeSignable | null {
+  if (statut === "A_REDIGER" || statut === "BROUILLON" || statut === "REJETEE") return "VALIDATION";
+  if (statut === "SOUMISE") return "APPROBATION";
   return null;
 }
 
@@ -542,23 +565,26 @@ export function objectifComplet(objectif: ObjectifSuivant): boolean {
   );
 }
 
-/** Une rédaction s'enregistre dès que ses objectifs sont complets ; elle se signe si l'appréciation dit quelque chose. */
 export function redactionEnregistrable(redaction: RedactionSynthese): boolean {
   return redaction.objectifs.every(objectifComplet);
 }
 
 export function redactionSignable(redaction: RedactionSynthese): boolean {
-  return redactionEnregistrable(redaction) && redaction.appreciation.trim().length >= LONGUEUR_MIN_APPRECIATION;
+  return (
+    redactionEnregistrable(redaction) &&
+    redaction.appreciation.trim().length >= LONGUEUR_MIN_APPRECIATION
+  );
 }
-
 
 /** L'écart d'un gain à son objectif, en points. */
 export function ecartObjectif(gain: number, objectif: number): number {
   return arrondi(gain - objectif);
 }
 
-/** La période manquante qui explique une synthèse incomplète. */
-export function rapportsManquants(synthese: Pick<SynthesePeriodique, "recapitulatif">): EntreeJournal[] {
+/** Les rapports manquants qui expliquent une synthèse incomplète. */
+export function rapportsManquants(
+  synthese: Pick<SynthesePeriodique, "recapitulatif">,
+): EntreeJournal[] {
   return synthese.recapitulatif.filter((entree) => estManquant(entree.situation));
 }
 
@@ -595,28 +621,21 @@ export function indicateursJournalProjet(
 }
 
 /* ------------------------------------------------------------------ *
- * La saisie du rapport journalier (SFD F2 §5-6, RG-F2-01 à 11).
+ * La saisie du rapport journalier.
  * ------------------------------------------------------------------ */
 
-/** Un rapport se rédige pour le jour même, ou rattrape au plus les deux jours précédents. */
+/** Un rapport se rédige sur les 3 derniers jours ouvrés de l'entreprise (`J`, `J-1`, `J-2`). */
 export const JOURS_RETROACTIFS_SAISIE = 2;
-export const PHOTOS_MAX = 5;
-/** Documents joints : peu, et légers — la connexion d'un chantier en région ne passe pas plus. */
+export const PHOTOS_MAX = 10;
 export const PIECES_JOINTES_MAX = 3;
-export const TAILLE_MAX_PIECE_JOINTE = 2 * 1024 * 1024;
-/**
- * Les pièces jointes sont des documents (PV, plans, métrés) — pas de vidéo :
- * les images passent par les photos, horodatées et géolocalisées.
- */
+export const TAILLE_MAX_PIECE_JOINTE = 5 * 1024 * 1024;
 export const EXTENSIONS_DOCUMENT: readonly string[] = [".pdf", ".doc", ".docx", ".xls", ".xlsx"];
 
-/** Le sélecteur de fichiers ne fait que suggérer : l'écran vérifie le nom du fichier retenu. */
 export function estDocumentAccepte(nomFichier: string): boolean {
   const nom = nomFichier.toLowerCase();
   return EXTENSIONS_DOCUMENT.some((extension) => nom.endsWith(extension));
 }
 
-/** Le format d'un document joint, d'après son extension — ce que le rapport en affiche. */
 export type FormatDocument = "PDF" | "WORD" | "EXCEL" | "AUTRE";
 
 export function formatDocument(nomFichier: string): FormatDocument {
@@ -627,23 +646,17 @@ export function formatDocument(nomFichier: string): FormatDocument {
   return "AUTRE";
 }
 
-/** Une taille en octets, arrondie au kilo-octet supérieur : un document de 200 o pèse 1 Ko, pas 0. */
 export function tailleKo(octets: number): number {
   return Math.ceil(octets / 1024);
 }
+
 export const LONGUEUR_MIN_NOTE = 10;
 export const LONGUEUR_MIN_DESCRIPTION_INCIDENT = 20;
-/** Sous ce taux de présence, le rapport le signale avant même la soumission. */
 export const SEUIL_ALERTE_PRESENCE = 60;
-/** Le brouillon part au serveur toutes les 30 secondes s'il a changé. */
 export const INTERVALLE_SAUVEGARDE_MS = 30_000;
-/** Au-delà, une journée de chantier n'a plus de sens. */
 export const HEURES_MAX_JOUR = 24;
 
-/**
- * Le ciel du rapport d'après le relevé météo du chantier — pour préremplir,
- * jamais pour imposer : le chef de chantier voit le ciel, le service non.
- */
+/** Le ciel du rapport d'après le relevé météo du chantier — pour préremplir, jamais pour imposer. */
 export function cielDepuisReleve(condition: ConditionMeteo | string | null): Meteo | null {
   switch (condition) {
     case "DEGAGE":
@@ -666,41 +679,62 @@ export function cielDepuisReleve(condition: ConditionMeteo | string | null): Met
   }
 }
 
-/** Les jours qu'on peut encore rapporter, le plus récent d'abord. */
-export function joursSaisissables(aujourdhui: string): string[] {
-  return Array.from({ length: JOURS_RETROACTIFS_SAISIE + 1 }, (_, rang) => ajouterJours(aujourdhui, -rang));
+/**
+ * Les jours ouvrés saisissables (`J`, `J-1`, `J-2`), tels que calculés par le
+ * calendrier d'entreprise côté serveur, avec repli local sur les 3 derniers jours ouvrés.
+ */
+export function joursSaisissables(aujourdhui: string, joursServeur?: string[]): string[] {
+  if (joursServeur && joursServeur.length > 0) return joursServeur;
+  return Array.from({ length: JOURS_RETROACTIFS_SAISIE + 1 }, (_, rang) =>
+    jourOuvreAvant(aujourdhui, rang),
+  );
 }
 
-export function jourSaisissable(jour: string, aujourdhui: string): boolean {
-  return joursSaisissables(aujourdhui).includes(jour);
+export function jourSaisissable(
+  jour: string,
+  aujourdhui: string,
+  joursServeur?: string[],
+): boolean {
+  return joursSaisissables(aujourdhui, joursServeur).includes(jour);
 }
 
 /**
- * Les rapports qu'un chantier attend encore de son chef de chantier, du plus
- * récent au plus ancien : chaque jour ouvré depuis le début du chantier qui
- * n'a pas de rapport, plus les brouillons et les rejets — ceux-là même un
- * jour chômé, puisqu'ils ont été commencés. Un rapport soumis n'attend plus
- * rien du chef de chantier.
+ * Les rapports qu'un chantier attend encore de son rédacteur, du plus récent
+ * au plus ancien : les jours ouvrés sans rapport, les brouillons et les rejets.
  *
- * Sans date de début connue, seuls les jours encore saisissables comptent :
- * on ne réclame pas des rapports d'avant le chantier.
+ * - Si `aujourdhui` est un jour non ouvré d'après le calendrier d'entreprise,
+ *   aucun rapport n'est attendu ce jour-là (sauf si un brouillon ou rejet existe).
+ * - Un rapport `REJETE` demeure toujours corrigeable et resoumettable (`redigeable: true`),
+ *   même au-delà de la fenêtre `J-2`.
  */
 export function rapportsEnAttente(
   debut: string | null,
   aujourdhui: string,
   rapports: RapportDuJour[],
+  options?: { estJourOuvreAujourdhui?: boolean; joursSaisissables?: string[] },
 ): RapportEnAttente[] {
   const parJour = new Map(rapports.map((rapport) => [rapport.date, rapport]));
-  const premier = debut && debut <= aujourdhui ? debut : (joursSaisissables(aujourdhui).at(-1) ?? aujourdhui);
+  const fenetre = joursSaisissables(aujourdhui, options?.joursSaisissables);
+  const premier = debut && debut <= aujourdhui ? debut : (fenetre.at(-1) ?? aujourdhui);
+  const attendusOuvres = joursOuvres(premier, aujourdhui).filter(
+    (jour) => !(jour === aujourdhui && options?.estJourOuvreAujourdhui === false),
+  );
+  for (const jourServeur of fenetre) {
+    if (jourServeur >= premier && jourServeur <= aujourdhui) attendusOuvres.push(jourServeur);
+  }
   const jours = new Set([
-    ...joursOuvres(premier, aujourdhui),
+    ...attendusOuvres,
     ...rapports.map((rapport) => rapport.date).filter((jour) => jour <= aujourdhui),
   ]);
   return [...jours]
     .sort((a, b) => b.localeCompare(a))
     .flatMap((date): RapportEnAttente[] => {
       const rapport = parJour.get(date);
-      const etat = !rapport ? "A_REDIGER" : rapport.statut === "BROUILLON" || rapport.statut === "REJETE" ? rapport.statut : null;
+      const etat = !rapport
+        ? "A_REDIGER"
+        : rapport.statut === "BROUILLON" || rapport.statut === "REJETE"
+          ? rapport.statut
+          : null;
       if (!etat) return [];
       return [
         {
@@ -708,189 +742,237 @@ export function rapportsEnAttente(
           etat,
           rapportId: rapport?.id ?? null,
           enregistreLe: rapport?.enregistreLe ?? null,
-          redigeable: jourSaisissable(date, aujourdhui),
+          redigeable: etat === "REJETE" || jourSaisissable(date, aujourdhui, fenetre),
         },
       ];
     });
 }
 
-/**
- * Les brouillons d'un chef de chantier, tous chantiers confondus, du plus
- * récent au plus ancien. Un brouillon au-delà de J-2 reste listé — il ne se
- * reprend plus (`redigeable`), mais le chef de chantier doit savoir qu'il
- * n'a jamais été soumis.
- */
+/** Les brouillons d'un rédacteur, tous chantiers confondus, du plus récent au plus ancien. */
 export function brouillonsEnCours<P>(
-  parProjet: { projet: P; aujourdhui: string; rapports: RapportDuJour[] }[],
+  parProjet: {
+    projet: P;
+    aujourdhui: string;
+    joursSaisissables?: string[];
+    rapports: RapportDuJour[];
+  }[],
 ): { projet: P; rapport: RapportDuJour; redigeable: boolean }[] {
   return parProjet
-    .flatMap(({ projet, aujourdhui, rapports }) =>
+    .flatMap(({ projet, aujourdhui, joursSaisissables: fenetre, rapports }) =>
       rapports
         .filter((rapport) => rapport.statut === "BROUILLON")
-        .map((rapport) => ({ projet, rapport, redigeable: jourSaisissable(rapport.date, aujourdhui) })),
+        .map((rapport) => ({
+          projet,
+          rapport,
+          redigeable: jourSaisissable(rapport.date, aujourdhui, fenetre),
+        })),
     )
     .sort(
       (a, b) =>
-        b.rapport.date.localeCompare(a.rapport.date) || b.rapport.enregistreLe.localeCompare(a.rapport.enregistreLe),
+        b.rapport.date.localeCompare(a.rapport.date) ||
+        b.rapport.enregistreLe.localeCompare(a.rapport.enregistreLe),
     );
 }
 
-/**
- * Le chef de chantier ne touche plus un rapport soumis (RG-F2-03) : seul un
- * rejet du CT le lui rend. Un rapport qui n'existe pas encore se rédige.
- */
+/** Un rapport soumis ne se touche plus : seul un rejet le rend à son auteur. */
 export function rapportModifiable(statut: StatutRapport | null): boolean {
   return statut === null || statut === "BROUILLON" || statut === "REJETE";
 }
 
 /**
- * Les sections à remplir, d'après celles que le serveur donne pour le chantier.
- * Une journée d'arrêt n'a ni avancement ni consommation (SFD §4.4) : elle ne
- * crée aucun mouvement de stock, aucune production à payer. Elle ne déclare
- * pas davantage d'effectif, d'engin ou de livraison : le rapport se réduit à
- * la journée — horaires, motif de l'arrêt, météo.
+ * Les sections actives du rapport : en journée d'arrêt, seuls les travaux
+ * (`AVANCEMENT`) et le pointage (`EQUIPES`) sont écartés ; les livraisons,
+ * matériels en panne, preuves photos et blocages restent saisissables.
  */
 export function sectionsActives(sections: SectionSaisie[], arret: boolean): SectionSaisie[] {
-  return arret ? [] : sections;
+  return arret
+    ? sections.filter((section) => section !== "AVANCEMENT" && section !== "EQUIPES")
+    : sections;
 }
 
-/**
- * À qui remonte un blocage : le chef de chantier tranche un blocage mineur,
- * le CT négocie un blocage significatif, le CP reçoit un blocage bloquant.
- */
-export function escaladeBlocage(niveau: NiveauBlocageSaisi): RoleSignataire | null {
+/** À qui remonte un blocage selon sa sévérité, par étape fonctionnelle. */
+export function escaladeBlocage(niveau: NiveauBlocage): RoleSignataire | null {
   switch (niveau) {
     case "SIGNIFICATIF":
-      return "CT";
+      return "VALIDATION";
     case "BLOQUANT":
-      return "CP";
+      return "APPROBATION";
     default:
       return null;
   }
 }
 
 export function cleAlerte(alerte: AlerteImmediate): string {
-  return alerte.type === "BLOCAGE_BLOQUANT" ? "BLOCAGE" : alerte.cle;
+  return alerte.cle;
 }
 
 /**
- * Les alertes que la saisie appelle **dès maintenant** (RG-F2-11) : un
- * blocage bloquant, un incident grave. Elles partent avant la soumission —
- * un chantier arrêté n'attend pas 17 h pour être su.
+ * Les alertes immédiates issues de la saisie : blocage bloquant, incident grave
+ * ou équipement critique en panne.
  */
-export function alertesImmediates(saisie: Pick<SaisieRapport, "blocage" | "incidents">): AlerteImmediate[] {
+export function alertesImmediates(
+  saisie: Pick<SaisieRapport, "blocages" | "incidents" | "equipements">,
+): AlerteImmediate[] {
   const alertes: AlerteImmediate[] = [];
-  if (saisie.blocage.niveau === "BLOQUANT") {
-    alertes.push({ type: "BLOCAGE_BLOQUANT", description: saisie.blocage.description });
+  for (const blocage of saisie.blocages) {
+    const resume = blocage.titre.trim() || blocage.description.trim();
+    if (blocage.niveau === "BLOQUANT" && resume) {
+      alertes.push({
+        type: "BLOCAGE_BLOQUANT",
+        cle: `blocage:${blocage.cle}`,
+        description: resume,
+      });
+    }
   }
   for (const incident of saisie.incidents) {
-    if (incident.gravite === "GRAVE") {
-      alertes.push({ type: "INCIDENT_GRAVE", cle: incident.cle, description: incident.description });
+    if (incident.gravite === "GRAVE" && incident.description.trim()) {
+      alertes.push({
+        type: "INCIDENT_GRAVE",
+        cle: `incident:${incident.cle}`,
+        description: incident.description.trim(),
+      });
+    }
+  }
+  for (const equipement of saisie.equipements) {
+    if (equipement.etat === "PANNE" && (equipement.designation.trim() || equipement.observation.trim())) {
+      const description = equipement.observation.trim()
+        ? `${equipement.designation.trim()} — ${equipement.observation.trim()}`
+        : equipement.designation.trim();
+      alertes.push({
+        type: "EQUIPEMENT_PANNE",
+        cle: `equipement:${equipement.cle}`,
+        description,
+      });
     }
   }
   return alertes;
 }
 
-/**
- * La catégorie HSE / qualité d'un événement : choisie pour un incident,
- * déduite de sa nature pour les autres — la synthèse compte en catégories.
- */
-export function categorieEvenement(nature: NatureEvenement, choisie: TypeIncident): TypeIncident {
+/** Catégorie HSE / qualité déduite de la nature de l'événement. */
+export function categorieEvenement(
+  nature: NatureEvenement,
+  choisie: TypeIncident | "",
+): TypeIncident {
   switch (nature) {
-    case "INCIDENT":
-      return choisie;
+    case "INCIDENT_SECURITE":
+      return "SECURITE";
+    case "INCIDENT_MATERIEL":
+      return "MATERIEL";
     case "DIFFICULTE_TECHNIQUE":
     case "NON_CONFORMITE":
       return "QUALITE";
-    case "ARRET_TRAVAUX":
-      return "MATERIEL";
-    default:
-      return "ADMINISTRATIF";
+    case "VISITE_INSTRUCTION":
+    case "EVENEMENT_PARTICULIER":
+      return choisie || "ADMINISTRATIF";
   }
 }
 
-/** Le cumul d'une activité au soir, avec la quantité du jour. */
+/* ------------------------------------------------------------------ *
+ * Les feuilles de l'arbre en cours de saisie (3 modes de mesure).
+ * ------------------------------------------------------------------ */
+
+export interface MesureFeuilleSaisie {
+  quantiteJour: number | null;
+  pourcentageJour: number | null;
+  jalonAtteint: boolean;
+}
+
+/** Le cumul en quantité d'une feuille au soir. */
 export function cumulSaisi(activite: ActivitePreparee, quantiteJour: number | null): number {
-  return activite.cumulVeille + (quantiteJour ?? 0);
+  return Math.round((activite.cumulVeille + (quantiteJour ?? 0)) * 1000) / 1000;
 }
 
-export function avancementSaisi(activite: ActivitePreparee, quantiteJour: number | null): number {
+export function feuilleAvanceeSaisie(
+  activite: ActivitePreparee,
+  mesure: MesureFeuilleSaisie | null | undefined,
+): boolean {
+  if (!mesure) return false;
+  if (activite.modeMesure === "POURCENTAGE") {
+    return mesure.pourcentageJour !== null && mesure.pourcentageJour > activite.pourcentageVeille;
+  }
+  if (activite.modeMesure === "JALON") {
+    return mesure.jalonAtteint;
+  }
+  return (mesure.quantiteJour ?? 0) > 0;
+}
+
+export function avancementSaisi(
+  activite: ActivitePreparee,
+  mesure?: MesureFeuilleSaisie | null,
+): number {
+  if (activite.modeMesure === "POURCENTAGE") {
+    const pct = mesure?.pourcentageJour ?? activite.pourcentageVeille;
+    return Math.min(100, Math.max(0, Math.round(pct)));
+  }
+  if (activite.modeMesure === "JALON") {
+    return mesure?.jalonAtteint ? 100 : 0;
+  }
   if (activite.quantitePrevue <= 0) return 0;
-  return Math.min(100, Math.round((cumulSaisi(activite, quantiteJour) / activite.quantitePrevue) * 100));
+  return Math.min(
+    100,
+    Math.round((cumulSaisi(activite, mesure?.quantiteJour ?? null) / activite.quantitePrevue) * 100),
+  );
 }
 
-/** La quantité du jour fait dépasser le prévu : possible (avenant, métré), mais à vérifier. */
+/** La quantité du jour fait dépasser le prévu : possible (avenant, métré), mais signalé. */
 export function depassePrevu(activite: ActivitePreparee, quantiteJour: number | null): boolean {
-  return activite.quantitePrevue > 0 && cumulSaisi(activite, quantiteJour) > activite.quantitePrevue;
+  return (
+    activite.modeMesure === "QUANTITE" &&
+    activite.quantitePrevue > 0 &&
+    cumulSaisi(activite, quantiteJour) > activite.quantitePrevue
+  );
 }
 
-/** Les activités du chantier qui se déclarent de cette façon, dans l'ordre du serveur. */
-export function activitesSuivies(
-  preparation: Pick<PreparationSaisie, "activites">,
-  suivi: ActivitePreparee["suivi"],
-): ActivitePreparee[] {
-  return preparation.activites.filter((activite) => activite.suivi === suivi);
-}
-
-/**
- * Les lots qu'on peut déclarer travaillés à l'avancement : ceux qui ont au
- * moins une activité suivie de cette façon, dans l'ordre du serveur. Un lot en
- * sous-traitance informelle se déclare par la production de ses tâcherons.
- */
-export function lotsSuivisAvancement(preparation: Pick<PreparationSaisie, "lots" | "activites">): LotJournal[] {
-  const avecActivite = new Set(activitesSuivies(preparation, "AVANCEMENT").map((activite) => activite.lotId));
+/** Les groupes (lots) portant au moins une feuille ouverte dans l'arbre du projet. */
+export function lotsSuivisAvancement(
+  preparation: Pick<PreparationSaisie, "lots" | "activites">,
+): LotJournal[] {
+  const avecActivite = new Set(preparation.activites.map((activite) => activite.lotId));
   return preparation.lots.filter((lot) => avecActivite.has(lot.id));
 }
 
-/**
- * Les lots travaillés d'un rapport. Un rapport enregistré avant le choix des
- * lots (05/10/2026) ne les porte pas : ils se déduisent alors des activités
- * qu'il a renseignées.
- */
+/** Les lots travaillés d'un rapport existant. */
 export function lotsTravaillesDe(
   saisie: Pick<SaisieRapport, "activites"> & { lotsTravailles?: PointLot[] },
   activites: ActivitePreparee[],
 ): PointLot[] {
-  if (saisie.lotsTravailles) return saisie.lotsTravailles;
+  if (saisie.lotsTravailles && saisie.lotsTravailles.length > 0) return saisie.lotsTravailles;
   const lotDe = new Map(activites.map((activite) => [activite.activiteId, activite.lotId]));
-  const lots = new Set(saisie.activites.flatMap((ligne) => lotDe.get(ligne.activiteId) ?? []));
+  const lots = new Set(
+    saisie.activites.flatMap((ligne: ActiviteSaisie) => {
+      const lotId = lotDe.get(ligne.activiteId);
+      return lotId ? [lotId] : [];
+    }),
+  );
   return [...lots].map((lotId) => ({ lotId, observation: "" }));
 }
 
-/**
- * Les quantités réalisées ce jour, activité par activité. En sous-traitance
- * informelle, l'avancement **se déduit de la production** des tâcherons
- * (SFD §5.4) : il ne se saisit pas une seconde fois.
- */
-export function quantitesDuJour(
-  saisie: Pick<SaisieRapport, "activites" | "production" | "arret">,
+/** Les mesures du jour indexées par identifiant de feuille. */
+export function mesuresDuJour(
+  saisie: Pick<SaisieRapport, "activites" | "arret">,
   sections: SectionSaisie[],
-): Map<string, number> {
+): Map<string, MesureFeuilleSaisie> {
   const actives = sectionsActives(sections, saisie.arret !== null);
-  const quantites = new Map<string, number>();
-  // Un chantier mêle des lots des deux suivis : leurs activités sont
-  // distinctes, les deux sources s'additionnent sans se recouvrir.
+  const mesures = new Map<string, MesureFeuilleSaisie>();
   if (actives.includes("AVANCEMENT")) {
-    for (const ligne of saisie.activites) quantites.set(ligne.activiteId, ligne.quantiteJour ?? 0);
-  }
-  if (actives.includes("PRODUCTION")) {
-    for (const ligne of saisie.production) {
-      if (!ligne.activiteId) continue;
-      quantites.set(ligne.activiteId, (quantites.get(ligne.activiteId) ?? 0) + (ligne.quantiteJour ?? 0));
+    for (const ligne of saisie.activites) {
+      mesures.set(ligne.activiteId, {
+        quantiteJour: ligne.quantiteJour,
+        pourcentageJour: ligne.pourcentageJour,
+        jalonAtteint: ligne.jalonAtteint,
+      });
     }
   }
-  return quantites;
+  return mesures;
 }
 
-/**
- * L'avancement du lot au soir : la moyenne simple de ses activités, comme
- * le calcule la structure du chantier (le budget pondère les lots, pas les
- * activités).
- */
-export function avancementLotSaisi(activites: ActivitePreparee[], quantites: Map<string, number>): number | null {
+export function avancementLotSaisi(
+  activites: ActivitePreparee[],
+  mesures: Map<string, MesureFeuilleSaisie>,
+): number | null {
   if (activites.length === 0) return null;
   const total = activites.reduce(
-    (somme, activite) => somme + avancementSaisi(activite, quantites.get(activite.activiteId) ?? null),
+    (somme, activite) => somme + avancementSaisi(activite, mesures.get(activite.activiteId) ?? null),
     0,
   );
   return Math.round(total / activites.length);
@@ -898,13 +980,12 @@ export function avancementLotSaisi(activites: ActivitePreparee[], quantites: Map
 
 export function avancementTheoriqueLot(activites: ActivitePreparee[]): number | null {
   if (activites.length === 0) return null;
-  return Math.round(activites.reduce((somme, activite) => somme + activite.avancementTheorique, 0) / activites.length);
+  return Math.round(
+    activites.reduce((somme, activite) => somme + activite.avancementTheorique, 0) / activites.length,
+  );
 }
 
-/**
- * Les unités proposées pour un matériau consommé — une proposition, pas une
- * liste fermée : le chef de chantier peut en taper une autre.
- */
+/** Unités proposées pour les matériaux consommés, livrés ou demandés. */
 export const UNITES_MATERIAU: readonly string[] = [
   "sac",
   "kg",
@@ -923,15 +1004,11 @@ export const UNITES_MATERIAU: readonly string[] = [
   "voyage",
 ];
 
-/**
- * Les unités à proposer : celles du stock du chantier d'abord, puis la liste
- * générale, sans doublon.
- */
 export function unitesProposees(materiaux: Pick<MateriauDisponible, "unite">[]): string[] {
   return [...new Set([...materiaux.map((materiau) => materiau.unite), ...UNITES_MATERIAU])];
 }
 
-/** Les chiffres de la modale de soumission : ce que le CC certifie d'un coup d'œil. */
+/** Les chiffres de la modale de soumission : ce que le rédacteur certifie d'un coup d'œil. */
 export interface ResumeSaisie {
   effectifPresent: number;
   effectifPrevu: number;
@@ -944,39 +1021,56 @@ export interface ResumeSaisie {
   livraisons: number;
   incidents: number;
   incidentsGraves: number;
-  blocage: NiveauBlocageSaisi;
+  blocages: number;
+  blocagesBloquants: number;
   photos: number;
-}
-
-/** Les heures de main-d'œuvre d'une ligne d'effectifs : présents × heures. */
-export function heuresEffectif(ligne: { presents: number | null; heures: number | null }): number {
-  return (ligne.presents ?? 0) * (ligne.heures ?? 0);
 }
 
 export function resumeSaisie(
   saisie: SaisieRapport,
-  preparation: Pick<PreparationSaisie, "activites" | "sections">,
+  preparation: Pick<PreparationSaisie, "activites" | "sections"> &
+    Partial<Pick<PreparationSaisie, "equipes">>,
 ): ResumeSaisie {
   const sections = sectionsActives(preparation.sections, saisie.arret !== null);
-  const effectifs = sections.includes("EFFECTIFS") ? saisie.effectifs : [];
-  const effectifPresent = effectifs.reduce((total, ligne) => total + (ligne.presents ?? 0), 0);
-  const effectifPrevu = effectifs.reduce((total, ligne) => total + (ligne.prevus ?? 0), 0);
-  const quantites = quantitesDuJour(saisie, preparation.sections);
+  const equipesPreparees = (preparation.equipes ?? []).filter((equipe) => equipe.presence);
+  const equipesSaisies = sections.includes("EQUIPES") ? saisie.equipes : [];
+
+  const personnesPresentes = new Set(equipesSaisies.flatMap((ligne) => ligne.presents));
+  const personnesPrevues = new Set(
+    equipesPreparees
+      .filter((equipe) => equipesSaisies.some((ligne) => ligne.equipeId === equipe.equipeId))
+      .flatMap((equipe) => equipe.membres.map((membre) => membre.personneId)),
+  );
+  const effectifPresent = personnesPresentes.size;
+  const effectifPrevu = personnesPrevues.size;
+  const heures = Math.round(
+    equipesSaisies.reduce(
+      (total, ligne) => total + ligne.presents.length * (ligne.heures ?? 0),
+      0,
+    ) * 10,
+  ) / 10;
+
+  const mesures = mesuresDuJour(saisie, preparation.sections);
+  const activitesAvancees = preparation.activites.filter((activite) =>
+    feuilleAvanceeSaisie(activite, mesures.get(activite.activiteId)),
+  ).length;
+
   return {
     effectifPresent,
     effectifPrevu,
-    heures: effectifs.reduce((total, ligne) => total + heuresEffectif(ligne), 0),
+    heures,
     taux: tauxPresence(effectifPresent, effectifPrevu),
-    activitesAvancees: [...quantites.values()].filter((quantite) => quantite > 0).length,
+    activitesAvancees,
     activites: preparation.activites.length,
-    avancementLot: avancementLotSaisi(preparation.activites, quantites),
+    avancementLot: avancementLotSaisi(preparation.activites, mesures),
     materiaux: sections.includes("MATERIAUX")
       ? saisie.materiaux.filter((ligne) => (ligne.quantite ?? 0) > 0).length
       : 0,
     livraisons: sections.includes("LIVRAISONS") ? saisie.livraisons.length : 0,
     incidents: saisie.incidents.length,
     incidentsGraves: saisie.incidents.filter((incident) => incident.gravite === "GRAVE").length,
-    blocage: saisie.blocage.niveau,
+    blocages: saisie.blocages.length,
+    blocagesBloquants: saisie.blocages.filter((blocage) => blocage.niveau === "BLOQUANT").length,
     photos: saisie.photos.length,
   };
 }

@@ -31,12 +31,12 @@ import { ErreurApi } from "@/lib/api";
 type Geste = "signer" | "rejeter";
 
 /**
- * Le geste du signataire attendu : le conducteur de travaux sur un rapport
- * soumis, le chef de projet sur un rapport validé par le CT (SFD F2, RG-F2-03).
+ * Le geste du signataire attendu : un validateur (`journal.valider`) sur un rapport
+ * soumis, un approbateur (`journal.approuver`) sur un rapport validé.
  *
- * Il vit sur le rapport lui-même, et non dans la file : on signe ce qu'on a
- * lu. Personne d'autre ne voit ce bandeau : signe celui qui tient la
- * fonction sur le chantier (`etapeASigner`) — jamais le directeur général.
+ * Il vit sur le rapport lui-même, et non dans la file : on signe ce qu'on a lu.
+ * Personne d'autre ne voit ce bandeau : signe celui qui détient la permission sur
+ * le périmètre couvert par le rapport (`etapeASigner`).
  */
 export function SignatureRapport({ rapport }: { rapport: RapportJournalier }) {
   const t = useTranslations("journal.signature");
@@ -52,12 +52,14 @@ export function SignatureRapport({ rapport }: { rapport: RapportJournalier }) {
   const mutation = useMutation({
     mutationFn: (choix: Geste) => {
       if (choix === "rejeter") return rejeterRapport(rapport.id, texte.trim());
-      return etape === "CP" ? approuverRapport(rapport.id, texte.trim()) : validerRapport(rapport.id, texte.trim());
+      return etape === "APPROBATION"
+        ? approuverRapport(rapport.id, texte.trim())
+        : validerRapport(rapport.id, texte.trim());
     },
     onSuccess: (aJour, choix) => {
       cache.setQueryData(cleRapport(rapport.id), aJour);
       void cache.invalidateQueries({ queryKey: CLE_JOURNAL });
-      if (choix === "signer" && aJour.situation === "APPROUVE_CP") {
+      if (choix === "signer" && (aJour.situation === "VALIDE" || aJour.situation === "APPROUVE")) {
         const projetId = rapport.chantier.projetId;
         void cache.invalidateQueries({ queryKey: cleDecoupage(projetId) });
         void cache.invalidateQueries({ queryKey: cleProjet(projetId) });
@@ -66,7 +68,7 @@ export function SignatureRapport({ rapport }: { rapport: RapportJournalier }) {
         void cache.invalidateQueries({ queryKey: ["chantier", "syntheses", projetId] });
         void cache.invalidateQueries({ queryKey: CLE_SUIVI_SYNTHESES });
       }
-      toast.success(choix === "rejeter" ? t("succes.rejet") : t(`succes.${etape ?? "CT"}`));
+      toast.success(choix === "rejeter" ? t("succes.rejet") : t(`succes.${etape ?? "VALIDATION"}`));
       fermer();
     },
     onError: (err) => {

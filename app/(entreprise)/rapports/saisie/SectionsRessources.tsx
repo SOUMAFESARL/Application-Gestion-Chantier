@@ -31,6 +31,7 @@ import {
   SousRubrique,
   useErreurSection,
 } from "./elementsSaisie";
+import { BadgeAlerte, type EtatAlerte } from "./SectionsEvenements";
 
 function heureCourante(): string {
   const maintenant = new Date();
@@ -38,8 +39,7 @@ function heureCourante(): string {
 }
 
 /* ------------------------------------------------------------------ *
- * Les matériaux consommés — saisis librement. Les désignations du stock
- * du chantier et les unités courantes sont proposées, jamais imposées.
+ * Les matériaux consommés — saisis librement avec quantité numérique et unité.
  * ------------------------------------------------------------------ */
 
 export function SectionMateriaux({ materiaux }: { materiaux: MateriauDisponible[] }) {
@@ -107,22 +107,35 @@ export function SectionMateriaux({ materiaux }: { materiaux: MateriauDisponible[
 }
 
 /* ------------------------------------------------------------------ *
- * Les livraisons reçues — déclaratives : elles ne créent pas de bon de
- * réception dans le stock (SFD §5.2).
+ * Les livraisons reçues — structurées en quantité numérique + unité.
  * ------------------------------------------------------------------ */
 
-export function SectionLivraisons() {
+export function SectionLivraisons({ materiaux }: { materiaux: MateriauDisponible[] }) {
   const t = useTranslations("journal.saisie");
   const tEnum = useTranslations("journal.enumerations");
   const { control } = useFormContext<ValeursRapport>();
   const lignes = useFieldArray({ control, name: "livraisons" });
   const valeurs = useWatch({ control, name: "livraisons" });
+  const erreur = useErreurSection("livraisons");
+  const idDesignations = useId();
+  const idUnites = useId();
 
   return (
     <SousRubrique
       titre={t("sections.livraisons")}
       description={t("livraisons.description")}
+      erreur={erreur}
     >
+      <datalist id={idDesignations}>
+        {materiaux.map((materiau) => (
+          <option key={materiau.materiauId} value={materiau.designation} />
+        ))}
+      </datalist>
+      <datalist id={idUnites}>
+        {unitesProposees(materiaux).map((unite) => (
+          <option key={unite} value={unite} />
+        ))}
+      </datalist>
       {lignes.fields.map((ligne, rang) => {
         const conformite = valeurs[rang]?.conformite;
         return (
@@ -133,26 +146,38 @@ export function SectionLivraisons() {
             onSupprimer={() => lignes.remove(rang)}
           >
             <div className={RANGEE}>
-              <ChampTexte name={`livraisons.${rang}.designation`} libelle={t("livraisons.designation")} requis />
+              <ChampTexte
+                name={`livraisons.${rang}.designation`}
+                libelle={t("livraisons.designation")}
+                list={idDesignations}
+                autoComplete="off"
+                requis
+              />
               <ChampTexte name={`livraisons.${rang}.fournisseur`} libelle={t("livraisons.fournisseur")} requis />
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <ChampTexte
                 name={`livraisons.${rang}.quantite`}
                 libelle={t("livraisons.quantite")}
-                placeholder={t("livraisons.quantiteExemple")}
+                inputMode="decimal"
+                placeholder="0"
+                requis
+              />
+              <ChampTexte
+                name={`livraisons.${rang}.unite`}
+                libelle={t("materiaux.unite")}
+                placeholder={t("materiaux.uniteExemple")}
+                list={idUnites}
+                autoComplete="off"
                 requis
               />
               <ChampTexte name={`livraisons.${rang}.heure`} libelle={t("livraisons.heure")} type="time" />
-              <ChampTexte
-                className="col-span-2 sm:col-span-1"
-                name={`livraisons.${rang}.bonLivraison`}
-                libelle={t("livraisons.bon")}
-              />
+              <ChampTexte name={`livraisons.${rang}.bonLivraison`} libelle={t("livraisons.bon")} />
             </div>
             <ChampPuces
               name={`livraisons.${rang}.conformite`}
               libelle={t("livraisons.conformite")}
+              requis
               colonnes={3}
               options={CONFORMITES.map((valeur) => ({
                 valeur,
@@ -160,7 +185,7 @@ export function SectionLivraisons() {
                 ton: valeur === "CONFORME" ? "succes" : valeur === "PARTIELLE" ? "avertissement" : "erreur",
               }))}
             />
-            {conformite !== "CONFORME" && (
+            {conformite && conformite !== "CONFORME" && (
               <ChampTexte
                 name={`livraisons.${rang}.observation`}
                 libelle={t("livraisons.anomalie")}
@@ -171,37 +196,48 @@ export function SectionLivraisons() {
           </CarteLigne>
         );
       })}
-      <BoutonAjout onClick={() => lignes.append(ligneLivraisonVide(heureCourante()))}>{t("livraisons.ajouter")}</BoutonAjout>
+      <BoutonAjout onClick={() => lignes.append(ligneLivraisonVide(heureCourante()))}>
+        {t("livraisons.ajouter")}
+      </BoutonAjout>
     </SousRubrique>
   );
 }
 
 /* ------------------------------------------------------------------ *
- * Les engins et équipements.
+ * Les engins et équipements — heures d'utilisation, usage et alerte panne.
  * ------------------------------------------------------------------ */
 
-export function SectionEquipements() {
+export function SectionEquipements({ alertes }: { alertes: Record<string, EtatAlerte> }) {
   const t = useTranslations("journal.saisie");
   const tEnum = useTranslations("journal.enumerations");
   const { control } = useFormContext<ValeursRapport>();
   const lignes = useFieldArray({ control, name: "equipements" });
   const valeurs = useWatch({ control, name: "equipements" });
+  const erreur = useErreurSection("equipements");
 
   return (
     <SousRubrique
       titre={t("sections.equipements")}
       description={t("equipements.description")}
+      erreur={erreur}
     >
       {lignes.fields.map((ligne, rang) => {
-        const etat = valeurs[rang]?.etat;
+        const courant = valeurs[rang];
+        const etat = courant?.etat;
+        const cleAlerte = courant?.cle ? `equipement:${courant.cle}` : "";
         return (
           <CarteLigne
             key={ligne.id}
-            titre={valeurs[rang]?.designation || t("equipements.titre", { rang: rang + 1 })}
+            titre={courant?.designation || t("equipements.titre", { rang: rang + 1 })}
             complement={
-              etat && etat !== "BON" ? (
-                <Badge variante={etat === "PANNE" ? "erreur" : "avertissement"}>{t(`equipements.etats.${etat}`)}</Badge>
-              ) : null
+              <span className="flex flex-wrap items-center gap-1.5">
+                {cleAlerte && <BadgeAlerte etat={alertes[cleAlerte]} />}
+                {etat && etat !== "BON" && (
+                  <Badge variante={etat === "PANNE" ? "erreur" : "avertissement"}>
+                    {t(`equipements.etats.${etat}`)}
+                  </Badge>
+                )}
+              </span>
             }
             libelleSupprimer={t("equipements.supprimer", { rang: rang + 1 })}
             onSupprimer={() => lignes.remove(rang)}
@@ -216,24 +252,34 @@ export function SectionEquipements() {
               <ChampTexte name={`equipements.${rang}.reference`} libelle={t("equipements.reference")} />
             </div>
             <div className={RANGEE}>
-              <ChampTexte
-                name={`equipements.${rang}.utilisation`}
-                libelle={t("equipements.utilisation")}
-                placeholder={t("equipements.utilisationExemple")}
-                inputMode="decimal"
-                suffixe={t("unites.heures")}
-              />
+              {(!etat || etat === "BON") && (
+                <ChampTexte
+                  name={`equipements.${rang}.heuresUtilisation`}
+                  libelle={t("equipements.utilisation")}
+                  placeholder={t("equipements.utilisationExemple")}
+                  inputMode="decimal"
+                  suffixe={t("unites.heures")}
+                  requis={etat === "BON"}
+                />
+              )}
               <ChampTexte name={`equipements.${rang}.operateur`} libelle={t("equipements.operateur")} />
             </div>
+            <ChampTexte
+              name={`equipements.${rang}.usage`}
+              libelle={t("equipements.usage")}
+              placeholder={t("equipements.usageExemple")}
+            />
             <ChampPuces
               name={`equipements.${rang}.propriete`}
               libelle={t("equipements.propriete")}
+              requis
               colonnes={2}
               options={PROPRIETES_EQUIPEMENT.map((valeur) => ({ valeur, libelle: tEnum(`propriete.${valeur}`) }))}
             />
             <ChampPuces
               name={`equipements.${rang}.etat`}
               libelle={t("equipements.etat")}
+              requis
               colonnes={3}
               options={ETATS_EQUIPEMENT.map((valeur) => ({
                 valeur,
@@ -255,10 +301,10 @@ export function SectionEquipements() {
               name={`equipements.${rang}.observation`}
               libelle={etat === "PANNE" ? t("equipements.panne") : t("equipements.observation")}
               placeholder={etat === "BON" ? undefined : t("equipements.panneExemple")}
-              requis={etat === "PANNE"}
+              requis={Boolean(etat && etat !== "BON")}
             />
             {etat === "PANNE" && (
-              <Signal ton="avertissement" icone={<TriangleAlert />}>
+              <Signal ton="erreur" icone={<TriangleAlert />}>
                 {t("equipements.panneNotification")}
               </Signal>
             )}
@@ -271,17 +317,29 @@ export function SectionEquipements() {
 }
 
 /* ------------------------------------------------------------------ *
- * Les ruptures de stock et les besoins urgents.
+ * Les ruptures de stock et les besoins urgents — quantité numérique + unité.
  * ------------------------------------------------------------------ */
 
-export function SectionBesoins() {
+export function SectionBesoins({ materiaux }: { materiaux: MateriauDisponible[] }) {
   const t = useTranslations("journal.saisie");
   const { control } = useFormContext<ValeursRapport>();
   const lignes = useFieldArray({ control, name: "besoins" });
   const valeurs = useWatch({ control, name: "besoins" });
+  const idDesignations = useId();
+  const idUnites = useId();
 
   return (
     <SousRubrique titre={t("sections.besoins")} description={t("besoins.description")}>
+      <datalist id={idDesignations}>
+        {materiaux.map((materiau) => (
+          <option key={materiau.materiauId} value={materiau.designation} />
+        ))}
+      </datalist>
+      <datalist id={idUnites}>
+        {unitesProposees(materiaux).map((unite) => (
+          <option key={unite} value={unite} />
+        ))}
+      </datalist>
       {lignes.fields.map((ligne, rang) => {
         const nature = valeurs[rang]?.nature === "URGENT" ? "URGENT" : "RUPTURE";
         return (
@@ -302,13 +360,27 @@ export function SectionBesoins() {
                 ton: valeur === "RUPTURE" ? "erreur" : "avertissement",
               }))}
             />
-            <div className={RANGEE}>
-              <ChampTexte name={`besoins.${rang}.designation`} libelle={t("besoins.designation")} requis />
+            <ChampTexte
+              name={`besoins.${rang}.designation`}
+              libelle={t("besoins.designation")}
+              list={idDesignations}
+              autoComplete="off"
+              requis
+            />
+            <div className={PAIRE}>
               <ChampTexte
                 name={`besoins.${rang}.quantite`}
                 libelle={t("besoins.quantite")}
-                placeholder={t("besoins.quantiteExemple")}
+                inputMode="decimal"
+                placeholder="0"
                 requis={nature === "URGENT"}
+              />
+              <ChampTexte
+                name={`besoins.${rang}.unite`}
+                libelle={t("materiaux.unite")}
+                placeholder={t("materiaux.uniteExemple")}
+                list={idUnites}
+                autoComplete="off"
               />
             </div>
             <ChampTexte

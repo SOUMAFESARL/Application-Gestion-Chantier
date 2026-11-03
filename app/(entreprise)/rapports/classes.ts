@@ -27,11 +27,11 @@ export const TON_SITUATION: Record<SituationRapport, VarianteBadge> = {
   NON_SOUMIS: "erreur",
   REJETE: "erreur",
   SOUMIS: "information",
-  VALIDE_CT: "primaire",
-  APPROUVE_CP: "succes",
+  VALIDE: "primaire",
+  APPROUVE: "succes",
 };
 
-/** Une étape du circuit CC → CT → CP. */
+/** Une étape du circuit REDACTION → VALIDATION → APPROBATION. */
 export const PASTILLE_ETAPE: Record<EtatEtape, string> = {
   SIGNE: "bg-succes-fond text-succes",
   EN_ATTENTE: "bg-primary-50 text-primary-700 ring-1 ring-primary-200",
@@ -63,12 +63,6 @@ export const TON_EQUIPEMENT: Record<EtatEquipement, VarianteBadge> = {
   PANNE: "erreur",
 };
 
-/**
- * Les teintes des cartes du rapport journalier — ses chiffres du jour. L'écran
- * et le PDF les lisent ici tous les deux, pour que le fichier ne colore pas un
- * chiffre autrement que l'écran. Chaque carte a sa teinte de repos ; elle ne
- * vire au rouge ou à l'orange que s'il y a de quoi alerter.
- */
 export function teintesChiffresRapport(chiffres: {
   retard: number | null;
   presenceInsuffisante: boolean;
@@ -90,7 +84,6 @@ export function teintesChiffresRapport(chiffres: {
   } satisfies Record<string, FondIndicateur>;
 }
 
-/** Les teintes des cartes de la synthèse périodique — même logique que le rapport journalier. */
 export function teintesChiffresSynthese(chiffres: {
   presenceInsuffisante: boolean;
   livraisonsPartielles: number;
@@ -110,7 +103,6 @@ export function teintesChiffresSynthese(chiffres: {
   } satisfies Record<string, FondIndicateur>;
 }
 
-/** Les cartes de la météo : le ciel en bleu, la chaleur en orange. */
 export const TEINTE_METEO = {
   ciel: "information",
   temperature: "avertissement",
@@ -118,14 +110,12 @@ export const TEINTE_METEO = {
   vent: "neutre",
 } as const satisfies Record<string, FondIndicateur>;
 
-/** La carte « Conditions » de la météo, selon ce qu'elles permettent sur le chantier. */
 export const TEINTE_CONDITIONS: Record<ConditionsTravail, FondIndicateur> = {
   FAVORABLES: "succes",
   DIFFICILES: "avertissement",
   ARRET: "erreur",
 };
 
-/** Le fond d'une tuile dont le chiffre alerte seulement s'il n'est pas nul. */
 export function fondSiAlerte(valeur: number, fond: FondIndicateur): FondIndicateur {
   return valeur > 0 ? fond : "neutre";
 }

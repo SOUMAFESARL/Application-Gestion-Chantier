@@ -31,6 +31,9 @@ export const CODES_METIER = [
   "identifiants_invalides",
   // Métier BTP
   "rapport_deja_existant",
+  "jour_non_ouvre",
+  "hors_fenetre_saisie",
+  "date_hors_delai",
   "mode_execution_verrouille",
   "bordereau_verrouille",
   "rapport_non_modifiable",

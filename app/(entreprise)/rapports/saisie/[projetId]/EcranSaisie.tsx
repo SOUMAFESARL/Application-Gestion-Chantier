@@ -12,24 +12,23 @@ import type { PreparationSaisie } from "@/features/chantier";
 import { preparerSaisie } from "@/features/chantier/adaptateur";
 import { clePreparation } from "@/features/chantier/cles";
 import { AccesNonAutorise, peutRedigerJournal, projetVisible, useDroits } from "@/features/habilitations";
-import { lireProjet, obtenirMeteo } from "@/features/projets/adaptateur";
+import { lireProjet } from "@/features/projets/adaptateur";
 import { cleProjet } from "@/features/projets/cles";
 import { ErreurApi } from "@/lib/api";
 
 import { FormulaireRapport } from "../FormulaireRapport";
 
 /**
- * Le rapport journalier d'un chantier pour un jour, côté chef de chantier.
+ * Le rapport journalier d'un chantier pour un jour ouvré, côté rédacteur.
  *
- * Lit le chantier, puis la préparation du formulaire, qui porte elle-même
- * les lots en cours et leurs activités. Un rapport
- * déjà soumis ne se rouvre pas : on renvoie à sa lecture (RG-F2-03).
+ * Lit le chantier puis la préparation du formulaire (feuilles attendues de l'arbre,
+ * équipes du jour, météo suggérée, calendrier d'entreprise). Un rapport rejeté reste
+ * toujours corrigeable ; un jour non ouvré sans rapport n'attend aucune saisie.
  */
 export function EcranSaisie({ projetId, date: demandee }: { projetId: string; date: string | null }) {
   const t = useTranslations("journal.saisie");
   const { droits } = useDroits();
 
-  // Le jour du poste pour commencer ; la préparation renvoie celui du serveur.
   const date = demandee ?? jourDe(new Date());
 
   const projet = useQuery({ queryKey: cleProjet(projetId), queryFn: () => lireProjet(projetId) });
@@ -38,18 +37,8 @@ export function EcranSaisie({ projetId, date: demandee }: { projetId: string; da
     queryKey: clePreparation(projetId, date),
     queryFn: ({ signal }) => preparerSaisie(projetId, date, signal),
     enabled: projet.isSuccess,
-    // Toujours relue à l'ouverture : un rejet du CT a pu tomber entre-temps.
     staleTime: 0,
     refetchOnMount: "always",
-  });
-
-  // La météo du chantier, pour préremplir le ciel du jour — jamais celui d'hier.
-  const releve = useQuery({
-    queryKey: ["chantier", "saisie", "meteo", projetId],
-    queryFn: () => obtenirMeteo({ projetId }),
-    enabled: preparation.isSuccess && date === preparation.data.aujourdhui,
-    staleTime: 15 * 60_000,
-    retry: false,
   });
 
   if (!peutRedigerJournal(droits)) return <AccesNonAutorise />;
@@ -60,13 +49,15 @@ export function EcranSaisie({ projetId, date: demandee }: { projetId: string; da
   if (!projetVisible(projet.data, droits)) return <AccesNonAutorise />;
   if (preparation.isError) {
     const message =
-      preparation.error instanceof ErreurApi && preparation.error.message ? preparation.error.message : t("erreurChargement");
+      preparation.error instanceof ErreurApi && preparation.error.message
+        ? preparation.error.message
+        : t("erreurChargement");
     return <EtatErreur message={message} onReessayer={() => void preparation.refetch()} />;
   }
 
   const donnees = preparation.data;
-  const lien = (jour: string) => `/rapports/saisie/${projetId}?date=${jour}`;
-  const haut = <HautSaisie preparation={donnees} retour={`/rapports/saisie?date=${date}&projet=${projetId}`} />;
+  const retourListe = `/rapports/saisie?date=${date}&projet=${projetId}`;
+  const haut = <HautSaisie preparation={donnees} retour={retourListe} />;
   const titre = <TitreSaisie preparation={donnees} date={date} ville={projet.data.ville} />;
   const entete = (
     <header className="flex flex-col gap-3">
@@ -75,7 +66,29 @@ export function EcranSaisie({ projetId, date: demandee }: { projetId: string; da
     </header>
   );
 
-  if (!jourSaisissable(date, donnees.aujourdhui)) {
+  const rapport = donnees.rapport;
+  const estRejete = rapport?.statut === "REJETE";
+
+  if (!estRejete && !donnees.estJourOuvre && !rapport) {
+    return (
+      <div className="flex w-full flex-col gap-4">
+        {entete}
+        <EtatVide
+          icone={<CalendarDays className="size-8" aria-hidden="true" />}
+          titre={t("jourNonOuvre.titre")}
+          description={t("jourNonOuvre.description")}
+          action={
+            <Button asChild>
+              <Link href={`/rapports/saisie?projet=${projetId}`}>{t("jourNonOuvre.action")}</Link>
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
+  if (!estRejete && !jourSaisissable(date, donnees.aujourdhui, donnees.joursSaisissables)) {
+    const dernierJourOuvre = donnees.joursSaisissables[0] ?? donnees.aujourdhui;
     return (
       <div className="flex w-full flex-col gap-4">
         {entete}
@@ -84,7 +97,9 @@ export function EcranSaisie({ projetId, date: demandee }: { projetId: string; da
           description={t("horsDelai.description")}
           action={
             <Button asChild>
-              <Link href={lien(donnees.aujourdhui)}>{t("horsDelai.action")}</Link>
+              <Link href={`/rapports/saisie/${projetId}?date=${dernierJourOuvre}`}>
+                {t("horsDelai.action")}
+              </Link>
             </Button>
           }
         />
@@ -101,7 +116,6 @@ export function EcranSaisie({ projetId, date: demandee }: { projetId: string; da
     );
   }
 
-  const rapport = donnees.rapport;
   if (rapport && !rapportModifiable(rapport.statut)) {
     return (
       <div className="flex w-full flex-col gap-4">
@@ -126,7 +140,6 @@ export function EcranSaisie({ projetId, date: demandee }: { projetId: string; da
         key={`${projetId}-${date}`}
         preparation={donnees}
         date={date}
-        releve={releve.data ?? null}
         entete={haut}
         titre={titre}
       />
@@ -134,13 +147,11 @@ export function EcranSaisie({ projetId, date: demandee }: { projetId: string; da
   );
 }
 
-/** Le retour à la liste et l'état du rapport — ils défilent avec la page. */
 function HautSaisie({
   preparation,
   retour,
 }: {
   preparation: PreparationSaisie;
-  /** La liste des rapports, sur le même jour et le même chantier. */
   retour: string;
 }) {
   const t = useTranslations("journal.saisie");
@@ -164,14 +175,12 @@ function HautSaisie({
   );
 }
 
-/** Le chantier et le jour — collés en haut avec les étapes sur grand écran. */
 function TitreSaisie({
   preparation,
   date,
   ville,
 }: {
   preparation: PreparationSaisie;
-  /** Le jour du rapport : il se choisit sur la liste, il se rappelle ici. */
   date: string;
   ville: string;
 }) {

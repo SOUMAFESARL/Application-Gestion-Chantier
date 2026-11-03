@@ -1,66 +1,37 @@
 "use client";
 
-import { Check, ChevronRight, Layers, Plus, Trash2, TriangleAlert, X } from "lucide-react";
+import { Check, ChevronRight, Layers, Plus, Trash2, TriangleAlert, Users, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useFieldArray, useFormContext, useFormState, useWatch } from "react-hook-form";
 
 import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   avancementLotSaisi,
   avancementSaisi,
   avancementTheoriqueLot,
   cumulSaisi,
   depassePrevu,
-  heuresEffectif,
   lotsSuivisAvancement,
-  SEUIL_ALERTE_PRESENCE,
-  tauxPresence,
 } from "@/features/chantier";
-import type { ActivitePreparee, EquipeDuJour, LotJournal } from "@/features/chantier";
-import {
-  estRenseigne,
-  ligneEffectifVide,
-  ligneProductionVide,
-  PRESENCES_SOUS_TRAITANT,
-  QUALITES_EXECUTION,
-  versNombre,
-  type ValeursRapport,
-} from "@/features/chantier/validations";
-import { ABSENT, formaterMontant, formaterQuantite, saisieEnCentimes } from "@/lib/format";
+import type { ActivitePreparee, EquipeDuJour, LotJournal, MesureFeuilleSaisie } from "@/features/chantier";
+import { estRenseigne, versNombre, type ValeursRapport } from "@/features/chantier/validations";
+import { formaterQuantite } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import {
-  BoutonAjout,
-  CarteLigne,
-  CHAMP,
-  ChampCompteur,
-  ChampPuces,
   ChampTexte,
-  PAIRE,
   Requis,
   Signal,
   SousRubrique,
   useErreurSection,
 } from "./elementsSaisie";
-
-/** Les corps de métier proposés d'un geste quand le chantier n'a pas encore d'historique. */
-const CATEGORIES_COURANTES = [
-  "chefEquipe",
-  "macons",
-  "ferrailleurs",
-  "coffreurs",
-  "manoeuvres",
-  "electriciens",
-  "plombiers",
-  "conducteursEngins",
-] as const;
 
 function useUnite() {
   const tUnites = useTranslations("projets.lotsActivites.unites");
@@ -69,413 +40,18 @@ function useUnite() {
     activite?.unite ? tUnites(activite.unite) : t("avancement.unitePourcent");
 }
 
-/* ------------------------------------------------------------------ *
- * Les effectifs — régie directe.
- * ------------------------------------------------------------------ */
-
-export function SectionEffectifs() {
-  const t = useTranslations("journal.saisie");
-  const { control } = useFormContext<ValeursRapport>();
-  const lignes = useFieldArray({ control, name: "effectifs" });
-  const valeurs = useWatch({ control, name: "effectifs" });
-  const erreur = useErreurSection("effectifs");
-
-  const totaux = valeurs.reduce(
-    (total, ligne) => {
-      const presents = versNombre(ligne.presents) ?? 0;
-      const prevus = versNombre(ligne.prevus) ?? 0;
-      return {
-        prevus: total.prevus + prevus,
-        presents: total.presents + presents,
-        absences: total.absences + Math.max(0, prevus - presents),
-        retards: total.retards + (versNombre(ligne.retards) ?? 0),
-        heures: total.heures + heuresEffectif({ presents, heures: versNombre(ligne.heures) }),
-      };
-    },
-    { prevus: 0, presents: 0, absences: 0, retards: 0, heures: 0 },
-  );
-  const taux = tauxPresence(totaux.presents, totaux.prevus);
-  const categoriesPresentes = new Set(valeurs.map((ligne) => ligne.categorie.trim().toLowerCase()));
-  const suggestions = CATEGORIES_COURANTES.map((cle) => t(`effectifs.categories.${cle}`)).filter(
-    (libelle) => !categoriesPresentes.has(libelle.toLowerCase()),
-  );
-
-  return (
-    <SousRubrique
-      titre={t("sections.effectifs")}
-      description={t("effectifs.description")}
-      erreur={erreur}
-    >
-      {lignes.fields.map((ligne, rang) => {
-        const valeur = valeurs[rang];
-        const absents = Math.max(0, (versNombre(valeur?.prevus ?? "") ?? 0) - (versNombre(valeur?.presents ?? "") ?? 0));
-        const retards = versNombre(valeur?.retards ?? "") ?? 0;
-        return (
-          <CarteLigne
-            key={ligne.id}
-            titre={valeur?.categorie || t("effectifs.nouvelleCategorie")}
-            complement={
-              absents > 0 || retards > 0 ? (
-                <span className="flex flex-wrap gap-1">
-                  {absents > 0 && <Badge variante="erreur">{t("effectifs.absents", { n: absents })}</Badge>}
-                  {retards > 0 && <Badge variante="avertissement">{t("effectifs.retardsBadge", { n: retards })}</Badge>}
-                </span>
-              ) : null
-            }
-            libelleSupprimer={t("effectifs.supprimer", { categorie: valeur?.categorie ?? "" })}
-            onSupprimer={() => lignes.remove(rang)}
-          >
-            <ChampTexte name={`effectifs.${rang}.categorie`} libelle={t("effectifs.categorie")} requis />
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <ChampCompteur name={`effectifs.${rang}.prevus`} libelle={t("effectifs.prevus")} requis />
-              <ChampCompteur name={`effectifs.${rang}.presents`} libelle={t("effectifs.presents")} requis />
-              <ChampCompteur name={`effectifs.${rang}.retards`} libelle={t("effectifs.retards")} />
-              <ChampTexte
-                name={`effectifs.${rang}.heures`}
-                libelle={t("effectifs.heures")}
-                inputMode="decimal"
-                suffixe={t("unites.heures")}
-                requis
-              />
-            </div>
-            <ChampTexte
-              name={`effectifs.${rang}.observation`}
-              libelle={absents > 0 || retards > 0 ? t("effectifs.motifAbsence") : t("effectifs.observation")}
-              placeholder={t("effectifs.motifExemple")}
-              requis={absents > 0 || retards > 0}
-            />
-          </CarteLigne>
-        );
-      })}
-
-      {suggestions.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-medium text-neutral-500">{t("effectifs.ajoutRapide")}</span>
-          <div className="flex flex-wrap gap-2">
-            {suggestions.map((categorie) => (
-              <button
-                key={categorie}
-                type="button"
-                onClick={() => lignes.append({ ...ligneEffectifVide(), categorie })}
-                className="min-h-9 cursor-pointer rounded-full border border-dashed border-neutral-300 bg-card px-3 text-sm text-neutral-700 hover:border-primary-400 hover:text-primary-700"
-              >
-                {t("effectifs.ajouterCategorie", { categorie })}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      <BoutonAjout onClick={() => lignes.append(ligneEffectifVide())}>{t("effectifs.ajouter")}</BoutonAjout>
-
-      {valeurs.length > 0 && (
-        <dl className="m-0 grid grid-cols-3 gap-2 rounded-lg bg-neutral-100 p-3 text-center sm:grid-cols-5">
-          <div>
-            <dt className="text-xs text-neutral-500">{t("effectifs.totalPresents")}</dt>
-            <dd className="m-0 text-base font-semibold tabular-nums text-neutral-900">
-              {t("fraction", { a: totaux.presents, b: totaux.prevus })}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-neutral-500">{t("effectifs.totalAbsences")}</dt>
-            <dd className="m-0 text-base font-semibold tabular-nums text-neutral-900">{totaux.absences}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-neutral-500">{t("effectifs.totalRetards")}</dt>
-            <dd className="m-0 text-base font-semibold tabular-nums text-neutral-900">{totaux.retards}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-neutral-500">{t("effectifs.totalTaux")}</dt>
-            <dd
-              className={cn(
-                "m-0 text-base font-semibold tabular-nums",
-                taux !== null && taux < SEUIL_ALERTE_PRESENCE ? "text-erreur" : "text-neutral-900",
-              )}
-            >
-              {taux === null ? ABSENT : t("pourcent", { valeur: taux })}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-neutral-500">{t("effectifs.totalHeures")}</dt>
-            <dd className="m-0 text-base font-semibold tabular-nums text-neutral-900">
-              {t("heures", { valeur: formaterQuantite(totaux.heures) })}
-            </dd>
-          </div>
-        </dl>
-      )}
-      {taux !== null && taux < SEUIL_ALERTE_PRESENCE && (
-        <Signal ton="erreur" icone={<TriangleAlert />}>
-          {t("effectifs.alertePresence", { seuil: SEUIL_ALERTE_PRESENCE })}
-        </Signal>
-      )}
-    </SousRubrique>
-  );
-}
-
-/* ------------------------------------------------------------------ *
- * La présence du sous-traitant — sous-traitance structurée.
- * ------------------------------------------------------------------ */
-
-export function SectionPresenceSousTraitant() {
-  const t = useTranslations("journal.saisie");
-  const { control } = useFormContext<ValeursRapport>();
-  const presence = useWatch({ control, name: "presenceSousTraitant.presence" });
-  const qualite = useWatch({ control, name: "presenceSousTraitant.qualite" });
-  return (
-    <SousRubrique
-      titre={t("sections.equipes")}
-      description={t("presence.description")}
-    >
-      <ChampPuces
-        name="presenceSousTraitant.presence"
-        libelle={t("presence.presence")}
-        requis
-        colonnes={3}
-        options={PRESENCES_SOUS_TRAITANT.map((valeur) => ({
-          valeur,
-          libelle: t(`presence.presences.${valeur}`),
-          ton: valeur === "PRESENT" ? "succes" : valeur === "PARTIEL" ? "avertissement" : "erreur",
-        }))}
-      />
-      {presence === "ABSENT" ? (
-        <ChampTexte name="presenceSousTraitant.motif" libelle={t("presence.motif")} requis />
-      ) : (
-        <ChampPuces
-          name="presenceSousTraitant.qualite"
-          libelle={t("presence.qualite")}
-          requis
-          colonnes={2}
-          options={QUALITES_EXECUTION.map((valeur) => ({
-            valeur,
-            libelle: t(`presence.qualites.${valeur}`),
-            ton: valeur === "CONFORME" ? "succes" : "erreur",
-          }))}
-        />
-      )}
-      <ChampTexte
-        name="presenceSousTraitant.observation"
-        libelle={t("presence.observation")}
-        requis={qualite === "NON_CONFORME"}
-        multiligne
-        lignes={2}
-      />
-      {qualite === "NON_CONFORME" && presence !== "ABSENT" && (
-        <Signal ton="avertissement" icone={<TriangleAlert />}>
-          {t("presence.incidentQualite")}
-        </Signal>
-      )}
-    </SousRubrique>
-  );
-}
-
-/* ------------------------------------------------------------------ *
- * La production des tâcherons — sous-traitance informelle.
- * ------------------------------------------------------------------ */
-
-export function SectionProduction({
-  complement,
-  activites,
-  lots,
-  equipes = [],
-}: {
-  complement: string;
-  /** Les activités des lots en sous-traitance informelle seulement. */
-  activites: ActivitePreparee[];
-  lots: LotJournal[];
-  /** Les équipes des tâches : une tâche tenue par une équipe déclare la production par ouvrier. */
-  equipes?: EquipeDuJour[];
-}) {
-  const t = useTranslations("journal.saisie");
-  const unite = useUnite();
-  const { control } = useFormContext<ValeursRapport>();
-  const lignes = useFieldArray({ control, name: "production" });
-  const valeurs = useWatch({ control, name: "production" });
-  const erreur = useErreurSection("production");
-  const parId = new Map(activites.map((activite) => [activite.activiteId, activite]));
-  const total = valeurs.reduce((somme, ligne) => {
-    const prix = saisieEnCentimes(ligne.prixUnitaire);
-    return somme + (prix === null ? 0 : Math.round(prix * (versNombre(ligne.quantiteJour) ?? 0)));
-  }, 0);
-
-  return (
-    <SousRubrique
-      titre={t("sections.production")}
-      complement={<Badge variante="avertissement">{complement}</Badge>}
-      description={t("production.description")}
-      erreur={erreur}
-    >
-      {activites.length === 0 && <Signal ton="avertissement">{t("avancement.aucuneActivite")}</Signal>}
-      {lignes.fields.map((ligne, rang) => {
-        const valeur = valeurs[rang];
-        const activite = parId.get(valeur?.activiteId ?? "");
-        const prix = saisieEnCentimes(valeur?.prixUnitaire ?? "");
-        const quantite = versNombre(valeur?.quantiteJour ?? "") ?? 0;
-        return (
-          <CarteLigne
-            key={ligne.id}
-            titre={valeur?.intervenant || t("production.nouvelIntervenant")}
-            complement={
-              prix !== null && quantite > 0 ? (
-                <span className="text-sm font-semibold tabular-nums text-neutral-900">
-                  {formaterMontant(Math.round(prix * quantite))}
-                </span>
-              ) : null
-            }
-            libelleSupprimer={t("production.supprimer", { intervenant: valeur?.intervenant ?? "" })}
-            onSupprimer={() => lignes.remove(rang)}
-          >
-            <ChampActivite name={`production.${rang}.activiteId`} activites={activites} lots={lots} />
-            {equipeDeLaTache(equipes, valeur?.activiteId ?? "") ? (
-              <ChampOuvrier rang={rang} equipe={equipeDeLaTache(equipes, valeur?.activiteId ?? "")!} />
-            ) : (
-              <ChampTexte name={`production.${rang}.intervenant`} libelle={t("production.intervenant")} requis />
-            )}
-            <div className={PAIRE}>
-              <ChampTexte
-                name={`production.${rang}.quantiteJour`}
-                libelle={t("production.quantite")}
-                inputMode="decimal"
-                suffixe={unite(activite)}
-                requis
-              />
-              <ChampTexte
-                name={`production.${rang}.prixUnitaire`}
-                libelle={t("production.prix")}
-                inputMode="numeric"
-                suffixe={t("unites.fcfa")}
-              />
-            </div>
-          </CarteLigne>
-        );
-      })}
-      <BoutonAjout onClick={() => lignes.append(ligneProductionVide())} disabled={activites.length === 0}>
-        {t("production.ajouter")}
-      </BoutonAjout>
-      {total > 0 && (
-        <p className="m-0 flex items-center justify-between rounded-lg bg-neutral-100 px-3 py-2 text-sm">
-          <span className="text-neutral-600">{t("production.total")}</span>
-          <span className="font-semibold tabular-nums text-neutral-900">{formaterMontant(total)}</span>
-        </p>
-      )}
-      <Signal ton="information">{t("production.validation")}</Signal>
-    </SousRubrique>
-  );
-}
-
-/** L'équipe garnie qui tient la tâche, s'il y en a une : sa production se déclare par ouvrier. */
-function equipeDeLaTache(equipes: EquipeDuJour[], activiteId: string): EquipeDuJour | undefined {
-  return equipes.find((equipe) => equipe.activites.includes(activiteId) && equipe.membres.length > 0);
-}
-
 /**
- * L'ouvrier d'une ligne de production, choisi parmi les membres de l'équipe de la tâche — et,
- * quand leur présence est cochée, parmi les présents (le serveur refuse un absent).
- */
-function ChampOuvrier({ rang, equipe }: { rang: number; equipe: EquipeDuJour }) {
-  const t = useTranslations("journal.saisie");
-  const { control, setValue } = useFormContext<ValeursRapport>();
-  const lignesEquipes = useWatch({ control, name: "equipes" }) ?? [];
-  const presence = lignesEquipes.find((ligne) => ligne.equipeId === equipe.equipeId);
-  const proposes = presence
-    ? equipe.membres.filter((membre) => presence.presents.includes(membre.personneId))
-    : equipe.membres;
-  return (
-    <FormField
-      control={control}
-      name={`production.${rang}.personneId`}
-      render={({ field }) => (
-        <FormItem className="gap-1.5">
-          <FormLabel>
-            {t("production.ouvrier")} <Requis />
-          </FormLabel>
-          <Select
-            value={field.value}
-            onValueChange={(valeur) => {
-              field.onChange(valeur);
-              const membre = equipe.membres.find((m) => m.personneId === valeur);
-              setValue(`production.${rang}.intervenant`, membre?.nom ?? "", { shouldDirty: true });
-            }}
-          >
-            <FormControl>
-              <SelectTrigger className={cn(CHAMP, "w-full bg-card")} onBlur={field.onBlur}>
-                <SelectValue placeholder={t("production.choisirOuvrier", { equipe: equipe.nom })} />
-              </SelectTrigger>
-            </FormControl>
-            <SelectContent>
-              {proposes.map((membre) => (
-                <SelectItem key={membre.personneId} value={membre.personneId}>
-                  {membre.nom}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
-}
-
-function ChampActivite({
-  name,
-  activites,
-  lots,
-}: {
-  name: `production.${number}.activiteId`;
-  activites: ActivitePreparee[];
-  lots: LotJournal[];
-}) {
-  const t = useTranslations("journal.saisie");
-  const { control } = useFormContext<ValeursRapport>();
-  const codeLot = new Map(lots.map((lot) => [lot.id, lot.code]));
-  return (
-    <FormField
-      control={control}
-      name={name}
-      render={({ field }) => (
-        <FormItem className="gap-1.5">
-          <FormLabel>
-            {t("production.activite")} <Requis />
-          </FormLabel>
-          <Select value={field.value} onValueChange={field.onChange}>
-            <FormControl>
-              <SelectTrigger className={cn(CHAMP, "w-full bg-card")} onBlur={field.onBlur}>
-                <SelectValue placeholder={t("production.choisirActivite")} />
-              </SelectTrigger>
-            </FormControl>
-            <SelectContent>
-              {activites.map((activite) => (
-                <SelectItem key={activite.activiteId} value={activite.activiteId}>
-                  {t("production.activiteLot", {
-                    lot: codeLot.get(activite.lotId) ?? "",
-                    code: activite.code,
-                    libelle: activite.libelle,
-                  })}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
-}
-
-/* ------------------------------------------------------------------ *
- * L'avancement des activités.
- * ------------------------------------------------------------------ */
-
-/**
- * L'avancement des activités suivies à la quantité, regroupées par lot. Les
- * index du formulaire suivent l'ordre de `activites` : le regroupement
- * n'en change pas l'ordre, il ne fait qu'intercaler les titres de lot.
+ * L'avancement des feuilles de l'arbre regroupées par lot, selon leur mode de mesure
+ * (`QUANTITE`, `POURCENTAGE`, `JALON`) et rattachées aux équipes configurées (garde-fou A3).
  */
 export function SectionAvancement({
   activites,
   lots,
+  equipes,
 }: {
   activites: ActivitePreparee[];
   lots: LotJournal[];
+  equipes: EquipeDuJour[];
 }) {
   const t = useTranslations("journal.saisie");
   const { control } = useFormContext<ValeursRapport>();
@@ -485,8 +61,6 @@ export function SectionAvancement({
   const choisissables = lotsSuivisAvancement({ lots, activites });
   const choisis = new Set(points.fields.map((point) => point.lotId));
 
-  // La sélection garde l'ordre du serveur : le rapport se lit lot après lot,
-  // comme la structure du chantier.
   const basculer = (lot: LotJournal) => {
     const rang = points.fields.findIndex((point) => point.lotId === lot.id);
     if (rang >= 0) {
@@ -499,10 +73,8 @@ export function SectionAvancement({
   };
 
   const [recherche, setRecherche] = useState(false);
-  // Le lot qu'on vient d'ajouter s'ouvre ; les autres restent repliés, pour
-  // qu'un chantier de vingt lots ne déroule pas vingt formulaires.
   const [ouverts, setOuverts] = useState<Set<string>>(() =>
-    points.fields.length === 1 ? new Set([points.fields[0].lotId]) : new Set(),
+    points.fields.length <= 3 ? new Set(points.fields.map((point) => point.lotId)) : new Set(),
   );
   const basculerOuvert = (lotId: string, ouvert: boolean) =>
     setOuverts((actuels) => {
@@ -571,6 +143,7 @@ export function SectionAvancement({
                 lot={lot}
                 rangPoint={rangPoint}
                 activites={activites}
+                equipes={equipes}
                 ouvert={ouverts.has(lot.id)}
                 onOuvrir={(ouvert) => basculerOuvert(lot.id, ouvert)}
                 onRetirer={() => points.remove(rangPoint)}
@@ -583,17 +156,11 @@ export function SectionAvancement({
   );
 }
 
-/**
- * Le point d'un lot travaillé : son avancement au soir, la quantité du jour
- * de chacune de ses activités, et ce qu'il faut en retenir.
- *
- * `activites` est la liste complète des activités suivies à l'avancement : le
- * rang d'une activité y est celui de sa ligne dans le formulaire.
- */
 function PointDuLot({
   lot,
   rangPoint,
   activites,
+  equipes,
   ouvert,
   onOuvrir,
   onRetirer,
@@ -601,6 +168,7 @@ function PointDuLot({
   lot: LotJournal;
   rangPoint: number;
   activites: ActivitePreparee[];
+  equipes: EquipeDuJour[];
   ouvert: boolean;
   onOuvrir: (ouvert: boolean) => void;
   onRetirer: () => void;
@@ -611,31 +179,49 @@ function PointDuLot({
   const { errors } = useFormState({ control, name: ["activites", "lotsTravailles"] });
   const valeurs = useWatch({ control, name: "activites" });
   const duLot = activites.flatMap((activite, rang) => (activite.lotId === lot.id ? [{ activite, rang }] : []));
-  const quantites = new Map(
-    duLot.map(({ activite, rang }) => [activite.activiteId, versNombre(valeurs[rang]?.quantiteJour ?? "") ?? 0]),
+
+  const mesures = new Map<string, MesureFeuilleSaisie>(
+    duLot.map(({ activite, rang }) => [
+      activite.activiteId,
+      {
+        quantiteJour: versNombre(valeurs[rang]?.quantiteJour ?? ""),
+        pourcentageJour: versNombre(valeurs[rang]?.pourcentageJour ?? ""),
+        jalonAtteint: Boolean(valeurs[rang]?.jalonAtteint),
+      },
+    ]),
   );
-  const avancementLot = avancementLotSaisi(duLot.map(({ activite }) => activite), quantites) ?? 0;
+
+  const avancementLot = avancementLotSaisi(duLot.map(({ activite }) => activite), mesures) ?? 0;
   const theoriqueLot = avancementTheoriqueLot(duLot.map(({ activite }) => activite)) ?? 0;
   const lotEnRetard = avancementLot < theoriqueLot;
-  const renseignees = duLot.filter(({ rang }) => estRenseigne(valeurs[rang]?.quantiteJour ?? "")).length;
-  // Un lot replié qui porte une erreur s'ouvre : une erreur cachée ne se corrige pas.
+  const renseignees = duLot.filter(({ rang }) => {
+    const ligne = valeurs[rang];
+    return (
+      estRenseigne(ligne?.quantiteJour ?? "") ||
+      estRenseigne(ligne?.pourcentageJour ?? "") ||
+      Boolean(ligne?.jalonAtteint)
+    );
+  }).length;
+
   const enErreur =
     Boolean(errors.lotsTravailles?.[rangPoint]) || duLot.some(({ rang }) => Boolean(errors.activites?.[rang]));
   const deplie = ouvert || enErreur;
 
-  // Seules les activités du jour s'affichent : celles déjà renseignées (un
-  // brouillon rouvert), celles qu'on ajoute, et celles qui portent une erreur.
-  // Un lot d'une seule activité la montre d'emblée.
   const [affichees, setAffichees] = useState<Set<string>>(() => {
     const lignes = getValues("activites");
     return new Set(
       duLot
-        .filter(({ rang }) => {
+        .filter(({ activite, rang }) => {
           const ligne = lignes[rang];
           return (
             duLot.length === 1 ||
+            activite.attendueCeJour ||
             (ligne !== undefined &&
-              (estRenseigne(ligne.quantiteJour) || estRenseigne(ligne.localisation) || estRenseigne(ligne.observation)))
+              (estRenseigne(ligne.quantiteJour) ||
+                estRenseigne(ligne.pourcentageJour) ||
+                ligne.jalonAtteint ||
+                estRenseigne(ligne.localisation) ||
+                estRenseigne(ligne.observation)))
           );
         })
         .map(({ activite }) => activite.activiteId),
@@ -647,13 +233,14 @@ function PointDuLot({
   );
   const visible = new Set(visibles.map(({ activite }) => activite.activiteId));
 
-  // Retirer une activité efface sa saisie : ce qui ne s'affiche pas ne part pas.
   const basculerActivite = (activiteId: string) => {
     const cible = duLot.find(({ activite }) => activite.activiteId === activiteId);
     if (!cible) return;
     if (visible.has(activiteId)) {
       const options = { shouldDirty: true } as const;
       setValue(`activites.${cible.rang}.quantiteJour`, "", options);
+      setValue(`activites.${cible.rang}.pourcentageJour`, "", options);
+      setValue(`activites.${cible.rang}.jalonAtteint`, false, options);
       setValue(`activites.${cible.rang}.localisation`, "", options);
       setValue(`activites.${cible.rang}.observation`, "", options);
     }
@@ -725,7 +312,10 @@ function PointDuLot({
             aucunResultat={t("avancement.aucuneActiviteTrouvee")}
             options={duLot.map(({ activite }) => ({
               id: activite.activiteId,
-              titre: t("avancement.activiteValeur", { code: activite.code, libelle: activite.libelle }),
+              titre: t("avancement.activiteValeur", {
+                code: activite.code,
+                libelle: activite.cheminLibelle || activite.libelle,
+              }),
               detail: t("avancement.activiteAvancement", {
                 avancement: avancementSaisi(activite, null),
                 theorique: activite.avancementTheorique,
@@ -747,20 +337,35 @@ function PointDuLot({
         )}
         <ul className="m-0 mb-3 flex list-none flex-col gap-3 p-0 empty:hidden">
           {visibles.map(({ activite, rang }) => {
-            const quantite = versNombre(valeurs[rang]?.quantiteJour ?? "");
-            const avancement = avancementSaisi(activite, quantite);
-            const depasse = depassePrevu(activite, quantite);
+            const mesure = mesures.get(activite.activiteId) ?? {
+              quantiteJour: null,
+              pourcentageJour: null,
+              jalonAtteint: false,
+            };
+            const avancement = avancementSaisi(activite, mesure);
+            const depasse = depassePrevu(activite, mesure.quantiteJour);
             const enRetard = avancement < activite.avancementTheorique;
+
             return (
               <li key={activite.activiteId} className="rounded-lg border border-neutral-200 bg-card p-3">
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <span className="block text-xs text-neutral-500 tabular-nums">{activite.code}</span>
-                    <span className="block text-sm font-semibold text-neutral-900">{activite.libelle}</span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs text-neutral-500 tabular-nums">{activite.code}</span>
+                      {activite.attendueCeJour && (
+                        <Badge variante="information">{t("avancement.attendueCeJour")}</Badge>
+                      )}
+                    </div>
+                    <span className="mt-0.5 block text-sm font-semibold text-neutral-900">
+                      {activite.cheminLibelle || activite.libelle}
+                    </span>
                   </div>
                   <span className="flex shrink-0 items-center gap-1">
                     <span
-                      className={cn("text-sm font-semibold tabular-nums", enRetard ? "text-avertissement" : "text-succes")}
+                      className={cn(
+                        "text-sm font-semibold tabular-nums",
+                        enRetard ? "text-avertissement" : "text-succes",
+                      )}
                     >
                       {t("pourcent", { valeur: avancement })}
                     </span>
@@ -776,32 +381,122 @@ function PointDuLot({
                     </Button>
                   </span>
                 </div>
-                <p className="m-0 mb-3 text-xs text-neutral-500 tabular-nums">
-                  {t("avancement.repere", {
-                    veille: formaterQuantite(activite.cumulVeille),
-                    cumul: formaterQuantite(cumulSaisi(activite, quantite)),
-                    prevu: formaterQuantite(activite.quantitePrevue),
-                    unite: unite(activite),
-                    theorique: activite.avancementTheorique,
-                  })}
-                </p>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,12rem)_1fr]">
-                  <ChampTexte
-                    name={`activites.${rang}.quantiteJour`}
-                    libelle={t("avancement.quantiteJour")}
-                    inputMode="decimal"
-                    suffixe={unite(activite)}
-                    placeholder="0"
-                  />
-                  <ChampTexte
-                    name={`activites.${rang}.localisation`}
-                    libelle={t("avancement.localisation")}
-                    placeholder={t("avancement.localisationExemple")}
+
+                {activite.modeMesure === "QUANTITE" && (
+                  <>
+                    <p className="m-0 mb-3 text-xs text-neutral-500 tabular-nums">
+                      {t("avancement.repere", {
+                        veille: formaterQuantite(activite.cumulVeille),
+                        cumul: formaterQuantite(cumulSaisi(activite, mesure.quantiteJour)),
+                        prevu: formaterQuantite(activite.quantitePrevue),
+                        unite: unite(activite),
+                        theorique: activite.avancementTheorique,
+                      })}
+                    </p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,12rem)_1fr]">
+                      <ChampTexte
+                        name={`activites.${rang}.quantiteJour`}
+                        libelle={t("avancement.quantiteJour")}
+                        inputMode="decimal"
+                        suffixe={unite(activite)}
+                        placeholder="0"
+                      />
+                      <ChampTexte
+                        name={`activites.${rang}.localisation`}
+                        libelle={t("avancement.localisation")}
+                        placeholder={t("avancement.localisationExemple")}
+                      />
+                    </div>
+                  </>
+                )}
+
+                {activite.modeMesure === "POURCENTAGE" && (
+                  <>
+                    <p className="m-0 mb-3 text-xs text-neutral-500 tabular-nums">
+                      {t("avancement.reperePourcentage", {
+                        veille: formaterQuantite(activite.pourcentageVeille),
+                        cumul: formaterQuantite(avancement),
+                        theorique: activite.avancementTheorique,
+                      })}
+                    </p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,12rem)_1fr]">
+                      <ChampTexte
+                        name={`activites.${rang}.pourcentageJour`}
+                        libelle={t("avancement.pourcentageJour")}
+                        inputMode="decimal"
+                        suffixe={t("unites.pourcent")}
+                        placeholder={formaterQuantite(activite.pourcentageVeille)}
+                      />
+                      <ChampTexte
+                        name={`activites.${rang}.localisation`}
+                        libelle={t("avancement.localisation")}
+                        placeholder={t("avancement.localisationExemple")}
+                      />
+                    </div>
+                  </>
+                )}
+
+                {activite.modeMesure === "JALON" && (
+                  <>
+                    <p className="m-0 mb-3 text-xs text-neutral-500 tabular-nums">
+                      {t("avancement.repereJalon", { theorique: activite.avancementTheorique })}
+                    </p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <FormField
+                        control={control}
+                        name={`activites.${rang}.jalonAtteint`}
+                        render={({ field }) => (
+                          <FormItem className="gap-1.5">
+                            <FormLabel>{t("avancement.statutJalon")}</FormLabel>
+                            <FormControl>
+                              <label
+                                className={cn(
+                                  "flex min-h-[var(--input-height-md)] cursor-pointer items-center gap-2.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
+                                  field.value
+                                    ? "border-succes bg-succes-fond text-succes"
+                                    : "border-neutral-200 bg-card text-neutral-700 hover:bg-neutral-50",
+                                )}
+                              >
+                                <Checkbox
+                                  checked={Boolean(field.value)}
+                                  onCheckedChange={(coche) => field.onChange(coche === true)}
+                                  className="size-5"
+                                />
+                                <span>{t("avancement.jalonAtteint")}</span>
+                              </label>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <ChampTexte
+                        name={`activites.${rang}.localisation`}
+                        libelle={t("avancement.localisation")}
+                        placeholder={t("avancement.localisationExemple")}
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="mt-3">
+                  <ChampEquipesActivite
+                    rang={rang}
+                    activite={activite}
+                    equipes={equipes}
+                    requis={
+                      activite.modeMesure === "POURCENTAGE"
+                        ? mesure.pourcentageJour !== null && mesure.pourcentageJour > activite.pourcentageVeille
+                        : activite.modeMesure === "JALON"
+                          ? mesure.jalonAtteint
+                          : (mesure.quantiteJour ?? 0) > 0
+                    }
                   />
                 </div>
+
                 <div className="mt-3">
                   <ChampTexte name={`activites.${rang}.observation`} libelle={t("avancement.observation")} />
                 </div>
+
                 {depasse && (
                   <div className="mt-2">
                     <Signal ton="avertissement" icone={<TriangleAlert />}>
@@ -826,10 +521,80 @@ function PointDuLot({
 }
 
 /**
- * « + Ajouter… » : une liste à rechercher, où chaque option se coche ou se
- * décoche. Sert aux lots du jour et aux activités du jour d'un lot — sur un
- * chantier de vingt lots, une rangée de puces ne se lit plus.
+ * Les équipes affectées à la feuille qui ont réalisé le travail aujourd'hui (garde-fou A3).
  */
+function ChampEquipesActivite({
+  rang,
+  activite,
+  equipes,
+  requis,
+}: {
+  rang: number;
+  activite: ActivitePreparee;
+  equipes: EquipeDuJour[];
+  requis: boolean;
+}) {
+  const t = useTranslations("journal.saisie");
+  const { control } = useFormContext<ValeursRapport>();
+  const affectees = equipes.filter((equipe) => activite.equipesAffectees.includes(equipe.equipeId));
+
+  return (
+    <FormField
+      control={control}
+      name={`activites.${rang}.equipeIds`}
+      render={({ field, fieldState }) => {
+        const choisies: string[] = Array.isArray(field.value) ? field.value : [];
+        const basculerEquipe = (equipeId: string) => {
+          const suivante = choisies.includes(equipeId)
+            ? choisies.filter((id) => id !== equipeId)
+            : [...choisies, equipeId];
+          field.onChange(suivante);
+        };
+
+        return (
+          <FormItem className="gap-1.5">
+            <FormLabel className="flex items-center gap-1.5">
+              <Users className="size-3.5 text-neutral-500" aria-hidden="true" />
+              <span>{t("avancement.equipesIntervenantes")}</span>
+              {requis && <Requis />}
+            </FormLabel>
+            {affectees.length === 0 ? (
+              <Signal ton="avertissement">{t("avancement.aucuneEquipeAffectee")}</Signal>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {affectees.map((equipe) => {
+                  const choisie = choisies.includes(equipe.equipeId);
+                  return (
+                    <button
+                      key={equipe.equipeId}
+                      type="button"
+                      aria-pressed={choisie}
+                      onClick={() => basculerEquipe(equipe.equipeId)}
+                      className={cn(
+                        "inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                        choisie
+                          ? "border-primary-500 bg-primary-50 text-primary-800"
+                          : cn(
+                              "bg-card text-neutral-700 hover:bg-neutral-50",
+                              fieldState.error ? "border-erreur" : "border-neutral-200",
+                            ),
+                      )}
+                    >
+                      {choisie && <Check className="size-3.5 shrink-0" aria-hidden="true" />}
+                      <span>{equipe.nom}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <FormMessage />
+          </FormItem>
+        );
+      }}
+    />
+  );
+}
+
 function SelecteurAjout({
   ouvert,
   onOuvrir,
