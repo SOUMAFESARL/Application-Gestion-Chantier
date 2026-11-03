@@ -1,14 +1,8 @@
 /**
- * La copie locale du rapport en cours — ce qui survit à une coupure.
+ * La copie locale du rapport en cours — ce qui survit à une coupure réseau.
  *
- * Le brouillon part au serveur toutes les 30 secondes ; entre deux envois, ou
- * quand le réseau du chantier tombe, la saisie est recopiée ici à chaque
- * frappe. Fermer l'onglet, perdre le réseau ou vider la batterie ne coûte
- * donc rien : à la réouverture, la copie la plus récente l'emporte.
- *
- * C'est le pendant web du SQLite chiffré de l'application Android (SFD §8) :
- * moins protégé — le `localStorage` n'est pas chiffré —, il ne garde que le
- * rapport en cours, et l'efface dès qu'il est soumis.
+ * La clé inclut l'identifiant du rédacteur (`utilisateurId`) afin que deux comptes
+ * sur le même appareil partagé ne mélangent jamais leurs brouillons locaux.
  */
 
 import type { ValeursRapport } from "./validations";
@@ -21,18 +15,24 @@ export interface CopieLocale {
   modifieLe: string;
 }
 
-function cle(projetId: string, date: string): string {
-  return `${PREFIXE}.${projetId}.${date}`;
+function cle(projetId: string, date: string, utilisateurId?: string | null): string {
+  const porteur = utilisateurId || "anonyme";
+  return `${PREFIXE}.${porteur}.${projetId}.${date}`;
 }
 
-export function lireCopieLocale(projetId: string, date: string): CopieLocale | null {
+export function lireCopieLocale(
+  projetId: string,
+  date: string,
+  utilisateurId?: string | null,
+): CopieLocale | null {
   try {
-    const brut = localStorage.getItem(cle(projetId, date));
+    const brut = localStorage.getItem(cle(projetId, date, utilisateurId));
     if (!brut) return null;
     const copie = JSON.parse(brut) as CopieLocale;
-    // Une copie d'avant la saisie libre des matériaux portait des lignes du
-    // stock (`materiauId`, `utilise`) : on les laisse plutôt que de casser le formulaire.
-    const materiaux = (copie.valeurs.materiaux ?? []).filter((ligne) => typeof ligne.designation === "string");
+    if (!copie?.valeurs || !Array.isArray(copie.valeurs.blocages)) return null;
+    const materiaux = (copie.valeurs.materiaux ?? []).filter(
+      (ligne) => typeof ligne.designation === "string",
+    );
     return { ...copie, valeurs: { ...copie.valeurs, materiaux } };
   } catch {
     return null;
@@ -40,16 +40,24 @@ export function lireCopieLocale(projetId: string, date: string): CopieLocale | n
 }
 
 /** `false` quand le poste refuse (stockage plein, navigation privée) : la saisie reste en mémoire. */
-export function ecrireCopieLocale(projetId: string, date: string, valeurs: ValeursRapport): boolean {
+export function ecrireCopieLocale(
+  projetId: string,
+  date: string,
+  valeurs: ValeursRapport,
+  utilisateurId?: string | null,
+): boolean {
   const copie: CopieLocale = { valeurs, modifieLe: new Date().toISOString() };
+  const cleStockage = cle(projetId, date, utilisateurId);
   try {
-    localStorage.setItem(cle(projetId, date), JSON.stringify(copie));
+    localStorage.setItem(cleStockage, JSON.stringify(copie));
     return true;
   } catch {
-    // Les photos et les pièces jointes pèsent : sans elles, au moins le texte est sauf.
     try {
-      const sansPhotos: CopieLocale = { ...copie, valeurs: { ...valeurs, photos: [], piecesJointes: [] } };
-      localStorage.setItem(cle(projetId, date), JSON.stringify(sansPhotos));
+      const sansPhotos: CopieLocale = {
+        ...copie,
+        valeurs: { ...valeurs, photos: [], piecesJointes: [] },
+      };
+      localStorage.setItem(cleStockage, JSON.stringify(sansPhotos));
     } catch {
       // Rien de plus à tenter.
     }
@@ -57,9 +65,13 @@ export function ecrireCopieLocale(projetId: string, date: string, valeurs: Valeu
   }
 }
 
-export function effacerCopieLocale(projetId: string, date: string): void {
+export function effacerCopieLocale(
+  projetId: string,
+  date: string,
+  utilisateurId?: string | null,
+): void {
   try {
-    localStorage.removeItem(cle(projetId, date));
+    localStorage.removeItem(cle(projetId, date, utilisateurId));
   } catch {
     // Rien à effacer.
   }

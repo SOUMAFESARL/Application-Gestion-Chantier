@@ -240,8 +240,9 @@ export function etapeASigner(
   situation: string,
   circuit: readonly EtapeCircuit[],
   collaborateurId: string | null,
-): "CT" | "CP" | null {
-  const etape = situation === "SOUMIS" ? "CT" : situation === "VALIDE_CT" ? "CP" : null;
+): "VALIDATION" | "APPROBATION" | null {
+  const etape =
+    situation === "SOUMIS" ? "VALIDATION" : situation === "VALIDE" ? "APPROBATION" : null;
   if (!etape || !collaborateurId) return null;
   const attendus = circuit.find((ligne) => ligne.role === etape)?.signataires ?? [];
   const attendu = attendus.some((s) => s.utilisateurId === collaborateurId && s.etat === "EN_ATTENTE");

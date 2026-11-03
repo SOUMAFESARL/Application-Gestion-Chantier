@@ -12,15 +12,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { ResumeSaisie } from "@/features/chantier";
 import { SEUIL_ALERTE_PRESENCE } from "@/features/chantier";
+import type { ResumeSaisie } from "@/features/chantier";
 import { formaterQuantite } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
- * La confirmation de soumission (SFD §6.2) : le résumé de ce que le chef de
- * chantier certifie. Après, le rapport ne se modifie plus — il le lit donc
- * ici une dernière fois, chiffres en tête.
+ * La confirmation de soumission : le résumé de ce que le rédacteur certifie.
+ * Une fois soumis, le rapport entre dans le circuit de validation.
  */
 export function ModaleSoumission({
   resume,
@@ -55,7 +54,10 @@ export function ModaleSoumission({
                 }),
                 alerte: resume.taux !== null && resume.taux < SEUIL_ALERTE_PRESENCE,
               },
-              { libelle: t("heures"), valeur: tSaisie("heures", { valeur: formaterQuantite(resume.heures) }) },
+              {
+                libelle: t("heures"),
+                valeur: tSaisie("heures", { valeur: formaterQuantite(resume.heures) }),
+              },
             ]
           : []),
         {
@@ -73,9 +75,9 @@ export function ModaleSoumission({
           alerte: resume.incidentsGraves > 0,
         },
         {
-          libelle: t("blocage"),
-          valeur: tSaisie(`blocage.niveaux.${resume.blocage}`),
-          alerte: resume.blocage === "BLOQUANT",
+          libelle: t("blocages"),
+          valeur: t("blocagesValeur", { n: resume.blocages, bloquants: resume.blocagesBloquants }),
+          alerte: resume.blocagesBloquants > 0,
         },
         { libelle: t("photos"), valeur: String(resume.photos) },
       ]
@@ -93,7 +95,12 @@ export function ModaleSoumission({
           {lignes.map((ligne) => (
             <div key={ligne.libelle} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
               <dt className="text-neutral-600">{ligne.libelle}</dt>
-              <dd className={cn("m-0 text-right font-semibold tabular-nums", ligne.alerte ? "text-erreur" : "text-neutral-900")}>
+              <dd
+                className={cn(
+                  "m-0 text-right font-semibold tabular-nums",
+                  ligne.alerte ? "text-erreur" : "text-neutral-900",
+                )}
+              >
                 {ligne.valeur}
               </dd>
             </div>

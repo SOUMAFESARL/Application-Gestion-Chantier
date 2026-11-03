@@ -1,23 +1,10 @@
 /**
- * Les types du domaine Journal de chantier — module 2 du CDC, miroir de
- * `backend/apps/chantier/`.
+ * Les types du domaine Journal de chantier — miroir de `backend/apps/chantier/`.
  *
- * Deux documents, et une ligne qui les relie :
- *
- * - le **rapport journalier** (`RAP-…`) couvre **un chantier sur un jour** :
- *   tous les lots travaillés ce jour-là, chacun avec ses activités. Il est
- *   saisi par le chef de chantier, puis signé CC → CT → CP ; une fois
- *   approuvé par le CP il est immuable — c'est lui qui alimente l'avancement
- *   et les bons de paiement ;
- * - la **synthèse périodique** (`SYNT-…`) couvre **plusieurs lots sur
- *   plusieurs jours**. Elle n'est pas saisie : Django l'agrège à la demande
- *   depuis les rapports journaliers, puis elle est signée CT → CP ;
- * - l'**entrée de journal** est la ligne « tel chantier, tel jour » : un rapport
- *   quand il existe, son absence quand il manque. Une absence est une donnée
- *   (elle se trace, se relance, apparaît dans la synthèse), pas un trou.
- *
- * Aucune forme HTTP ici : les charges utiles restent privées à
- * `adaptateur.ts`.
+ * Le journal s'articule autour de l'arbre du découpage (feuilles attendues et leurs 3 modes
+ * de mesure), du pointage nominatif par équipe (`EquipeChantier`), du calendrier ouvré de
+ * l'entreprise et d'un circuit de signatures gouverné par les permissions (`REDACTION` →
+ * `VALIDATION` → `APPROBATION`), sans aucun intitulé de rôle figé dans les statuts.
  */
 
 import type { ModeExecutionLot, UniteActivite } from "@/features/projets/types";
@@ -27,44 +14,24 @@ import type { ModeExecutionLot, UniteActivite } from "@/features/projets/types";
  * ------------------------------------------------------------------ */
 
 /**
- * Le cycle d'un rapport : BROUILLON → SOUMIS → VALIDE_CT → APPROUVE_CP.
- * Un rejet (CT ou CP) le renvoie au chef de chantier, qui le corrige.
+ * Le cycle d'un rapport : `BROUILLON` → `SOUMIS` → `VALIDE` → `APPROUVE`.
+ * Un rejet à la validation ou à l'approbation le renvoie au rédacteur (`REJETE`).
  */
-export type StatutRapport = "BROUILLON" | "SOUMIS" | "VALIDE_CT" | "APPROUVE_CP" | "REJETE";
+export type StatutRapport = "BROUILLON" | "SOUMIS" | "VALIDE" | "APPROUVE" | "REJETE";
 
 /**
- * Ce qu'on sait d'un lot pour un jour : un statut de rapport, ou son absence.
- * Un brouillon n'en fait pas partie : tant que le chef de chantier ne l'a pas
- * soumis, il n'existe que pour lui — pour le reste de l'entreprise, le
- * rapport n'est pas soumis (`versSituation`, adaptateur).
+ * Ce qu'on sait d'un chantier pour un jour ouvré : un statut de rapport, ou son absence.
+ * Un brouillon n'existe que pour son auteur ; pour le reste de l'entreprise il vaut `NON_SOUMIS`.
  */
 export type SituationRapport = Exclude<StatutRapport, "BROUILLON"> | "NON_SOUMIS";
 
-/** Les trois signataires d'un rapport journalier ; la synthèse n'a que CT et CP. */
-export type RoleSignataire = "CC" | "CT" | "CP";
+/** Les trois étapes fonctionnelles d'un rapport ; la synthèse porte `VALIDATION` et `APPROBATION`. */
+export type RoleSignataire = "REDACTION" | "VALIDATION" | "APPROBATION";
+
+export type EtapeSignable = "VALIDATION" | "APPROBATION";
 
 export type EtatEtape = "SIGNE" | "EN_ATTENTE" | "A_VENIR" | "REJETE";
 
-/** Une étape du circuit : qui signe, quand, et avant quand il aurait dû. */
-export interface EtapeCircuit {
-  role: RoleSignataire;
-  signataire: string;
-  etat: EtatEtape;
-  signeLe: string | null;
-  /** L'échéance de l'étape en attente (24 h pour le CT). */
-  echeance: string | null;
-  /** Le motif d'un rejet. */
-  commentaire: string | null;
-  /**
-   * Tous ceux qui signent cette étape (30/10/2026) : les personnes qui en ont la permission sur
-   * la partie du projet du rapport, et où chacune en est. Vide pour le rédacteur.
-   */
-  signataires: SignataireAttendu[];
-  /** Étape sautée : personne n'avait la permission sur la partie du rapport. */
-  sansSignataire: boolean;
-}
-
-/** `RETIRE` : n'a plus la fonction sur le projet, n'est plus attendu. */
 export type EtatSignataire = EtatEtape | "RETIRE";
 
 export interface SignataireAttendu {
@@ -75,70 +42,66 @@ export interface SignataireAttendu {
   commentaire: string | null;
 }
 
+/** Une étape du circuit : qui signe, quand, et avant quelle échéance. */
+export interface EtapeCircuit {
+  role: RoleSignataire;
+  signataire: string;
+  etat: EtatEtape;
+  signeLe: string | null;
+  echeance: string | null;
+  commentaire: string | null;
+  signataires: SignataireAttendu[];
+  sansSignataire: boolean;
+}
+
 /* ------------------------------------------------------------------ *
- * Le lot et l'entrée de journal.
+ * Le groupe de l'arbre (lot) et l'entrée de journal.
  * ------------------------------------------------------------------ */
 
-/** Le chantier tel que le journal le voit : c'est lui qui titre un rapport, pas un lot. */
 export interface ChantierJournal {
   projetId: string;
   projetNom: string;
   projetReference: string;
-  chefChantier: string;
+  redacteur: string;
 }
 
-/** Un lot tel que le journal le voit : son chantier et son chef de chantier. */
 export interface LotJournal {
   id: string;
   code: string;
   nom: string;
-  /** Le mode de base du lot : c'est sur lui que raisonnent les sections du rapport. */
   modeExecution: ModeExecutionLot;
-  /** Le mode que le lot porte, en toutes lettres ; vide si le serveur ne le donne pas. */
   modeExecutionLibelle: string;
   projetId: string;
   projetNom: string;
   projetReference: string;
-  chefChantier: string;
+  redacteur: string;
 }
 
-/** Une ligne « tel chantier, tel jour » — rapport déposé ou attendu. */
 export interface EntreeJournal {
-  /** L'identifiant du rapport ; pour une absence, celui de la ligne attendue. */
   id: string;
-  /** `RAP-2026-001-042` — `null` tant qu'aucun rapport n'existe. */
   reference: string | null;
-  /** Le jour couvert, `AAAA-MM-JJ`. */
   date: string;
   chantier: ChantierJournal;
-  /**
-   * Les lots dont le rapport rend compte ce jour — ceux où l'on a travaillé.
-   * Vide pour une absence ou une journée d'arrêt.
-   */
   lots: LotJournal[];
   situation: SituationRapport;
   effectifPresent: number | null;
   effectifPrevu: number | null;
-  /** L'avancement du chantier au soir de ce jour, en %. */
   avancement: number | null;
   avancementTheorique: number | null;
   incidents: number | null;
   blocages: number | null;
   photos: number | null;
   soumisLe: string | null;
-  /** Pour une absence : le dernier jour où ce chantier a eu un rapport. */
   dernierRapportLe: string | null;
-  /** La dernière relance envoyée pour cette ligne. */
   relanceLe: string | null;
-  /** La note du chef de chantier, telle qu'il l'a écrite. */
-  noteChefChantier: string | null;
+  noteRedacteur: string | null;
   circuit: EtapeCircuit[];
 }
 
-/** Le journal d'une période : toutes les lignes, et l'heure de lecture. */
 export interface Journal {
-  /** Le jour du serveur, `AAAA-MM-JJ` — pas celui du poste. */
   aujourdhui: string;
+  estJourOuvre: boolean;
+  joursSaisissables: string[];
   luLe: string;
   entrees: EntreeJournal[];
 }
@@ -149,69 +112,72 @@ export interface Journal {
 
 export type Meteo = "ENSOLEILLE" | "NUAGEUX" | "PLUVIEUX" | "ORAGEUX" | "BRUMEUX";
 export type ConditionsTravail = "FAVORABLES" | "DIFFICILES" | "ARRET";
+export type ModeMesureFeuille = "QUANTITE" | "POURCENTAGE" | "JALON";
 
 export interface ConditionsMeteo {
-  matin: Meteo;
-  apresMidi: Meteo;
-  /** `null` : non relevé — seuls le ciel et les conditions sont obligatoires. */
-  temperatureMin: number | null;
-  temperatureMax: number | null;
-  humidite: number | null;
-  vent: string;
-  conditions: ConditionsTravail;
-  /** La prévision du lendemain, quand elle change l'organisation du chantier. */
-  prevision: string | null;
+  matin: Meteo | "";
+  apresMidi: Meteo | "";
+  conditions: ConditionsTravail | "";
 }
 
-/** Une catégorie d'ouvriers présents — lots en régie directe seulement. */
+export interface MeteoSuggeree {
+  matin: Meteo;
+  apresMidi: Meteo;
+  conditions: ConditionsTravail;
+  sourceAuto: boolean;
+}
+
+/** Conservé uniquement pour afficher les rapports historiques antérieurs à la refonte équipes. */
 export interface LigneEffectif {
   categorie: string;
-  /** Exigés par le serveur à la soumission : un rapport lu en document les porte toujours. */
   prevus: number;
   presents: number;
   heures: number;
   observation: string | null;
 }
 
-/** La production d'un tâcheron — lots en sous-traitance informelle seulement. */
-export interface LigneProduction {
-  intervenant: string;
-  activite: string;
-  unite: string;
-  /** En centimes de FCFA ; `null` pour qui n'a pas le droit de voir les montants. */
-  prixUnitaire: number | null;
-  /** Exigée par le serveur à la soumission. */
-  quantiteJour: number;
-  cumul: number;
+export type QualiteExecution = "CONFORME" | "NON_CONFORME";
+
+/** La présence figée d'une équipe dans le document du rapport journalier. */
+export interface PresenceEquipeRapport {
+  equipeId: string;
+  nom: string;
+  entreprise: string;
+  presence: "PRESENT" | "PARTIEL" | "ABSENT";
+  membres: number;
+  presents: string[];
+  absents: string[];
+  retards: string[];
+  heures: number | null;
+  qualite: QualiteExecution | null;
+  observation: string;
 }
 
 export interface LigneActivite {
+  activiteId: string;
   libelle: string;
-  unite: string;
+  modeMesure: ModeMesureFeuille;
+  unite: string | null;
   quantitePrevue: number;
-  /** Le cumul à la veille. */
   cumulVeille: number;
   quantiteJour: number;
-  /** L'avancement attendu à cette date par le planning, en %. */
+  pourcentageVeille: number;
+  pourcentageJour: number | null;
+  jalonAtteint: boolean;
   avancementTheorique: number;
+  equipesNoms: string[];
+  localisation: string;
   observation: string | null;
 }
 
-/** Ce qu'un lot a vu ce jour : son avancement, le point du chef de chantier, ses activités. */
 export interface TravauxLot {
   lot: LotJournal;
-  /** L'avancement du lot au soir de ce jour, en %. */
   avancement: number;
   avancementTheorique: number;
   observation: string | null;
   activites: LigneActivite[];
 }
 
-/**
- * `stockDebut` et `seuilAlerte` à `null` : un matériau saisi librement par le
- * chef de chantier, sans fiche au stock — on sait ce qui a été consommé, pas
- * ce qui reste.
- */
 export interface LigneMateriau {
   designation: string;
   unite: string;
@@ -226,10 +192,19 @@ export type Conformite = "CONFORME" | "PARTIELLE" | "NON_CONFORME";
 export interface Livraison {
   fournisseur: string;
   designation: string;
-  quantite: string;
+  quantite: number | null;
+  unite: string;
   bonLivraison: string;
   heure: string;
   conformite: Conformite;
+  observation: string | null;
+}
+
+export interface BesoinRapport {
+  nature: "RUPTURE" | "URGENT";
+  designation: string;
+  quantite: number | null;
+  unite: string;
   observation: string | null;
 }
 
@@ -237,24 +212,50 @@ export type EtatEquipement = "BON" | "ENTRETIEN" | "PANNE";
 export type ProprieteEquipement = "ENTREPRISE" | "LOCATION";
 
 export interface LigneEquipement {
+  cle: string;
   designation: string;
   reference: string;
-  propriete: ProprieteEquipement;
-  utilisation: string;
+  propriete: ProprieteEquipement | "";
+  heuresUtilisation: number | null;
+  usage: string;
   operateur: string;
-  etat: EtatEquipement;
+  etat: EtatEquipement | "";
+  dureeArret: number | null;
   observation: string | null;
 }
 
-export type TypeIncident = "QUALITE" | "SECURITE" | "MATERIEL" | "APPROVISIONNEMENT" | "ADMINISTRATIF";
+export type TypeIncident =
+  | "QUALITE"
+  | "SECURITE"
+  | "MATERIEL"
+  | "APPROVISIONNEMENT"
+  | "ADMINISTRATIF";
 export type GraviteIncident = "MINEUR" | "SIGNIFICATIF" | "GRAVE";
+
+export type NatureEvenement =
+  | "INCIDENT_SECURITE"
+  | "NON_CONFORMITE"
+  | "INCIDENT_MATERIEL"
+  | "DIFFICULTE_TECHNIQUE"
+  | "VISITE_INSTRUCTION"
+  | "EVENEMENT_PARTICULIER";
+
+export type DecideurIncident =
+  | RoleSignataire
+  | "MAITRE_OEUVRE"
+  | "BUREAU_CONTROLE"
+  | "CLIENT"
+  | "AUTORITE";
 
 export interface Incident {
   numero: string;
-  type: TypeIncident;
+  nature: NatureEvenement;
+  type: TypeIncident | "";
+  heureDebut: string;
+  heureFin: string;
   description: string;
-  gravite: GraviteIncident;
-  decidePar: RoleSignataire;
+  gravite: GraviteIncident | "";
+  decidePar: DecideurIncident | "";
   action: string;
   resolu: boolean;
 }
@@ -270,7 +271,12 @@ export type NatureBlocage =
 
 export interface Blocage {
   numero: string;
-  nature: NatureBlocage;
+  cle: string;
+  blocageId: string | null;
+  elementId: string | null;
+  elementLibelle: string | null;
+  titre: string;
+  nature: NatureBlocage | "";
   niveau: NiveauBlocage;
   description: string;
   impact: string;
@@ -278,67 +284,64 @@ export interface Blocage {
 }
 
 export interface Photo {
-  /** L'image elle-même ; `null` quand le serveur n'en sert que les métadonnées. */
   url: string | null;
+  elementId: string | null;
+  elementLibelle: string | null;
   legende: string;
   heure: string;
-  /** `null` : photo prise sans position — `gpsConfirme` vaut alors `false`. */
   latitude: number | null;
   longitude: number | null;
   gpsConfirme: boolean;
 }
 
-/** Un document joint au rapport par le chef de chantier (PV, plan, métré). */
 export interface DocumentRapport {
   nom: string;
-  /** Le type MIME. */
   type: string;
-  /** En octets. */
   taille: number;
-  /** Le fichier ; `null` quand le serveur n'en sert que les métadonnées. */
   url: string | null;
 }
 
 export interface Prevision {
+  activiteId: string | null;
+  equipeId: string | null;
   activite: string;
   equipe: string;
   objectif: string;
   prerequis: string;
 }
 
-/** Les intervenants nommés sur le document. */
 export interface IntervenantsRapport {
-  chefChantier: string;
-  conducteurTravaux: string;
-  chefProjet: string;
+  redacteur: string;
+  validateurs: string;
+  approbateurs: string;
 }
 
-/**
- * Le rapport journalier complet — le document que le CC a signé, pour tout
- * le chantier.
- *
- * Les sections suivent les modes d'exécution des lots, **tels que le serveur
- * les renvoie** : `effectifs` n'existe que si un lot est en régie directe,
- * `production` qu'en sous-traitance informelle. Un `null` veut dire
- * « section sans objet ce jour », un tableau vide « rien à signaler ».
- * L'avancement se lit lot par lot (`travaux`).
- */
+export type MotifArret =
+  | "INTEMPERIES"
+  | "INCIDENT_SECURITE"
+  | "RUPTURE_APPROVISIONNEMENT"
+  | "INJONCTION_ADMINISTRATIVE"
+  | "GREVE_SOCIAL"
+  | "AUTRE";
+
 export interface RapportJournalier extends EntreeJournal {
   localisation: string;
   intervenants: IntervenantsRapport;
   heureDebut: string;
   heureFin: string;
+  arret: { motif: MotifArret; precision: string } | null;
   meteo: ConditionsMeteo;
+  /** Repli de lecture pour les rapports antérieurs à la généralisation des équipes. */
   effectifs: LigneEffectif[] | null;
-  production: LigneProduction[] | null;
+  equipes: PresenceEquipeRapport[];
   travaux: TravauxLot[];
   materiaux: LigneMateriau[];
   livraisons: Livraison[];
+  besoins: BesoinRapport[];
   equipements: LigneEquipement[];
   listeIncidents: Incident[];
   listeBlocages: Blocage[];
   listePhotos: Photo[];
-  /** Les documents joints au formulaire ; vide : aucun. */
   documents: DocumentRapport[];
   previsions: Prevision[];
 }
@@ -349,7 +352,6 @@ export interface RapportJournalier extends EntreeJournal {
 
 export type TypePeriode = "HEBDOMADAIRE" | "MENSUELLE" | "PERSONNALISEE";
 
-/** Ce que l'écran demande : un chantier, une période. */
 export interface DemandeSynthese {
   projetId: string;
   type: TypePeriode;
@@ -367,7 +369,8 @@ export interface ProgressionPeriode {
 
 export interface ActiviteSynthese {
   libelle: string;
-  unite: string;
+  modeMesure: ModeMesureFeuille;
+  unite: string | null;
   quantitePrevue: number;
   avancementDebut: number;
   avancementFin: number;
@@ -388,7 +391,6 @@ export interface EffectifSynthese {
   observation: string | null;
 }
 
-/** Les stocks à `null` : un matériau saisi librement, sans fiche au stock (voir `LigneMateriau`). */
 export interface MateriauSynthese {
   designation: string;
   unite: string;
@@ -417,7 +419,6 @@ export interface ObjectifSuivant {
   prerequis: string;
 }
 
-/** Les chiffres de tête de la synthèse. */
 export interface ChiffresSynthese {
   joursOuvres: number;
   rapportsAttendus: number;
@@ -433,21 +434,20 @@ export interface ChiffresSynthese {
   blocages: number;
 }
 
-/**
- * Où en est une synthèse. Seules les semaines et les mois clos passent par le
- * circuit CT → CP : `LIBRE` est une période personnalisée, qui se consulte
- * sans se signer ; `EN_COURS`, une période pas encore close ; `A_REDIGER`,
- * close, et le conducteur de travaux n'y a encore rien écrit.
- */
-export type StatutSynthese = "LIBRE" | "EN_COURS" | "A_REDIGER" | "BROUILLON" | "SOUMISE" | "APPROUVEE" | "REJETEE";
+export type StatutSynthese =
+  | "LIBRE"
+  | "EN_COURS"
+  | "A_REDIGER"
+  | "BROUILLON"
+  | "SOUMISE"
+  | "APPROUVEE"
+  | "REJETEE";
 
-/** Ce qu'écrit le conducteur de travaux avant de signer. */
 export interface RedactionSynthese {
   appreciation: string;
   objectifs: ObjectifSuivant[];
 }
 
-/** Une synthèse enregistrée, vue de loin : de quoi dire laquelle attend qui. */
 export interface SuiviSynthese {
   id: string;
   projetId: string;
@@ -458,13 +458,10 @@ export interface SuiviSynthese {
 }
 
 export interface SynthesePeriodique {
-  /** `null` tant que le conducteur de travaux n'y a rien écrit. */
   id: string | null;
   statut: StatutSynthese;
-  /** Sa rédaction en cours — renvoyée au seul conducteur de travaux du chantier. */
   redaction: RedactionSynthese | null;
-  /** L'étape que le serveur autorise ce compte à signer maintenant, ou `null`. */
-  etapeASigner: "CT" | "CP" | null;
+  etapeASigner: EtapeSignable | null;
   reference: string;
   type: TypePeriode;
   debut: string;
@@ -474,85 +471,49 @@ export interface SynthesePeriodique {
   projetNom: string;
   projetReference: string;
   localisation: string;
-  chefProjet: string;
-  conducteurTravaux: string;
+  approbateurs: string;
+  validateurs: string;
   lots: LotJournal[];
   chiffres: ChiffresSynthese;
   progression: ProgressionPeriode;
-  /** Toutes les lignes de la période, absences comprises. */
   recapitulatif: EntreeJournal[];
   avancement: LotSynthese[];
   effectifs: EffectifSynthese[];
   materiaux: MateriauSynthese[];
   incidents: IncidentSynthese[];
-  /** Rédigée par le CT à la clôture de la période ; `null` avant. */
   appreciation: Appreciation | null;
   objectifs: ObjectifSuivant[];
   circuit: EtapeCircuit[];
 }
 
 /* ------------------------------------------------------------------ *
- * La saisie du rapport journalier — l'écran du chef de chantier.
+ * La saisie du rapport journalier.
  * ------------------------------------------------------------------ */
 
-/**
- * Les sections propres au mode d'exécution du lot. Le contexte, les
- * incidents, le blocage, les photos, les prévisions et la note sont communs à
- * tous les modes et ne figurent donc pas ici.
- *
- * **Le serveur les donne, l'écran ne les déduit pas** (SFD F2, RG-F2-07) : si
- * le mode d'un lot est corrigé avant son premier rapport, le formulaire suit
- * sans mise à jour de l'application.
- */
 export type SectionSaisie =
-  | "EFFECTIFS"
-  | "PRESENCE_SOUS_TRAITANT"
-  | "PRODUCTION"
   | "AVANCEMENT"
   | "MATERIAUX"
   | "LIVRAISONS"
   | "EQUIPEMENTS"
-  /** Les équipes des tâches : on coche leurs présents au lieu des effectifs par catégorie. */
   | "EQUIPES";
 
-/** Une journée sans travaux (SFD §4.4) : comptée dans le taux de remise, sans avancement ni consommation. */
-export type MotifArret = "INTEMPERIES" | "JOUR_FERIE" | "AUTRE";
-
-/** Le blocage se déclare en un choix unique ; « aucun » est une réponse, pas un oubli. */
-export type NiveauBlocageSaisi = "AUCUN" | NiveauBlocage;
-
-export type PresenceSousTraitant = "PRESENT" | "PARTIEL" | "ABSENT";
-export type QualiteExecution = "CONFORME" | "NON_CONFORME";
-
-/**
- * Comment une activité se déclare au jour le jour : par la quantité réalisée
- * (régie directe, sous-traitance structurée) ou par la production des
- * tâcherons (sous-traitance informelle) — selon le mode de **son** lot.
- */
-export type SuiviActivite = "AVANCEMENT" | "PRODUCTION";
-
-/** Une activité d'un lot du chantier, telle que le chef de chantier la renseigne ce jour. */
+/** Une feuille ouverte de l'arbre du projet, préparée pour la saisie du jour. */
 export interface ActivitePreparee {
   activiteId: string;
-  /** Le lot de l'activité : le rapport couvre tout le chantier, l'écran les regroupe par lot. */
   lotId: string;
-  suivi: SuiviActivite;
+  modeMesure: ModeMesureFeuille;
   code: string;
   libelle: string;
-  /** `null` : activité suivie au pourcentage — sa quantité prévue vaut alors 100. */
+  cheminLibelle: string;
   unite: UniteActivite | null;
   quantitePrevue: number;
-  /** Le cumul réalisé à la veille, calculé par le serveur. */
   cumulVeille: number;
-  /** L'avancement attendu ce jour par le planning, en %. */
+  pourcentageVeille: number;
   avancementTheorique: number;
+  equipesAffectees: string[];
+  attendueCeJour: boolean;
 }
 
-/**
- * Un matériau du stock du chantier (bon de réception valide, RG-F2-06). La
- * saisie ne s'y limite plus : sa désignation et son unité sont seulement
- * proposées au chef de chantier.
- */
 export interface MateriauDisponible {
   materiauId: string;
   designation: string;
@@ -561,17 +522,17 @@ export interface MateriauDisponible {
   seuilAlerte: number;
 }
 
-/** Ce que le rapport précédent du lot permet de ne pas ressaisir. */
 export interface ReprisesRapport {
-  effectifs: { categorie: string; prevus: number }[];
-  equipements: Pick<LigneEquipement, "designation" | "reference" | "propriete" | "operateur">[];
-  /** `prixUnitaire` vaut `null` pour qui n'a pas le droit de voir les montants. */
-  intervenants: { intervenant: string; personneId: string | null; activiteId: string; prixUnitaire: number | null }[];
-  /** Les présents de la veille, à recocher. */
+  equipements: {
+    designation: string;
+    reference: string;
+    propriete: ProprieteEquipement | "";
+    operateur: string;
+    usage: string;
+  }[];
   equipes: { equipeId: string; presents: string[] }[];
 }
 
-/** Un membre d'une équipe, présent dans l'équipe à la date du rapport. */
 export interface MembreDuJour {
   personneId: string;
   nom: string;
@@ -579,229 +540,163 @@ export interface MembreDuJour {
   estChef: boolean;
 }
 
-/**
- * Une équipe posée sur des tâches du rapport (30/10/2026), avec ses membres ce jour : on coche
- * ses présents, ses retards et ses heures ; ses ouvriers déclarent la production.
- */
 export interface EquipeDuJour {
   equipeId: string;
   nom: string;
   nature: string;
-  /** Le partenaire ; vide : notre entreprise. */
   entreprise: string;
   corpsEtat: string;
-  /** Les tâches (activités) qu'elle tient. */
   activites: string[];
-  /** Sa présence se coche dans le journal. */
   presence: boolean;
-  /** Sa ligne est requise : elle tient une tâche commencée ce jour. */
   attendue: boolean;
-  /** La qualité du travail se note (sous-traitance structurée). */
   qualite: boolean;
   membres: MembreDuJour[];
 }
 
-/** La présence d'une équipe ce jour, telle que le rédacteur la coche. */
 export interface PresenceEquipe {
   equipeId: string;
   presents: string[];
   retards: string[];
   heures: number | null;
   qualite: QualiteExecution | "";
-  /** Le motif d'une absence ou d'un retard. */
   observation: string;
 }
 
-/** Le point d'un lot travaillé ce jour : ce qui s'y est passé, au-delà des quantités. */
 export interface PointLot {
   lotId: string;
   observation: string;
 }
 
-/**
- * Ce que le chef de chantier déclare d'un geste dans la rubrique « Événements
- * chantier » — la liste du cahier « Journal de chantier intelligent » §2.
- */
-export type NatureEvenement =
-  | "INCIDENT"
-  | "DIFFICULTE_TECHNIQUE"
-  | "NON_CONFORMITE"
-  | "RETARD"
-  | "INTEMPERIE"
-  | "ARRET_TRAVAUX"
-  | "INSTRUCTION"
-  | "EVENEMENT_PARTICULIER";
-
-/** Un événement du chantier tel que le chef de chantier le déclare. */
 export interface IncidentSaisi {
-  /** Identifiant local de la ligne : il suit l'alerte immédiate envoyée pour elle. */
   cle: string;
   nature: NatureEvenement;
-  /** La catégorie HSE / qualité que lit la synthèse ; choisie pour un incident, déduite de la nature sinon. */
-  type: TypeIncident;
-  /** La plage de l'événement (« pluie de 14 h à 15 h 30 ») — facultative. */
+  type: TypeIncident | "";
   heureDebut: string;
   heureFin: string;
-  gravite: GraviteIncident;
-  decidePar: RoleSignataire;
+  gravite: GraviteIncident | "";
+  decidePar: DecideurIncident | "";
   description: string;
   action: string;
 }
 
-/**
- * Un matériau consommé, tel que le chef de chantier le déclare : désignation
- * et unité libres, sans lien obligé avec une fiche du stock.
- */
+export interface BlocageSaisi {
+  cle: string;
+  blocageId: string | null;
+  elementId: string | null;
+  titre: string;
+  niveau: NiveauBlocage;
+  nature: NatureBlocage | "";
+  description: string;
+  impact: string;
+}
+
+export interface BlocageOuvert {
+  id: string;
+  titre: string;
+  severite: string;
+  statut: string;
+  elementId: string | null;
+  elementLibelle: string | null;
+  ouvertLe: string;
+}
+
 export interface MateriauConsomme {
   designation: string;
   quantite: number | null;
   unite: string;
 }
 
-/** Une rupture constatée ou un besoin urgent — ce que l'approvisionnement doit lire le jour même. */
 export interface BesoinMateriau {
   nature: "RUPTURE" | "URGENT";
   designation: string;
-  quantite: string;
+  quantite: number | null;
+  unite: string;
   observation: string;
 }
 
-/** Un document joint au rapport. */
 export interface PieceJointe {
   cle: string;
   nom: string;
   type: string;
-  /** En octets. */
   taille: number;
-  /** Le fichier en `data:` — le serveur le remplace par son URL à l'envoi. */
   url: string;
 }
 
 export interface PhotoSaisie {
   cle: string;
-  /** L'image compressée, en `data:` — le serveur la remplace par son URL à l'envoi. */
+  elementId: string | null;
   url: string;
   legende: string;
-  /** L'heure de prise de vue, en UTC. */
   priseLe: string;
   latitude: number | null;
   longitude: number | null;
 }
 
-/**
- * Le rapport tel que le chef de chantier le remplit. Un brouillon peut être
- * incomplet : les nombres non renseignés valent `null`, et c'est la
- * soumission, pas l'enregistrement, qui exige les champs obligatoires.
- */
+export interface ActiviteSaisie {
+  activiteId: string;
+  equipeIds: string[];
+  quantiteJour: number | null;
+  pourcentageJour: number | null;
+  jalonAtteint: boolean;
+  localisation: string;
+  observation: string;
+}
+
 export interface SaisieRapport {
   projetId: string;
-  /** `AAAA-MM-JJ`, de J-2 à J. */
   date: string;
   heureDebut: string;
   heureFin: string;
-  /** Journée d'arrêt : intempéries, jour férié… `null` : journée travaillée. */
   arret: { motif: MotifArret; precision: string } | null;
-  meteo: {
-    matin: Meteo;
-    apresMidi: Meteo;
-    conditions: ConditionsTravail;
-    temperatureMin: number | null;
-    temperatureMax: number | null;
-    humidite: number | null;
-    vent: string;
-    prevision: string;
-  };
-  effectifs: {
-    categorie: string;
-    /** Le personnel affecté à la catégorie. */
-    prevus: number | null;
-    presents: number | null;
-    /** Les arrivées en retard, parmi les présents. */
-    retards: number | null;
-    heures: number | null;
-    observation: string;
-  }[];
-  presenceSousTraitant: {
-    presence: PresenceSousTraitant;
-    motif: string;
-    qualite: QualiteExecution;
-    observation: string;
-  } | null;
-  /** Par ouvrier quand la tâche a une équipe (`personneId`), sinon par intervenant nommé. */
-  production: {
-    intervenant: string;
-    personneId: string | null;
-    activiteId: string;
-    quantiteJour: number | null;
-    prixUnitaire: number | null;
-  }[];
-  /** Les présents des équipes des tâches, une ligne par équipe. */
+  meteo: ConditionsMeteo;
   equipes: PresenceEquipe[];
-  /**
-   * Les lots suivis à l'avancement sur lesquels on a travaillé ce jour, et le
-   * point du chef de chantier sur chacun. Le rapport couvre le chantier : c'est
-   * ici qu'il dit lot par lot où il en est. Seules les activités de ces lots
-   * figurent dans `activites`.
-   */
   lotsTravailles: PointLot[];
-  /** `localisation` : la zone, le bâtiment, le niveau où l'activité a avancé. */
-  activites: { activiteId: string; quantiteJour: number | null; localisation: string; observation: string }[];
+  activites: ActiviteSaisie[];
   materiaux: MateriauConsomme[];
   livraisons: (Omit<Livraison, "observation"> & { observation: string })[];
   besoins: BesoinMateriau[];
-  /** `dureeArret` : les heures d'immobilisation d'un engin en panne ou en entretien. */
-  equipements: (Omit<LigneEquipement, "observation"> & { observation: string; dureeArret: number | null })[];
+  equipements: (Omit<LigneEquipement, "observation"> & { observation: string })[];
   incidents: IncidentSaisi[];
-  blocage: { niveau: NiveauBlocageSaisi; nature: NatureBlocage | null; description: string; impact: string };
+  blocages: BlocageSaisi[];
   photos: PhotoSaisie[];
   piecesJointes: PieceJointe[];
   previsions: Prevision[];
-  note: string;
+  noteRedacteur: string;
 }
 
-/** Un rapport déjà commencé pour ce chantier et ce jour — il n'en existe qu'un (RG-F2-01). */
 export interface RapportExistant {
   id: string;
   statut: StatutRapport;
   saisie: SaisieRapport;
   enregistreLe: string;
-  /** Le motif du CT quand il a rejeté le rapport. */
   commentaireRejet: string | null;
-  /** Les alertes immédiates déjà parties (`BLOCAGE`, ou la clé d'un incident). */
   alertesEnvoyees: string[];
 }
 
-/** Le chantier tel que la saisie le voit. */
 export interface ProjetSaisie {
   id: string;
   nom: string;
   reference: string;
-  chefChantier: string;
+  redacteur: string;
 }
 
-/**
- * Tout ce qu'il faut pour ouvrir le formulaire d'un chantier pour un jour.
- *
- * Le rapport couvre **tous les lots en cours** du chantier : `sections` est
- * la réunion des sections de leurs modes d'exécution, et chaque activité dit
- * à quel lot elle appartient et comment elle se déclare.
- */
 export interface PreparationSaisie {
-  /** Le jour du serveur. */
   aujourdhui: string;
+  estJourOuvre: boolean;
+  joursSaisissables: string[];
+  meteoSuggeree: MeteoSuggeree | null;
+  previsionsVeille: Prevision[];
+  blocagesOuverts: BlocageOuvert[];
   projet: ProjetSaisie;
-  /** Les lots en cours, avec leur mode d'exécution. */
   lots: LotJournal[];
   sections: SectionSaisie[];
   activites: ActivitePreparee[];
   materiaux: MateriauDisponible[];
-  /** Les équipes des tâches du rapport, et leurs membres ce jour. */
   equipes: EquipeDuJour[];
   reprises: ReprisesRapport;
   rapport: RapportExistant | null;
 }
 
-/** Un rapport du chef de chantier sur un chantier, quel que soit son statut. */
 export interface RapportDuJour {
   id: string;
   date: string;
@@ -809,16 +704,13 @@ export interface RapportDuJour {
   enregistreLe: string;
 }
 
-/** Les rapports d'un chef de chantier sur un chantier, et le jour du serveur. */
 export interface RapportsProjet {
   aujourdhui: string;
+  estJourOuvre: boolean;
+  joursSaisissables: string[];
   rapports: RapportDuJour[];
 }
 
-/**
- * Un rapport attendu et pas encore remis : jamais commencé, resté en
- * brouillon, ou rejeté. Au-delà de J-2, il ne se rédige plus (`redigeable`).
- */
 export interface RapportEnAttente {
   date: string;
   etat: "A_REDIGER" | "BROUILLON" | "REJETE";
@@ -827,7 +719,7 @@ export interface RapportEnAttente {
   redigeable: boolean;
 }
 
-/** Une alerte qui part dès la sélection, avant la soumission (RG-F2-11). */
 export type AlerteImmediate =
-  | { type: "BLOCAGE_BLOQUANT"; description: string }
-  | { type: "INCIDENT_GRAVE"; cle: string; description: string };
+  | { type: "BLOCAGE_BLOQUANT"; cle: string; description: string }
+  | { type: "INCIDENT_GRAVE"; cle: string; description: string }
+  | { type: "EQUIPEMENT_PANNE"; cle: string; description: string };

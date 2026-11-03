@@ -48,12 +48,9 @@ import { contenuSynthesePdf, signe } from "./contenuSynthesePdf";
 const TYPES: TypePeriode[] = ["HEBDOMADAIRE", "MENSUELLE", "PERSONNALISEE"];
 
 /**
- * La synthèse périodique — la maquette « Journal de chantier synthétique »
- * du client. Elle n'est pas saisie : elle s'agrège des rapports journaliers
- * de la période, et la section 1 montre **exactement** lesquels, absences
- * comprises. Elle se signe CT → CP ; le chef de chantier a déjà signé chaque
- * rapport qui la compose. Seules les semaines et les mois clos passent par ce
- * circuit : une période personnalisée se consulte et s'exporte.
+ * La synthèse périodique : agrégée des rapports journaliers validés ou approuvés
+ * de la période, sur le calendrier ouvré de l'entreprise, et signée selon les
+ * permissions (`VALIDATION` → `APPROBATION`).
  */
 export function SyntheseDocument({
   projetId,
@@ -132,7 +129,10 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
   const listeManquants = manquants
     .map((entree) => t("manquant", { date: formaterJourMoisNumerique(entree.date) }))
     .join(separateur);
-  const roles = { CT: tCircuit("role.CT"), CP: tCircuit("role.CP") };
+  const roles = {
+    VALIDATION: tCircuit("role.VALIDATION"),
+    APPROBATION: tCircuit("role.APPROBATION"),
+  };
   const teintes = teintesChiffresSynthese({
     presenceInsuffisante: presence !== null && presence < CIBLE_PRESENCE - 7,
     livraisonsPartielles: chiffres.livraisonsPartielles,
@@ -224,10 +224,10 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
             <GrilleInfos
               titre={t("intervenants")}
               lignes={[
-                [roles.CP, synthese.chefProjet],
-                [roles.CT, synthese.conducteurTravaux],
+                [roles.APPROBATION, synthese.approbateurs],
+                [roles.VALIDATION, synthese.validateurs],
                 ...synthese.lots.map(
-                  (lot) => [t("chefChantierLot", { code: lot.code }), lot.chefChantier] as [string, string],
+                  (lot) => [t("redacteurLot", { code: lot.code }), lot.redacteur] as [string, string],
                 ),
               ]}
             />
@@ -266,7 +266,11 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
             <ChiffreDocument
               fond={teintes.heures}
               libelle={t("chiffres.heures")}
-              valeur={synthese.effectifs.length ? tRapport("heures", { valeur: formaterQuantite(chiffres.heures) }) : ABSENT}
+              valeur={
+                synthese.effectifs.length
+                  ? tRapport("heures", { valeur: formaterQuantite(chiffres.heures) })
+                  : ABSENT
+              }
               detail={synthese.effectifs.length ? t("chiffres.heuresDetail") : t("chiffres.heuresSousTraitants")}
             />
             <ChiffreDocument
@@ -302,13 +306,16 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
           <SectionDocument
             numero={1}
             titre={t("sections.recapitulatif")}
-            complement={t("recapitulatif.complement", { valides: chiffres.rapportsValides, attendus: chiffres.rapportsAttendus })}
+            complement={t("recapitulatif.complement", {
+              valides: chiffres.rapportsValides,
+              attendus: chiffres.rapportsAttendus,
+            })}
           >
             <TableauDocument
               colonnes={[
                 { entete: t("recapitulatif.date") },
                 { entete: t("recapitulatif.lots") },
-                { entete: t("recapitulatif.chef") },
+                { entete: t("recapitulatif.redacteur") },
                 { entete: t("recapitulatif.statut") },
                 { entete: t("recapitulatif.effectifs"), nombre: true },
                 { entete: t("recapitulatif.avancement"), nombre: true },
@@ -322,7 +329,9 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
                   cle: entree.id,
                   cellules: [
                     absent ? (
-                      <span key="d" className="tabular-nums">{formaterJourMoisNumerique(entree.date)}</span>
+                      <span key="d" className="tabular-nums">
+                        {formaterJourMoisNumerique(entree.date)}
+                      </span>
                     ) : (
                       <Link
                         key="d"
@@ -333,15 +342,19 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
                       </Link>
                     ),
                     codesLots(entree.lots) || ABSENT,
-                    entree.chantier.chefChantier,
+                    entree.chantier.redacteur,
                     <BadgeSituation key="s" situation={entree.situation} />,
                     absent || entree.effectifPresent === null
                       ? ABSENT
                       : tRapport("fraction", { a: entree.effectifPresent, b: entree.effectifPrevu ?? 0 }),
                     absent || entree.avancement === null ? (
-                      <span key="a" className="text-neutral-500 italic">{t("recapitulatif.nonDisponible")}</span>
+                      <span key="a" className="text-neutral-500 italic">
+                        {t("recapitulatif.nonDisponible")}
+                      </span>
                     ) : (
-                      <span key="a" className="font-semibold">{tRapport("pourcent", { valeur: entree.avancement })}</span>
+                      <span key="a" className="font-semibold">
+                        {tRapport("pourcent", { valeur: entree.avancement })}
+                      </span>
                     ),
                     absent ? ABSENT : (entree.incidents ?? 0),
                     absent ? ABSENT : (entree.blocages ?? 0),
@@ -352,7 +365,10 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
                 t("recapitulatif.total"),
                 "",
                 "",
-                t("recapitulatif.totalValides", { valides: chiffres.rapportsValides, attendus: chiffres.rapportsAttendus }),
+                t("recapitulatif.totalValides", {
+                  valides: chiffres.rapportsValides,
+                  attendus: chiffres.rapportsAttendus,
+                }),
                 tRapport("fraction", { a: chiffres.effectifsPresents, b: chiffres.effectifsPrevus }),
                 presence === null ? "" : t("recapitulatif.totalPresence", { taux: presence }),
                 chiffres.incidents,
@@ -397,7 +413,9 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
                       {
                         cle: `${lot.id}-vide`,
                         cellules: [
-                          <span key="v" className="pl-4 text-neutral-500 italic">{t("avancement.aucunRapport")}</span>,
+                          <span key="v" className="pl-4 text-neutral-500 italic">
+                            {t("avancement.aucunRapport")}
+                          </span>,
                           "",
                           "",
                           "",
@@ -412,20 +430,36 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
                   : activites.map((activite) => {
                       const gain = activite.avancementFin - activite.avancementDebut;
                       const ecartActivite = ecartObjectif(gain, activite.objectifGain);
+                      const uniteAffichee =
+                        activite.unite ??
+                        (activite.modeMesure === "JALON"
+                          ? t("avancement.uniteJalon")
+                          : t("avancement.unitePourcent"));
                       return {
                         cle: `${lot.id}-${activite.libelle}`,
                         cellules: [
-                          <span key="a" className="pl-4">{activite.libelle}</span>,
-                          activite.unite,
-                          formaterQuantite(activite.quantitePrevue),
+                          <span key="a" className="pl-4">
+                            {activite.libelle}
+                          </span>,
+                          uniteAffichee,
+                          activite.modeMesure === "QUANTITE"
+                            ? formaterQuantite(activite.quantitePrevue)
+                            : ABSENT,
                           tRapport("pourcent", { valeur: activite.avancementDebut }),
                           tRapport("pourcent", { valeur: activite.avancementFin }),
-                          <span key="g" className="font-semibold text-primary-700">{t("pointsCourts", { valeur: signe(gain) })}</span>,
+                          <span key="g" className="font-semibold text-primary-700">
+                            {t("pointsCourts", { valeur: signe(gain) })}
+                          </span>,
                           t("pointsCourts", { valeur: signe(activite.objectifGain) }),
-                          <span key="e" className={cn("font-semibold", ecartActivite < 0 ? "text-erreur" : "text-succes")}>
+                          <span
+                            key="e"
+                            className={cn("font-semibold", ecartActivite < 0 ? "text-erreur" : "text-succes")}
+                          >
                             {t("pointsCourts", { valeur: signe(ecartActivite) })}
                           </span>,
-                          <span key="j" className="font-semibold">{tRapport("pourcent", { valeur: activite.avancementFin })}</span>,
+                          <span key="j" className="font-semibold">
+                            {tRapport("pourcent", { valeur: activite.avancementFin })}
+                          </span>,
                         ],
                       };
                     })),
@@ -435,7 +469,9 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
 
           <SectionDocument numero={3} titre={t("sections.effectifs")}>
             {synthese.effectifs.length === 0 ? (
-              <p className="m-0 rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-600">{t("effectifs.sousTraitance")}</p>
+              <p className="m-0 rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-600">
+                {t("effectifs.sousTraitance")}
+              </p>
             ) : (
               <TableauDocument
                 colonnes={[
@@ -452,14 +488,18 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
                   return {
                     cle: ligne.categorie,
                     cellules: [
-                      <span key="c" className="font-medium">{ligne.categorie}</span>,
+                      <span key="c" className="font-medium">
+                        {ligne.categorie}
+                      </span>,
                       ligne.prevuParJour,
                       formaterQuantite(ligne.presenceMoyenne),
                       <span key="t" className={taux < 85 ? "font-semibold text-erreur" : undefined}>
                         {tRapport("pourcent", { valeur: taux })}
                       </span>,
                       tRapport("heures", { valeur: formaterQuantite(ligne.heures) }),
-                      <span key="a" className={ligne.absences > 0 ? "font-semibold text-erreur" : undefined}>{ligne.absences}</span>,
+                      <span key="a" className={ligne.absences > 0 ? "font-semibold text-erreur" : undefined}>
+                        {ligne.absences}
+                      </span>,
                       ligne.observation ?? tRapport("neant"),
                     ],
                   };
@@ -492,19 +532,26 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
               vide={t("materiaux.vide")}
               lignes={synthese.materiaux.map((ligne) => {
                 const alerte = enAlerteStock(ligne.stockFin, ligne.seuilAlerte);
-                const quantite = (valeur: number | null) => (valeur === null ? tRapport("neant") : formaterQuantite(valeur));
+                const quantite = (valeur: number | null) =>
+                  valeur === null ? tRapport("neant") : formaterQuantite(valeur);
                 return {
-                  cle: ligne.designation,
+                  cle: `${ligne.designation}-${ligne.unite}`,
                   cellules: [
-                    <span key="d" className="font-medium">{ligne.designation}</span>,
+                    <span key="d" className="font-medium">
+                      {ligne.designation}
+                    </span>,
                     ligne.unite,
                     quantite(ligne.stockDebut),
                     formaterQuantite(ligne.consomme),
                     formaterQuantite(ligne.livre),
-                    <span key="f" className={alerte ? "font-semibold text-erreur" : "font-semibold"}>{quantite(ligne.stockFin)}</span>,
+                    <span key="f" className={alerte ? "font-semibold text-erreur" : "font-semibold"}>
+                      {quantite(ligne.stockFin)}
+                    </span>,
                     quantite(ligne.seuilAlerte),
                     ligne.stockFin === null ? (
-                      <Badge key="s" variante="neutre">{statutStock.horsStock}</Badge>
+                      <Badge key="s" variante="neutre">
+                        {statutStock.horsStock}
+                      </Badge>
                     ) : (
                       <Badge key="s" variante={alerte ? "erreur" : "succes"}>
                         {alerte ? statutStock.alerte : statutStock.ok}
@@ -529,12 +576,22 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
               lignes={synthese.incidents.map((incident, rang) => ({
                 cle: `${incident.date}-${incident.numero}-${rang}`,
                 cellules: [
-                  <span key="d" className="tabular-nums">{formaterJourMoisNumerique(incident.date)}</span>,
-                  tEnum(`typeIncident.${incident.type}`),
+                  <span key="d" className="tabular-nums">
+                    {formaterJourMoisNumerique(incident.date)}
+                  </span>,
+                  tEnum(`natureEvenement.${incident.nature}`),
                   incident.description,
-                  <Badge key="g" variante={TON_GRAVITE[incident.gravite]}>{tEnum(`gravite.${incident.gravite}`)}</Badge>,
+                  incident.gravite ? (
+                    <Badge key="g" variante={TON_GRAVITE[incident.gravite]}>
+                      {tEnum(`gravite.${incident.gravite}`)}
+                    </Badge>
+                  ) : (
+                    tRapport("neant")
+                  ),
                   <span key="r" className={incident.resolu ? "text-succes" : "text-avertissement"}>
-                    {incident.resolu ? t("incidents.resolu", { action: incident.action }) : t("incidents.enCours", { action: incident.action })}
+                    {incident.resolu
+                      ? t("incidents.resolu", { action: incident.action || tRapport("neant") })
+                      : t("incidents.enCours", { action: incident.action || tRapport("neant") })}
                   </span>,
                 ],
               }))}
@@ -545,7 +602,10 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
                       "",
                       "",
                       t("incidents.totalGravite", { majeurs: chiffres.incidentsMajeurs }),
-                      t("incidents.totalResolution", { resolus, enCours: synthese.incidents.length - resolus }),
+                      t("incidents.totalResolution", {
+                        resolus,
+                        enCours: synthese.incidents.length - resolus,
+                      }),
                     ]
                   : undefined
               }
@@ -585,7 +645,9 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
                 cle: `${objectif.lotCode}-${objectif.activite}`,
                 cellules: [
                   objectif.lotCode,
-                  <span key="a" className="font-medium">{objectif.activite}</span>,
+                  <span key="a" className="font-medium">
+                    {objectif.activite}
+                  </span>,
                   objectif.objectif,
                   tRapport("pourcent", { valeur: objectif.cible }),
                   objectif.prerequis,
@@ -596,7 +658,9 @@ function Document({ synthese, demande }: { synthese: SynthesePeriodique; demande
 
           <SectionDocument numero={8} titre={t("sections.circuit")}>
             {synthese.circuit.length === 0 ? (
-              <p className="m-0 rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-600">{t("horsCircuit")}</p>
+              <p className="m-0 rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-600">
+                {t("horsCircuit")}
+              </p>
             ) : (
               <CircuitSignatures circuit={synthese.circuit} />
             )}

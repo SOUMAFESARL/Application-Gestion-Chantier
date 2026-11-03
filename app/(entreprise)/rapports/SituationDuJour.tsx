@@ -8,13 +8,13 @@ import type { ReactNode } from "react";
 
 import { Bouton, EtatVide } from "@/components/ui";
 import {
-  HEURE_ALERTE_NON_SOUMIS,
-  HEURE_ESCALADE,
   aUnDocument,
   codesLots,
   comparerSituations,
   estDepose,
   estManquant,
+  HEURE_ALERTE_NON_SOUMIS,
+  HEURE_ESCALADE,
   joursSansRapport,
   retardPoints,
   tauxPresence,
@@ -27,31 +27,26 @@ import { BLOC } from "./classes";
 import { BadgeSituation, BoutonRelance, CircuitCompact, horodatageCourt } from "./composants";
 import { CircuitSignatures } from "./document";
 
-/**
- * L'onglet « Aujourd'hui » : un chantier, une carte — le rapport du jour
- * couvre tout le chantier, quels que soient les lots travaillés. Ce qui
- * manque d'abord, puis ce qui attend, enfin ce qui est clos.
- *
- * Une carte dit ce que le DG veut savoir d'un coup d'œil : le rapport est-il
- * là, quels lots il couvre, que dit-il (présence, avancement contre planning,
- * incidents, blocages), et où en est sa signature. Un chantier sans rapport
- * dit depuis quand, et se relance.
- *
- * Celui qui rédige (le chef de chantier) n'a rien à relancer : l'onglet lui
- * dit s'il a déposé son rapport du jour, et où en est sa signature.
- */
 export function SituationDuJour({ journal, peutRediger }: { journal: Journal; peutRediger: boolean }) {
   const t = useTranslations("journal.jour");
   const duJour = journal.entrees.filter((entree) => entree.date === journal.aujourdhui);
 
-  if (peutRediger) return <JourDuRedacteur duJour={duJour} aujourdhui={journal.aujourdhui} />;
+  if (peutRediger) {
+    return (
+      <JourDuRedacteur
+        duJour={duJour}
+        aujourdhui={journal.aujourdhui}
+        estJourOuvre={journal.estJourOuvre}
+      />
+    );
+  }
 
   if (duJour.length === 0) {
     return (
       <EtatVide
         icone={<CalendarOff className="size-8" aria-hidden="true" />}
-        titre={t("videTitre")}
-        description={t("videDescription")}
+        titre={journal.estJourOuvre ? t("videTitre") : t("jourNonOuvreTitre")}
+        description={journal.estJourOuvre ? t("videDescription") : t("jourNonOuvreDescription")}
       />
     );
   }
@@ -60,7 +55,9 @@ export function SituationDuJour({ journal, peutRediger }: { journal: Journal; pe
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="m-0 text-sm text-neutral-600">{t("deposesChantiers", { deposes, total: duJour.length })}</p>
+      <p className="m-0 text-sm text-neutral-600">
+        {t("deposesChantiers", { deposes, total: duJour.length })}
+      </p>
       <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
         {[...duJour].sort(comparerSituations).map((entree) => (
           <CarteChantier key={entree.id} entree={entree} aujourdhui={journal.aujourdhui} />
@@ -69,24 +66,38 @@ export function SituationDuJour({ journal, peutRediger }: { journal: Journal; pe
 
       <p className="m-0 flex items-start gap-2 rounded-lg border border-information/20 bg-information-fond px-4 py-3 text-sm text-neutral-700">
         <AlarmClock className="mt-0.5 size-4 shrink-0 text-information" aria-hidden="true" />
-        <span>{t("alerteAutomatique", { heure: HEURE_ALERTE_NON_SOUMIS, escalade: HEURE_ESCALADE })}</span>
+        <span>
+          {t("alerteAutomatique", { heure: HEURE_ALERTE_NON_SOUMIS, escalade: HEURE_ESCALADE })}
+        </span>
       </p>
     </div>
   );
 }
 
-function Ligne({ libelle, children, alerte = false }: { libelle: string; children: ReactNode; alerte?: boolean }) {
+function Ligne({
+  libelle,
+  children,
+  alerte = false,
+}: {
+  libelle: string;
+  children: ReactNode;
+  alerte?: boolean;
+}) {
   return (
     <div className="flex items-baseline justify-between gap-3 text-sm">
       <dt className="text-neutral-500">{libelle}</dt>
-      <dd className={cn("m-0 text-right font-medium tabular-nums", alerte ? "text-erreur" : "text-neutral-800")}>
+      <dd
+        className={cn(
+          "m-0 text-right font-medium tabular-nums",
+          alerte ? "text-erreur" : "text-neutral-800",
+        )}
+      >
         {children}
       </dd>
     </div>
   );
 }
 
-/** Les lots dont parle le rapport — ou, sans rapport, la référence du chantier. */
 function SousTitreChantier({ entree }: { entree: EntreeJournal }) {
   const t = useTranslations("journal.jour");
   return (
@@ -124,11 +135,14 @@ function CarteChantier({ entree, aujourdhui }: { entree: EntreeJournal; aujourdh
 
       <div className="flex flex-col gap-2 px-3 py-2">
         <dl className="m-0 flex flex-col gap-1">
-          <Ligne libelle={t("chefChantier")}>{entree.chantier.chefChantier}</Ligne>
+          <Ligne libelle={t("auteurRapport")}>{entree.chantier.redacteur}</Ligne>
           {manquant ? (
             <Ligne libelle={t("dernierRapport")} alerte={silence !== null && silence > 1}>
               {entree.dernierRapportLe
-                ? t("dernierRapportLe", { date: formaterDate(entree.dernierRapportLe), jours: silence ?? 0 })
+                ? t("dernierRapportLe", {
+                    date: formaterDate(entree.dernierRapportLe),
+                    jours: silence ?? 0,
+                  })
                 : t("jamais")}
             </Ligne>
           ) : (
@@ -160,9 +174,9 @@ function CarteChantier({ entree, aujourdhui }: { entree: EntreeJournal; aujourdh
           )}
         </dl>
 
-        {entree.noteChefChantier && !manquant && (
+        {entree.noteRedacteur && !manquant && (
           <p className="m-0 line-clamp-2 border-l-2 border-neutral-200 pl-2 text-xs text-neutral-600 italic">
-            {entree.noteChefChantier}
+            {entree.noteRedacteur}
           </p>
         )}
 
@@ -171,7 +185,7 @@ function CarteChantier({ entree, aujourdhui }: { entree: EntreeJournal; aujourdh
 
       <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 px-3 py-2">
         {manquant ? (
-          <BoutonRelance entree={entree} libelle={t("relancerChef")} aujourdhui={aujourdhui} />
+          <BoutonRelance entree={entree} libelle={t("relancerRedacteur")} aujourdhui={aujourdhui} />
         ) : (
           <span className="text-xs text-neutral-500">{entree.reference}</span>
         )}
@@ -189,12 +203,15 @@ function CarteChantier({ entree, aujourdhui }: { entree: EntreeJournal; aujourdh
   );
 }
 
-/**
- * Le jour vu du chef de chantier : tant qu'aucun rapport n'est déposé, le
- * seul geste utile est de le rédiger ; ensuite, le récapitulatif de ce qu'il
- * a soumis et le circuit CC → CT → CP en entier.
- */
-function JourDuRedacteur({ duJour, aujourdhui }: { duJour: EntreeJournal[]; aujourdhui: string }) {
+function JourDuRedacteur({
+  duJour,
+  aujourdhui,
+  estJourOuvre,
+}: {
+  duJour: EntreeJournal[];
+  aujourdhui: string;
+  estJourOuvre: boolean;
+}) {
   const t = useTranslations("journal.jour.redacteur");
   const router = useRouter();
   const deposes = duJour.filter((entree) => estDepose(entree.situation));
@@ -202,13 +219,24 @@ function JourDuRedacteur({ duJour, aujourdhui }: { duJour: EntreeJournal[]; aujo
 
   const boutonRediger = (
     <Bouton
-      variante="primaire"
+      variante={estJourOuvre ? "primaire" : "secondaire"}
       iconeGauche={<FilePen className="size-4" aria-hidden="true" />}
       onClick={() => router.push("/rapports/saisie")}
     >
-      {t("rediger")}
+      {estJourOuvre ? t("rediger") : t("rattraperOuvre")}
     </Bouton>
   );
+
+  if (!estJourOuvre && deposes.length === 0) {
+    return (
+      <EtatVide
+        icone={<CalendarOff className="size-8" aria-hidden="true" />}
+        titre={t("jourNonOuvreTitre")}
+        description={t("jourNonOuvreDescription")}
+        action={boutonRediger}
+      />
+    );
+  }
 
   if (deposes.length === 0) {
     return (
@@ -238,7 +266,6 @@ function JourDuRedacteur({ duJour, aujourdhui }: { duJour: EntreeJournal[]; aujo
   );
 }
 
-/** Le récapitulatif d'un rapport soumis : ses chiffres, sa note, ses signatures. */
 function RecapRapport({ entree, aujourdhui }: { entree: EntreeJournal; aujourdhui: string }) {
   const t = useTranslations("journal.jour");
   const tRecap = useTranslations("journal.jour.redacteur");
@@ -249,7 +276,9 @@ function RecapRapport({ entree, aujourdhui }: { entree: EntreeJournal; aujourdhu
     <article className={BLOC}>
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-4 py-3">
         <div className="min-w-0">
-          <h2 className="m-0 text-base font-semibold text-neutral-900">{entree.chantier.projetNom}</h2>
+          <h2 className="m-0 text-base font-semibold text-neutral-900">
+            {entree.chantier.projetNom}
+          </h2>
           <SousTitreChantier entree={entree} />
           <p className="m-0 mt-0.5 text-xs text-neutral-500">
             {tRecap("sousTitre", {
@@ -276,7 +305,10 @@ function RecapRapport({ entree, aujourdhui }: { entree: EntreeJournal; aujourdhu
           <Ligne libelle={t("avancement")} alerte={retard !== null && retard >= 10}>
             {entree.avancement === null
               ? t("nonRenseigne")
-              : t("avancementValeur", { reel: entree.avancement, theorique: entree.avancementTheorique ?? 0 })}
+              : t("avancementValeur", {
+                  reel: entree.avancement,
+                  theorique: entree.avancementTheorique ?? 0,
+                })}
           </Ligne>
           <Ligne libelle={t("incidents")} alerte={(entree.incidents ?? 0) > 0}>
             {entree.incidents ?? 0}
@@ -286,9 +318,9 @@ function RecapRapport({ entree, aujourdhui }: { entree: EntreeJournal; aujourdhu
           </Ligne>
         </dl>
 
-        {entree.noteChefChantier && (
+        {entree.noteRedacteur && (
           <p className="m-0 border-l-2 border-neutral-200 pl-2 text-sm text-neutral-600 italic">
-            {entree.noteChefChantier}
+            {entree.noteRedacteur}
           </p>
         )}
 

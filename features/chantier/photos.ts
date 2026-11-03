@@ -63,6 +63,7 @@ export async function preparerPhoto(fichier: File): Promise<PhotoSaisie> {
   const [url, position] = await Promise.all([compresserPhoto(fichier), positionActuelle()]);
   return {
     cle: nouvelleCle(),
+    elementId: null,
     url,
     legende: "",
     priseLe: new Date().toISOString(),

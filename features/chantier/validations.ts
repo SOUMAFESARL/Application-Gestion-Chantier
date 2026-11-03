@@ -1,64 +1,65 @@
 /**
- * La saisie du rapport journalier — schéma zod et traductions (couche 3).
+ * La saisie du rapport journalier — schéma Zod et traductions formulaire ↔ domaine.
  *
- * Ni React, ni réseau. Le formulaire tient des **chaînes** (un champ numérique
- * vide n'est pas zéro, et `12,5` se tape avec une virgule) ; `versSaisie` les
- * ramène aux nombres du domaine, `valeursDepuis` fait le chemin inverse.
+ * Ni React, ni réseau. Le formulaire manipule des chaînes pour la saisie clavier
+ * (`12,5` avec virgule, champ vide distinct de zéro) ; `versSaisie` convertit vers
+ * les nombres et identifiants attendus par le domaine, `valeursDepuis` fait l'inverse.
  *
- * Deux niveaux d'exigence, comme le dit le SFD §6 :
- * - **enregistrer** un brouillon n'exige rien — il se sauve toutes les 30 s,
- *   à moitié rempli ;
- * - **soumettre** exige tout ce que les sections *du chantier* rendent obligatoire.
- *   Le schéma se construit donc à partir des sections que le serveur a
- *   données (`schemaRapport`), jamais d'après un mode lu ailleurs.
+ * - **Brouillon** : aucune contrainte bloquante, sauvegarde automatique toutes les 30 s.
+ * - **Soumission** : `schemaRapport` valide les horaires, la météo, le pointage par
+ *   équipe, le garde-fou travaux ↔ équipes (A3), les trois modes de mesure des feuilles
+ *   (`QUANTITE`, `POURCENTAGE`, `JALON`) et les rubriques renseignées.
  */
 
 import { z } from "zod";
 
 import { texte } from "@/i18n/horsReact";
 import type messages from "@/messages/fr.json";
-import { saisieEnCentimes } from "@/lib/format";
 
 import {
+  categorieEvenement,
   HEURES_MAX_JOUR,
   jourSaisissable,
   LONGUEUR_MIN_DESCRIPTION_INCIDENT,
   LONGUEUR_MIN_NOTE,
-  PHOTOS_MAX,
-  PIECES_JOINTES_MAX,
-  activitesSuivies,
-  categorieEvenement,
   lotsSuivisAvancement,
   lotsTravaillesDe,
+  PHOTOS_MAX,
+  PIECES_JOINTES_MAX,
   sectionsActives,
 } from "./regles";
 import type {
-  Conformite,
   ConditionsTravail,
+  Conformite,
+  DecideurIncident,
   EtatEquipement,
   GraviteIncident,
   Meteo,
   MotifArret,
   NatureBlocage,
   NatureEvenement,
-  NiveauBlocageSaisi,
+  NiveauBlocage,
   PreparationSaisie,
-  PresenceSousTraitant,
   ProprieteEquipement,
   QualiteExecution,
-  RoleSignataire,
   SaisieRapport,
   TypeIncident,
 } from "./types";
 
 /* ------------------------------------------------------------------ *
- * Les listes fermées, dans l'ordre où le terrain les choisit.
+ * Les listes fermées, dans l'ordre présenté au terrain.
  * ------------------------------------------------------------------ */
 
 export const METEOS: readonly Meteo[] = ["ENSOLEILLE", "NUAGEUX", "PLUVIEUX", "ORAGEUX", "BRUMEUX"];
 export const CONDITIONS_TRAVAIL: readonly ConditionsTravail[] = ["FAVORABLES", "DIFFICILES", "ARRET"];
-export const MOTIFS_ARRET: readonly MotifArret[] = ["INTEMPERIES", "JOUR_FERIE", "AUTRE"];
-export const PRESENCES_SOUS_TRAITANT: readonly PresenceSousTraitant[] = ["PRESENT", "PARTIEL", "ABSENT"];
+export const MOTIFS_ARRET: readonly MotifArret[] = [
+  "INTEMPERIES",
+  "INCIDENT_SECURITE",
+  "RUPTURE_APPROVISIONNEMENT",
+  "INJONCTION_ADMINISTRATIVE",
+  "GREVE_SOCIAL",
+  "AUTRE",
+];
 export const QUALITES_EXECUTION: readonly QualiteExecution[] = ["CONFORME", "NON_CONFORME"];
 export const CONFORMITES: readonly Conformite[] = ["CONFORME", "PARTIELLE", "NON_CONFORME"];
 export const PROPRIETES_EQUIPEMENT: readonly ProprieteEquipement[] = ["ENTREPRISE", "LOCATION"];
@@ -70,21 +71,26 @@ export const TYPES_INCIDENT: readonly TypeIncident[] = [
   "APPROVISIONNEMENT",
   "ADMINISTRATIF",
 ];
-/** Les événements du cahier « Journal de chantier intelligent » §2, dans son ordre. */
 export const NATURES_EVENEMENT: readonly NatureEvenement[] = [
-  "INCIDENT",
-  "DIFFICULTE_TECHNIQUE",
+  "INCIDENT_SECURITE",
   "NON_CONFORMITE",
-  "RETARD",
-  "INTEMPERIE",
-  "ARRET_TRAVAUX",
-  "INSTRUCTION",
+  "INCIDENT_MATERIEL",
+  "DIFFICULTE_TECHNIQUE",
+  "VISITE_INSTRUCTION",
   "EVENEMENT_PARTICULIER",
 ];
 export const NATURES_BESOIN = ["RUPTURE", "URGENT"] as const;
 export const GRAVITES: readonly GraviteIncident[] = ["MINEUR", "SIGNIFICATIF", "GRAVE"];
-export const DECIDEURS: readonly RoleSignataire[] = ["CC", "CT", "CP"];
-export const NIVEAUX_BLOCAGE: readonly NiveauBlocageSaisi[] = ["AUCUN", "MINEUR", "SIGNIFICATIF", "BLOQUANT"];
+export const DECIDEURS: readonly DecideurIncident[] = [
+  "REDACTION",
+  "VALIDATION",
+  "APPROBATION",
+  "MAITRE_OEUVRE",
+  "BUREAU_CONTROLE",
+  "CLIENT",
+  "AUTORITE",
+];
+export const NIVEAUX_BLOCAGE: readonly NiveauBlocage[] = ["MINEUR", "SIGNIFICATIF", "BLOQUANT"];
 export const NATURES_BLOCAGE: readonly NatureBlocage[] = [
   "APPROVISIONNEMENT",
   "METEO",
@@ -94,10 +100,8 @@ export const NATURES_BLOCAGE: readonly NatureBlocage[] = [
   "SECURITE",
 ];
 
-/** Les horaires par défaut d'une journée de chantier. */
 const HEURE_DEBUT_DEFAUT = "07:30";
 const HEURE_FIN_DEFAUT = "17:00";
-/** Les heures par ouvrier d'une journée pleine, proposées sur une ligne neuve. */
 export const HEURES_PAR_DEFAUT = "8";
 
 /* ------------------------------------------------------------------ *
@@ -106,6 +110,7 @@ export const HEURES_PAR_DEFAUT = "8";
 
 const photo = z.object({
   cle: z.string(),
+  elementId: z.string().nullable(),
   url: z.string(),
   legende: z.string(),
   priseLe: z.string(),
@@ -124,39 +129,7 @@ const forme = z.object({
     matin: z.string(),
     apresMidi: z.string(),
     conditions: z.string(),
-    temperatureMin: z.string(),
-    temperatureMax: z.string(),
-    humidite: z.string(),
-    vent: z.string(),
-    prevision: z.string(),
   }),
-  effectifs: z.array(
-    z.object({
-      categorie: z.string(),
-      prevus: z.string(),
-      presents: z.string(),
-      retards: z.string(),
-      heures: z.string(),
-      observation: z.string(),
-    }),
-  ),
-  presenceSousTraitant: z.object({
-    presence: z.string(),
-    motif: z.string(),
-    qualite: z.string(),
-    observation: z.string(),
-  }),
-  production: z.array(
-    z.object({
-      intervenant: z.string(),
-      /** L'ouvrier, parmi les membres de l'équipe de la tâche ; vide sans équipe. */
-      personneId: z.string(),
-      activiteId: z.string(),
-      quantiteJour: z.string(),
-      prixUnitaire: z.string(),
-    }),
-  ),
-  /** Une ligne par équipe dont la présence se coche (section `EQUIPES`). */
   equipes: z.array(
     z.object({
       equipeId: z.string(),
@@ -169,7 +142,15 @@ const forme = z.object({
   ),
   lotsTravailles: z.array(z.object({ lotId: z.string(), observation: z.string() })),
   activites: z.array(
-    z.object({ activiteId: z.string(), quantiteJour: z.string(), localisation: z.string(), observation: z.string() }),
+    z.object({
+      activiteId: z.string(),
+      equipeIds: z.array(z.string()),
+      quantiteJour: z.string(),
+      pourcentageJour: z.string(),
+      jalonAtteint: z.boolean(),
+      localisation: z.string(),
+      observation: z.string(),
+    }),
   ),
   materiaux: z.array(z.object({ designation: z.string(), quantite: z.string(), unite: z.string() })),
   livraisons: z.array(
@@ -177,6 +158,7 @@ const forme = z.object({
       fournisseur: z.string(),
       designation: z.string(),
       quantite: z.string(),
+      unite: z.string(),
       bonLivraison: z.string(),
       heure: z.string(),
       conformite: z.string(),
@@ -184,14 +166,22 @@ const forme = z.object({
     }),
   ),
   besoins: z.array(
-    z.object({ nature: z.string(), designation: z.string(), quantite: z.string(), observation: z.string() }),
+    z.object({
+      nature: z.string(),
+      designation: z.string(),
+      quantite: z.string(),
+      unite: z.string(),
+      observation: z.string(),
+    }),
   ),
   equipements: z.array(
     z.object({
+      cle: z.string(),
       designation: z.string(),
       reference: z.string(),
       propriete: z.string(),
-      utilisation: z.string(),
+      heuresUtilisation: z.string(),
+      usage: z.string(),
       operateur: z.string(),
       etat: z.string(),
       dureeArret: z.string(),
@@ -211,13 +201,39 @@ const forme = z.object({
       action: z.string(),
     }),
   ),
-  blocage: z.object({ niveau: z.string(), nature: z.string(), description: z.string(), impact: z.string() }),
+  blocages: z.array(
+    z.object({
+      cle: z.string(),
+      blocageId: z.string(),
+      elementId: z.string(),
+      titre: z.string(),
+      niveau: z.string(),
+      nature: z.string(),
+      description: z.string(),
+      impact: z.string(),
+    }),
+  ),
   photos: z.array(photo),
   piecesJointes: z.array(
-    z.object({ cle: z.string(), nom: z.string(), type: z.string(), taille: z.number(), url: z.string() }),
+    z.object({
+      cle: z.string(),
+      nom: z.string(),
+      type: z.string(),
+      taille: z.number(),
+      url: z.string(),
+    }),
   ),
-  previsions: z.array(z.object({ activite: z.string(), equipe: z.string(), objectif: z.string(), prerequis: z.string() })),
-  note: z.string(),
+  previsions: z.array(
+    z.object({
+      activiteId: z.string(),
+      equipeId: z.string(),
+      activite: z.string(),
+      equipe: z.string(),
+      objectif: z.string(),
+      prerequis: z.string(),
+    }),
+  ),
+  noteRedacteur: z.string(),
 });
 
 export type ValeursRapport = z.infer<typeof forme>;
@@ -226,7 +242,6 @@ export type ValeursRapport = z.infer<typeof forme>;
  * Les nombres tapés au clavier.
  * ------------------------------------------------------------------ */
 
-/** « 12,5 » ou « 12.5 » → 12,5 ; une saisie vide ou illisible → `null`. */
 export function versNombre(saisie: string): number | null {
   const propre = saisie.replace(/\s/g, "").replace(",", ".");
   if (propre === "") return null;
@@ -252,167 +267,179 @@ const erreur = (cle: CleErreur, valeurs?: Record<string, string | number>) =>
   texte(`journal.saisie.erreurs.${cle}`, valeurs);
 
 /**
- * Le schéma qu'un rapport doit satisfaire pour être **soumis**, d'après les
- * sections du chantier. Un brouillon, lui, s'enregistre sans passer par ici.
+ * Le schéma qu'un rapport doit satisfaire pour être **soumis**.
+ * Un rapport rejeté (`REJETE`) conserve le droit d'être corrigé et resoumis même
+ * au-delà de la fenêtre des 3 derniers jours ouvrés.
  */
 export function schemaRapport(
   preparation: Pick<PreparationSaisie, "sections" | "aujourdhui" | "activites"> &
-    Partial<Pick<PreparationSaisie, "equipes">>,
+    Partial<Pick<PreparationSaisie, "equipes" | "joursSaisissables" | "estJourOuvre" | "rapport">>,
 ) {
-  const avancement = activitesSuivies(preparation, "AVANCEMENT");
+  const feuilles = preparation.activites;
   const equipes = preparation.equipes ?? [];
+  const estCorrectionRejet = preparation.rapport?.statut === "REJETE";
+
   return forme.superRefine((valeurs, ctx) => {
-    const signaler = (path: (string | number)[], message: string) => ctx.addIssue({ code: "custom", path, message });
+    const signaler = (path: (string | number)[], message: string) =>
+      ctx.addIssue({ code: "custom", path, message });
     const sections = sectionsActives(preparation.sections, valeurs.arret);
     const requis = erreur("requis");
 
-    // Le contexte.
-    if (!jourSaisissable(valeurs.date, preparation.aujourdhui)) signaler(["date"], erreur("dateHorsDelai"));
-    if (!valeurs.heureDebut) signaler(["heureDebut"], requis);
-    if (!valeurs.heureFin) signaler(["heureFin"], requis);
-    if (valeurs.heureDebut && valeurs.heureFin && valeurs.heureFin <= valeurs.heureDebut) {
-      signaler(["heureFin"], erreur("heuresIncoherentes"));
-    }
-    if (valeurs.arret && !valeurs.motifArret) signaler(["motifArret"], requis);
-    const temperatures = ["temperatureMin", "temperatureMax", "humidite"] as const;
-    for (const champ of temperatures) {
-      if (estRenseigne(valeurs.meteo[champ]) && versNombre(valeurs.meteo[champ]) === null) {
-        signaler(["meteo", champ], erreur("nombre"));
+    // 1. Fenêtre de saisie sur jours ouvrés.
+    if (!estCorrectionRejet) {
+      if (preparation.estJourOuvre === false) {
+        signaler(["date"], erreur("jourNonOuvre"));
+      } else if (
+        !jourSaisissable(valeurs.date, preparation.aujourdhui, preparation.joursSaisissables)
+      ) {
+        signaler(["date"], erreur("dateHorsDelai"));
       }
     }
-    const humidite = versNombre(valeurs.meteo.humidite);
-    if (humidite !== null && (humidite < 0 || humidite > 100)) signaler(["meteo", "humidite"], erreur("pourcentage"));
 
-    // Une journée d'arrêt s'arrête à la journée : les autres étapes ne
-    // s'affichent pas, rien de ce qu'elles portent ne peut être exigé.
-    if (valeurs.arret) return;
+    // 2. Météo obligatoire (pré-remplie automatiquement, modifiable).
+    if (!valeurs.meteo.matin) signaler(["meteo", "matin"], requis);
+    if (!valeurs.meteo.apresMidi) signaler(["meteo", "apresMidi"], requis);
+    if (!valeurs.meteo.conditions) signaler(["meteo", "conditions"], requis);
 
-    // Les effectifs — régie directe.
-    if (sections.includes("EFFECTIFS")) {
-      if (valeurs.effectifs.length === 0) signaler(["effectifs"], erreur("effectifsVides"));
-      valeurs.effectifs.forEach((ligne, rang) => {
-        if (!ligne.categorie.trim()) signaler(["effectifs", rang, "categorie"], requis);
-        const prevus = versNombre(ligne.prevus);
-        const presents = versNombre(ligne.presents);
-        const retards = versNombre(ligne.retards);
-        const heures = versNombre(ligne.heures);
-        if (prevus === null || prevus < 0 || !Number.isInteger(prevus)) signaler(["effectifs", rang, "prevus"], erreur("entier"));
-        if (presents === null || presents < 0 || !Number.isInteger(presents)) {
-          signaler(["effectifs", rang, "presents"], erreur("entier"));
+    // 3. Journée d'arrêt ou journée travaillée.
+    if (valeurs.arret) {
+      if (!valeurs.motifArret) signaler(["motifArret"], requis);
+      if (valeurs.motifArret === "AUTRE" && !valeurs.precisionArret.trim()) {
+        signaler(["precisionArret"], requis);
+      }
+      if (valeurs.heureDebut || valeurs.heureFin) {
+        if (!valeurs.heureDebut) signaler(["heureDebut"], requis);
+        if (!valeurs.heureFin) signaler(["heureFin"], requis);
+        if (valeurs.heureDebut && valeurs.heureFin && valeurs.heureFin <= valeurs.heureDebut) {
+          signaler(["heureFin"], erreur("heuresIncoherentes"));
         }
-        if (presents !== null && presents > 0 && (heures === null || heures <= 0 || heures > HEURES_MAX_JOUR)) {
-          signaler(["effectifs", rang, "heures"], erreur("heuresTravaillees", { max: HEURES_MAX_JOUR }));
-        }
-        if (estRenseigne(ligne.retards)) {
-          if (retards === null || retards < 0 || !Number.isInteger(retards)) {
-            signaler(["effectifs", rang, "retards"], erreur("entier"));
-          } else if (presents !== null && retards > presents) {
-            signaler(["effectifs", rang, "retards"], erreur("retardsPresents"));
+      }
+    } else {
+      if (!valeurs.heureDebut) signaler(["heureDebut"], requis);
+      if (!valeurs.heureFin) signaler(["heureFin"], requis);
+      if (valeurs.heureDebut && valeurs.heureFin && valeurs.heureFin <= valeurs.heureDebut) {
+        signaler(["heureFin"], erreur("heuresIncoherentes"));
+      }
+
+      // Pointage nominatif par équipe (section `EQUIPES`).
+      const pointagesActifs = new Set<string>();
+      if (sections.includes("EQUIPES")) {
+        valeurs.equipes.forEach((ligne, rang) => {
+          const equipe = equipes.find((item) => item.equipeId === ligne.equipeId);
+          if (!equipe) return;
+          if (ligne.presents.length > 0) {
+            const heures = versNombre(ligne.heures);
+            if (heures === null || heures <= 0 || heures > HEURES_MAX_JOUR) {
+              signaler(["equipes", rang, "heures"], erreur("heuresTravaillees", { max: HEURES_MAX_JOUR }));
+            } else {
+              pointagesActifs.add(ligne.equipeId);
+            }
+            if (equipe.qualite && !ligne.qualite) {
+              signaler(["equipes", rang, "qualite"], requis);
+            }
+            const manquants = equipe.membres.length - ligne.presents.length;
+            if ((manquants > 0 || ligne.retards.length > 0) && !ligne.observation.trim()) {
+              signaler(["equipes", rang, "observation"], erreur("motifAbsenceEquipe"));
+            }
           }
-        }
-        const absences = prevus !== null && presents !== null && presents < prevus;
-        if ((absences || (retards ?? 0) > 0) && !ligne.observation.trim()) {
-          signaler(["effectifs", rang, "observation"], erreur("motifAbsence"));
-        }
-      });
-    }
-
-    // La présence du sous-traitant — sous-traitance structurée.
-    if (sections.includes("PRESENCE_SOUS_TRAITANT")) {
-      const presence = valeurs.presenceSousTraitant;
-      if (!presence.presence) signaler(["presenceSousTraitant", "presence"], requis);
-      if (presence.presence === "ABSENT" && !presence.motif.trim()) {
-        signaler(["presenceSousTraitant", "motif"], erreur("motifAbsenceSousTraitant"));
+        });
       }
-      if (presence.presence !== "ABSENT" && !presence.qualite) signaler(["presenceSousTraitant", "qualite"], requis);
-      if (presence.qualite === "NON_CONFORME" && !presence.observation.trim()) {
-        signaler(["presenceSousTraitant", "observation"], erreur("nonConformite"));
+
+      // Travaux réalisés par feuille (3 modes de mesure) et garde-fou A3.
+      if (sections.includes("AVANCEMENT")) {
+        const travailles = new Set(valeurs.lotsTravailles.map((point) => point.lotId));
+        const lotsAvances = new Set<string>();
+        const lotsCommentes = new Set<string>();
+
+        valeurs.activites.forEach((ligne, rang) => {
+          const feuille = feuilles[rang];
+          if (!feuille || !travailles.has(feuille.lotId)) return;
+
+          if (ligne.observation.trim()) {
+            lotsCommentes.add(feuille.lotId);
+          }
+
+          let aAvance = false;
+          if (feuille.modeMesure === "POURCENTAGE") {
+            if (estRenseigne(ligne.pourcentageJour)) {
+              const pct = versNombre(ligne.pourcentageJour);
+              if (pct === null || pct < 0 || pct > 100) {
+                signaler(["activites", rang, "pourcentageJour"], erreur("pourcentage"));
+              } else if (pct < feuille.pourcentageVeille) {
+                signaler(
+                  ["activites", rang, "pourcentageJour"],
+                  erreur("pourcentageRecul", { acquis: feuille.pourcentageVeille }),
+                );
+              } else if (pct > feuille.pourcentageVeille) {
+                aAvance = true;
+              }
+            }
+          } else if (feuille.modeMesure === "JALON") {
+            if (ligne.jalonAtteint) {
+              aAvance = true;
+            }
+          } else if (estRenseigne(ligne.quantiteJour)) {
+            const quantite = versNombre(ligne.quantiteJour);
+            if (quantite === null || quantite < 0) {
+              signaler(["activites", rang, "quantiteJour"], erreur("quantite"));
+            } else if (quantite > 0) {
+              aAvance = true;
+            }
+          }
+
+          if (aAvance) {
+            lotsAvances.add(feuille.lotId);
+            if (ligne.equipeIds.length === 0) {
+              signaler(["activites", rang, "equipeIds"], erreur("equipeTravauxRequise"));
+            } else if (!ligne.equipeIds.some((eid) => pointagesActifs.has(eid))) {
+              signaler(["activites", rang, "equipeIds"], erreur("equipeTravauxSansPresent"));
+            }
+          }
+        });
+
+        valeurs.lotsTravailles.forEach((point, rang) => {
+          if (
+            !lotsAvances.has(point.lotId) &&
+            !lotsCommentes.has(point.lotId) &&
+            !point.observation.trim()
+          ) {
+            signaler(["lotsTravailles", rang, "observation"], erreur("lotSansAvancement"));
+          }
+        });
+
+        if (feuilles.length > 0 && valeurs.lotsTravailles.length === 0) {
+          signaler(["lotsTravailles"], erreur("lotsVides"));
+        }
       }
-    }
 
-    // Les équipes des tâches (30/10/2026) : présents cochés, heures, motif d'une absence.
-    if (sections.includes("EQUIPES")) {
-      valeurs.equipes.forEach((ligne, rang) => {
-        const equipe = equipes.find((e) => e.equipeId === ligne.equipeId);
-        if (!equipe) return;
-        const manquants = equipe.membres.length - ligne.presents.length;
-        if ((manquants > 0 || ligne.retards.length > 0) && !ligne.observation.trim()) {
-          signaler(["equipes", rang, "observation"], erreur("motifAbsenceEquipe"));
-        }
-        if (ligne.presents.length > 0 && versNombre(ligne.heures) === null) {
-          signaler(["equipes", rang, "heures"], requis);
-        }
-        if (equipe.qualite && ligne.presents.length > 0 && !ligne.qualite) {
-          signaler(["equipes", rang, "qualite"], requis);
-        }
-      });
-    }
-
-    // La production des tâcherons — sous-traitance informelle.
-    if (sections.includes("PRODUCTION")) {
-      // Seule, la production est la seule preuve de la journée ; à côté de
-      // lots suivis à l'avancement, elle peut manquer un jour.
-      if (valeurs.production.length === 0 && !sections.includes("AVANCEMENT")) {
-        signaler(["production"], erreur("productionVide"));
-      }
-      valeurs.production.forEach((ligne, rang) => {
-        // Une tâche tenue par une équipe : l'ouvrier se choisit parmi ses membres.
-        if (!ligne.intervenant.trim() && !ligne.personneId) signaler(["production", rang, "intervenant"], requis);
-        if (!ligne.activiteId) signaler(["production", rang, "activiteId"], requis);
-        const quantite = versNombre(ligne.quantiteJour);
-        if (quantite === null || quantite < 0) signaler(["production", rang, "quantiteJour"], erreur("quantite"));
-      });
-    }
-
-    // L'avancement se déclare lot par lot : le chef de chantier choisit les
-    // lots travaillés, et seules leurs activités comptent. Un champ vide vaut
-    // « rien ce jour » ; un lot travaillé sans aucune quantité dit pourquoi.
-    let avancementDuJour = false;
-    if (sections.includes("AVANCEMENT")) {
-      const travailles = new Set(valeurs.lotsTravailles.map((point) => point.lotId));
-      const lotsAvances = new Set<string>();
-      valeurs.activites.forEach((ligne, rang) => {
-        const lotId = avancement[rang]?.lotId;
-        if (!lotId || !travailles.has(lotId) || !estRenseigne(ligne.quantiteJour)) return;
-        const quantite = versNombre(ligne.quantiteJour);
-        if (quantite === null || quantite < 0) signaler(["activites", rang, "quantiteJour"], erreur("quantite"));
-        else if (quantite > 0) {
-          avancementDuJour = true;
-          lotsAvances.add(lotId);
-        }
-      });
-      valeurs.lotsTravailles.forEach((point, rang) => {
-        if (!lotsAvances.has(point.lotId) && !point.observation.trim()) {
-          signaler(["lotsTravailles", rang, "observation"], erreur("lotSansAvancement"));
-        }
-      });
-      // Une journée travaillée sans lot ni production est une journée d'arrêt
-      // qui ne dit pas son nom.
-      const productionDuJour = valeurs.production.some((ligne) => (versNombre(ligne.quantiteJour) ?? 0) > 0);
-      if (avancement.length > 0 && valeurs.lotsTravailles.length === 0 && !productionDuJour) {
-        signaler(["lotsTravailles"], erreur("lotsVides"));
+      if (valeurs.noteRedacteur.trim().length < LONGUEUR_MIN_NOTE) {
+        signaler(["noteRedacteur"], erreur("noteCourte", { min: LONGUEUR_MIN_NOTE }));
       }
     }
 
-    // Les matériaux — saisis librement, exigés dès que le chantier a avancé (SFD §5.2).
+    // 4. Rubriques communes (saisissables aussi lors d'une journée d'arrêt).
     if (sections.includes("MATERIAUX")) {
-      let consommation = false;
       valeurs.materiaux.forEach((ligne, rang) => {
         if (!ligne.designation.trim()) signaler(["materiaux", rang, "designation"], requis);
         if (!ligne.unite.trim()) signaler(["materiaux", rang, "unite"], requis);
         const quantite = versNombre(ligne.quantite);
-        if (quantite === null || quantite <= 0) signaler(["materiaux", rang, "quantite"], erreur("quantiteConsommee"));
-        else consommation = true;
+        if (quantite === null || quantite <= 0) {
+          signaler(["materiaux", rang, "quantite"], erreur("quantiteConsommee"));
+        }
       });
-      if (avancementDuJour && !consommation) signaler(["materiaux"], erreur("materiauxVides"));
     }
 
     if (sections.includes("LIVRAISONS")) {
       valeurs.livraisons.forEach((ligne, rang) => {
         if (!ligne.fournisseur.trim()) signaler(["livraisons", rang, "fournisseur"], requis);
         if (!ligne.designation.trim()) signaler(["livraisons", rang, "designation"], requis);
-        if (!ligne.quantite.trim()) signaler(["livraisons", rang, "quantite"], requis);
-        if (ligne.conformite !== "CONFORME" && !ligne.observation.trim()) {
+        if (!ligne.unite.trim()) signaler(["livraisons", rang, "unite"], requis);
+        if (!ligne.conformite) signaler(["livraisons", rang, "conformite"], requis);
+        const quantite = versNombre(ligne.quantite);
+        if (quantite === null || quantite <= 0) {
+          signaler(["livraisons", rang, "quantite"], erreur("quantiteConsommee"));
+        }
+        if (ligne.conformite && ligne.conformite !== "CONFORME" && !ligne.observation.trim()) {
           signaler(["livraisons", rang, "observation"], erreur("livraisonNonConforme"));
         }
       });
@@ -421,49 +448,88 @@ export function schemaRapport(
     if (sections.includes("EQUIPEMENTS")) {
       valeurs.equipements.forEach((ligne, rang) => {
         if (!ligne.designation.trim()) signaler(["equipements", rang, "designation"], requis);
-        if (estRenseigne(ligne.utilisation)) {
-          const heures = versNombre(ligne.utilisation);
+        if (!ligne.propriete) signaler(["equipements", rang, "propriete"], requis);
+        if (!ligne.etat) signaler(["equipements", rang, "etat"], requis);
+        if (ligne.etat === "BON") {
+          const heures = versNombre(ligne.heuresUtilisation);
           if (heures === null || heures < 0 || heures > HEURES_MAX_JOUR) {
-            signaler(["equipements", rang, "utilisation"], erreur("heuresTravaillees", { max: HEURES_MAX_JOUR }));
+            signaler(
+              ["equipements", rang, "heuresUtilisation"],
+              erreur("heuresTravaillees", { max: HEURES_MAX_JOUR }),
+            );
           }
-        }
-        // Une panne ou une immobilisation dit combien de temps l'engin est resté arrêté.
-        if (ligne.etat !== "BON") {
+        } else if (ligne.etat) {
           const arret = versNombre(ligne.dureeArret);
           if (arret === null || arret <= 0 || arret > HEURES_MAX_JOUR) {
             signaler(["equipements", rang, "dureeArret"], erreur("dureeArret", { max: HEURES_MAX_JOUR }));
           }
-        }
-        if (ligne.etat === "PANNE" && !ligne.observation.trim()) {
-          signaler(["equipements", rang, "observation"], erreur("panne"));
+          if (!ligne.observation.trim()) {
+            signaler(["equipements", rang, "observation"], erreur("panne"));
+          }
         }
       });
     }
 
-    // Les sections communes.
     valeurs.besoins.forEach((besoin, rang) => {
       if (!besoin.designation.trim()) signaler(["besoins", rang, "designation"], requis);
-      if (besoin.nature === "URGENT" && !besoin.quantite.trim()) signaler(["besoins", rang, "quantite"], requis);
+      if (estRenseigne(besoin.quantite)) {
+        const quantite = versNombre(besoin.quantite);
+        if (quantite === null || quantite <= 0) {
+          signaler(["besoins", rang, "quantite"], erreur("quantiteConsommee"));
+        }
+      } else if (besoin.nature === "URGENT") {
+        signaler(["besoins", rang, "quantite"], requis);
+      }
     });
 
     valeurs.incidents.forEach((incident, rang) => {
-      if (incident.heureDebut && incident.heureFin && incident.heureFin <= incident.heureDebut) {
-        signaler(["incidents", rang, "heureFin"], erreur("heuresIncoherentes"));
+      if (incident.heureDebut || incident.heureFin) {
+        if (!incident.heureDebut) signaler(["incidents", rang, "heureDebut"], requis);
+        if (!incident.heureFin) signaler(["incidents", rang, "heureFin"], requis);
+        if (incident.heureDebut && incident.heureFin && incident.heureFin < incident.heureDebut) {
+          signaler(["incidents", rang, "heureFin"], erreur("heuresIncoherentes"));
+        }
+      }
+      if (!incident.decidePar) signaler(["incidents", rang, "decidePar"], requis);
+      if (incident.nature !== "VISITE_INSTRUCTION" && !incident.gravite) {
+        signaler(["incidents", rang, "gravite"], requis);
       }
       if (incident.description.trim().length < LONGUEUR_MIN_DESCRIPTION_INCIDENT) {
-        signaler(["incidents", rang, "description"], erreur("descriptionCourte", { min: LONGUEUR_MIN_DESCRIPTION_INCIDENT }));
+        signaler(
+          ["incidents", rang, "description"],
+          erreur("descriptionCourte", { min: LONGUEUR_MIN_DESCRIPTION_INCIDENT }),
+        );
       }
-      if (incident.gravite !== "MINEUR" && !incident.action.trim()) {
+      if (
+        incident.nature !== "VISITE_INSTRUCTION" &&
+        incident.gravite &&
+        incident.gravite !== "MINEUR" &&
+        !incident.action.trim()
+      ) {
         signaler(["incidents", rang, "action"], erreur("actionRequise"));
       }
     });
 
-    if (valeurs.blocage.niveau !== "AUCUN") {
-      if (!valeurs.blocage.nature) signaler(["blocage", "nature"], requis);
-      if (!valeurs.blocage.description.trim()) signaler(["blocage", "description"], requis);
-    }
+    valeurs.blocages.forEach((blocage, rang) => {
+      if (!blocage.nature) signaler(["blocages", rang, "nature"], requis);
+      if (blocage.description.trim().length < LONGUEUR_MIN_DESCRIPTION_INCIDENT) {
+        signaler(
+          ["blocages", rang, "description"],
+          erreur("descriptionCourte", { min: LONGUEUR_MIN_DESCRIPTION_INCIDENT }),
+        );
+      }
+      if (!blocage.impact.trim()) signaler(["blocages", rang, "impact"], requis);
+    });
 
-    if (valeurs.photos.length > PHOTOS_MAX) signaler(["photos"], erreur("tropDePhotos", { max: PHOTOS_MAX }));
+    if (valeurs.photos.length > PHOTOS_MAX) {
+      signaler(["photos"], erreur("tropDePhotos", { max: PHOTOS_MAX }));
+    }
+    valeurs.photos.forEach((item, rang) => {
+      if (!item.legende.trim()) {
+        signaler(["photos", rang, "legende"], erreur("legendePhotoRequise"));
+      }
+    });
+
     if (valeurs.piecesJointes.length > PIECES_JOINTES_MAX) {
       signaler(["piecesJointes"], erreur("tropDePieces", { max: PIECES_JOINTES_MAX }));
     }
@@ -472,10 +538,6 @@ export function schemaRapport(
       if (!prevision.activite.trim()) signaler(["previsions", rang, "activite"], requis);
       if (!prevision.objectif.trim()) signaler(["previsions", rang, "objectif"], requis);
     });
-
-    if (valeurs.note.trim().length < LONGUEUR_MIN_NOTE) {
-      signaler(["note"], erreur("noteCourte", { min: LONGUEUR_MIN_NOTE }));
-    }
   });
 }
 
@@ -483,130 +545,143 @@ export function schemaRapport(
  * Domaine ↔ formulaire.
  * ------------------------------------------------------------------ */
 
-/**
- * Le formulaire d'un chantier pour un jour : le rapport déjà commencé s'il existe,
- * sinon un rapport neuf **prérempli de ce que le terrain a déjà dit** — les
- * catégories d'ouvriers, les engins et les tâcherons du dernier rapport du
- * chantier. On ne ressaisit pas chaque matin ce qui n'a pas changé.
- */
 export function valeursDepuis(preparation: PreparationSaisie, date: string): ValeursRapport {
   const existant = preparation.rapport?.saisie;
   const lotsAvancement = lotsSuivisAvancement(preparation);
-  const quantites = new Map(existant?.activites.map((ligne) => [ligne.activiteId, ligne]) ?? []);
-  const { reprises } = preparation;
+  const lotsAttendusIds = new Set(
+    preparation.activites.filter((act) => act.attendueCeJour).map((act) => act.lotId),
+  );
+  const lotsAttendus = lotsAvancement.filter((lot) => lotsAttendusIds.has(lot.id));
+  const parActivite = new Map(
+    existant?.activites.map((ligne) => [ligne.activiteId, ligne]) ?? [],
+  );
+  const { reprises, meteoSuggeree } = preparation;
 
   return {
     date: existant?.date ?? date,
-    heureDebut: existant?.heureDebut ?? HEURE_DEBUT_DEFAUT,
-    heureFin: existant?.heureFin ?? HEURE_FIN_DEFAUT,
+    heureDebut: existant ? existant.heureDebut : HEURE_DEBUT_DEFAUT,
+    heureFin: existant ? existant.heureFin : HEURE_FIN_DEFAUT,
     arret: existant?.arret != null,
     motifArret: existant?.arret?.motif ?? "",
     precisionArret: existant?.arret?.precision ?? "",
     meteo: {
-      matin: existant?.meteo.matin ?? "ENSOLEILLE",
-      apresMidi: existant?.meteo.apresMidi ?? "ENSOLEILLE",
-      conditions: existant?.meteo.conditions ?? "FAVORABLES",
-      temperatureMin: enChaine(existant?.meteo.temperatureMin),
-      temperatureMax: enChaine(existant?.meteo.temperatureMax),
-      humidite: enChaine(existant?.meteo.humidite),
-      vent: existant?.meteo.vent ?? "",
-      prevision: existant?.meteo.prevision ?? "",
+      matin: existant?.meteo.matin || meteoSuggeree?.matin || "ENSOLEILLE",
+      apresMidi: existant?.meteo.apresMidi || meteoSuggeree?.apresMidi || "ENSOLEILLE",
+      conditions: existant?.meteo.conditions || meteoSuggeree?.conditions || "FAVORABLES",
     },
-    effectifs: existant
-      ? existant.effectifs.map((ligne) => ({
-          categorie: ligne.categorie,
-          prevus: enChaine(ligne.prevus),
-          presents: enChaine(ligne.presents),
-          // Un rapport d'avant les retards ne les porte pas.
-          retards: enChaine(ligne.retards ?? null),
-          heures: enChaine(ligne.heures),
-          observation: ligne.observation,
-        }))
-      : reprises.effectifs.map((ligne) => ({
-          categorie: ligne.categorie,
-          prevus: String(ligne.prevus),
-          presents: "",
-          retards: "",
-          heures: HEURES_PAR_DEFAUT,
-          observation: "",
-        })),
-    presenceSousTraitant: {
-      presence: existant?.presenceSousTraitant?.presence ?? "",
-      motif: existant?.presenceSousTraitant?.motif ?? "",
-      qualite: existant?.presenceSousTraitant?.qualite ?? "",
-      observation: existant?.presenceSousTraitant?.observation ?? "",
-    },
-    production: existant
-      ? existant.production.map((ligne) => ({
-          intervenant: ligne.intervenant,
-          personneId: ligne.personneId ?? "",
-          activiteId: ligne.activiteId,
-          quantiteJour: enChaine(ligne.quantiteJour),
-          prixUnitaire: ligne.prixUnitaire === null ? "" : String(ligne.prixUnitaire / 100),
-        }))
-      : reprises.intervenants.map((ligne) => ({
-          intervenant: ligne.intervenant,
-          personneId: ligne.personneId ?? "",
-          activiteId: ligne.activiteId,
-          quantiteJour: "",
-          prixUnitaire: ligne.prixUnitaire === null ? "" : String(ligne.prixUnitaire / 100),
-        })),
     equipes: valeursEquipes(preparation),
-    // Un rapport neuf part sans lot : le chef de chantier choisit ceux qu'il a
-    // travaillés — sauf quand le chantier n'en a qu'un.
     lotsTravailles: existant
       ? lotsTravaillesDe(existant, preparation.activites)
-      : lotsAvancement.length === 1
-        ? lotsAvancement.map((lot) => ({ lotId: lot.id, observation: "" }))
-        : [],
-    // Une ligne par activité suivie à l'avancement, dans l'ordre du serveur :
-    // l'index du formulaire suit celui de `activitesSuivies(…, "AVANCEMENT")`.
-    activites: activitesSuivies(preparation, "AVANCEMENT").map((activite) => ({
-      activiteId: activite.activiteId,
-      quantiteJour: enChaine(quantites.get(activite.activiteId)?.quantiteJour),
-      localisation: quantites.get(activite.activiteId)?.localisation ?? "",
-      observation: quantites.get(activite.activiteId)?.observation ?? "",
+      : lotsAttendus.length > 0
+        ? lotsAttendus.map((lot) => ({ lotId: lot.id, observation: "" }))
+        : lotsAvancement.length === 1
+          ? lotsAvancement.map((lot) => ({ lotId: lot.id, observation: "" }))
+          : [],
+    activites: preparation.activites.map((activite) => {
+      const ligne = parActivite.get(activite.activiteId);
+      const equipesDefaut =
+        ligne?.equipeIds ??
+        (activite.equipesAffectees.length === 1 ? [activite.equipesAffectees[0]] : []);
+      return {
+        activiteId: activite.activiteId,
+        equipeIds: equipesDefaut.filter((id) => activite.equipesAffectees.includes(id)),
+        quantiteJour: enChaine(ligne?.quantiteJour),
+        pourcentageJour: enChaine(ligne?.pourcentageJour),
+        jalonAtteint: ligne?.jalonAtteint ?? false,
+        localisation: ligne?.localisation ?? "",
+        observation: ligne?.observation ?? "",
+      };
+    }),
+    materiaux: (existant?.materiaux ?? []).map((ligne) => ({
+      designation: ligne.designation,
+      quantite: enChaine(ligne.quantite),
+      unite: ligne.unite,
     })),
-    // Un rapport d'avant la saisie libre portait des lignes du stock, sans désignation.
-    materiaux: (existant?.materiaux ?? [])
-      .filter((ligne) => typeof ligne.designation === "string")
-      .map((ligne) => ({ designation: ligne.designation, quantite: enChaine(ligne.quantite), unite: ligne.unite })),
-    livraisons: existant?.livraisons ?? [],
-    besoins: existant?.besoins ?? [],
+    livraisons: (existant?.livraisons ?? []).map((ligne) => ({
+      fournisseur: ligne.fournisseur,
+      designation: ligne.designation,
+      quantite: enChaine(ligne.quantite),
+      unite: ligne.unite,
+      bonLivraison: ligne.bonLivraison,
+      heure: ligne.heure,
+      conformite: ligne.conformite,
+      observation: ligne.observation,
+    })),
+    besoins: (existant?.besoins ?? []).map((besoin) => ({
+      nature: besoin.nature,
+      designation: besoin.designation,
+      quantite: enChaine(besoin.quantite),
+      unite: besoin.unite,
+      observation: besoin.observation,
+    })),
     equipements: existant
-      ? existant.equipements.map((equipement) => ({ ...equipement, dureeArret: enChaine(equipement.dureeArret ?? null) }))
+      ? existant.equipements.map((equipement) => ({
+          cle: equipement.cle || nouvelleCle(),
+          designation: equipement.designation,
+          reference: equipement.reference,
+          propriete: equipement.propriete,
+          heuresUtilisation: enChaine(equipement.heuresUtilisation),
+          usage: equipement.usage,
+          operateur: equipement.operateur,
+          etat: equipement.etat || "BON",
+          dureeArret: enChaine(equipement.dureeArret),
+          observation: equipement.observation,
+        }))
       : reprises.equipements.map((equipement) => ({
-          ...equipement,
-          utilisation: "",
+          cle: nouvelleCle(),
+          designation: equipement.designation,
+          reference: equipement.reference,
+          propriete: equipement.propriete || "ENTREPRISE",
+          heuresUtilisation: "",
+          usage: equipement.usage ?? "",
+          operateur: equipement.operateur,
           etat: "BON",
           dureeArret: "",
           observation: "",
         })),
-    // Un événement d'avant les natures était un incident.
     incidents: (existant?.incidents ?? []).map((incident) => ({
-      ...incident,
-      nature: incident.nature ?? "INCIDENT",
+      cle: incident.cle || nouvelleCle(),
+      nature: incident.nature ?? "EVENEMENT_PARTICULIER",
+      type: incident.type ?? "QUALITE",
       heureDebut: incident.heureDebut ?? "",
       heureFin: incident.heureFin ?? "",
+      gravite: incident.gravite ?? "",
+      decidePar: incident.decidePar ?? "REDACTION",
+      description: incident.description ?? "",
+      action: incident.action ?? "",
     })),
-    blocage: {
-      niveau: existant?.blocage.niveau ?? "AUCUN",
-      nature: existant?.blocage.nature ?? "",
-      description: existant?.blocage.description ?? "",
-      impact: existant?.blocage.impact ?? "",
-    },
-    photos: existant?.photos ?? [],
+    blocages: (existant?.blocages ?? []).map((blocage) => ({
+      cle: blocage.cle || nouvelleCle(),
+      blocageId: blocage.blocageId ?? "",
+      elementId: blocage.elementId ?? "",
+      titre: blocage.titre ?? "",
+      niveau: blocage.niveau,
+      nature: blocage.nature ?? "",
+      description: blocage.description ?? "",
+      impact: blocage.impact ?? "",
+    })),
+    photos: (existant?.photos ?? []).map((item) => ({
+      ...item,
+      elementId: item.elementId ?? null,
+    })),
     piecesJointes: existant?.piecesJointes ?? [],
-    previsions: existant?.previsions ?? [],
-    note: existant?.note ?? "",
+    previsions: (existant?.previsions ?? []).map((prevision) => ({
+      activiteId: prevision.activiteId ?? "",
+      equipeId: prevision.equipeId ?? "",
+      activite: prevision.activite,
+      equipe: prevision.equipe,
+      objectif: prevision.objectif,
+      prerequis: prevision.prerequis,
+    })),
+    noteRedacteur: existant?.noteRedacteur ?? "",
   };
 }
 
 /**
- * Le formulaire, tel quel, en objet du domaine. Aucune exigence ici : un
- * brouillon passe par la même traduction qu'un rapport soumis. Les quantités
- * d'un lot retiré de la sélection restent dans le formulaire (le remettre les
- * retrouve) mais ne partent pas.
+ * Traduit l'état du formulaire en `SaisieRapport` du domaine.
+ * En journée d'arrêt, seuls les travaux (`activites`, `lotsTravailles`) et le
+ * pointage (`equipes`) ne partent pas ; les preuves, blocages, événements,
+ * livraisons et matériels restent conservés.
  */
 export function versSaisie(
   valeurs: ValeursRapport,
@@ -614,27 +689,11 @@ export function versSaisie(
 ): SaisieRapport {
   const saisie = versSaisieComplete(valeurs, preparation);
   if (!valeurs.arret) return saisie;
-  // Une journée d'arrêt ne porte que la journée : ce qu'on avait rempli
-  // ailleurs avant de cocher reste dans le formulaire (décocher le retrouve),
-  // mais ne part pas.
   return {
     ...saisie,
-    effectifs: [],
-    presenceSousTraitant: null,
-    production: [],
     equipes: [],
     lotsTravailles: [],
     activites: [],
-    materiaux: [],
-    livraisons: [],
-    besoins: [],
-    equipements: [],
-    incidents: [],
-    blocage: { niveau: "AUCUN", nature: null, description: "", impact: "" },
-    photos: [],
-    piecesJointes: [],
-    previsions: [],
-    note: "",
   };
 }
 
@@ -642,50 +701,28 @@ function versSaisieComplete(
   valeurs: ValeursRapport,
   preparation: Pick<PreparationSaisie, "projet" | "activites">,
 ): SaisieRapport {
-  const presence = valeurs.presenceSousTraitant;
-  const avancement = activitesSuivies(preparation, "AVANCEMENT");
+  const feuilles = preparation.activites;
   const travailles = new Set(valeurs.lotsTravailles.map((point) => point.lotId));
+
   return {
     projetId: preparation.projet.id,
     date: valeurs.date,
     heureDebut: valeurs.heureDebut,
     heureFin: valeurs.heureFin,
     arret: valeurs.arret
-      ? { motif: (valeurs.motifArret || "AUTRE") as MotifArret, precision: valeurs.precisionArret.trim() }
-      : null,
-    meteo: {
-      matin: valeurs.meteo.matin as Meteo,
-      apresMidi: valeurs.meteo.apresMidi as Meteo,
-      conditions: valeurs.meteo.conditions as ConditionsTravail,
-      temperatureMin: versNombre(valeurs.meteo.temperatureMin),
-      temperatureMax: versNombre(valeurs.meteo.temperatureMax),
-      humidite: versNombre(valeurs.meteo.humidite),
-      vent: valeurs.meteo.vent.trim(),
-      prevision: valeurs.meteo.prevision.trim(),
-    },
-    effectifs: valeurs.effectifs.map((ligne) => ({
-      categorie: ligne.categorie.trim(),
-      prevus: versNombre(ligne.prevus),
-      presents: versNombre(ligne.presents),
-      retards: versNombre(ligne.retards),
-      heures: versNombre(ligne.heures),
-      observation: ligne.observation.trim(),
-    })),
-    presenceSousTraitant: presence.presence
       ? {
-          presence: presence.presence as PresenceSousTraitant,
-          motif: presence.motif.trim(),
-          qualite: (presence.qualite || "CONFORME") as QualiteExecution,
-          observation: presence.observation.trim(),
+          motif: (valeurs.motifArret || "AUTRE") as MotifArret,
+          precision: valeurs.precisionArret.trim(),
         }
       : null,
-    production: valeurs.production.map((ligne) => ({
-      intervenant: ligne.intervenant.trim(),
-      personneId: ligne.personneId || null,
-      activiteId: ligne.activiteId,
-      quantiteJour: versNombre(ligne.quantiteJour),
-      prixUnitaire: saisieEnCentimes(ligne.prixUnitaire),
-    })),
+    meteo: {
+      matin: valeurs.meteo.matin as Meteo | "",
+      apresMidi: valeurs.meteo.apresMidi as Meteo | "",
+      conditions:
+        valeurs.arret && valeurs.motifArret === "INTEMPERIES" && !valeurs.meteo.conditions
+          ? "ARRET"
+          : (valeurs.meteo.conditions as ConditionsTravail | ""),
+    },
     equipes: valeurs.equipes.map((ligne) => ({
       equipeId: ligne.equipeId,
       presents: ligne.presents,
@@ -698,64 +735,114 @@ function versSaisieComplete(
       lotId: point.lotId,
       observation: point.observation.trim(),
     })),
-    activites: valeurs.activites
-      .filter((_, rang) => travailles.has(avancement[rang]?.lotId ?? ""))
-      .filter((ligne) => estRenseigne(ligne.quantiteJour) || ligne.observation.trim() || ligne.localisation.trim())
-      .map((ligne) => ({
-        activiteId: ligne.activiteId,
-        quantiteJour: versNombre(ligne.quantiteJour),
-        localisation: ligne.localisation.trim(),
-        observation: ligne.observation.trim(),
-      })),
+    activites: valeurs.activites.flatMap((ligne, rang) => {
+      const feuille = feuilles[rang];
+      if (!feuille || !travailles.has(feuille.lotId)) return [];
+
+      const loc = ligne.localisation.trim();
+      const obs = ligne.observation.trim();
+      const qSaisie = versNombre(ligne.quantiteJour);
+      const pctSaisi = versNombre(ligne.pourcentageJour);
+      const aMesure =
+        feuille.modeMesure === "POURCENTAGE"
+          ? estRenseigne(ligne.pourcentageJour)
+          : feuille.modeMesure === "JALON"
+            ? ligne.jalonAtteint
+            : estRenseigne(ligne.quantiteJour);
+
+      if (!aMesure && !loc && !obs) return [];
+
+      return [
+        {
+          activiteId: ligne.activiteId,
+          equipeIds: ligne.equipeIds.filter((id) => feuille.equipesAffectees.includes(id)),
+          quantiteJour:
+            feuille.modeMesure === "QUANTITE" ? (qSaisie ?? (loc || obs ? 0 : null)) : null,
+          pourcentageJour:
+            feuille.modeMesure === "POURCENTAGE"
+              ? (pctSaisi ?? (loc || obs ? feuille.pourcentageVeille : null))
+              : null,
+          jalonAtteint: feuille.modeMesure === "JALON" ? ligne.jalonAtteint : false,
+          localisation: loc,
+          observation: obs,
+        },
+      ];
+    }),
     materiaux: valeurs.materiaux.map((ligne) => ({
       designation: ligne.designation.trim(),
       quantite: versNombre(ligne.quantite),
       unite: ligne.unite.trim(),
     })),
     livraisons: valeurs.livraisons.map((ligne) => ({
-      ...ligne,
-      conformite: ligne.conformite as Conformite,
+      fournisseur: ligne.fournisseur.trim(),
+      designation: ligne.designation.trim(),
+      quantite: versNombre(ligne.quantite),
+      unite: ligne.unite.trim(),
+      bonLivraison: ligne.bonLivraison.trim(),
+      heure: ligne.heure,
+      conformite: (ligne.conformite || "CONFORME") as Conformite,
       observation: ligne.observation.trim(),
     })),
     besoins: valeurs.besoins.map((besoin) => ({
       nature: besoin.nature === "URGENT" ? "URGENT" : "RUPTURE",
       designation: besoin.designation.trim(),
-      quantite: besoin.quantite.trim(),
+      quantite: versNombre(besoin.quantite),
+      unite: besoin.unite.trim(),
       observation: besoin.observation.trim(),
     })),
     equipements: valeurs.equipements.map((ligne) => ({
-      ...ligne,
-      propriete: ligne.propriete as ProprieteEquipement,
-      etat: ligne.etat as EtatEquipement,
+      cle: ligne.cle || nouvelleCle(),
+      designation: ligne.designation.trim(),
+      reference: ligne.reference.trim(),
+      propriete: ligne.propriete as ProprieteEquipement | "",
+      heuresUtilisation: ligne.etat === "BON" ? versNombre(ligne.heuresUtilisation) : null,
+      usage: ligne.usage.trim(),
+      operateur: ligne.operateur.trim(),
+      etat: ligne.etat as EtatEquipement | "",
       dureeArret: ligne.etat === "BON" ? null : versNombre(ligne.dureeArret),
       observation: ligne.observation.trim(),
     })),
     incidents: valeurs.incidents.map((incident) => ({
       cle: incident.cle,
       nature: incident.nature as NatureEvenement,
-      type: categorieEvenement(incident.nature as NatureEvenement, incident.type as TypeIncident),
+      type: categorieEvenement(
+        incident.nature as NatureEvenement,
+        incident.type as TypeIncident | "",
+      ),
       heureDebut: incident.heureDebut,
       heureFin: incident.heureFin,
-      gravite: incident.gravite as GraviteIncident,
-      decidePar: incident.decidePar as RoleSignataire,
+      gravite:
+        incident.nature === "VISITE_INSTRUCTION"
+          ? ""
+          : (incident.gravite as GraviteIncident | ""),
+      decidePar: incident.decidePar as DecideurIncident | "",
       description: incident.description.trim(),
       action: incident.action.trim(),
     })),
-    blocage: {
-      niveau: valeurs.blocage.niveau as NiveauBlocageSaisi,
-      nature: valeurs.blocage.niveau === "AUCUN" ? null : ((valeurs.blocage.nature || null) as NatureBlocage | null),
-      description: valeurs.blocage.niveau === "AUCUN" ? "" : valeurs.blocage.description.trim(),
-      impact: valeurs.blocage.niveau === "AUCUN" ? "" : valeurs.blocage.impact.trim(),
-    },
-    photos: valeurs.photos,
+    blocages: valeurs.blocages.map((blocage) => ({
+      cle: blocage.cle,
+      blocageId: blocage.blocageId || null,
+      elementId: blocage.elementId || null,
+      titre: blocage.titre.trim(),
+      niveau: (blocage.niveau || "SIGNIFICATIF") as NiveauBlocage,
+      nature: blocage.nature as NatureBlocage | "",
+      description: blocage.description.trim(),
+      impact: blocage.impact.trim(),
+    })),
+    photos: valeurs.photos.map((item) => ({
+      ...item,
+      elementId: item.elementId || null,
+    })),
     piecesJointes: valeurs.piecesJointes,
     previsions: valeurs.previsions.map((prevision) => ({
+      activiteId: prevision.activiteId || null,
+      equipeId: prevision.equipeId || null,
       activite: prevision.activite.trim(),
       equipe: prevision.equipe.trim(),
       objectif: prevision.objectif.trim(),
       prerequis: prevision.prerequis.trim(),
     })),
-    note: valeurs.note.trim(),
+    noteRedacteur: valeurs.noteRedacteur.trim(),
   };
 }
 
@@ -769,23 +856,6 @@ export function nouvelleCle(): string {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-export const ligneEffectifVide = (): ValeursRapport["effectifs"][number] => ({
-  categorie: "",
-  prevus: "",
-  presents: "",
-  retards: "",
-  heures: HEURES_PAR_DEFAUT,
-  observation: "",
-});
-
-export const ligneProductionVide = (): ValeursRapport["production"][number] => ({
-  intervenant: "",
-  personneId: "",
-  activiteId: "",
-  quantiteJour: "",
-  prixUnitaire: "",
-});
-
 export const ligneMateriauVide = (): ValeursRapport["materiaux"][number] => ({
   designation: "",
   quantite: "",
@@ -796,6 +866,7 @@ export const ligneLivraisonVide = (heure: string): ValeursRapport["livraisons"][
   fournisseur: "",
   designation: "",
   quantite: "",
+  unite: "",
   bonLivraison: "",
   heure,
   conformite: "CONFORME",
@@ -803,49 +874,69 @@ export const ligneLivraisonVide = (heure: string): ValeursRapport["livraisons"][
 });
 
 export const ligneEquipementVide = (): ValeursRapport["equipements"][number] => ({
+  cle: nouvelleCle(),
   designation: "",
   reference: "",
   propriete: "ENTREPRISE",
-  utilisation: "",
+  heuresUtilisation: "",
+  usage: "",
   operateur: "",
   etat: "BON",
   dureeArret: "",
   observation: "",
 });
 
-export const besoinVide = (nature: (typeof NATURES_BESOIN)[number]): ValeursRapport["besoins"][number] => ({
+export const besoinVide = (
+  nature: (typeof NATURES_BESOIN)[number],
+): ValeursRapport["besoins"][number] => ({
   nature,
   designation: "",
   quantite: "",
+  unite: "",
   observation: "",
 });
 
-export const incidentVide = (nature: NatureEvenement = "INCIDENT"): ValeursRapport["incidents"][number] => ({
+export const incidentVide = (
+  nature: NatureEvenement = "INCIDENT_SECURITE",
+): ValeursRapport["incidents"][number] => ({
   cle: nouvelleCle(),
   nature,
-  type: "QUALITE",
+  type: categorieEvenement(nature, "QUALITE"),
   heureDebut: "",
   heureFin: "",
-  gravite: "MINEUR",
-  decidePar: "CC",
+  gravite: nature === "VISITE_INSTRUCTION" ? "" : "MINEUR",
+  decidePar: "REDACTION",
   description: "",
   action: "",
 });
 
+export const blocageVide = (): ValeursRapport["blocages"][number] => ({
+  cle: nouvelleCle(),
+  blocageId: "",
+  elementId: "",
+  titre: "",
+  niveau: "SIGNIFICATIF",
+  nature: "",
+  description: "",
+  impact: "",
+});
+
 export const previsionVide = (): ValeursRapport["previsions"][number] => ({
+  activiteId: "",
+  equipeId: "",
   activite: "",
   equipe: "",
   objectif: "",
   prerequis: "",
 });
 
-/**
- * Les lignes de présence des équipes : celles du rapport déjà commencé, sinon les présents de la
- * veille à recocher — limités aux membres du jour —, sinon personne de coché.
- */
 function valeursEquipes(preparation: PreparationSaisie): ValeursRapport["equipes"] {
-  const existantes = new Map((preparation.rapport?.saisie.equipes ?? []).map((ligne) => [ligne.equipeId, ligne]));
-  const veille = new Map(preparation.reprises.equipes.map((ligne) => [ligne.equipeId, ligne.presents]));
+  const existantes = new Map(
+    (preparation.rapport?.saisie.equipes ?? []).map((ligne) => [ligne.equipeId, ligne]),
+  );
+  const veille = new Map(
+    preparation.reprises.equipes.map((ligne) => [ligne.equipeId, ligne.presents]),
+  );
   return preparation.equipes
     .filter((equipe) => equipe.presence)
     .map((equipe) => {

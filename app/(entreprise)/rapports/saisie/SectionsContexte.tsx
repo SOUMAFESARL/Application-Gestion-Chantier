@@ -1,14 +1,16 @@
 "use client";
 
-import { CloudSun, OctagonMinus } from "lucide-react";
+import { CloudSun, History, OctagonMinus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 
+import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
-import { cielDepuisReleve, LONGUEUR_MIN_NOTE } from "@/features/chantier";
-import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LONGUEUR_MIN_NOTE } from "@/features/chantier";
+import type { ActivitePreparee, EquipeDuJour, MeteoSuggeree, Prevision } from "@/features/chantier";
 import {
   CONDITIONS_TRAVAIL,
   METEOS,
@@ -16,39 +18,36 @@ import {
   previsionVide,
   type ValeursRapport,
 } from "@/features/chantier/validations";
-import type { MeteoProjet } from "@/features/projets/types";
+import { cn } from "@/lib/utils";
 
 import {
   BoutonAjout,
   CarteLigne,
   CarteSection,
+  CHAMP,
   ChampPuces,
   ChampTexte,
   PAIRE,
   RANGEE,
-  RANGEE_TROIS,
   SousRubrique,
 } from "./elementsSaisie";
 
-/** Les horaires, la journée d'arrêt éventuelle et le ciel du jour. */
-export function SectionContexte({ releve }: { releve: MeteoProjet | null }) {
+const SAISIE_LIBRE = "__libre__";
+
+/** Les horaires, la journée d'arrêt éventuelle et la météo pré-remplie du jour. */
+export function SectionContexte({ meteoSuggeree }: { meteoSuggeree: MeteoSuggeree | null }) {
   const t = useTranslations("journal.saisie");
   const tEnum = useTranslations("journal.enumerations");
-  const { control, setValue, getValues } = useFormContext<ValeursRapport>();
+  const { control, setValue } = useFormContext<ValeursRapport>();
   const arret = useWatch({ control, name: "arret" });
+  const motifArret = useWatch({ control, name: "motifArret" });
 
-  const ciel = releve?.disponible ? cielDepuisReleve(releve.condition) : null;
-  const reprendreReleve = () => {
-    if (!releve?.disponible) return;
+  const reappliquerMeteo = () => {
+    if (!meteoSuggeree) return;
     const options = { shouldDirty: true } as const;
-    if (ciel) {
-      setValue("meteo.matin", ciel, options);
-      setValue("meteo.apresMidi", ciel, options);
-    }
-    if (releve.temperature !== null && !getValues("meteo.temperatureMax")) {
-      setValue("meteo.temperatureMax", String(Math.round(releve.temperature)), options);
-    }
-    if (!releve.praticable) setValue("meteo.conditions", "DIFFICILES", options);
+    setValue("meteo.matin", meteoSuggeree.matin, options);
+    setValue("meteo.apresMidi", meteoSuggeree.apresMidi, options);
+    setValue("meteo.conditions", meteoSuggeree.conditions, options);
   };
 
   const optionsCiel = METEOS.map((valeur) => ({ valeur, libelle: tEnum(`meteo.${valeur}`) }));
@@ -60,12 +59,10 @@ export function SectionContexte({ releve }: { releve: MeteoProjet | null }) {
       description={t("contenuRubriques.journee")}
     >
       <div className={PAIRE}>
-        <ChampTexte name="heureDebut" libelle={t("contexte.heureDebut")} type="time" requis />
-        <ChampTexte name="heureFin" libelle={t("contexte.heureFin")} type="time" requis />
+        <ChampTexte name="heureDebut" libelle={t("contexte.heureDebut")} type="time" requis={!arret} />
+        <ChampTexte name="heureFin" libelle={t("contexte.heureFin")} type="time" requis={!arret} />
       </div>
 
-      {/* Un `Item` tout entier cliquable : cocher l'arrêt change le rapport
-          entier, le geste doit se voir et se trouver du pouce. */}
       <Item
         asChild
         variant="outline"
@@ -107,7 +104,12 @@ export function SectionContexte({ releve }: { releve: MeteoProjet | null }) {
             colonnes={3}
             options={MOTIFS_ARRET.map((valeur) => ({ valeur, libelle: t(`motifsArret.${valeur}`) }))}
           />
-          <ChampTexte name="precisionArret" libelle={t("contexte.precisionArret")} placeholder={t("contexte.precisionArretExemple")} />
+          <ChampTexte
+            name="precisionArret"
+            libelle={t("contexte.precisionArret")}
+            placeholder={t("contexte.precisionArretExemple")}
+            requis={motifArret === "AUTRE"}
+          />
         </div>
       )}
 
@@ -116,13 +118,13 @@ export function SectionContexte({ releve }: { releve: MeteoProjet | null }) {
           <h3 className="m-0 flex items-center gap-2 text-sm font-semibold text-neutral-900">
             <CloudSun className="size-4 text-neutral-500" aria-hidden="true" />
             {t("contexte.meteo")}
+            {meteoSuggeree?.sourceAuto && (
+              <Badge variante="information">{t("contexte.meteoAuto")}</Badge>
+            )}
           </h3>
-          {releve?.disponible && (
-            <Button type="button" variant="ghost" size="sm" onClick={reprendreReleve}>
-              {t("contexte.reprendreReleve", {
-                temperature: releve.temperature === null ? "" : Math.round(releve.temperature),
-                ville: releve.ville,
-              })}
+          {meteoSuggeree && (
+            <Button type="button" variant="ghost" size="sm" onClick={reappliquerMeteo}>
+              {t("contexte.reappliquerMeteo")}
             </Button>
           )}
         </div>
@@ -136,67 +138,182 @@ export function SectionContexte({ releve }: { releve: MeteoProjet | null }) {
           options={CONDITIONS_TRAVAIL.map((valeur) => ({
             valeur,
             libelle: tEnum(`conditions.${valeur}`),
-            ton: valeur === "FAVORABLES" ? "succes" : valeur === "DIFFICILES" ? "avertissement" : "erreur",
+            ton:
+              valeur === "FAVORABLES"
+                ? "succes"
+                : valeur === "DIFFICILES"
+                  ? "avertissement"
+                  : "erreur",
           }))}
         />
-        <div className={RANGEE_TROIS}>
-          <div className={PAIRE}>
-            <ChampTexte name="meteo.temperatureMin" libelle={t("contexte.temperatureMin")} inputMode="decimal" suffixe={t("unites.degres")} />
-            <ChampTexte name="meteo.temperatureMax" libelle={t("contexte.temperatureMax")} inputMode="decimal" suffixe={t("unites.degres")} />
-          </div>
-          <ChampTexte name="meteo.humidite" libelle={t("contexte.humidite")} inputMode="numeric" suffixe={t("unites.pourcent")} />
-          <ChampTexte name="meteo.vent" libelle={t("contexte.vent")} placeholder={t("contexte.ventExemple")} />
-        </div>
       </div>
     </CarteSection>
   );
 }
 
-/** Ce que le chantier prévoit pour demain — ce que le CT lit en premier le matin. */
-export function SectionPrevisions() {
+/** Les actions et prévisions pour le prochain jour ouvré, bouclées avec la veille. */
+export function SectionPrevisions({
+  previsionsVeille,
+  activites,
+  equipes,
+}: {
+  previsionsVeille: Prevision[];
+  activites: ActivitePreparee[];
+  equipes: EquipeDuJour[];
+}) {
   const t = useTranslations("journal.saisie");
-  const { control } = useFormContext<ValeursRapport>();
+  const { control, setValue } = useFormContext<ValeursRapport>();
   const lignes = useFieldArray({ control, name: "previsions" });
+  const valeurs = useWatch({ control, name: "previsions" });
+
   return (
     <SousRubrique titre={t("sections.previsions")} description={t("previsions.description")}>
-      {lignes.fields.map((ligne, rang) => (
-        <CarteLigne
-          key={ligne.id}
-          titre={t("previsions.titre", { rang: rang + 1 })}
-          libelleSupprimer={t("previsions.supprimer", { rang: rang + 1 })}
-          onSupprimer={() => lignes.remove(rang)}
-        >
-          <div className={RANGEE}>
-            <ChampTexte name={`previsions.${rang}.activite`} libelle={t("previsions.activite")} requis />
-            <ChampTexte name={`previsions.${rang}.equipe`} libelle={t("previsions.equipe")} />
-          </div>
-          <div className={RANGEE}>
-            <ChampTexte name={`previsions.${rang}.objectif`} libelle={t("previsions.objectif")} placeholder={t("previsions.objectifExemple")} requis />
-            <ChampTexte name={`previsions.${rang}.prerequis`} libelle={t("previsions.prerequis")} />
-          </div>
-        </CarteLigne>
-      ))}
-      <BoutonAjout onClick={() => lignes.append(previsionVide())}>{t("previsions.ajouter")}</BoutonAjout>
+      {previsionsVeille.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-lg border border-information/25 bg-information-fond p-3">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-information">
+            <History className="size-3.5 shrink-0" aria-hidden="true" />
+            {t("previsions.rappelVeille")}
+          </span>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0 text-xs text-neutral-700">
+            {previsionsVeille.map((prev, idx) => (
+              <li key={`${prev.activite}-${idx}`} className="flex flex-wrap items-baseline gap-1.5">
+                <span className="font-semibold text-neutral-900">{prev.activite}</span>
+                {prev.equipe && <Badge variante="neutre">{prev.equipe}</Badge>}
+                <span>{prev.objectif}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {lignes.fields.map((ligne, rang) => {
+        const courante = valeurs[rang];
+        return (
+          <CarteLigne
+            key={ligne.id}
+            titre={t("previsions.titre", { rang: rang + 1 })}
+            libelleSupprimer={t("previsions.supprimer", { rang: rang + 1 })}
+            onSupprimer={() => lignes.remove(rang)}
+          >
+            {activites.length > 0 && (
+              <div className={RANGEE}>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-sm font-medium text-neutral-700">
+                    {t("previsions.tacheArbre")}
+                  </span>
+                  <Select
+                    value={courante?.activiteId || SAISIE_LIBRE}
+                    onValueChange={(choisi) => {
+                      const options = { shouldDirty: true } as const;
+                      if (choisi === SAISIE_LIBRE) {
+                        setValue(`previsions.${rang}.activiteId`, "", options);
+                        return;
+                      }
+                      const feuille = activites.find((act) => act.activiteId === choisi);
+                      setValue(`previsions.${rang}.activiteId`, choisi, options);
+                      if (feuille) {
+                        setValue(`previsions.${rang}.activite`, feuille.libelle, options);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className={cn(CHAMP, "w-full bg-card")}>
+                      <SelectValue placeholder={t("previsions.choisirTache")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SAISIE_LIBRE}>{t("previsions.saisieLibre")}</SelectItem>
+                      {activites.map((act) => (
+                        <SelectItem key={act.activiteId} value={act.activiteId}>
+                          {t("avancement.activiteValeur", {
+                            code: act.code,
+                            libelle: act.cheminLibelle || act.libelle,
+                          })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {equipes.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-sm font-medium text-neutral-700">
+                      {t("previsions.equipeConfiguree")}
+                    </span>
+                    <Select
+                      value={courante?.equipeId || SAISIE_LIBRE}
+                      onValueChange={(choisi) => {
+                        const options = { shouldDirty: true } as const;
+                        if (choisi === SAISIE_LIBRE) {
+                          setValue(`previsions.${rang}.equipeId`, "", options);
+                          return;
+                        }
+                        const eq = equipes.find((item) => item.equipeId === choisi);
+                        setValue(`previsions.${rang}.equipeId`, choisi, options);
+                        if (eq) {
+                          setValue(`previsions.${rang}.equipe`, eq.nom, options);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className={cn(CHAMP, "w-full bg-card")}>
+                        <SelectValue placeholder={t("previsions.choisirEquipe")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={SAISIE_LIBRE}>{t("previsions.saisieLibre")}</SelectItem>
+                        {equipes.map((eq) => (
+                          <SelectItem key={eq.equipeId} value={eq.equipeId}>
+                            {eq.nom}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className={RANGEE}>
+              <ChampTexte
+                name={`previsions.${rang}.activite`}
+                libelle={t("previsions.activite")}
+                requis
+              />
+              <ChampTexte name={`previsions.${rang}.equipe`} libelle={t("previsions.equipe")} />
+            </div>
+            <div className={RANGEE}>
+              <ChampTexte
+                name={`previsions.${rang}.objectif`}
+                libelle={t("previsions.objectif")}
+                placeholder={t("previsions.objectifExemple")}
+                requis
+              />
+              <ChampTexte name={`previsions.${rang}.prerequis`} libelle={t("previsions.prerequis")} />
+            </div>
+          </CarteLigne>
+        );
+      })}
+      <BoutonAjout onClick={() => lignes.append(previsionVide())}>
+        {t("previsions.ajouter")}
+      </BoutonAjout>
     </SousRubrique>
   );
 }
 
-/** La note du chef de chantier — le seul champ entièrement libre du rapport. */
-export function SectionNote() {
+/** La synthèse de fin de journée du rédacteur. */
+export function SectionNote({ arret }: { arret: boolean }) {
   const t = useTranslations("journal.saisie");
   const { control } = useFormContext<ValeursRapport>();
-  const note = useWatch({ control, name: "note" });
+  const note = useWatch({ control, name: "noteRedacteur" }) ?? "";
   const longueur = note.trim().length;
   return (
     <SousRubrique titre={t("sections.note")}>
       <ChampTexte
-        name="note"
+        name="noteRedacteur"
         libelle={t("note.libelle")}
         masquerLibelle
+        requis={!arret}
         multiligne
         lignes={4}
         placeholder={t("note.exemple")}
-        aide={t("note.compteur", { n: longueur, min: LONGUEUR_MIN_NOTE })}
+        aide={!arret ? t("note.compteur", { n: longueur, min: LONGUEUR_MIN_NOTE }) : undefined}
       />
     </SousRubrique>
   );

@@ -8,16 +8,27 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { aideColonnes } from "@/components/ui/data-table";
 import type { ExportTableau } from "@/components/ui/export-tableau";
-import { BORD_DROIT_TABLEAU, FiltreTableau, RechercheTableau, TableauListe } from "@/components/ui/tableau-liste";
 import {
-  CRITERES_JOURNAL_INITIAUX,
+  BORD_DROIT_TABLEAU,
+  FiltreTableau,
+  RechercheTableau,
+  TableauListe,
+} from "@/components/ui/tableau-liste";
+import {
   aUnDocument,
   codesLots,
   criteresActifs,
+  CRITERES_JOURNAL_INITIAUX,
   filtrerEntrees,
   tauxPresence,
 } from "@/features/chantier";
-import type { CriteresJournal, EntreeJournal, FenetreHistorique, Journal, SituationRapport } from "@/features/chantier";
+import type {
+  CriteresJournal,
+  EntreeJournal,
+  FenetreHistorique,
+  Journal,
+  SituationRapport,
+} from "@/features/chantier";
 import { ABSENT, formaterDate, formaterJourMoisNumerique } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -25,16 +36,9 @@ import { BadgeSituation } from "./composants";
 
 const colonne = aideColonnes<EntreeJournal>();
 
-const SITUATIONS: SituationRapport[] = ["NON_SOUMIS", "SOUMIS", "VALIDE_CT", "APPROUVE_CP", "REJETE"];
+const SITUATIONS: SituationRapport[] = ["NON_SOUMIS", "SOUMIS", "VALIDE", "APPROUVE", "REJETE"];
 const FENETRES: FenetreHistorique[] = ["SEMAINE", "MOIS", "TOUT"];
 
-/**
- * L'onglet « Historique » : tous les rapports, absences comprises — une
- * absence est une ligne, elle se voit et s'exporte.
- *
- * Le tableau est le `TableauListe` commun (règle 9) ; le filtrage vit dans
- * `filtrerEntrees`. L'export sort les valeurs brutes (règle 10).
- */
 export function HistoriqueRapports({ journal }: { journal: Journal }) {
   const t = useTranslations("journal.historique");
   const tSituation = useTranslations("journal.situation");
@@ -47,7 +51,9 @@ export function HistoriqueRapports({ journal }: { journal: Journal }) {
 
   const chantiers = useMemo(() => {
     const connus = new Map<string, string>();
-    for (const entree of journal.entrees) connus.set(entree.chantier.projetId, entree.chantier.projetNom);
+    for (const entree of journal.entrees) {
+      connus.set(entree.chantier.projetId, entree.chantier.projetNom);
+    }
     return [...connus.entries()]
       .map(([valeur, libelle]) => ({ valeur, libelle }))
       .sort((a, b) => a.libelle.localeCompare(b.libelle));
@@ -62,7 +68,7 @@ export function HistoriqueRapports({ journal }: { journal: Journal }) {
         { entete: t("export.reference"), valeur: (entree) => entree.reference },
         { entete: t("export.chantier"), valeur: (entree) => entree.chantier.projetNom },
         { entete: t("export.lots"), valeur: (entree) => codesLots(entree.lots) },
-        { entete: t("export.chefChantier"), valeur: (entree) => entree.chantier.chefChantier },
+        { entete: t("export.redacteur"), valeur: (entree) => entree.chantier.redacteur },
         { entete: t("export.presents"), valeur: (entree) => entree.effectifPresent },
         { entete: t("export.prevus"), valeur: (entree) => entree.effectifPrevu },
         { entete: t("export.avancement"), valeur: (entree) => entree.avancement },
@@ -100,10 +106,10 @@ export function HistoriqueRapports({ journal }: { journal: Journal }) {
           ),
         }),
         colonne.display({
-          id: "chef",
-          header: t("colonnes.chefChantier"),
+          id: "redacteur",
+          header: t("colonnes.redacteur"),
           meta: { classe: "text-neutral-700" },
-          cell: ({ row }) => row.original.chantier.chefChantier,
+          cell: ({ row }) => row.original.chantier.redacteur,
         }),
         colonne.display({
           id: "effectifs",
@@ -125,12 +131,21 @@ export function HistoriqueRapports({ journal }: { journal: Journal }) {
         colonne.accessor("avancement", {
           header: t("colonnes.avancement"),
           cell: ({ getValue }) =>
-            getValue() === null ? ABSENT : <span className="tabular-nums">{t("pourcent", { valeur: getValue() ?? 0 })}</span>,
+            getValue() === null ? (
+              ABSENT
+            ) : (
+              <span className="tabular-nums">{t("pourcent", { valeur: getValue() ?? 0 })}</span>
+            ),
         }),
         colonne.accessor("incidents", {
           header: t("colonnes.incidents"),
           cell: ({ getValue }) => (
-            <span className={cn("tabular-nums", (getValue() ?? 0) > 0 && "font-semibold text-avertissement")}>
+            <span
+              className={cn(
+                "tabular-nums",
+                (getValue() ?? 0) > 0 && "font-semibold text-avertissement",
+              )}
+            >
               {getValue() ?? ABSENT}
             </span>
           ),
@@ -138,7 +153,9 @@ export function HistoriqueRapports({ journal }: { journal: Journal }) {
         colonne.accessor("blocages", {
           header: t("colonnes.blocages"),
           cell: ({ getValue }) => (
-            <span className={cn("tabular-nums", (getValue() ?? 0) > 0 && "font-semibold text-erreur")}>
+            <span
+              className={cn("tabular-nums", (getValue() ?? 0) > 0 && "font-semibold text-erreur")}
+            >
               {getValue() ?? ABSENT}
             </span>
           ),
@@ -200,10 +217,12 @@ export function HistoriqueRapports({ journal }: { journal: Journal }) {
             onChangement={(situation) => setCriteres({ ...criteres, situation })}
             libelle={t("filtreStatut")}
             libelleTous={t("filtreStatutTous")}
-            options={SITUATIONS.map((situation) => ({ valeur: situation, libelle: tSituation(situation) }))}
+            options={SITUATIONS.map((situation) => ({
+              valeur: situation,
+              libelle: tSituation(situation),
+            }))}
           />
           <FiltreTableau
-            // « Tout » est l'entrée qui retire le filtre : la liste la veut vide.
             valeur={criteres.fenetre === "TOUT" ? "" : criteres.fenetre}
             onChangement={(fenetre) => setCriteres({ ...criteres, fenetre: fenetre || "TOUT" })}
             libelle={t("filtrePeriode")}

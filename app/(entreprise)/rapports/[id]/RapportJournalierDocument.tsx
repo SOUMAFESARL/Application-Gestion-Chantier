@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, CloudSun, MapPin } from "lucide-react";
+import { CheckCircle2, MapPin } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { Badge, EtatChargement, EtatErreur } from "@/components/ui";
@@ -13,20 +13,19 @@ import {
   enAlerteStock,
   formatDocument,
   libelleModeLot,
-  montantProduction,
   presenceSuffisante,
   retardPoints,
   stockFin,
   tailleKo,
   tauxPresence,
-  totalProduction,
   totauxEffectifs,
+  totauxEquipes,
 } from "@/features/chantier";
 import type { RapportJournalier } from "@/features/chantier";
 import { lireRapport } from "@/features/chantier/adaptateur";
 import { cleRapport } from "@/features/chantier/cles";
 import { ErreurApi } from "@/lib/api/erreurs";
-import { formaterDate, formaterDateHeure, formaterMontant, formaterQuantite } from "@/lib/format";
+import { formaterDate, formaterDateHeure, formaterQuantite } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { FOND_INDICATEUR } from "../../projets/classes";
@@ -42,6 +41,7 @@ import {
 } from "../classes";
 import { BadgeSituation } from "../composants";
 import {
+  BandeauDocument,
   BarreDocument,
   ChiffreDocument,
   CircuitSignatures,
@@ -58,17 +58,11 @@ import { contenuRapportPdf } from "./contenuRapportPdf";
 import { SignatureRapport } from "./SignatureRapport";
 
 /**
- * Le rapport journalier, tel que le chef de chantier l'a signé — la maquette
- * PDF « Journal de chantier quotidien » du client, section par section.
- *
- * **Le rapport est celui du chantier**, pas d'un lot : il porte le nom du
- * projet, et rend compte de tous les lots travaillés ce jour — l'avancement
- * se lit lot par lot.
- *
- * Les sections suivent les **modes d'exécution renvoyés par le serveur**,
- * jamais une règle codée ici : les effectifs détaillés n'existent qu'en régie
- * directe, la production des tâcherons qu'en sous-traitance informelle. Une
- * section sans objet ce jour n'est pas affichée ; une section vide le dit.
+ * Le rapport journalier officiel du chantier : pointage nominatif par équipe,
+ * avancement des feuilles selon leurs trois modes de mesure (`QUANTITE`,
+ * `POURCENTAGE`, `JALON`), stocks et livraisons consolidés, besoins urgents,
+ * matériels, événements, blocages persistants, preuves photos et circuit de
+ * signatures (`REDACTION` → `VALIDATION` → `APPROBATION`).
  */
 export function RapportJournalierDocument({ id }: { id: string }) {
   const t = useTranslations("journal.rapport");
@@ -107,10 +101,19 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
   });
   const reference = rapport.reference ?? "";
   const retard = retardPoints(rapport);
-  const totaux = rapport.effectifs ? totauxEffectifs(rapport.effectifs) : null;
+  const totaux =
+    rapport.equipes.length > 0
+      ? totauxEquipes(rapport.equipes)
+      : rapport.effectifs
+        ? totauxEffectifs(rapport.effectifs)
+        : null;
   const presence = totaux?.taux ?? tauxPresence(rapport.effectifPresent, rapport.effectifPrevu);
-  const livraisonsPartielles = rapport.livraisons.filter((livraison) => livraison.conformite !== "CONFORME").length;
-  const incidentsMajeurs = rapport.listeIncidents.filter((incident) => incident.gravite !== "MINEUR").length;
+  const livraisonsPartielles = rapport.livraisons.filter(
+    (livraison) => livraison.conformite !== "CONFORME",
+  ).length;
+  const incidentsMajeurs = rapport.listeIncidents.filter(
+    (incident) => incident.gravite !== "" && incident.gravite !== "MINEUR",
+  ).length;
   const teintes = teintesChiffresRapport({
     retard,
     presenceInsuffisante: presenceSuffisante(presence) === "INSUFFISANTE",
@@ -121,16 +124,14 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
   });
 
   const activites = activitesDuRapport(rapport);
-  const sousTraitanceStructuree =
-    !rapport.effectifs && rapport.lots.some((lot) => lot.modeExecution === "SOUS_TRAITANCE_STRUCTUREE");
-  // Les sections se numérotent d'après celles que le mode d'exécution affiche.
+  const separateurNoms = t("separateurNoms");
   const sections = [
     "meteo",
-    rapport.effectifs || sousTraitanceStructuree ? "effectifs" : null,
-    rapport.production ? "production" : null,
+    rapport.equipes.length > 0 ? "equipes" : rapport.effectifs ? "effectifs" : null,
     "avancement",
     "materiaux",
     "livraisons",
+    rapport.besoins.length > 0 ? "besoins" : null,
     "equipements",
     "incidents",
     "blocages",
@@ -141,7 +142,11 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
     "circuit",
   ].filter((cle): cle is string => cle !== null);
   const numero = (cle: string) => sections.indexOf(cle) + 1;
-  const roles = { CC: tCircuit("role.CC"), CT: tCircuit("role.CT"), CP: tCircuit("role.CP") };
+  const roles = {
+    REDACTION: tCircuit("role.REDACTION"),
+    VALIDATION: tCircuit("role.VALIDATION"),
+    APPROBATION: tCircuit("role.APPROBATION"),
+  };
   const tJournal = useTranslations("journal");
   const { pdf, indicateur } = useGenerationDocumentPdf(t("titre"), (source) =>
     contenuRapportPdf((cle, valeurs) => tJournal(cle, valeurs), {
@@ -171,6 +176,20 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
         <EnTeteDocument
           titre={t("titre")}
           sousTitre={t("sousTitre")}
+          bandeau={
+            rapport.arret ? (
+              <BandeauDocument ton="avertissement">
+                <span className="font-semibold">
+                  {rapport.arret.precision
+                    ? t("arretBandeauPrecision", {
+                        motif: t(`motifsArret.${rapport.arret.motif}`),
+                        precision: rapport.arret.precision,
+                      })
+                    : t("arretBandeau", { motif: t(`motifsArret.${rapport.arret.motif}`) })}
+                </span>
+              </BandeauDocument>
+            ) : null
+          }
         />
 
         <div className={CORPS_PAPIER}>
@@ -193,11 +212,21 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
             <GrilleInfos
               titre={t("intervenants")}
               lignes={[
-                [roles.CC, rapport.intervenants.chefChantier],
-                [roles.CT, rapport.intervenants.conducteurTravaux],
-                [roles.CP, rapport.intervenants.chefProjet],
-                [t("date"), <span key="date" className="capitalize">{jour}</span>],
-                [t("horaires"), t("horairesValeur", { debut: rapport.heureDebut, fin: rapport.heureFin })],
+                [roles.REDACTION, rapport.intervenants.redacteur],
+                [roles.VALIDATION, rapport.intervenants.validateurs],
+                [roles.APPROBATION, rapport.intervenants.approbateurs],
+                [
+                  t("date"),
+                  <span key="date" className="capitalize">
+                    {jour}
+                  </span>,
+                ],
+                [
+                  t("horaires"),
+                  rapport.heureDebut && rapport.heureFin
+                    ? t("horairesValeur", { debut: rapport.heureDebut, fin: rapport.heureFin })
+                    : t("sansObjet"),
+                ],
                 [t("statutLigne"), <BadgeSituation key="statut" situation={rapport.situation} />],
               ]}
             />
@@ -213,13 +242,18 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
             <ChiffreDocument
               fond={teintes.effectifs}
               libelle={t("chiffres.effectifs")}
-              valeur={t("fraction", { a: rapport.effectifPresent ?? 0, b: rapport.effectifPrevu ?? 0 })}
+              valeur={t("fraction", {
+                a: rapport.effectifPresent ?? 0,
+                b: rapport.effectifPrevu ?? 0,
+              })}
               alerte={presenceSuffisante(presence) === "INSUFFISANTE"}
             />
             <ChiffreDocument
               fond={teintes.heures}
               libelle={t("chiffres.heures")}
-              valeur={totaux ? t("heures", { valeur: formaterQuantite(totaux.heures) }) : t("sansObjet")}
+              valeur={
+                totaux ? t("heures", { valeur: formaterQuantite(totaux.heures) }) : t("sansObjet")
+              }
             />
             <ChiffreDocument
               fond={teintes.activites}
@@ -252,50 +286,117 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
           </div>
 
           <SectionDocument numero={numero("meteo")} titre={t("sections.meteo")}>
-            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid gap-3 sm:grid-cols-3">
               {(
                 [
-                  [t("meteo.matin"), tEnum(`meteo.${rapport.meteo.matin}`), TEINTE_METEO.ciel],
-                  [t("meteo.apresMidi"), tEnum(`meteo.${rapport.meteo.apresMidi}`), TEINTE_METEO.ciel],
                   [
-                    t("meteo.temperature"),
-                    rapport.meteo.temperatureMin === null && rapport.meteo.temperatureMax === null
-                      ? t("neant")
-                      : t("meteo.temperatureValeur", {
-                          min: rapport.meteo.temperatureMin ?? t("neant"),
-                          max: rapport.meteo.temperatureMax ?? t("neant"),
-                        }),
-                    TEINTE_METEO.temperature,
+                    t("meteo.matin"),
+                    rapport.meteo.matin ? tEnum(`meteo.${rapport.meteo.matin}`) : t("neant"),
+                    TEINTE_METEO.ciel,
                   ],
                   [
-                    t("meteo.humidite"),
-                    rapport.meteo.humidite === null ? t("neant") : t("pourcent", { valeur: rapport.meteo.humidite }),
-                    TEINTE_METEO.humidite,
+                    t("meteo.apresMidi"),
+                    rapport.meteo.apresMidi
+                      ? tEnum(`meteo.${rapport.meteo.apresMidi}`)
+                      : t("neant"),
+                    TEINTE_METEO.ciel,
                   ],
-                  [t("meteo.vent"), rapport.meteo.vent, TEINTE_METEO.vent],
                   [
                     t("meteo.conditions"),
-                    tEnum(`conditions.${rapport.meteo.conditions}`),
-                    TEINTE_CONDITIONS[rapport.meteo.conditions],
+                    rapport.meteo.conditions
+                      ? tEnum(`conditions.${rapport.meteo.conditions}`)
+                      : t("neant"),
+                    rapport.meteo.conditions
+                      ? TEINTE_CONDITIONS[rapport.meteo.conditions]
+                      : "neutre",
                   ],
                 ] satisfies [string, string, FondIndicateur][]
               ).map(([libelle, valeur, teinte]) => (
-                <div key={libelle} className={cn("rounded-lg border px-3 py-2 break-inside-avoid", FOND_INDICATEUR[teinte])}>
+                <div
+                  key={libelle}
+                  className={cn(
+                    "rounded-lg border px-3 py-2 break-inside-avoid",
+                    FOND_INDICATEUR[teinte],
+                  )}
+                >
                   <span className="block text-xs text-neutral-500">{libelle}</span>
                   <span className="text-sm font-semibold text-neutral-900">{valeur}</span>
                 </div>
               ))}
             </div>
-            {rapport.meteo.prevision && (
-              <p className="m-0 flex items-start gap-2 rounded-lg bg-information-fond px-3 py-2 text-sm text-information">
-                <CloudSun className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                {t("meteo.prevision", { texte: rapport.meteo.prevision })}
-              </p>
-            )}
           </SectionDocument>
 
-          {rapport.effectifs && totaux && (
-            <SectionDocument numero={numero("effectifs")} titre={t("sections.effectifs")} complement={tMode("REGIE_DIRECTE")}>
+          {rapport.equipes.length > 0 && totaux && (
+            <SectionDocument numero={numero("equipes")} titre={t("sections.equipes")}>
+              <TableauDocument
+                colonnes={[
+                  { entete: t("equipes.nom") },
+                  { entete: t("equipes.entreprise") },
+                  { entete: t("equipes.presents"), nombre: true },
+                  { entete: t("equipes.absents") },
+                  { entete: t("equipes.retards") },
+                  { entete: t("equipes.heures"), nombre: true },
+                  { entete: t("equipes.qualite") },
+                  { entete: t("equipes.observation") },
+                ]}
+                lignes={rapport.equipes.map((equipe) => ({
+                  cle: equipe.equipeId || equipe.nom,
+                  cellules: [
+                    <span key="n" className="font-medium">
+                      {equipe.nom}
+                    </span>,
+                    equipe.entreprise || t("neant"),
+                    <div key="p" className="flex flex-col items-end gap-0.5">
+                      <span className="font-semibold tabular-nums">
+                        {t("fraction", { a: equipe.presents.length, b: equipe.membres })}
+                      </span>
+                      {equipe.presents.length > 0 && (
+                        <span className="text-right text-xs text-neutral-500">
+                          {equipe.presents.join(separateurNoms)}
+                        </span>
+                      )}
+                    </div>,
+                    equipe.absents.length > 0 ? (
+                      <span key="ab" className="text-erreur">
+                        {equipe.absents.join(separateurNoms)}
+                      </span>
+                    ) : (
+                      t("neant")
+                    ),
+                    equipe.retards.length > 0 ? (
+                      <span key="rt" className="text-avertissement">
+                        {equipe.retards.join(separateurNoms)}
+                      </span>
+                    ) : (
+                      t("neant")
+                    ),
+                    equipe.heures !== null
+                      ? t("heures", { valeur: formaterQuantite(equipe.heures) })
+                      : t("neant"),
+                    equipe.qualite ? tEnum(`qualiteExecution.${equipe.qualite}`) : t("neant"),
+                    equipe.observation || t("neant"),
+                  ],
+                }))}
+                pied={[
+                  t("total"),
+                  "",
+                  t("fraction", { a: totaux.presents, b: totaux.prevus }),
+                  totaux.absents,
+                  "",
+                  t("heures", { valeur: formaterQuantite(totaux.heures) }),
+                  t("pourcent", { valeur: totaux.taux ?? 0 }),
+                  t(`effectifs.appreciation.${presenceSuffisante(totaux.taux) ?? "BONNE"}`),
+                ]}
+              />
+            </SectionDocument>
+          )}
+
+          {rapport.equipes.length === 0 && rapport.effectifs && totaux && (
+            <SectionDocument
+              numero={numero("effectifs")}
+              titre={t("sections.effectifs")}
+              complement={tMode("REGIE_DIRECTE")}
+            >
               <TableauDocument
                 colonnes={[
                   { entete: t("effectifs.categorie") },
@@ -311,13 +412,24 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
                   return {
                     cle: ligne.categorie,
                     cellules: [
-                      <span key="c" className="font-medium">{ligne.categorie}</span>,
+                      <span key="c" className="font-medium">
+                        {ligne.categorie}
+                      </span>,
                       ligne.prevus,
                       ligne.presents,
-                      <span key="a" className={ligne.prevus - ligne.presents > 0 ? "font-semibold text-erreur" : undefined}>
+                      <span
+                        key="a"
+                        className={
+                          ligne.prevus - ligne.presents > 0
+                            ? "font-semibold text-erreur"
+                            : undefined
+                        }
+                      >
                         {ligne.prevus - ligne.presents}
                       </span>,
-                      <span key="j" className="font-semibold tabular-nums">{t("pourcent", { valeur: taux })}</span>,
+                      <span key="j" className="font-semibold tabular-nums">
+                        {t("pourcent", { valeur: taux })}
+                      </span>,
                       t("heures", { valeur: formaterQuantite(ligne.heures) }),
                       ligne.observation ?? t("neant"),
                     ],
@@ -336,55 +448,6 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
             </SectionDocument>
           )}
 
-          {sousTraitanceStructuree && (
-            <SectionDocument
-              numero={numero("effectifs")}
-              titre={t("sections.effectifs")}
-              complement={tMode("SOUS_TRAITANCE_STRUCTUREE")}
-            >
-              <p className="m-0 rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-600">
-                {t("effectifs.sousTraitant", {
-                  presents: rapport.effectifPresent ?? 0,
-                  prevus: rapport.effectifPrevu ?? 0,
-                })}
-              </p>
-            </SectionDocument>
-          )}
-
-          {rapport.production && (
-            <SectionDocument
-              numero={numero("production")}
-              titre={t("sections.production")}
-              complement={tMode("SOUS_TRAITANCE_INFORMELLE")}
-            >
-              <TableauDocument
-                colonnes={[
-                  { entete: t("production.intervenant") },
-                  { entete: t("production.activite") },
-                  { entete: t("production.unite") },
-                  { entete: t("production.prix"), nombre: true },
-                  { entete: t("production.quantite"), nombre: true },
-                  { entete: t("production.cumul"), nombre: true },
-                  { entete: t("production.montant"), nombre: true },
-                ]}
-                lignes={rapport.production.map((ligne) => ({
-                  cle: ligne.intervenant,
-                  cellules: [
-                    <span key="i" className="font-medium">{ligne.intervenant}</span>,
-                    ligne.activite,
-                    ligne.unite,
-                    formaterMontant(ligne.prixUnitaire),
-                    formaterQuantite(ligne.quantiteJour),
-                    t("quantiteUnite", { quantite: formaterQuantite(ligne.cumul), unite: ligne.unite }),
-                    formaterMontant(montantProduction(ligne)),
-                  ],
-                }))}
-                pied={[t("total"), "", "", "", "", "", formaterMontant(totalProduction(rapport.production))]}
-              />
-              <p className="m-0 text-xs text-neutral-500">{t("production.aide")}</p>
-            </SectionDocument>
-          )}
-
           <SectionDocument
             numero={numero("avancement")}
             titre={t("sections.avancement")}
@@ -394,7 +457,9 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
             })}
           >
             {rapport.travaux.length === 0 ? (
-              <p className="m-0 rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-600">{t("avancement.aucunLot")}</p>
+              <p className="m-0 rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-600">
+                {t("avancement.aucunLot")}
+              </p>
             ) : (
               rapport.travaux.map((travaux) => (
                 <div key={travaux.lot.id} className="flex flex-col gap-2 break-inside-avoid">
@@ -428,16 +493,55 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
                     ]}
                     lignes={travaux.activites.map((ligne) => {
                       const avancement = avancementActivite(ligne);
+                      const uniteAffichee =
+                        ligne.unite ??
+                        (ligne.modeMesure === "JALON"
+                          ? t("avancement.uniteJalon")
+                          : t("avancement.unitePourcent"));
+                      const veilleAffichee =
+                        ligne.modeMesure === "QUANTITE"
+                          ? formaterQuantite(ligne.cumulVeille)
+                          : ligne.modeMesure === "POURCENTAGE"
+                            ? t("pourcent", { valeur: formaterQuantite(ligne.pourcentageVeille) })
+                            : t("sansObjet");
+                      const jourAffiche =
+                        ligne.modeMesure === "QUANTITE"
+                          ? formaterQuantite(ligne.quantiteJour)
+                          : ligne.modeMesure === "POURCENTAGE"
+                            ? ligne.pourcentageJour !== null
+                              ? t("pourcent", { valeur: formaterQuantite(ligne.pourcentageJour) })
+                              : t("neant")
+                            : ligne.jalonAtteint
+                              ? t("avancement.jalonAtteint")
+                              : t("avancement.jalonEnCours");
                       return {
-                        cle: ligne.libelle,
+                        cle: ligne.activiteId || ligne.libelle,
                         cellules: [
-                          <span key="l" className="font-medium">{ligne.libelle}</span>,
-                          ligne.unite,
-                          formaterQuantite(ligne.quantitePrevue),
-                          formaterQuantite(ligne.cumulVeille),
-                          <span key="j" className="font-semibold text-primary-700">{formaterQuantite(ligne.quantiteJour)}</span>,
-                          formaterQuantite(cumulActivite(ligne)),
-                          <span key="g" className="font-semibold tabular-nums">{t("pourcent", { valeur: avancement })}</span>,
+                          <div key="l" className="flex flex-col gap-0.5">
+                            <span className="font-medium">{ligne.libelle}</span>
+                            {ligne.localisation && (
+                              <span className="text-xs text-neutral-500">{ligne.localisation}</span>
+                            )}
+                            {ligne.equipesNoms.length > 0 && (
+                              <span className="text-xs text-primary-700">
+                                {ligne.equipesNoms.join(separateurNoms)}
+                              </span>
+                            )}
+                          </div>,
+                          uniteAffichee,
+                          ligne.modeMesure === "QUANTITE"
+                            ? formaterQuantite(ligne.quantitePrevue)
+                            : t("sansObjet"),
+                          veilleAffichee,
+                          <span key="j" className="font-semibold text-primary-700">
+                            {jourAffiche}
+                          </span>,
+                          ligne.modeMesure === "QUANTITE"
+                            ? formaterQuantite(cumulActivite(ligne))
+                            : t("sansObjet"),
+                          <span key="g" className="font-semibold tabular-nums">
+                            {t("pourcent", { valeur: avancement })}
+                          </span>,
                           ligne.observation ?? t("neant"),
                         ],
                       };
@@ -464,19 +568,29 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
               lignes={rapport.materiaux.map((ligne) => {
                 const fin = stockFin(ligne);
                 const alerte = enAlerteStock(fin, ligne.seuilAlerte);
-                const quantite = (valeur: number | null) => (valeur === null ? t("neant") : formaterQuantite(valeur));
+                const quantite = (valeur: number | null) =>
+                  valeur === null ? t("neant") : formaterQuantite(valeur);
                 return {
-                  cle: ligne.designation,
+                  cle: `${ligne.designation}-${ligne.unite}`,
                   cellules: [
-                    <span key="d" className="font-medium">{ligne.designation}</span>,
+                    <span key="d" className="font-medium">
+                      {ligne.designation}
+                    </span>,
                     ligne.unite,
                     quantite(ligne.stockDebut),
                     ligne.livre ? formaterQuantite(ligne.livre) : t("neant"),
                     formaterQuantite(ligne.utilise),
-                    <span key="f" className={alerte ? "font-semibold text-erreur" : "font-semibold"}>{quantite(fin)}</span>,
+                    <span
+                      key="f"
+                      className={alerte ? "font-semibold text-erreur" : "font-semibold"}
+                    >
+                      {quantite(fin)}
+                    </span>,
                     quantite(ligne.seuilAlerte),
                     fin === null ? (
-                      <Badge key="s" variante="neutre">{t("materiaux.horsStock")}</Badge>
+                      <Badge key="s" variante="neutre">
+                        {t("materiaux.horsStock")}
+                      </Badge>
                     ) : (
                       <Badge key="s" variante={alerte ? "erreur" : "succes"}>
                         {alerte ? t("materiaux.alerte") : t("materiaux.ok")}
@@ -493,7 +607,7 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
               colonnes={[
                 { entete: t("livraisons.fournisseur") },
                 { entete: t("livraisons.designation") },
-                { entete: t("livraisons.quantite") },
+                { entete: t("livraisons.quantite"), nombre: true },
                 { entete: t("livraisons.bon") },
                 { entete: t("livraisons.heure") },
                 { entete: t("livraisons.conformite") },
@@ -503,11 +617,22 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
               lignes={rapport.livraisons.map((livraison, rang) => ({
                 cle: `${livraison.bonLivraison}-${rang}`,
                 cellules: [
-                  <span key="f" className="font-medium">{livraison.fournisseur}</span>,
+                  <span key="f" className="font-medium">
+                    {livraison.fournisseur}
+                  </span>,
                   livraison.designation,
-                  livraison.quantite,
-                  <span key="b" className="font-mono text-xs">{livraison.bonLivraison}</span>,
-                  livraison.heure,
+                  livraison.quantite !== null
+                    ? livraison.unite
+                      ? t("quantiteUnite", {
+                          quantite: formaterQuantite(livraison.quantite),
+                          unite: livraison.unite,
+                        })
+                      : formaterQuantite(livraison.quantite)
+                    : t("neant"),
+                  <span key="b" className="font-mono text-xs">
+                    {livraison.bonLivraison || t("neant")}
+                  </span>,
+                  livraison.heure || t("neant"),
                   <Badge key="c" variante={TON_CONFORMITE[livraison.conformite]}>
                     {tEnum(`conformite.${livraison.conformite}`)}
                   </Badge>,
@@ -517,29 +642,82 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
             />
           </SectionDocument>
 
+          {rapport.besoins.length > 0 && (
+            <SectionDocument numero={numero("besoins")} titre={t("sections.besoins")}>
+              <TableauDocument
+                colonnes={[
+                  { entete: t("besoins.nature") },
+                  { entete: t("besoins.designation") },
+                  { entete: t("besoins.quantite"), nombre: true },
+                  { entete: t("besoins.observation") },
+                ]}
+                lignes={rapport.besoins.map((besoin, rang) => ({
+                  cle: `${besoin.designation}-${rang}`,
+                  cellules: [
+                    <Badge
+                      key="n"
+                      variante={besoin.nature === "RUPTURE" ? "erreur" : "avertissement"}
+                    >
+                      {t(`besoins.natures.${besoin.nature}`)}
+                    </Badge>,
+                    <span key="d" className="font-medium">
+                      {besoin.designation}
+                    </span>,
+                    besoin.quantite !== null
+                      ? besoin.unite
+                        ? t("quantiteUnite", {
+                            quantite: formaterQuantite(besoin.quantite),
+                            unite: besoin.unite,
+                          })
+                        : formaterQuantite(besoin.quantite)
+                      : t("neant"),
+                    besoin.observation ?? t("neant"),
+                  ],
+                }))}
+              />
+            </SectionDocument>
+          )}
+
           <SectionDocument numero={numero("equipements")} titre={t("sections.equipements")}>
             <TableauDocument
               colonnes={[
                 { entete: t("equipements.designation") },
                 { entete: t("equipements.reference") },
                 { entete: t("equipements.propriete") },
-                { entete: t("equipements.utilisation") },
+                { entete: t("equipements.utilisation"), nombre: true },
                 { entete: t("equipements.operateur") },
                 { entete: t("equipements.etat") },
                 { entete: t("equipements.observation") },
               ]}
               vide={t("equipements.vide")}
-              lignes={rapport.equipements.map((equipement) => ({
-                cle: equipement.reference,
+              lignes={rapport.equipements.map((equipement, rang) => ({
+                cle: equipement.cle || `${equipement.designation}-${rang}`,
                 cellules: [
-                  <span key="d" className="font-medium">{equipement.designation}</span>,
-                  <span key="r" className="font-mono text-xs">{equipement.reference}</span>,
-                  tEnum(`propriete.${equipement.propriete}`),
-                  equipement.utilisation,
-                  equipement.operateur,
-                  <Badge key="e" variante={TON_EQUIPEMENT[equipement.etat]}>
-                    {tEnum(`etatEquipement.${equipement.etat}`)}
-                  </Badge>,
+                  <div key="d" className="flex flex-col gap-0.5">
+                    <span className="font-medium">{equipement.designation}</span>
+                    {equipement.usage && (
+                      <span className="text-xs text-neutral-500">{equipement.usage}</span>
+                    )}
+                  </div>,
+                  <span key="r" className="font-mono text-xs">
+                    {equipement.reference || t("neant")}
+                  </span>,
+                  equipement.propriete ? tEnum(`propriete.${equipement.propriete}`) : t("neant"),
+                  equipement.heuresUtilisation !== null
+                    ? t("heures", { valeur: formaterQuantite(equipement.heuresUtilisation) })
+                    : equipement.dureeArret !== null
+                      ? t("equipements.arretValeur", {
+                          valeur: formaterQuantite(equipement.dureeArret),
+                        })
+                      : t("neant"),
+                  equipement.operateur || t("neant"),
+                  equipement.etat ? (
+                    <Badge key="e" variante={TON_EQUIPEMENT[equipement.etat]}>
+                      {tEnum(`etatEquipement.${equipement.etat}`)}
+                    </Badge>
+                  ) : (
+                    t("neant")
+                  ),
                   equipement.observation ?? t("neant"),
                 ],
               }))}
@@ -550,7 +728,7 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
             <TableauDocument
               colonnes={[
                 { entete: t("incidents.numero") },
-                { entete: t("incidents.type") },
+                { entete: t("incidents.nature") },
                 { entete: t("incidents.description") },
                 { entete: t("incidents.gravite") },
                 { entete: t("incidents.decidePar") },
@@ -560,14 +738,20 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
               lignes={rapport.listeIncidents.map((incident) => ({
                 cle: incident.numero,
                 cellules: [
-                  <span key="n" className="font-mono text-xs font-semibold">{incident.numero}</span>,
-                  tEnum(`typeIncident.${incident.type}`),
+                  <span key="n" className="font-mono text-xs font-semibold">
+                    {incident.numero}
+                  </span>,
+                  tEnum(`natureEvenement.${incident.nature}`),
                   incident.description,
-                  <Badge key="g" variante={TON_GRAVITE[incident.gravite]}>
-                    {tEnum(`gravite.${incident.gravite}`)}
-                  </Badge>,
-                  tCircuit(`role.${incident.decidePar}`),
-                  incident.action,
+                  incident.gravite ? (
+                    <Badge key="g" variante={TON_GRAVITE[incident.gravite]}>
+                      {tEnum(`gravite.${incident.gravite}`)}
+                    </Badge>
+                  ) : (
+                    t("neant")
+                  ),
+                  incident.decidePar ? tEnum(`decideur.${incident.decidePar}`) : t("neant"),
+                  incident.action || t("neant"),
                 ],
               }))}
             />
@@ -590,15 +774,25 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
                   { entete: t("blocages.escalade") },
                 ]}
                 lignes={rapport.listeBlocages.map((blocage) => ({
-                  cle: blocage.numero,
+                  cle: blocage.cle || blocage.numero,
                   cellules: [
-                    <span key="n" className="font-mono text-xs font-semibold">{blocage.numero}</span>,
-                    tEnum(`natureBlocage.${blocage.nature}`),
-                    blocage.description,
+                    <span key="n" className="font-mono text-xs font-semibold">
+                      {blocage.numero}
+                    </span>,
+                    blocage.nature ? tEnum(`natureBlocage.${blocage.nature}`) : t("neant"),
+                    <div key="d" className="flex flex-col gap-0.5">
+                      {blocage.titre && (
+                        <span className="font-medium text-neutral-900">{blocage.titre}</span>
+                      )}
+                      {blocage.elementLibelle && (
+                        <span className="text-xs text-primary-700">{blocage.elementLibelle}</span>
+                      )}
+                      <span>{blocage.description}</span>
+                    </div>,
                     <Badge key="v" variante={TON_BLOCAGE[blocage.niveau]}>
                       {tEnum(`niveauBlocage.${blocage.niveau}`)}
                     </Badge>,
-                    blocage.impact,
+                    blocage.impact || t("neant"),
                     blocage.escalade ? tCircuit(`role.${blocage.escalade}`) : t("neant"),
                   ],
                 }))}
@@ -613,11 +807,18 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
           >
             <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 md:grid-cols-4">
               {rapport.listePhotos.map((photo, rang) => (
-                <li key={`${photo.heure}-${rang}`} className="overflow-hidden rounded-lg border border-neutral-200 break-inside-avoid">
+                <li
+                  key={`${photo.heure}-${rang}`}
+                  className="overflow-hidden rounded-lg border border-neutral-200 break-inside-avoid"
+                >
                   {photo.url ? (
                     // L'image servie par le stockage du rapport : `next/image` ne connaît pas son domaine.
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={photo.url} alt={photo.legende} className="aspect-[4/3] w-full object-cover" />
+                    <img
+                      src={photo.url}
+                      alt={photo.legende}
+                      className="aspect-[4/3] w-full object-cover"
+                    />
                   ) : (
                     <div className="flex aspect-[4/3] items-center justify-center bg-neutral-100 text-neutral-400">
                       <MapPin className="size-6" aria-hidden="true" />
@@ -627,6 +828,9 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
                     <span className="font-semibold text-neutral-900">
                       {t("photos.titre", { rang: rang + 1, total: rapport.listePhotos.length })}
                     </span>
+                    {photo.elementLibelle && (
+                      <span className="font-medium text-primary-700">{photo.elementLibelle}</span>
+                    )}
                     <span className="text-neutral-700">{photo.legende}</span>
                     <span className="text-neutral-500 tabular-nums">
                       {photo.latitude === null || photo.longitude === null
@@ -637,7 +841,9 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
                             longitude: Math.abs(photo.longitude).toFixed(4),
                           })}
                     </span>
-                    {photo.gpsConfirme && <span className="font-medium text-succes">{t("photos.gps")}</span>}
+                    {photo.gpsConfirme && (
+                      <span className="font-medium text-succes">{t("photos.gps")}</span>
+                    )}
                   </div>
                 </li>
               ))}
@@ -656,11 +862,18 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
                 cle: `${piece.nom}-${rang}`,
                 cellules: [
                   piece.url ? (
-                    <a key="n" href={piece.url} download={piece.nom} className="font-medium text-primary underline">
+                    <a
+                      key="n"
+                      href={piece.url}
+                      download={piece.nom}
+                      className="font-medium text-primary underline"
+                    >
                       {piece.nom}
                     </a>
                   ) : (
-                    <span key="n" className="font-medium">{piece.nom}</span>
+                    <span key="n" className="font-medium">
+                      {piece.nom}
+                    </span>
                   ),
                   tEnum(`formatDocument.${formatDocument(piece.nom)}`),
                   t("documents.tailleValeur", { valeur: formaterQuantite(tailleKo(piece.taille)) }),
@@ -678,13 +891,15 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
                 { entete: t("previsions.prerequis") },
               ]}
               vide={t("previsions.vide")}
-              lignes={rapport.previsions.map((prevision) => ({
-                cle: prevision.activite,
+              lignes={rapport.previsions.map((prevision, rang) => ({
+                cle: `${prevision.activite}-${rang}`,
                 cellules: [
-                  <span key="a" className="font-medium">{prevision.activite}</span>,
-                  prevision.equipe,
+                  <span key="a" className="font-medium">
+                    {prevision.activite}
+                  </span>,
+                  prevision.equipe || t("neant"),
                   prevision.objectif,
-                  prevision.prerequis,
+                  prevision.prerequis || t("neant"),
                 ],
               }))}
             />
@@ -694,11 +909,15 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
             <blockquote className="m-0 rounded-lg border-l-4 border-primary-500 bg-primary-50 px-4 py-3">
               <p className="m-0 text-xs font-medium text-neutral-600">
                 {t("note.auteur", {
-                  nom: rapport.intervenants.chefChantier,
-                  quand: rapport.soumisLe ? formaterDateHeure(rapport.soumisLe) : formaterDate(rapport.date),
+                  nom: rapport.intervenants.redacteur,
+                  quand: rapport.soumisLe
+                    ? formaterDateHeure(rapport.soumisLe)
+                    : formaterDate(rapport.date),
                 })}
               </p>
-              <p className="m-0 mt-1.5 text-sm text-neutral-800">{rapport.noteChefChantier ?? t("note.vide")}</p>
+              <p className="m-0 mt-1.5 text-sm text-neutral-800">
+                {rapport.noteRedacteur ?? t("note.vide")}
+              </p>
             </blockquote>
           </SectionDocument>
 

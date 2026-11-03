@@ -18,20 +18,14 @@ import { teintesChiffresSynthese, TON_GRAVITE, TON_SITUATION } from "../classes"
 import type { SourcePdf } from "../GenerationDocumentPdf";
 
 /**
- * La synthèse périodique générée — le même document que l'écran, section par
- * section, dessiné par `lib/export/documentPdf` avec l'en-tête et le pied
- * paginé de la fiche projet et du rapport journalier.
- *
- * Ce module ne calcule rien : les chiffres viennent de `features/chantier`,
- * comme à l'écran ; il les traduit.
+ * La synthèse périodique générée en PDF — le même document que l'écran, section
+ * par section, dessiné par `lib/export/documentPdf`.
  */
 
-/** Le traducteur de l'espace `journal` (next-intl). */
 type Traduire = (cle: string, valeurs?: Record<string, string | number>) => string;
 
 export interface DonneesSynthesePdf extends SourcePdf {
   synthese: SynthesePeriodique;
-  /** La période, déjà mise en mots par l'écran (« Semaine 39 — du … au … »). */
   periode: string;
   modeExecution: (lot: LotJournal) => string;
 }
@@ -57,6 +51,7 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
   const pourcent = (valeur: number) => t("rapport.pourcent", { valeur });
   const fraction = (a: number, b: number) => t("rapport.fraction", { a, b });
   const role = (cle: string) => t(`circuit.role.${cle}`);
+  const neant = t("rapport.neant");
 
   const { chiffres, progression } = synthese;
   const manquants = rapportsManquants(synthese);
@@ -68,7 +63,6 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
   const retardCumule = progression.theorique - progression.fin;
   const separateur = s("separateur");
   const resolus = incidentsResolus(synthese.incidents);
-  // Les mêmes teintes que les cartes de l'écran.
   const teintes = teintesChiffresSynthese({
     presenceInsuffisante: presence !== null && presence < CIBLE_PRESENCE - 7,
     livraisonsPartielles: chiffres.livraisonsPartielles,
@@ -84,8 +78,6 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
   const totalMoyen = synthese.effectifs.reduce((total, ligne) => total + ligne.presenceMoyenne, 0);
   const tauxEffectifs = totalPrevu ? Math.round((totalMoyen / totalPrevu) * 100) : null;
 
-  /* --- Identification, intervenants, progression, chiffres --- */
-
   const identification: SectionPdf = {
     titre: s("identification"),
     accent: true,
@@ -94,14 +86,17 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
         type: "cles",
         elements: [
           { libelle: s("projet"), valeur: synthese.projetNom },
-          { libelle: role("CP"), valeur: synthese.chefProjet },
+          { libelle: role("APPROBATION"), valeur: synthese.approbateurs },
           {
             libelle: s("lots"),
             valeur: synthese.lots.map((lot) => s("lotCouvert", { code: lot.code, nom: lot.nom })).join(separateur),
           },
-          { libelle: role("CT"), valeur: synthese.conducteurTravaux },
+          { libelle: role("VALIDATION"), valeur: synthese.validateurs },
           { libelle: s("joursOuvres"), valeur: s("joursOuvresValeur", { n: chiffres.joursOuvres }) },
-          ...synthese.lots.map((lot) => ({ libelle: s("chefChantierLot", { code: lot.code }), valeur: lot.chefChantier })),
+          ...synthese.lots.map((lot) => ({
+            libelle: s("redacteurLot", { code: lot.code }),
+            valeur: lot.redacteur,
+          })),
           { libelle: s("rapportsAttendus"), valeur: String(chiffres.rapportsAttendus) },
           {
             libelle: s("rapportsRecus"),
@@ -162,7 +157,9 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
           },
           {
             libelle: s("chiffres.heures"),
-            valeur: synthese.effectifs.length ? t("rapport.heures", { valeur: formaterQuantite(chiffres.heures) }) : ABSENT,
+            valeur: synthese.effectifs.length
+              ? t("rapport.heures", { valeur: formaterQuantite(chiffres.heures) })
+              : ABSENT,
             detail: synthese.effectifs.length ? s("chiffres.heuresDetail") : s("chiffres.heuresSousTraitants"),
             ton: teintes.heures,
           },
@@ -200,8 +197,6 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
     ],
   };
 
-  /* --- Les sections numérotées, dans l'ordre de l'écran --- */
-
   const numerotees: { titre: string; blocs: BlocPdf[] }[] = [];
 
   numerotees.push({
@@ -218,7 +213,7 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
         [
           s("recapitulatif.date"),
           s("recapitulatif.lots"),
-          s("recapitulatif.chef"),
+          s("recapitulatif.redacteur"),
           s("recapitulatif.statut"),
           s("recapitulatif.effectifs"),
           s("recapitulatif.avancement"),
@@ -231,8 +226,11 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
             return [
               cellule(formaterJourMoisNumerique(entree.date)),
               cellule(codesLots(entree.lots) || ABSENT),
-              cellule(entree.chantier.chefChantier),
-              cellule(t(`situation.${entree.situation}`), { gras: true, ton: TON_SITUATION[entree.situation] }),
+              cellule(entree.chantier.redacteur),
+              cellule(t(`situation.${entree.situation}`), {
+                gras: true,
+                ton: TON_SITUATION[entree.situation],
+              }),
               cellule(
                 absent || entree.effectifPresent === null
                   ? ABSENT
@@ -258,8 +256,13 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
                     }),
                     { gras: true },
                   ),
-                  cellule(fraction(chiffres.effectifsPresents, chiffres.effectifsPrevus), { gras: true }),
-                  cellule(presence === null ? "" : s("recapitulatif.totalPresence", { taux: presence }), { gras: true }),
+                  cellule(fraction(chiffres.effectifsPresents, chiffres.effectifsPrevus), {
+                    gras: true,
+                  }),
+                  cellule(
+                    presence === null ? "" : s("recapitulatif.totalPresence", { taux: presence }),
+                    { gras: true },
+                  ),
                   cellule(chiffres.incidents, { gras: true }),
                   cellule(chiffres.blocages, { gras: true }),
                 ],
@@ -294,17 +297,34 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
             ...Array.from({ length: 8 }, () => cellule("")),
           ],
           ...(activites.length === 0
-            ? [[cellule(s("avancement.aucunRapport"), { ton: "neutre" }), ...Array.from({ length: 8 }, () => cellule(""))]]
+            ? [
+                [
+                  cellule(s("avancement.aucunRapport"), { ton: "neutre" }),
+                  ...Array.from({ length: 8 }, () => cellule("")),
+                ],
+              ]
             : activites.map((activite) => {
                 const gain = activite.avancementFin - activite.avancementDebut;
                 const ecartActivite = ecartObjectif(gain, activite.objectifGain);
+                const unite =
+                  activite.unite ??
+                  (activite.modeMesure === "JALON"
+                    ? t("rapport.avancement.uniteJalon")
+                    : t("rapport.avancement.unitePourcent"));
                 return [
                   cellule(activite.libelle),
-                  cellule(activite.unite),
-                  cellule(formaterQuantite(activite.quantitePrevue)),
+                  cellule(unite),
+                  cellule(
+                    activite.modeMesure === "QUANTITE"
+                      ? formaterQuantite(activite.quantitePrevue)
+                      : ABSENT,
+                  ),
                   cellule(pourcent(activite.avancementDebut)),
                   cellule(pourcent(activite.avancementFin)),
-                  cellule(s("pointsCourts", { valeur: signe(gain) }), { gras: true, ton: "primaire" }),
+                  cellule(s("pointsCourts", { valeur: signe(gain) }), {
+                    gras: true,
+                    ton: "primaire",
+                  }),
                   cellule(s("pointsCourts", { valeur: signe(activite.objectifGain) })),
                   cellule(s("pointsCourts", { valeur: signe(ecartActivite) }), {
                     gras: true,
@@ -337,7 +357,9 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
               ],
               [
                 ...synthese.effectifs.map((ligne) => {
-                  const taux = ligne.prevuParJour ? Math.round((ligne.presenceMoyenne / ligne.prevuParJour) * 100) : 0;
+                  const taux = ligne.prevuParJour
+                    ? Math.round((ligne.presenceMoyenne / ligne.prevuParJour) * 100)
+                    : 0;
                   return [
                     cellule(ligne.categorie, { gras: true }),
                     cellule(ligne.prevuParJour),
@@ -345,7 +367,7 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
                     cellule(pourcent(taux), taux < 85 ? { gras: true, ton: "erreur" } : undefined),
                     cellule(t("rapport.heures", { valeur: formaterQuantite(ligne.heures) })),
                     cellule(ligne.absences, ligne.absences > 0 ? { gras: true, ton: "erreur" } : undefined),
-                    cellule(ligne.observation ?? t("rapport.neant")),
+                    cellule(ligne.observation ?? neant),
                   ];
                 }),
                 [
@@ -379,7 +401,8 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
         ],
         synthese.materiaux.map((ligne) => {
           const alerte = enAlerteStock(ligne.stockFin, ligne.seuilAlerte);
-          const quantite = (valeur: number | null) => (valeur === null ? t("rapport.neant") : formaterQuantite(valeur));
+          const quantite = (valeur: number | null) =>
+            valeur === null ? neant : formaterQuantite(valeur);
           return [
             cellule(ligne.designation, { gras: true }),
             cellule(ligne.unite),
@@ -415,13 +438,18 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
         [
           ...synthese.incidents.map((incident) => [
             cellule(formaterJourMoisNumerique(incident.date)),
-            cellule(t(`enumerations.typeIncident.${incident.type}`)),
+            cellule(t(`enumerations.natureEvenement.${incident.nature}`)),
             cellule(incident.description),
-            cellule(t(`enumerations.gravite.${incident.gravite}`), { gras: true, ton: TON_GRAVITE[incident.gravite] }),
+            incident.gravite
+              ? cellule(t(`enumerations.gravite.${incident.gravite}`), {
+                  gras: true,
+                  ton: TON_GRAVITE[incident.gravite],
+                })
+              : cellule(neant),
             cellule(
               incident.resolu
-                ? s("incidents.resolu", { action: incident.action })
-                : s("incidents.enCours", { action: incident.action }),
+                ? s("incidents.resolu", { action: incident.action || neant })
+                : s("incidents.enCours", { action: incident.action || neant }),
               { ton: incident.resolu ? "succes" : "avertissement" },
             ),
           ]),
@@ -431,9 +459,14 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
                   cellule(s("incidents.total", { n: synthese.incidents.length }), { gras: true }),
                   cellule(""),
                   cellule(""),
-                  cellule(s("incidents.totalGravite", { majeurs: chiffres.incidentsMajeurs }), { gras: true }),
+                  cellule(s("incidents.totalGravite", { majeurs: chiffres.incidentsMajeurs }), {
+                    gras: true,
+                  }),
                   cellule(
-                    s("incidents.totalResolution", { resolus, enCours: synthese.incidents.length - resolus }),
+                    s("incidents.totalResolution", {
+                      resolus,
+                      enCours: synthese.incidents.length - resolus,
+                    }),
                     { gras: true },
                   ),
                 ],
@@ -484,7 +517,6 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
     ],
   });
 
-  // Une case par signataire, et seulement « Signé le : » — comme le rapport journalier.
   const signatures: CasePdf[] = synthese.circuit.map((etape) => ({
     role: role(etape.role),
     mention: etape.signeLe
@@ -496,15 +528,12 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
   numerotees.push({
     titre: s("sections.circuit"),
     blocs: [
-      // Une période personnalisée ne se signe pas : pas de cases vides à signer.
       signatures.length
         ? { type: "signatures", cases: signatures }
         : { type: "paragraphe", texte: s("horsCircuit") },
       { type: "paragraphe", texte: s("mention", { n: chiffres.rapportsRecus }) },
     ],
   });
-
-  /* --- Le document --- */
 
   const { emetteur, pied } = emetteurDocument(entreprise, marque);
 
@@ -532,7 +561,10 @@ export function contenuSynthesePdf(t: Traduire, donnees: DonneesSynthesePdf): Do
     sections: [
       identification,
       progressionSection,
-      ...numerotees.map((section, rang) => ({ titre: `${rang + 1}. ${section.titre}`, blocs: section.blocs })),
+      ...numerotees.map((section, rang) => ({
+        titre: `${rang + 1}. ${section.titre}`,
+        blocs: section.blocs,
+      })),
     ],
     pied: {
       gauche: pied,

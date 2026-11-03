@@ -19,26 +19,22 @@ import { cn } from "@/lib/utils";
 import { BLOC, BLOC_CORPS, BLOC_ENTETE, BLOC_SOUS_TITRE, BLOC_TITRE } from "./classes";
 import { BadgeSituation, BoutonRelance, CircuitCompact } from "./composants";
 
-/**
- * L'onglet « Circuit de validation » — ce que la maquette appelait la file du
- * CT, retournée pour le DG : il ne signe pas, il **voit où ça coince**.
- *
- * Un rapport non approuvé ne compte ni dans l'avancement ni dans les bons de
- * paiement : un circuit qui traîne fausse les deux. La file est donc rangée
- * par urgence (hors délai d'abord), et chaque ligne nomme celui qu'on attend
- * — que le DG peut relancer.
- */
 export function FileValidation({ journal, maintenant }: { journal: Journal; maintenant: Date }) {
   const t = useTranslations("journal.validations");
   const file = validationsEnAttente(journal.entrees, maintenant);
   const rejetes = rapportsRejetes(journal.entrees).slice(0, 5);
-  const enAttenteCt = file.filter((ligne) => ligne.etape.role === "CT").length;
+  const enAttenteValidation = file.filter((ligne) => ligne.etape.role === "VALIDATION").length;
   const horsDelai = file.filter((ligne) => ligne.horsDelai).length;
 
   return (
     <div className="flex flex-col gap-6">
       <p className="m-0 text-sm text-neutral-600">
-        {t("resume", { total: file.length, ct: enAttenteCt, cp: file.length - enAttenteCt, horsDelai })}
+        {t("resume", {
+          total: file.length,
+          validation: enAttenteValidation,
+          approbation: file.length - enAttenteValidation,
+          horsDelai,
+        })}
       </p>
 
       {file.length === 0 ? (
@@ -76,7 +72,13 @@ export function FileValidation({ journal, maintenant }: { journal: Journal; main
   );
 }
 
-function LigneValidation({ ligne, aujourdhui }: { ligne: ValidationEnAttente; aujourdhui: string }) {
+function LigneValidation({
+  ligne,
+  aujourdhui,
+}: {
+  ligne: ValidationEnAttente;
+  aujourdhui: string;
+}) {
   const t = useTranslations("journal.validations");
   const tCircuit = useTranslations("journal.circuit");
   const { entree, etape, horsDelai } = ligne;
@@ -92,7 +94,10 @@ function LigneValidation({ ligne, aujourdhui }: { ligne: ValidationEnAttente; au
       <div className="flex min-w-0 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="m-0 text-sm font-semibold text-neutral-900">
-            {t("titre", { chantier: entree.chantier.projetNom, lots: codesLots(entree.lots) || "aucun" })}
+            {t("titre", {
+              chantier: entree.chantier.projetNom,
+              lots: codesLots(entree.lots) || "aucun",
+            })}
           </h3>
           <BadgeSituation situation={entree.situation} />
           {horsDelai && <Badge variante="erreur">{t("horsDelai")}</Badge>}
@@ -100,7 +105,7 @@ function LigneValidation({ ligne, aujourdhui }: { ligne: ValidationEnAttente; au
         <p className="m-0 text-xs text-neutral-600">
           {t("details", {
             date: formaterDate(entree.date),
-            chef: entree.chantier.chefChantier,
+            redacteur: entree.chantier.redacteur,
             presents: entree.effectifPresent ?? 0,
             prevus: entree.effectifPrevu ?? 0,
             taux: presence ?? 0,
@@ -136,8 +141,13 @@ function LigneRejet({ entree }: { entree: EntreeJournal }) {
     <li className="flex flex-col gap-1 border-b border-neutral-100 py-3 last:border-b-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <div className="min-w-0">
         <p className="m-0 text-sm font-medium text-neutral-900">
-          {t("titre", { chantier: entree.chantier.projetNom, lots: codesLots(entree.lots) || "aucun" })}
-          <span className="ml-2 text-xs font-normal text-neutral-500">{formaterDate(entree.date)}</span>
+          {t("titre", {
+            chantier: entree.chantier.projetNom,
+            lots: codesLots(entree.lots) || "aucun",
+          })}
+          <span className="ml-2 text-xs font-normal text-neutral-500">
+            {formaterDate(entree.date)}
+          </span>
         </p>
         {rejet?.commentaire && (
           <p className="m-0 mt-0.5 text-xs text-neutral-600">
@@ -145,7 +155,10 @@ function LigneRejet({ entree }: { entree: EntreeJournal }) {
           </p>
         )}
       </div>
-      <Link href={`/rapports/${entree.id}`} className="shrink-0 text-sm font-medium text-primary-600 no-underline hover:underline">
+      <Link
+        href={`/rapports/${entree.id}`}
+        className="shrink-0 text-sm font-medium text-primary-600 no-underline hover:underline"
+      >
         {t("voir")}
       </Link>
     </li>

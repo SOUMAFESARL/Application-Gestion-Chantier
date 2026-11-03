@@ -1,7 +1,15 @@
 "use client";
 
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { CalendarClock, ChevronRight, CircleDashed, ClipboardList, FileCheck2, FilePen, Undo2 } from "lucide-react";
+import {
+  CalendarClock,
+  ChevronRight,
+  CircleDashed,
+  ClipboardList,
+  FileCheck2,
+  FilePen,
+  Undo2,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -30,32 +38,33 @@ const TON_ETAT: Record<EtatRapport, VarianteBadge> = {
   BROUILLON: "avertissement",
   REJETE: "erreur",
   SOUMIS: "information",
-  VALIDE_CT: "succes",
-  APPROUVE_CP: "succes",
+  VALIDE: "succes",
+  APPROUVE: "succes",
 };
 
 /** Les rapports en attente affichés d'un coup ; un chantier ancien en a beaucoup. */
 const PAR_PAGE = 10;
 
 /**
- * Le point d'entrée du chef de chantier : **quels rapports me reste-t-il à
- * rédiger sur ce chantier ?** Un rapport couvre un chantier sur un jour,
- * tous ses lots en cours réunis.
+ * Le point d'entrée du rédacteur : **quels rapports me reste-t-il à rédiger sur ce chantier ?**
  *
- * Le bandeau de tête choisit le jour et le chantier ; les deux vivent dans
- * l'URL (`?date=…&projet=…`), pour qu'un rechargement ou un retour depuis le
- * formulaire retombe sur le même choix. Sous le bandeau : le rapport du jour
- * choisi, puis tous les autres rapports attendus et pas encore remis, chacun
- * avec le jour qu'il couvre.
+ * La saisie est conditionnée par le calendrier ouvré de l'entreprise : sur un jour non ouvré,
+ * aucun rapport du jour n'est attendu, mais le rédacteur peut rattraper un jour ouvré récent
+ * (`J-1`, `J-2`) ou corriger un rapport rejeté.
  */
-export function ChoixRapportSaisie({ date: demandee, projet: projetDemande }: { date: string | null; projet: string | null }) {
+export function ChoixRapportSaisie({
+  date: demandee,
+  projet: projetDemande,
+}: {
+  date: string | null;
+  projet: string | null;
+}) {
   const t = useTranslations("journal.saisie");
   const router = useRouter();
   const { droits } = useDroits();
   const [affiches, setAffiches] = useState(PAR_PAGE);
 
   const projets = useProjetsVisibles();
-  // Le projet choisi : celui de l'URL s'il est visible, sinon le premier.
   const projet = projets.data?.find((candidat) => candidat.id === projetDemande) ?? projets.data?.[0] ?? null;
 
   const rapports = useQuery({
@@ -81,12 +90,30 @@ export function ChoixRapportSaisie({ date: demandee, projet: projetDemande }: { 
   }
 
   const aujourdhui = rapports.data?.aujourdhui ?? null;
-  const jour = aujourdhui && demandee && jourSaisissable(demandee, aujourdhui) ? demandee : aujourdhui;
+  const fenetreServeur = rapports.data?.joursSaisissables;
+  const estRejeteDemande = Boolean(
+    demandee && rapports.data?.rapports.some((r) => r.date === demandee && r.statut === "REJETE"),
+  );
+  const jour =
+    aujourdhui && demandee && (estRejeteDemande || jourSaisissable(demandee, aujourdhui, fenetreServeur))
+      ? demandee
+      : aujourdhui;
+
   const enAttente = aujourdhui
-    ? rapportsEnAttente(projet.dateDebutReelle ?? projet.dateDebutPrevue, aujourdhui, rapports.data?.rapports ?? [])
+    ? rapportsEnAttente(
+        projet.dateDebutReelle ?? projet.dateDebutPrevue,
+        aujourdhui,
+        rapports.data?.rapports ?? [],
+        {
+          estJourOuvreAujourdhui: rapports.data?.estJourOuvre,
+          joursSaisissables: fenetreServeur,
+        },
+      )
     : [];
   const autres = enAttente.filter((rapport) => rapport.date !== jour);
   const duJour = rapports.data?.rapports.find((rapport) => rapport.date === jour) ?? null;
+  const estJourNonOuvreSansRapport =
+    jour !== null && jour === aujourdhui && rapports.data?.estJourOuvre === false && !duJour;
 
   const naviguer = (changement: { date?: string; projet?: string }) => {
     const parametres = new URLSearchParams();
@@ -99,8 +126,6 @@ export function ChoixRapportSaisie({ date: demandee, projet: projetDemande }: { 
   const lienSaisie = (date: string) => `/rapports/saisie/${projet.id}?date=${date}`;
 
   return (
-    // Deux rangées : l'en-tête et le bandeau, puis les rapports — le panneau
-    // des brouillons s'aligne sur la seconde, à hauteur de « Rapport du jour choisi ».
     <div className="grid w-full gap-x-6 gap-y-5 xl:grid-cols-[minmax(0,48rem)_minmax(18rem,1fr)] xl:items-start">
       <div className="flex w-full max-w-3xl flex-col gap-5 xl:col-start-1">
         <EnTetePage
@@ -114,7 +139,6 @@ export function ChoixRapportSaisie({ date: demandee, projet: projetDemande }: { 
           }
         />
 
-        {/* Le bandeau : le jour, puis le chantier dont on rédige le journal. */}
         <div className="grid gap-3 rounded-xl border border-primary-200 bg-primary-50 p-4 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="saisie-jour" className="text-sm font-semibold text-primary-800">
@@ -125,7 +149,7 @@ export function ChoixRapportSaisie({ date: demandee, projet: projetDemande }: { 
               valeur={jour ?? ""}
               onChange={(choisi) => choisi && naviguer({ date: choisi })}
               placeholder={t("choix.jourPlaceholder")}
-              auPlusTot={aujourdhui ? joursSaisissables(aujourdhui).at(-1) : undefined}
+              auPlusTot={aujourdhui ? joursSaisissables(aujourdhui, fenetreServeur).at(-1) : undefined}
               auPlusTard={aujourdhui ?? undefined}
               disabled={!aujourdhui}
               className={CHAMP}
@@ -165,18 +189,30 @@ export function ChoixRapportSaisie({ date: demandee, projet: projetDemande }: { 
               <h2 id="rapport-du-jour" className="m-0 text-sm font-semibold text-neutral-700">
                 {t("choix.rapportDuJour")}
               </h2>
-              <LigneRapport
-                projet={projet}
-                date={jour}
-                etat={duJour?.statut ?? "A_REDIGER"}
-                enregistreLe={duJour?.enregistreLe ?? null}
-                lien={
-                  duJour && duJour.statut !== "BROUILLON" && duJour.statut !== "REJETE"
-                    ? `/rapports/${duJour.id}`
-                    : lienSaisie(jour)
-                }
-                enAvant
-              />
+              {estJourNonOuvreSansRapport ? (
+                <div className="flex min-h-16 items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-500">
+                    <CalendarClock className="size-5" aria-hidden="true" />
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="text-sm font-semibold text-neutral-900">{t("choix.jourNonOuvre")}</span>
+                    <span className="text-xs text-neutral-600">{t("choix.jourNonOuvreDetail")}</span>
+                  </span>
+                </div>
+              ) : (
+                <LigneRapport
+                  projet={projet}
+                  date={jour}
+                  etat={duJour?.statut ?? "A_REDIGER"}
+                  enregistreLe={duJour?.enregistreLe ?? null}
+                  lien={
+                    duJour && duJour.statut !== "BROUILLON" && duJour.statut !== "REJETE"
+                      ? `/rapports/${duJour.id}`
+                      : lienSaisie(jour)
+                  }
+                  enAvant
+                />
+              )}
             </section>
 
             <section aria-labelledby="rapports-en-attente" className="flex flex-col gap-2">
@@ -224,11 +260,6 @@ export function ChoixRapportSaisie({ date: demandee, projet: projetDemande }: { 
   );
 }
 
-/**
- * Les brouillons du chef de chantier sur **tous** ses chantiers, à côté du
- * chantier choisi : un brouillon commencé ailleurs ne doit pas s'oublier.
- * Les requêtes sont celles de l'écran (même clé), le cache est partagé.
- */
 function PanneauBrouillons({ projets }: { projets: Projet[] }) {
   const t = useTranslations("journal.saisie");
   const requetes = useQueries({
@@ -248,6 +279,7 @@ function PanneauBrouillons({ projets }: { projets: Projet[] }) {
             {
               projet,
               aujourdhui: donnees.aujourdhui,
+              joursSaisissables: donnees.joursSaisissables,
               rapports: donnees.rapports,
             },
           ]
@@ -284,8 +316,15 @@ function PanneauBrouillons({ projets }: { projets: Projet[] }) {
   );
 }
 
-/** Un brouillon du panneau ; au-delà de J-2 il ne se reprend plus, d'où l'absence de lien. */
-function LigneBrouillon({ projet, rapport, redigeable }: { projet: Projet; rapport: RapportDuJour; redigeable: boolean }) {
+function LigneBrouillon({
+  projet,
+  rapport,
+  redigeable,
+}: {
+  projet: Projet;
+  rapport: RapportDuJour;
+  redigeable: boolean;
+}) {
   const t = useTranslations("journal.saisie");
   const format = useFormatter();
 
@@ -335,11 +374,6 @@ function LigneBrouillon({ projet, rapport, redigeable }: { projet: Projet; rappo
   );
 }
 
-/**
- * Un rapport du chantier : titré par le chantier, daté du jour qu'il couvre.
- * Sans `lien`, il est hors délai — au-delà de J-2, seul le conducteur de
- * travaux peut établir un rapport de substitution.
- */
 function LigneRapport({
   projet,
   date,
@@ -357,7 +391,7 @@ function LigneRapport({
 }) {
   const t = useTranslations("journal.saisie");
   const format = useFormatter();
-  const fini = etat === "SOUMIS" || etat === "VALIDE_CT" || etat === "APPROUVE_CP";
+  const fini = etat === "SOUMIS" || etat === "VALIDE" || etat === "APPROUVE";
   const horsDelai = lien === null;
   const Icone = horsDelai ? CalendarClock : fini ? FileCheck2 : etat === "REJETE" ? Undo2 : FilePen;
   const jour = format.dateTime(new Date(`${date}T00:00:00Z`), {

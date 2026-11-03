@@ -1,6 +1,17 @@
 "use client";
 
-import { BellRing, Camera, FileText, ImagePlus, LoaderCircle, MapPin, Paperclip, Plus, Trash2 } from "lucide-react";
+import {
+  BellRing,
+  Camera,
+  FileText,
+  History,
+  ImagePlus,
+  LoaderCircle,
+  MapPin,
+  Paperclip,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
@@ -8,7 +19,9 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
+import { FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   escaladeBlocage,
   estDocumentAccepte,
@@ -18,37 +31,48 @@ import {
   PIECES_JOINTES_MAX,
   TAILLE_MAX_PIECE_JOINTE,
 } from "@/features/chantier";
-import type { NatureEvenement, NiveauBlocageSaisi } from "@/features/chantier";
+import type {
+  ActivitePreparee,
+  BlocageOuvert,
+  LotJournal,
+  NatureEvenement,
+  NiveauBlocage,
+} from "@/features/chantier";
 import { lirePieceJointe, preparerPhoto } from "@/features/chantier/photos";
 import {
+  blocageVide,
   DECIDEURS,
   GRAVITES,
   incidentVide,
   NATURES_BLOCAGE,
   NATURES_EVENEMENT,
   NIVEAUX_BLOCAGE,
-  TYPES_INCIDENT,
   type ValeursRapport,
 } from "@/features/chantier/validations";
 import { formaterHeure, formaterQuantite } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 import {
+  BoutonAjout,
   CarteLigne,
+  CHAMP,
   ChampPuces,
   ChampTexte,
   PAIRE,
   RANGEE,
+  Requis,
   Signal,
   SousRubrique,
   useErreurSection,
 } from "./elementsSaisie";
 
 const OCTETS_PAR_MO = 1024 * 1024;
+const AUCUN_ELEMENT = "__aucun__";
 
 /** L'état d'une alerte immédiate, tel que l'écran le montre. */
 export type EtatAlerte = "ENVOYEE" | "EN_COURS" | "ECHEC";
 
-function BadgeAlerte({ etat }: { etat: EtatAlerte | undefined }) {
+export function BadgeAlerte({ etat }: { etat: EtatAlerte | undefined }) {
   const t = useTranslations("journal.saisie.alertes");
   if (!etat) return null;
   if (etat === "EN_COURS") {
@@ -70,13 +94,12 @@ function BadgeAlerte({ etat }: { etat: EtatAlerte | undefined }) {
 }
 
 /* ------------------------------------------------------------------ *
- * Les événements du chantier — déclarés d'un geste, par nature.
+ * Les événements du chantier — 6 natures distinctes, sans gravité forcée sur les visites.
  * ------------------------------------------------------------------ */
 
 export function SectionEvenements({ alertes }: { alertes: Record<string, EtatAlerte> }) {
   const t = useTranslations("journal.saisie");
   const tEnum = useTranslations("journal.enumerations");
-  const tRole = useTranslations("journal.circuit.role");
   const { control } = useFormContext<ValeursRapport>();
   const lignes = useFieldArray({ control, name: "incidents" });
   const valeurs = useWatch({ control, name: "incidents" });
@@ -85,7 +108,7 @@ export function SectionEvenements({ alertes }: { alertes: Record<string, EtatAle
     <SousRubrique titre={t("sections.evenements")} description={t("incidents.description")}>
       <div className="flex flex-col gap-2">
         <span className="text-xs font-medium text-neutral-500">{t("incidents.declarer")}</span>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {NATURES_EVENEMENT.map((nature) => (
             <button
               key={nature}
@@ -102,39 +125,36 @@ export function SectionEvenements({ alertes }: { alertes: Record<string, EtatAle
       {lignes.fields.map((ligne, rang) => {
         const incident = valeurs[rang];
         const longueur = incident?.description.trim().length ?? 0;
-        const nature = (incident?.nature || "INCIDENT") as NatureEvenement;
+        const nature = (incident?.nature || "EVENEMENT_PARTICULIER") as NatureEvenement;
+        const estVisite = nature === "VISITE_INSTRUCTION";
+        const cleAlerte = incident?.cle ? `incident:${incident.cle}` : "";
+
         return (
           <CarteLigne
             key={ligne.id}
             titre={t("incidents.titre", { nature: t(`incidents.natures.${nature}`), rang: rang + 1 })}
-            complement={incident ? <BadgeAlerte etat={alertes[incident.cle]} /> : null}
+            complement={cleAlerte ? <BadgeAlerte etat={alertes[cleAlerte]} /> : null}
             libelleSupprimer={t("incidents.supprimer", { rang: rang + 1 })}
             onSupprimer={() => lignes.remove(rang)}
           >
-            {nature === "INCIDENT" && (
-              <ChampPuces
-                name={`incidents.${rang}.type`}
-                libelle={t("incidents.type")}
-                requis
-                options={TYPES_INCIDENT.map((valeur) => ({ valeur, libelle: tEnum(`typeIncident.${valeur}`) }))}
-              />
-            )}
             <div className={PAIRE}>
               <ChampTexte name={`incidents.${rang}.heureDebut`} libelle={t("incidents.heureDebut")} type="time" />
               <ChampTexte name={`incidents.${rang}.heureFin`} libelle={t("incidents.heureFin")} type="time" />
             </div>
-            <ChampPuces
-              name={`incidents.${rang}.gravite`}
-              libelle={t("incidents.gravite")}
-              requis
-              colonnes={3}
-              options={GRAVITES.map((valeur) => ({
-                valeur,
-                libelle: tEnum(`gravite.${valeur}`),
-                ton: valeur === "MINEUR" ? "information" : valeur === "SIGNIFICATIF" ? "avertissement" : "erreur",
-              }))}
-            />
-            {incident?.gravite === "GRAVE" && (
+            {!estVisite && (
+              <ChampPuces
+                name={`incidents.${rang}.gravite`}
+                libelle={t("incidents.gravite")}
+                requis
+                colonnes={3}
+                options={GRAVITES.map((valeur) => ({
+                  valeur,
+                  libelle: tEnum(`gravite.${valeur}`),
+                  ton: valeur === "MINEUR" ? "information" : valeur === "SIGNIFICATIF" ? "avertissement" : "erreur",
+                }))}
+              />
+            )}
+            {!estVisite && incident?.gravite === "GRAVE" && (
               <Signal ton="erreur" icone={<BellRing />}>
                 {t("incidents.alerteGrave")}
               </Signal>
@@ -148,20 +168,18 @@ export function SectionEvenements({ alertes }: { alertes: Record<string, EtatAle
               placeholder={t("incidents.descriptionExemple")}
               aide={t("incidents.compteur", { n: longueur, min: LONGUEUR_MIN_DESCRIPTION_INCIDENT })}
             />
-            <div className={RANGEE}>
-              <ChampTexte
-                name={`incidents.${rang}.action`}
-                libelle={t("incidents.action")}
-                requis={incident?.gravite !== "MINEUR"}
-                placeholder={t("incidents.actionExemple")}
-              />
-              <ChampPuces
-                name={`incidents.${rang}.decidePar`}
-                libelle={t("incidents.decidePar")}
-                colonnes={3}
-                options={DECIDEURS.map((valeur) => ({ valeur, libelle: tRole(valeur) }))}
-              />
-            </div>
+            <ChampTexte
+              name={`incidents.${rang}.action`}
+              libelle={t("incidents.action")}
+              requis={!estVisite && Boolean(incident?.gravite && incident.gravite !== "MINEUR")}
+              placeholder={t("incidents.actionExemple")}
+            />
+            <ChampPuces
+              name={`incidents.${rang}.decidePar`}
+              libelle={t("incidents.decidePar")}
+              requis
+              options={DECIDEURS.map((valeur) => ({ valeur, libelle: tEnum(`decideur.${valeur}`) }))}
+            />
           </CarteLigne>
         );
       })}
@@ -171,59 +189,210 @@ export function SectionEvenements({ alertes }: { alertes: Record<string, EtatAle
 }
 
 /* ------------------------------------------------------------------ *
- * Le blocage — un choix unique, « aucun » compris.
+ * Les blocages — liste plurielle rattachée à l'arbre et à la table `Blocage`.
  * ------------------------------------------------------------------ */
 
-export function SectionBlocage({ alerte }: { alerte: EtatAlerte | undefined }) {
+export function SectionBlocages({
+  blocagesOuverts,
+  activites,
+  lots,
+  alertes,
+}: {
+  blocagesOuverts: BlocageOuvert[];
+  activites: ActivitePreparee[];
+  lots: LotJournal[];
+  alertes: Record<string, EtatAlerte>;
+}) {
   const t = useTranslations("journal.saisie");
   const tEnum = useTranslations("journal.enumerations");
   const tRole = useTranslations("journal.circuit.role");
-  const { control } = useFormContext<ValeursRapport>();
-  const niveau = useWatch({ control, name: "blocage.niveau" });
-  const escalade = escaladeBlocage(niveau as NiveauBlocageSaisi);
+  const { control, setValue } = useFormContext<ValeursRapport>();
+  const lignes = useFieldArray({ control, name: "blocages" });
+  const valeurs = useWatch({ control, name: "blocages" });
+  const erreur = useErreurSection("blocages");
+
+  const dejaRepris = new Set(valeurs.map((ligne) => ligne.blocageId).filter(Boolean));
+  const ouvertsDisponibles = blocagesOuverts.filter((ouvert) => !dejaRepris.has(ouvert.id));
+
+  const reprendreOuvert = (ouvert: BlocageOuvert) => {
+    const niveau: NiveauBlocage =
+      ouvert.severite === "BLOQUANT"
+        ? "BLOQUANT"
+        : ouvert.severite === "MINEUR"
+          ? "MINEUR"
+          : "SIGNIFICATIF";
+    lignes.append({
+      ...blocageVide(),
+      blocageId: ouvert.id,
+      elementId: ouvert.elementId ?? "",
+      titre: ouvert.titre,
+      niveau,
+    });
+  };
 
   return (
-    <SousRubrique titre={t("sections.blocage")} complement={<BadgeAlerte etat={alerte} />}>
-      <ChampPuces
-        name="blocage.niveau"
-        libelle={t("blocage.niveau")}
-        masquerLibelle
-        colonnes={4}
-        options={NIVEAUX_BLOCAGE.map((valeur) => ({
-          valeur,
-          libelle: t(`blocage.niveaux.${valeur}`),
-          detail: t(`blocage.details.${valeur}`),
-          ton: valeur === "AUCUN" ? "succes" : valeur === "MINEUR" ? "information" : valeur === "SIGNIFICATIF" ? "avertissement" : "erreur",
-        }))}
-      />
-      {niveau !== "AUCUN" && (
-        <>
-          <ChampPuces
-            name="blocage.nature"
-            libelle={t("blocage.nature")}
-            requis
-            options={NATURES_BLOCAGE.map((valeur) => ({ valeur, libelle: tEnum(`natureBlocage.${valeur}`) }))}
-          />
-          <ChampTexte name="blocage.description" libelle={t("blocage.description")} requis multiligne lignes={2} />
-          <ChampTexte name="blocage.impact" libelle={t("blocage.impact")} placeholder={t("blocage.impactExemple")} />
-          {escalade && (
-            <Signal ton={niveau === "BLOQUANT" ? "erreur" : "avertissement"} icone={<BellRing />}>
-              {niveau === "BLOQUANT" ? t("blocage.alerteBloquant") : t("blocage.escalade", { role: tRole(escalade) })}
-            </Signal>
-          )}
-        </>
+    <SousRubrique
+      titre={t("sections.blocages")}
+      description={t("blocages.descriptionSection")}
+      erreur={erreur}
+    >
+      {ouvertsDisponibles.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-lg border border-avertissement/30 bg-avertissement-fond p-3">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-avertissement">
+            <History className="size-3.5 shrink-0" aria-hidden="true" />
+            {t("blocages.ouvertsTitre")}
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {ouvertsDisponibles.map((ouvert) => (
+              <button
+                key={ouvert.id}
+                type="button"
+                onClick={() => reprendreOuvert(ouvert)}
+                className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-full border border-avertissement/40 bg-card px-3 py-1 text-xs font-medium text-neutral-800 hover:border-avertissement"
+              >
+                <Plus className="size-3.5 shrink-0" aria-hidden="true" />
+                <span>{ouvert.titre}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
+
+      {lignes.fields.map((ligne, rang) => {
+        const courant = valeurs[rang];
+        const niveau = (courant?.niveau || "SIGNIFICATIF") as NiveauBlocage;
+        const escalade = escaladeBlocage(niveau);
+        const longueur = courant?.description.trim().length ?? 0;
+        const cleAlerte = courant?.cle ? `blocage:${courant.cle}` : "";
+
+        return (
+          <CarteLigne
+            key={ligne.id}
+            titre={courant?.titre.trim() || t("blocages.titre", { rang: rang + 1 })}
+            complement={cleAlerte ? <BadgeAlerte etat={alertes[cleAlerte]} /> : null}
+            libelleSupprimer={t("blocages.supprimer", { rang: rang + 1 })}
+            onSupprimer={() => lignes.remove(rang)}
+          >
+            <div className={RANGEE}>
+              <ChampTexte
+                name={`blocages.${rang}.titre`}
+                libelle={t("blocages.titreChamp")}
+                placeholder={t("blocages.titreExemple")}
+              />
+              {(lots.length > 0 || activites.length > 0) && (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-sm font-medium text-neutral-700">
+                    {t("blocages.elementImpacte")}
+                  </span>
+                  <Select
+                    value={courant?.elementId || AUCUN_ELEMENT}
+                    onValueChange={(choisi) =>
+                      setValue(
+                        `blocages.${rang}.elementId`,
+                        choisi === AUCUN_ELEMENT ? "" : choisi,
+                        { shouldDirty: true },
+                      )
+                    }
+                  >
+                    <SelectTrigger className={cn(CHAMP, "w-full bg-card")}>
+                      <SelectValue placeholder={t("blocages.chantierEntier")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={AUCUN_ELEMENT}>{t("blocages.chantierEntier")}</SelectItem>
+                      {lots.map((lot) => (
+                        <SelectItem key={lot.id} value={lot.id}>
+                          {t("lotValeur", { code: lot.code, nom: lot.nom })}
+                        </SelectItem>
+                      ))}
+                      {activites.map((act) => (
+                        <SelectItem key={act.activiteId} value={act.activiteId}>
+                          {t("avancement.activiteValeur", {
+                            code: act.code,
+                            libelle: act.cheminLibelle || act.libelle,
+                          })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            <ChampPuces
+              name={`blocages.${rang}.niveau`}
+              libelle={t("blocages.niveau")}
+              requis
+              colonnes={3}
+              options={NIVEAUX_BLOCAGE.map((valeur) => ({
+                valeur,
+                libelle: tEnum(`niveauBlocage.${valeur}`),
+                detail: t(`blocages.details.${valeur}`),
+                ton:
+                  valeur === "MINEUR"
+                    ? "information"
+                    : valeur === "SIGNIFICATIF"
+                      ? "avertissement"
+                      : "erreur",
+              }))}
+            />
+
+            <ChampPuces
+              name={`blocages.${rang}.nature`}
+              libelle={t("blocages.nature")}
+              requis
+              options={NATURES_BLOCAGE.map((valeur) => ({
+                valeur,
+                libelle: tEnum(`natureBlocage.${valeur}`),
+              }))}
+            />
+
+            <ChampTexte
+              name={`blocages.${rang}.description`}
+              libelle={t("blocages.description")}
+              requis
+              multiligne
+              lignes={2}
+              aide={t("incidents.compteur", { n: longueur, min: LONGUEUR_MIN_DESCRIPTION_INCIDENT })}
+            />
+
+            <ChampTexte
+              name={`blocages.${rang}.impact`}
+              libelle={t("blocages.impact")}
+              requis
+              placeholder={t("blocages.impactExemple")}
+            />
+
+            {escalade && (
+              <Signal ton={niveau === "BLOQUANT" ? "erreur" : "avertissement"} icone={<BellRing />}>
+                {niveau === "BLOQUANT"
+                  ? t("blocages.alerteBloquant")
+                  : t("blocages.escalade", { role: tRole(escalade) })}
+              </Signal>
+            )}
+          </CarteLigne>
+        );
+      })}
+
+      <BoutonAjout onClick={() => lignes.append(blocageVide())}>
+        {t("blocages.ajouter")}
+      </BoutonAjout>
     </SousRubrique>
   );
 }
 
 /* ------------------------------------------------------------------ *
- * Les photos — appareil photo du téléphone, ou galerie.
+ * Les photos — jusqu'à 10 par rapport, légende requise et lien optionnel à l'arbre.
  * ------------------------------------------------------------------ */
 
-export function SectionPhotos() {
+export function SectionPhotos({
+  activites,
+  lots,
+}: {
+  activites: ActivitePreparee[];
+  lots: LotJournal[];
+}) {
   const t = useTranslations("journal.saisie");
-  const { control, register } = useFormContext<ValeursRapport>();
+  const { control, setValue } = useFormContext<ValeursRapport>();
   const lignes = useFieldArray({ control, name: "photos", keyName: "idChamp" });
   const photos = useWatch({ control, name: "photos" });
   const erreur = useErreurSection("photos");
@@ -249,9 +418,18 @@ export function SectionPhotos() {
   };
 
   return (
-    <SousRubrique erreur={erreur}>
+    <SousRubrique
+      titre={t("sections.photos")}
+      complement={<Badge variante="neutre">{t("fraction", { a: photos.length, b: PHOTOS_MAX })}</Badge>}
+      erreur={erreur}
+    >
       <div className="grid grid-cols-2 gap-2">
-        <Button type="button" className="h-auto min-h-14 flex-col gap-1 py-2" onClick={() => appareil.current?.click()} disabled={restantes <= 0}>
+        <Button
+          type="button"
+          className="h-auto min-h-14 flex-col gap-1 py-2"
+          onClick={() => appareil.current?.click()}
+          disabled={restantes <= 0}
+        >
           <Camera className="size-5" aria-hidden="true" />
           {t("photos.prendre")}
         </Button>
@@ -294,7 +472,7 @@ export function SectionPhotos() {
       />
 
       {(photos.length > 0 || traitement > 0) && (
-        <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3">
+        <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
           {lignes.fields.map((ligne, rang) => {
             const photo = photos[rang];
             if (!photo) return null;
@@ -302,9 +480,12 @@ export function SectionPhotos() {
               <li key={ligne.idChamp} className="overflow-hidden rounded-lg border border-neutral-200 bg-card">
                 <div className="relative aspect-[4/3] bg-neutral-100">
                   {photo.url ? (
-                    // Une image `data:` locale : `next/image` n'a rien à optimiser.
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={photo.url} alt={photo.legende || t("photos.alt", { rang: rang + 1 })} className="size-full object-cover" />
+                    <img
+                      src={photo.url}
+                      alt={photo.legende || t("photos.alt", { rang: rang + 1 })}
+                      className="size-full object-cover"
+                    />
                   ) : (
                     <div className="flex size-full items-center justify-center text-neutral-400">
                       <Camera className="size-6" aria-hidden="true" />
@@ -321,7 +502,7 @@ export function SectionPhotos() {
                     <Trash2 className="text-erreur" aria-hidden="true" />
                   </Button>
                 </div>
-                <div className="flex flex-col gap-1.5 p-2">
+                <div className="flex flex-col gap-2 p-2.5">
                   <span className="flex items-center gap-1 text-xs text-neutral-500 tabular-nums">
                     {formaterHeure(photo.priseLe)}
                     {photo.latitude !== null ? (
@@ -332,13 +513,60 @@ export function SectionPhotos() {
                     ) : (
                       <span className="text-avertissement">{t("photos.sansGps")}</span>
                     )}
+                    <Requis />
                   </span>
-                  <Input
-                    aria-label={t("photos.legende", { rang: rang + 1 })}
-                    placeholder={t("photos.legendeExemple")}
-                    className="h-9 text-sm"
-                    {...register(`photos.${rang}.legende`)}
+                  <FormField
+                    control={control}
+                    name={`photos.${rang}.legende`}
+                    render={({ field }) => (
+                      <FormItem className="gap-1">
+                        <FormControl>
+                          <Input
+                            {...field}
+                            aria-label={t("photos.legende", { rang: rang + 1 })}
+                            placeholder={t("photos.legendeExemple")}
+                            className="h-9 text-sm"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
+                  {(lots.length > 0 || activites.length > 0) && (
+                    <Select
+                      value={photo.elementId || AUCUN_ELEMENT}
+                      onValueChange={(choisi) =>
+                        setValue(
+                          `photos.${rang}.elementId`,
+                          choisi === AUCUN_ELEMENT ? null : choisi,
+                          { shouldDirty: true },
+                        )
+                      }
+                    >
+                      <SelectTrigger
+                        className="h-8 w-full bg-card text-xs"
+                        aria-label={t("photos.elementRattache")}
+                      >
+                        <SelectValue placeholder={t("photos.sansElement")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={AUCUN_ELEMENT}>{t("photos.sansElement")}</SelectItem>
+                        {lots.map((lot) => (
+                          <SelectItem key={lot.id} value={lot.id}>
+                            {t("lotValeur", { code: lot.code, nom: lot.nom })}
+                          </SelectItem>
+                        ))}
+                        {activites.map((act) => (
+                          <SelectItem key={act.activiteId} value={act.activiteId}>
+                            {t("avancement.activiteValeur", {
+                              code: act.code,
+                              libelle: act.cheminLibelle || act.libelle,
+                            })}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </li>
             );
@@ -358,7 +586,7 @@ export function SectionPhotos() {
 }
 
 /* ------------------------------------------------------------------ *
- * Les documents joints — pas de vidéo.
+ * Les documents joints — jusqu'à 5 Mo par fichier.
  * ------------------------------------------------------------------ */
 
 export function SectionPiecesJointes() {

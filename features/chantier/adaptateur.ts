@@ -1,22 +1,11 @@
 /**
- * L'accès aux données du journal de chantier — plan de refonte, lot 4, couche 4.
+ * L'accès aux données du journal de chantier — couche d'adaptation HTTP ↔ domaine.
  *
- * Même contrat que `features/projets/adaptateur.ts` : les charges utiles sont
- * privées, et rien au-dessus ne connaît la forme HTTP.
+ * Même contrat que `features/projets/adaptateur.ts` : les charges utiles `snake_case`
+ * restent privées à ce fichier ; rien au-dessus ne connaît la forme HTTP.
  *
- * Les routes ont été proposées au backend d'après les maquettes F2 et le
- * message du 25/09, puis servies par Django (`apps/chantier/`) :
- *
- * - `GET  /chantier/journal/?date_debut=&date_fin=` — les lignes chantier ×
- *   jour, absences comprises (le serveur sait quels chantiers étaient
- *   attendus) ; chaque ligne nomme les lots dont le rapport rend compte ;
- * - `GET  /chantier/rapports/{id}/` — un rapport journalier complet ;
- * - `POST /chantier/journal/{id}/relancer/` — relance du CC ou du signataire ;
- * - `GET  /chantier/syntheses/?projet=&type=&date_debut=&date_fin=` — la
- *   synthèse agrégée à la demande par l'ORM, et son circuit CT → CP.
- *
- * **Tout est réel** depuis le 14/10/2026 (plan d'alignement, lot 1) : saisie,
- * journal, rapport, circuit de validation, relance et synthèse.
+ * Le serveur refuse tout champ inconnu (`StrictSerializer`) : `ChargeSaisie` épouse
+ * clé pour clé `SaisieJournalSerializer` côté Django.
  */
 
 import type { ModeExecutionLot } from "@/features/projets/types";
@@ -27,14 +16,21 @@ import type {
   ActivitePreparee,
   AlerteImmediate,
   Appreciation,
+  BesoinRapport,
   Blocage,
+  BlocageOuvert,
   ConditionsMeteo,
   ConditionsTravail,
+  Conformite,
+  DecideurIncident,
   DemandeSynthese,
   EntreeJournal,
   EtapeCircuit,
+  EtapeSignable,
+  EtatEquipement,
   EtatEtape,
   EtatSignataire,
+  GraviteIncident,
   Incident,
   IncidentSaisi,
   Journal,
@@ -42,15 +38,21 @@ import type {
   LigneEffectif,
   LigneEquipement,
   LigneMateriau,
-  LigneProduction,
   Livraison,
   LotJournal,
   Meteo,
+  MeteoSuggeree,
+  ModeMesureFeuille,
   MotifArret,
+  NatureBlocage,
+  NatureEvenement,
+  NiveauBlocage,
   ObjectifSuivant,
   Photo,
   PreparationSaisie,
+  PresenceEquipeRapport,
   Prevision,
+  ProprieteEquipement,
   QualiteExecution,
   RapportExistant,
   RapportJournalier,
@@ -65,8 +67,44 @@ import type {
   SuiviSynthese,
   SynthesePeriodique,
   TravauxLot,
+  TypeIncident,
   TypePeriode,
 } from "./types";
+
+/* ------------------------------------------------------------------ *
+ * Normalisations défensives (lecture d'enregistrements historiques).
+ * ------------------------------------------------------------------ */
+
+type RoleBrut = RoleSignataire | "CC" | "CT" | "CP";
+type StatutBrut = StatutRapport | "VALIDE_CT" | "APPROUVE_CP";
+
+function normaliserRole(role: RoleBrut): RoleSignataire {
+  if (role === "CC") return "REDACTION";
+  if (role === "CT") return "VALIDATION";
+  if (role === "CP") return "APPROBATION";
+  return role;
+}
+
+function normaliserEtapeSignable(etape: EtapeSignable | "CT" | "CP" | null | undefined): EtapeSignable | null {
+  if (!etape) return null;
+  if (etape === "CT") return "VALIDATION";
+  if (etape === "CP") return "APPROBATION";
+  return etape;
+}
+
+function normaliserStatut(statut: StatutBrut): StatutRapport {
+  if (statut === "VALIDE_CT") return "VALIDE";
+  if (statut === "APPROUVE_CP") return "APPROUVE";
+  return statut;
+}
+
+function normaliserDecideur(decideur: string | null | undefined): DecideurIncident | "" {
+  if (!decideur) return "";
+  if (decideur === "CC") return "REDACTION";
+  if (decideur === "CT") return "VALIDATION";
+  if (decideur === "CP") return "APPROBATION";
+  return decideur as DecideurIncident;
+}
 
 /* ------------------------------------------------------------------ *
  * Les charges utiles du serveur.
@@ -76,30 +114,30 @@ interface ChargeLot {
   id: string;
   code: string;
   nom: string;
-  /** Le mode de base : `REGIE_DIRECTE`, `SOUS_TRAITANCE_STRUCTUREE` ou `SOUS_TRAITANCE_INFORMELLE`. */
   mode_execution: ModeExecutionLot;
   mode_execution_libelle?: string;
   projet_id: string;
   projet_nom: string;
   projet_reference: string;
-  chef_chantier_nom: string;
+  redacteur_nom?: string;
+  chef_chantier_nom?: string;
 }
 
 interface ChargeChantier {
   projet_id: string;
   projet_nom: string;
   projet_reference: string;
-  chef_chantier_nom: string;
+  redacteur_nom?: string;
+  chef_chantier_nom?: string;
 }
 
 interface ChargeEtape {
-  role: RoleSignataire;
+  role: RoleBrut;
   signataire_nom: string;
   etat: EtatEtape;
   signe_le: string | null;
   echeance: string | null;
   commentaire?: string | null;
-  /** Tous ceux qui signent l'étape et où chacun en est (30/10/2026). */
   signataires?: {
     utilisateur_id: string;
     nom: string;
@@ -116,7 +154,7 @@ interface ChargeEntree {
   date: string;
   chantier: ChargeChantier;
   lots: ChargeLot[];
-  statut: StatutRapport | "NON_SOUMIS";
+  statut: StatutBrut | "NON_SOUMIS";
   effectif_present: number | null;
   effectif_prevu: number | null;
   avancement: number | null;
@@ -127,64 +165,102 @@ interface ChargeEntree {
   soumis_le: string | null;
   dernier_rapport_le?: string | null;
   relance_le?: string | null;
+  note_redacteur?: string | null;
   note_chef_chantier?: string | null;
   circuit: ChargeEtape[];
 }
 
 interface ChargeJournal {
   aujourdhui: string;
+  est_jour_ouvre?: boolean;
+  jours_saisissables?: string[];
   lu_le: string;
   resultats: ChargeEntree[];
 }
 
+interface ChargeIncident {
+  numero: string;
+  nature?: NatureEvenement;
+  type: TypeIncident | "";
+  heure_debut?: string;
+  heure_fin?: string;
+  description: string;
+  gravite: GraviteIncident | "";
+  decide_par: string;
+  action: string;
+  resolu: boolean;
+}
+
+interface ChargePrevision {
+  activite_id?: string | null;
+  equipe_id?: string | null;
+  activite: string;
+  equipe: string;
+  objectif: string;
+  prerequis: string;
+}
+
 interface ChargeRapport extends ChargeEntree {
   localisation: string;
-  conducteur_travaux_nom: string;
-  chef_projet_nom: string;
+  validateurs_nom?: string;
+  conducteur_travaux_nom?: string;
+  approbateurs_nom?: string;
+  chef_projet_nom?: string;
   heure_debut: string;
   heure_fin: string;
+  arret?: { motif: MotifArret; precision: string } | null;
   meteo: {
     matin: ConditionsMeteo["matin"];
     apres_midi: ConditionsMeteo["apresMidi"];
-    temperature_min: number | null;
-    temperature_max: number | null;
-    humidite: number | null;
-    vent: string;
     conditions: ConditionsMeteo["conditions"];
-    prevision?: string | null;
   };
-  /** Les nombres sont exigés à la soumission : seul un brouillon les laisse vides. */
-  effectifs: { categorie: string; prevus: number; presents: number; heures: number; observation?: string | null }[] | null;
-  production:
+  effectifs:
     | {
-        intervenant: string;
-        activite: string;
-        unite: string;
-        /** `null` : masqué pour qui n'a pas le droit de voir les montants. */
-        prix_unitaire: number | null;
-        quantite_jour: number;
-        cumul: number;
+        categorie: string;
+        prevus: number;
+        presents: number;
+        heures: number;
+        observation?: string | null;
       }[]
     | null;
+  equipes?: {
+    equipe_id: string;
+    nom: string;
+    entreprise: string;
+    presence: "PRESENT" | "PARTIEL" | "ABSENT";
+    membres: number;
+    presents: string[];
+    absents: string[];
+    retards: string[];
+    heures: number | null;
+    qualite: QualiteExecution | null;
+    observation: string;
+  }[];
   travaux: {
     lot: ChargeLot;
     avancement: number;
     avancement_theorique: number;
     observation?: string | null;
     activites: {
+      activite_id?: string;
       libelle: string;
-      unite: string;
+      mode_mesure?: ModeMesureFeuille;
+      unite: string | null;
       quantite_prevue: number;
       cumul_veille: number;
       quantite_jour: number;
+      pourcentage_veille?: number;
+      pourcentage_jour?: number | null;
+      jalon_atteint?: boolean;
       avancement_theorique: number;
+      equipes_noms?: string[];
+      localisation?: string;
       observation?: string | null;
     }[];
   }[];
   materiaux: {
     designation: string;
     unite: string;
-    /** `null` tant qu'il n'existe pas de module stocks : consommation déclarée, stock inconnu. */
     stock_debut: number | null;
     livre: number;
     utilise: number;
@@ -193,51 +269,58 @@ interface ChargeRapport extends ChargeEntree {
   livraisons: {
     fournisseur: string;
     designation: string;
-    quantite: string;
+    quantite: number | null;
+    unite?: string;
     bon_livraison: string;
     heure: string;
-    conformite: Livraison["conformite"];
+    conformite: Conformite;
+    observation?: string | null;
+  }[];
+  besoins?: {
+    nature: "RUPTURE" | "URGENT";
+    designation: string;
+    quantite: number | null;
+    unite?: string;
     observation?: string | null;
   }[];
   equipements: {
+    cle?: string;
     designation: string;
     reference: string;
-    propriete: LigneEquipement["propriete"];
-    utilisation: string;
+    propriete: ProprieteEquipement | "";
+    heures_utilisation?: number | null;
+    usage?: string;
     operateur: string;
-    etat: LigneEquipement["etat"];
+    etat: EtatEquipement | "";
+    duree_arret?: number | null;
     observation?: string | null;
   }[];
   incidents: ChargeIncident[];
   blocages: {
     numero: string;
-    nature: Blocage["nature"];
-    niveau: Blocage["niveau"];
+    cle?: string;
+    blocage_id?: string | null;
+    element_id?: string | null;
+    element_libelle?: string | null;
+    titre?: string;
+    nature: NatureBlocage | "";
+    niveau: NiveauBlocage;
     description: string;
     impact: string;
-    escalade?: RoleSignataire | null;
+    escalade?: RoleBrut | null;
   }[];
   photos: {
     url?: string | null;
+    element_id?: string | null;
+    element_libelle?: string | null;
     legende: string;
     heure: string;
     latitude: number | null;
     longitude: number | null;
     gps_confirme: boolean;
   }[];
-  /** Absent d'un serveur qui ne les renvoie pas encore : aucun document. */
   pieces_jointes?: { nom: string; type_mime: string; taille: number; fichier?: string | null }[];
-  previsions: { activite: string; equipe: string; objectif: string; prerequis: string }[];
-}
-
-interface ChargeIncident {
-  numero: string;
-  type: Incident["type"];
-  description: string;
-  gravite: Incident["gravite"];
-  decide_par: RoleSignataire;
-  action: string;
-  resolu: boolean;
+  previsions: ChargePrevision[];
 }
 
 interface ChargeObjectif {
@@ -251,10 +334,8 @@ interface ChargeObjectif {
 interface ChargeSynthese {
   id: string | null;
   statut: StatutSynthese;
-  /** Renvoyée au seul conducteur de travaux du chantier, tant qu'il peut écrire. */
   redaction: { appreciation: string; objectifs: ChargeObjectif[] } | null;
-  /** L'étape que le serveur autorise ce compte à signer maintenant (permissions de la synthèse). */
-  etape_a_signer: "CT" | "CP" | null;
+  etape_a_signer: EtapeSignable | "CT" | "CP" | null;
   reference: string;
   type: TypePeriode;
   date_debut: string;
@@ -264,8 +345,10 @@ interface ChargeSynthese {
   projet_nom: string;
   projet_reference: string;
   localisation: string;
-  chef_projet_nom: string;
-  conducteur_travaux_nom: string;
+  approbateurs_nom?: string;
+  chef_projet_nom?: string;
+  validateurs_nom?: string;
+  conducteur_travaux_nom?: string;
   lots: ChargeLot[];
   chiffres: {
     jours_ouvres: number;
@@ -287,7 +370,8 @@ interface ChargeSynthese {
     lot: ChargeLot;
     activites: {
       libelle: string;
-      unite: string;
+      mode_mesure?: ModeMesureFeuille;
+      unite: string | null;
       quantite_prevue: number;
       avancement_debut: number;
       avancement_fin: number;
@@ -302,7 +386,6 @@ interface ChargeSynthese {
     absences: number;
     observation?: string | null;
   }[];
-  /** Le module stocks n'existe pas : les stocks et le seuil restent vides. */
   materiaux: {
     designation: string;
     unite: string;
@@ -319,7 +402,7 @@ interface ChargeSynthese {
 }
 
 /* ------------------------------------------------------------------ *
- * Traductions.
+ * Traductions de lecture.
  * ------------------------------------------------------------------ */
 
 function versLot(charge: ChargeLot): LotJournal {
@@ -332,13 +415,13 @@ function versLot(charge: ChargeLot): LotJournal {
     projetId: charge.projet_id,
     projetNom: charge.projet_nom,
     projetReference: charge.projet_reference,
-    chefChantier: charge.chef_chantier_nom,
+    redacteur: charge.redacteur_nom ?? charge.chef_chantier_nom ?? "",
   };
 }
 
 function versEtape(charge: ChargeEtape): EtapeCircuit {
   return {
-    role: charge.role,
+    role: normaliserRole(charge.role),
     signataire: charge.signataire_nom,
     etat: charge.etat,
     signeLe: charge.signe_le,
@@ -355,9 +438,10 @@ function versEtape(charge: ChargeEtape): EtapeCircuit {
   };
 }
 
-/** Un brouillon est l'affaire de son auteur : vu d'ailleurs, rien n'est soumis. */
 function versSituation(statut: ChargeEntree["statut"]): SituationRapport {
-  return statut === "BROUILLON" ? "NON_SOUMIS" : statut;
+  if (statut === "BROUILLON" || statut === "NON_SOUMIS") return "NON_SOUMIS";
+  const normalise = normaliserStatut(statut);
+  return normalise === "BROUILLON" ? "NON_SOUMIS" : normalise;
 }
 
 function versEntree(charge: ChargeEntree): EntreeJournal {
@@ -369,7 +453,7 @@ function versEntree(charge: ChargeEntree): EntreeJournal {
       projetId: charge.chantier.projet_id,
       projetNom: charge.chantier.projet_nom,
       projetReference: charge.chantier.projet_reference,
-      chefChantier: charge.chantier.chef_chantier_nom,
+      redacteur: charge.chantier.redacteur_nom ?? charge.chantier.chef_chantier_nom ?? "",
     },
     lots: charge.lots.map(versLot),
     situation: versSituation(charge.statut),
@@ -383,7 +467,7 @@ function versEntree(charge: ChargeEntree): EntreeJournal {
     soumisLe: charge.soumis_le,
     dernierRapportLe: charge.dernier_rapport_le ?? null,
     relanceLe: charge.relance_le ?? null,
-    noteChefChantier: charge.note_chef_chantier ?? null,
+    noteRedacteur: charge.note_redacteur ?? charge.note_chef_chantier ?? null,
     circuit: charge.circuit.map(versEtape),
   };
 }
@@ -391,44 +475,73 @@ function versEntree(charge: ChargeEntree): EntreeJournal {
 function versIncident(charge: ChargeIncident): Incident {
   return {
     numero: charge.numero,
-    type: charge.type,
+    nature: charge.nature ?? "EVENEMENT_PARTICULIER",
+    type: charge.type ?? "",
+    heureDebut: charge.heure_debut ?? "",
+    heureFin: charge.heure_fin ?? "",
     description: charge.description,
-    gravite: charge.gravite,
-    decidePar: charge.decide_par,
+    gravite: charge.gravite ?? "",
+    decidePar: normaliserDecideur(charge.decide_par),
     action: charge.action,
     resolu: charge.resolu,
   };
 }
 
+function versPrevision(charge: ChargePrevision): Prevision {
+  return {
+    activiteId: charge.activite_id ?? null,
+    equipeId: charge.equipe_id ?? null,
+    activite: charge.activite,
+    equipe: charge.equipe,
+    objectif: charge.objectif,
+    prerequis: charge.prerequis,
+  };
+}
+
 function versRapport(charge: ChargeRapport): RapportJournalier {
   const effectifs: LigneEffectif[] | null =
-    charge.effectifs?.map((ligne) => ({ ...ligne, observation: ligne.observation ?? null })) ?? null;
-  const production: LigneProduction[] | null =
-    charge.production?.map((ligne) => ({
-      intervenant: ligne.intervenant,
-      activite: ligne.activite,
-      unite: ligne.unite,
-      prixUnitaire: ligne.prix_unitaire,
-      quantiteJour: ligne.quantite_jour,
-      cumul: ligne.cumul,
-    })) ?? null;
+    charge.effectifs?.map((ligne) => ({ ...ligne, observation: ligne.observation ?? null })) ??
+    null;
+
+  const equipes: PresenceEquipeRapport[] = (charge.equipes ?? []).map((equipe) => ({
+    equipeId: equipe.equipe_id,
+    nom: equipe.nom,
+    entreprise: equipe.entreprise,
+    presence: equipe.presence,
+    membres: equipe.membres,
+    presents: equipe.presents,
+    absents: equipe.absents,
+    retards: equipe.retards,
+    heures: equipe.heures,
+    qualite: equipe.qualite,
+    observation: equipe.observation,
+  }));
+
   const travaux: TravauxLot[] = charge.travaux.map((bloc) => ({
     lot: versLot(bloc.lot),
     avancement: bloc.avancement,
     avancementTheorique: bloc.avancement_theorique,
     observation: bloc.observation ?? null,
     activites: bloc.activites.map(
-      (ligne): LigneActivite => ({
+      (ligne, index): LigneActivite => ({
+        activiteId: ligne.activite_id ?? `${bloc.lot.id}-${index}`,
         libelle: ligne.libelle,
+        modeMesure: ligne.mode_mesure ?? "QUANTITE",
         unite: ligne.unite,
         quantitePrevue: ligne.quantite_prevue,
         cumulVeille: ligne.cumul_veille,
         quantiteJour: ligne.quantite_jour,
+        pourcentageVeille: ligne.pourcentage_veille ?? 0,
+        pourcentageJour: ligne.pourcentage_jour ?? null,
+        jalonAtteint: ligne.jalon_atteint ?? false,
         avancementTheorique: ligne.avancement_theorique,
+        equipesNoms: ligne.equipes_noms ?? [],
+        localisation: ligne.localisation ?? "",
         observation: ligne.observation ?? null,
       }),
     ),
   }));
+
   const materiaux: LigneMateriau[] = charge.materiaux.map((ligne) => ({
     designation: ligne.designation,
     unite: ligne.unite,
@@ -437,55 +550,88 @@ function versRapport(charge: ChargeRapport): RapportJournalier {
     utilise: ligne.utilise,
     seuilAlerte: ligne.seuil_alerte,
   }));
+
   const livraisons: Livraison[] = charge.livraisons.map((ligne) => ({
     fournisseur: ligne.fournisseur,
     designation: ligne.designation,
     quantite: ligne.quantite,
+    unite: ligne.unite ?? "",
     bonLivraison: ligne.bon_livraison,
     heure: ligne.heure,
-    conformite: ligne.conformite,
+    conformite: ligne.conformite || "CONFORME",
     observation: ligne.observation ?? null,
   }));
-  const equipements: LigneEquipement[] = charge.equipements.map((ligne) => ({
-    ...ligne,
+
+  const besoins: BesoinRapport[] = (charge.besoins ?? []).map((besoin) => ({
+    nature: besoin.nature,
+    designation: besoin.designation,
+    quantite: besoin.quantite,
+    unite: besoin.unite ?? "",
+    observation: besoin.observation ?? null,
+  }));
+
+  const equipements: LigneEquipement[] = charge.equipements.map((ligne, index) => ({
+    cle: ligne.cle ?? `eq-${index}`,
+    designation: ligne.designation,
+    reference: ligne.reference,
+    propriete: ligne.propriete,
+    heuresUtilisation: ligne.heures_utilisation ?? null,
+    usage: ligne.usage ?? "",
+    operateur: ligne.operateur,
+    etat: ligne.etat,
+    dureeArret: ligne.duree_arret ?? null,
     observation: ligne.observation ?? null,
   }));
-  const blocages: Blocage[] = charge.blocages.map((ligne) => ({ ...ligne, escalade: ligne.escalade ?? null }));
+
+  const blocages: Blocage[] = charge.blocages.map((ligne, index) => ({
+    numero: ligne.numero,
+    cle: ligne.cle ?? `blc-${index}`,
+    blocageId: ligne.blocage_id ?? null,
+    elementId: ligne.element_id ?? null,
+    elementLibelle: ligne.element_libelle ?? null,
+    titre: ligne.titre ?? "",
+    nature: ligne.nature ?? "",
+    niveau: ligne.niveau,
+    description: ligne.description,
+    impact: ligne.impact,
+    escalade: ligne.escalade ? normaliserRole(ligne.escalade) : null,
+  }));
+
   const photos: Photo[] = charge.photos.map((photo) => ({
     url: photo.url ?? null,
+    elementId: photo.element_id ?? null,
+    elementLibelle: photo.element_libelle ?? null,
     legende: photo.legende,
     heure: photo.heure,
     latitude: photo.latitude,
     longitude: photo.longitude,
     gpsConfirme: photo.gps_confirme,
   }));
-  const previsions: Prevision[] = charge.previsions;
+
+  const redacteur = charge.chantier.redacteur_nom ?? charge.chantier.chef_chantier_nom ?? "";
 
   return {
     ...versEntree(charge),
     localisation: charge.localisation,
     intervenants: {
-      chefChantier: charge.chantier.chef_chantier_nom,
-      conducteurTravaux: charge.conducteur_travaux_nom,
-      chefProjet: charge.chef_projet_nom,
+      redacteur,
+      validateurs: charge.validateurs_nom ?? charge.conducteur_travaux_nom ?? "",
+      approbateurs: charge.approbateurs_nom ?? charge.chef_projet_nom ?? "",
     },
     heureDebut: charge.heure_debut,
     heureFin: charge.heure_fin,
+    arret: charge.arret ?? null,
     meteo: {
-      matin: charge.meteo.matin,
-      apresMidi: charge.meteo.apres_midi,
-      temperatureMin: charge.meteo.temperature_min,
-      temperatureMax: charge.meteo.temperature_max,
-      humidite: charge.meteo.humidite,
-      vent: charge.meteo.vent,
-      conditions: charge.meteo.conditions,
-      prevision: charge.meteo.prevision ?? null,
+      matin: charge.meteo.matin ?? "",
+      apresMidi: charge.meteo.apres_midi ?? "",
+      conditions: charge.meteo.conditions ?? "",
     },
     effectifs,
-    production,
+    equipes,
     travaux,
     materiaux,
     livraisons,
+    besoins,
     equipements,
     listeIncidents: charge.incidents.map(versIncident),
     listeBlocages: blocages,
@@ -496,7 +642,7 @@ function versRapport(charge: ChargeRapport): RapportJournalier {
       taille: piece.taille,
       url: piece.fichier ?? null,
     })),
-    previsions,
+    previsions: charge.previsions.map(versPrevision),
   };
 }
 
@@ -512,9 +658,12 @@ function versSynthese(charge: ChargeSynthese): SynthesePeriodique {
   return {
     id: charge.id,
     statut: charge.statut,
-    etapeASigner: charge.etape_a_signer ?? null,
+    etapeASigner: normaliserEtapeSignable(charge.etape_a_signer),
     redaction: charge.redaction
-      ? { appreciation: charge.redaction.appreciation, objectifs: charge.redaction.objectifs.map(versObjectif) }
+      ? {
+          appreciation: charge.redaction.appreciation,
+          objectifs: charge.redaction.objectifs.map(versObjectif),
+        }
       : null,
     reference: charge.reference,
     type: charge.type,
@@ -525,8 +674,8 @@ function versSynthese(charge: ChargeSynthese): SynthesePeriodique {
     projetNom: charge.projet_nom,
     projetReference: charge.projet_reference,
     localisation: charge.localisation,
-    chefProjet: charge.chef_projet_nom,
-    conducteurTravaux: charge.conducteur_travaux_nom,
+    approbateurs: charge.approbateurs_nom ?? charge.chef_projet_nom ?? "",
+    validateurs: charge.validateurs_nom ?? charge.conducteur_travaux_nom ?? "",
     lots: charge.lots.map(versLot),
     chiffres: {
       joursOuvres: chiffres.jours_ouvres,
@@ -548,6 +697,7 @@ function versSynthese(charge: ChargeSynthese): SynthesePeriodique {
       lot: versLot(bloc.lot),
       activites: bloc.activites.map((activite) => ({
         libelle: activite.libelle,
+        modeMesure: activite.mode_mesure ?? "QUANTITE",
         unite: activite.unite,
         quantitePrevue: activite.quantite_prevue,
         avancementDebut: activite.avancement_debut,
@@ -593,22 +743,17 @@ function versObjectif(charge: ChargeObjectif): ObjectifSuivant {
 }
 
 /* ------------------------------------------------------------------ *
- * Lectures et écritures.
+ * Lectures et circuit de signatures.
  * ------------------------------------------------------------------ */
 
-/**
- * L'écran peut-il proposer la synthèse ? Seulement servie par Django : une
- * synthèse simulée, agrégée de rapports inventés, passerait pour réelle devant
- * un client (décision du 13/10/2026). Django la sert depuis le 14/10/2026 ;
- * l'onglet et la page se masquent ensemble si on repasse ce drapeau à `false`.
- */
 export const SYNTHESE_DISPONIBLE = true;
 
-/** Le journal des neuf dernières semaines, tous chantiers confondus. */
 export async function lireJournal(signal?: AbortSignal): Promise<Journal> {
   const charge = await api.lire<ChargeJournal>("/chantier/journal/", undefined, signal);
   return {
     aujourdhui: charge.aujourdhui,
+    estJourOuvre: charge.est_jour_ouvre ?? true,
+    joursSaisissables: charge.jours_saisissables ?? [],
     luLe: charge.lu_le,
     entrees: charge.resultats.map(versEntree),
   };
@@ -618,58 +763,32 @@ export async function lireRapport(id: string, signal?: AbortSignal): Promise<Rap
   return versRapport(await api.lire<ChargeRapport>(`/chantier/rapports/${id}/`, undefined, signal));
 }
 
-/* ------------------------------------------------------------------ *
- * Le circuit de validation CC → CT → CP (SFD F2, RG-F2-03).
- *
- *   POST /chantier/rapports/{id}/valider/    signature du conducteur de travaux
- *   POST /chantier/rapports/{id}/approuver/  signature du chef de projet, après le CT
- *   POST /chantier/rapports/{id}/rejeter/    retour au chef de chantier, motif ≥ 20 caractères
- *
- * Chacune renvoie le rapport à jour. Le serveur revérifie tout : le statut
- * attendu, l'affectation du signataire au chantier, et que l'auteur ne signe
- * pas son propre rapport.
- * ------------------------------------------------------------------ */
-
-/** Le conducteur de travaux signe un rapport soumis. */
 export async function validerRapport(id: string, commentaire: string): Promise<RapportJournalier> {
-  return versRapport(await api.creer<ChargeRapport>(`/chantier/rapports/${id}/valider/`, { commentaire }));
+  return versRapport(
+    await api.creer<ChargeRapport>(`/chantier/rapports/${id}/valider/`, { commentaire }),
+  );
 }
 
-/** Le chef de projet signe un rapport déjà validé par le conducteur de travaux. */
-export async function approuverRapport(id: string, commentaire: string): Promise<RapportJournalier> {
-  return versRapport(await api.creer<ChargeRapport>(`/chantier/rapports/${id}/approuver/`, { commentaire }));
+export async function approuverRapport(
+  id: string,
+  commentaire: string,
+): Promise<RapportJournalier> {
+  return versRapport(
+    await api.creer<ChargeRapport>(`/chantier/rapports/${id}/approuver/`, { commentaire }),
+  );
 }
 
-/** Renvoie le rapport au chef de chantier, à l'étape où il se trouve. */
 export async function rejeterRapport(id: string, motif: string): Promise<RapportJournalier> {
   return versRapport(await api.creer<ChargeRapport>(`/chantier/rapports/${id}/rejeter/`, { motif }));
 }
 
-/**
- * Relance par e-mail la personne qui bloque une ligne : le chef de chantier si
- * le rapport manque, est en brouillon ou rejeté ; le signataire attendu s'il
- * est soumis. `id` est celui de la ligne (`{projet}_{jour}` pour un rapport
- * manquant). Une relance par ligne et par jour : une seconde demande le même
- * jour rend la première, sans renvoyer d'e-mail.
- */
 export async function relancer(id: string): Promise<{ relanceLe: string }> {
   const charge = await api.creer<{ relance_le: string }>(`/chantier/journal/${id}/relancer/`, {});
   return { relanceLe: charge.relance_le };
 }
 
 /* ------------------------------------------------------------------ *
- * La synthèse périodique et son circuit CT → CP.
- *
- *   GET  /chantier/syntheses/?projet=&type=&date_debut=&date_fin=
- *   GET  /chantier/syntheses/suivi/?projet=
- *   POST /chantier/syntheses/redaction/      le CT enregistre, sans signer
- *   POST /chantier/syntheses/soumettre/      le CT enregistre et signe
- *   POST /chantier/syntheses/{id}/approuver/ le CP clôt le circuit
- *   POST /chantier/syntheses/{id}/rejeter/   le CP la rend au CT, motif ≥ 20 caractères
- *
- * Une synthèse se désigne par son chantier et sa période tant que le CT n'y
- * a rien écrit ; elle a ensuite un identifiant. Chaque écriture renvoie la
- * synthèse à jour.
+ * Synthèse périodique.
  * ------------------------------------------------------------------ */
 
 function versPeriode(demande: DemandeSynthese) {
@@ -681,8 +800,13 @@ function versPeriode(demande: DemandeSynthese) {
   };
 }
 
-export async function lireSynthese(demande: DemandeSynthese, signal?: AbortSignal): Promise<SynthesePeriodique> {
-  return versSynthese(await api.lire<ChargeSynthese>("/chantier/syntheses/", versPeriode(demande), signal));
+export async function lireSynthese(
+  demande: DemandeSynthese,
+  signal?: AbortSignal,
+): Promise<SynthesePeriodique> {
+  return versSynthese(
+    await api.lire<ChargeSynthese>("/chantier/syntheses/", versPeriode(demande), signal),
+  );
 }
 
 function versChargeRedaction(demande: DemandeSynthese, redaction: RedactionSynthese) {
@@ -699,32 +823,43 @@ function versChargeRedaction(demande: DemandeSynthese, redaction: RedactionSynth
   };
 }
 
-/** Le CT enregistre son appréciation et ses objectifs, sans signer. */
 export async function enregistrerSynthese(
   demande: DemandeSynthese,
   redaction: RedactionSynthese,
 ): Promise<SynthesePeriodique> {
   return versSynthese(
-    await api.creer<ChargeSynthese>("/chantier/syntheses/redaction/", versChargeRedaction(demande, redaction)),
+    await api.creer<ChargeSynthese>(
+      "/chantier/syntheses/redaction/",
+      versChargeRedaction(demande, redaction),
+    ),
   );
 }
 
-/** Le CT enregistre et signe : la synthèse est figée et part au chef de projet. */
 export async function soumettreSynthese(
   demande: DemandeSynthese,
   redaction: RedactionSynthese,
 ): Promise<SynthesePeriodique> {
   return versSynthese(
-    await api.creer<ChargeSynthese>("/chantier/syntheses/soumettre/", versChargeRedaction(demande, redaction)),
+    await api.creer<ChargeSynthese>(
+      "/chantier/syntheses/soumettre/",
+      versChargeRedaction(demande, redaction),
+    ),
   );
 }
 
-export async function approuverSynthese(id: string, commentaire: string): Promise<SynthesePeriodique> {
-  return versSynthese(await api.creer<ChargeSynthese>(`/chantier/syntheses/${id}/approuver/`, { commentaire }));
+export async function approuverSynthese(
+  id: string,
+  commentaire: string,
+): Promise<SynthesePeriodique> {
+  return versSynthese(
+    await api.creer<ChargeSynthese>(`/chantier/syntheses/${id}/approuver/`, { commentaire }),
+  );
 }
 
 export async function rejeterSynthese(id: string, motif: string): Promise<SynthesePeriodique> {
-  return versSynthese(await api.creer<ChargeSynthese>(`/chantier/syntheses/${id}/rejeter/`, { motif }));
+  return versSynthese(
+    await api.creer<ChargeSynthese>(`/chantier/syntheses/${id}/rejeter/`, { motif }),
+  );
 }
 
 interface ChargeSuiviSynthese {
@@ -736,9 +871,12 @@ interface ChargeSuiviSynthese {
   statut: StatutSynthese;
 }
 
-/** Les synthèses enregistrées des trois derniers mois, chantiers visibles. */
 export async function lireSuiviSyntheses(signal?: AbortSignal): Promise<SuiviSynthese[]> {
-  const charge = await api.lire<{ resultats: ChargeSuiviSynthese[] }>("/chantier/syntheses/suivi/", undefined, signal);
+  const charge = await api.lire<{ resultats: ChargeSuiviSynthese[] }>(
+    "/chantier/syntheses/suivi/",
+    undefined,
+    signal,
+  );
   return charge.resultats.map((ligne) => ({
     id: ligne.id,
     projetId: ligne.projet_id,
@@ -750,25 +888,7 @@ export async function lireSuiviSyntheses(signal?: AbortSignal): Promise<SuiviSyn
 }
 
 /* ------------------------------------------------------------------ *
- * La saisie du chef de chantier (SFD F2 §13).
- *
- *   GET   /chantier/rapports/preparation/?projet=&date=  le formulaire d'un chantier pour un jour
- *   GET   /chantier/rapports/?auteur=moi&projet=         mes rapports sur ce chantier
- *   POST  /chantier/rapports/                            créer le brouillon (projet, date)
- *   PATCH /chantier/rapports/{id}/draft/              sauvegarde silencieuse (30 s)
- *   POST  /chantier/rapports/{id}/soumettre/          BROUILLON → SOUMIS
- *   POST  /chantier/rapports/{id}/alertes/            blocage bloquant, incident grave
- *
- * **Un rapport couvre un chantier sur un jour**, tous ses lots en cours
- * réunis — décision produit du 05/10/2026, contre le « un lot, un jour » du
- * SFD. Le SFD les écrit sous `/api/v1/rapports/` ; Django les sert sous
- * `/chantier/`, comme le reste du journal.
- *
- * **Ces cinq routes sont réelles** depuis le 13/10/2026 (plan d'alignement,
- * tâche 1.2) : un rapport vit en base, plus dans le navigateur. Le serveur
- * **refuse tout champ qu'il ne connaît pas** (`StrictSerializer`) — un champ
- * ajouté à `ChargeSaisie` sans l'être côté Django donne un 400, pas un oubli
- * silencieux.
+ * Préparation et écriture de la saisie du rapport journalier.
  * ------------------------------------------------------------------ */
 
 interface ChargeSaisie {
@@ -778,34 +898,11 @@ interface ChargeSaisie {
   heure_fin: string;
   arret: { motif: MotifArret; precision: string } | null;
   meteo: {
-    matin: Meteo;
-    apres_midi: Meteo;
-    conditions: ConditionsTravail;
-    temperature_min: number | null;
-    temperature_max: number | null;
-    humidite: number | null;
-    vent: string;
-    prevision: string;
+    matin: Meteo | "";
+    apres_midi: Meteo | "";
+    conditions: ConditionsTravail | "";
   };
-  effectifs: {
-    categorie: string;
-    prevus: number | null;
-    presents: number | null;
-    retards: number | null;
-    heures: number | null;
-    observation: string;
-  }[];
-  presence_sous_traitant: SaisieRapport["presenceSousTraitant"];
-  production: {
-    intervenant: string;
-    /** L'ouvrier, parmi les membres de l'équipe de la tâche ; nul sans équipe. */
-    personne_id?: string | null;
-    activite_id: string;
-    quantite_jour: number | null;
-    prix_unitaire: number | null;
-  }[];
-  /** Les présents des équipes des tâches (30/10/2026) ; absent des saisies antérieures. */
-  equipes?: {
+  equipes: {
     equipe_id: string;
     presents: string[];
     retards: string[];
@@ -814,61 +911,96 @@ interface ChargeSaisie {
     observation: string;
   }[];
   lots_travailles: { lot_id: string; observation: string }[];
-  activites: { activite_id: string; quantite_jour: number | null; localisation: string; observation: string }[];
+  activites: {
+    activite_id: string;
+    equipe_ids: string[];
+    quantite_jour: number | null;
+    pourcentage_jour: number | null;
+    jalon_atteint: boolean;
+    localisation: string;
+    observation: string;
+  }[];
   materiaux: { designation: string; quantite_consommee: number | null; unite: string }[];
   livraisons: {
     fournisseur: string;
     designation: string;
-    quantite: string;
+    quantite: number | null;
+    unite: string;
     bon_livraison: string;
     heure: string;
-    conformite: Livraison["conformite"];
+    conformite: Conformite | "";
     observation: string;
   }[];
-  besoins: SaisieRapport["besoins"];
+  besoins: {
+    nature: "RUPTURE" | "URGENT";
+    designation: string;
+    quantite: number | null;
+    unite: string;
+    observation: string;
+  }[];
   equipements: {
+    cle: string;
     designation: string;
     reference: string;
-    propriete: LigneEquipement["propriete"];
-    utilisation: string;
+    propriete: ProprieteEquipement | "";
+    heures_utilisation: number | null;
+    usage: string;
     operateur: string;
-    etat: LigneEquipement["etat"];
+    etat: EtatEquipement | "";
     duree_arret: number | null;
     observation: string;
   }[];
   incidents: {
     cle: string;
     nature: IncidentSaisi["nature"];
-    type: Incident["type"];
+    type: IncidentSaisi["type"];
     heure_debut: string;
     heure_fin: string;
-    gravite: Incident["gravite"];
-    decide_par: RoleSignataire;
+    gravite: IncidentSaisi["gravite"];
+    decide_par: DecideurIncident | "";
     description: string;
     action_entreprise: string;
   }[];
-  blocage: {
-    niveau: SaisieRapport["blocage"]["niveau"];
-    nature: Blocage["nature"] | null;
+  blocages: {
+    cle: string;
+    blocage_id: string | null;
+    element_id: string | null;
+    titre: string;
+    niveau: NiveauBlocage;
+    nature: NatureBlocage | "";
     description: string;
     impact: string;
-  };
+  }[];
   photos: {
     cle: string;
+    element_id: string | null;
     fichier: string;
     legende: string;
     horodatage_utc: string;
     latitude: number | null;
     longitude: number | null;
   }[];
-  pieces_jointes: { cle: string; fichier: string; nom: string; type_mime: string; taille: number }[];
-  previsions: { activite: string; equipe: string; objectif: string; prerequis: string }[];
-  note_cc: string;
+  pieces_jointes: {
+    cle: string;
+    fichier: string;
+    nom: string;
+    type_mime: string;
+    taille: number;
+  }[];
+  previsions: {
+    activite_id: string | null;
+    equipe_id: string | null;
+    activite: string;
+    equipe: string;
+    objectif: string;
+    prerequis: string;
+  }[];
+  note_redacteur: string;
 }
 
 interface ChargeRapportExistant {
   id: string;
-  statut: StatutRapport;
+  statut: StatutBrut;
   saisie: ChargeSaisie;
   enregistre_le: string;
   commentaire_rejet: string | null;
@@ -877,19 +1009,47 @@ interface ChargeRapportExistant {
 
 interface ChargePreparation {
   aujourdhui: string;
-  projet: { id: string; nom: string; reference: string; chef_chantier_nom: string };
+  est_jour_ouvre: boolean;
+  jours_saisissables: string[];
+  meteo_suggeree: {
+    matin: Meteo;
+    apres_midi: Meteo;
+    conditions: ConditionsTravail;
+    source_auto: boolean;
+  } | null;
+  previsions_veille: ChargePrevision[];
+  blocages_ouverts: {
+    id: string;
+    titre: string;
+    severite: string;
+    statut: string;
+    element_id: string | null;
+    element_libelle: string | null;
+    ouvert_le: string;
+  }[];
+  projet: {
+    id: string;
+    nom: string;
+    reference: string;
+    redacteur_nom?: string;
+    chef_chantier_nom?: string;
+  };
   lots: ChargeLot[];
   sections: SectionSaisie[];
   activites: {
     activite_id: string;
     lot_id: string;
-    suivi: ActivitePreparee["suivi"];
+    mode_mesure: ModeMesureFeuille;
     code: string;
     libelle: string;
+    chemin_libelle: string;
     unite: ActivitePreparee["unite"];
     quantite_prevue: number;
     cumul_veille: number;
+    pourcentage_veille: number;
     avancement_theorique: number;
+    equipes_affectees: string[];
+    attendue_ce_jour: boolean;
   }[];
   materiaux: {
     materiau_id: string;
@@ -899,23 +1059,15 @@ interface ChargePreparation {
     seuil_alerte: number;
   }[];
   reprises: {
-    effectifs: { categorie: string; prevus: number }[];
     equipements: {
       designation: string;
       reference: string;
-      propriete: LigneEquipement["propriete"];
+      propriete: ProprieteEquipement | "";
       operateur: string;
-    }[];
-    /** `prix_unitaire` vaut `null` pour qui n'a pas le droit de voir les montants. */
-    intervenants: {
-      intervenant: string;
-      personne_id?: string | null;
-      activite_id: string;
-      prix_unitaire: number | null;
+      usage?: string;
     }[];
     equipes?: { equipe_id: string; presents: string[] }[];
   };
-  /** Les équipes des tâches et leurs membres ce jour ; absent d'une photographie ancienne. */
   equipes?: {
     equipe_id: string;
     nom: string;
@@ -942,21 +1094,7 @@ function versChargeSaisie(saisie: SaisieRapport): ChargeSaisie {
       matin: saisie.meteo.matin,
       apres_midi: saisie.meteo.apresMidi,
       conditions: saisie.meteo.conditions,
-      temperature_min: saisie.meteo.temperatureMin,
-      temperature_max: saisie.meteo.temperatureMax,
-      humidite: saisie.meteo.humidite,
-      vent: saisie.meteo.vent,
-      prevision: saisie.meteo.prevision,
     },
-    effectifs: saisie.effectifs,
-    presence_sous_traitant: saisie.presenceSousTraitant,
-    production: saisie.production.map((ligne) => ({
-      intervenant: ligne.intervenant,
-      personne_id: ligne.personneId,
-      activite_id: ligne.activiteId,
-      quantite_jour: ligne.quantiteJour,
-      prix_unitaire: ligne.prixUnitaire,
-    })),
     equipes: saisie.equipes.map((ligne) => ({
       equipe_id: ligne.equipeId,
       presents: ligne.presents,
@@ -971,7 +1109,10 @@ function versChargeSaisie(saisie: SaisieRapport): ChargeSaisie {
     })),
     activites: saisie.activites.map((ligne) => ({
       activite_id: ligne.activiteId,
+      equipe_ids: ligne.equipeIds,
       quantite_jour: ligne.quantiteJour,
+      pourcentage_jour: ligne.pourcentageJour,
+      jalon_atteint: ligne.jalonAtteint,
       localisation: ligne.localisation,
       observation: ligne.observation,
     })),
@@ -984,13 +1125,31 @@ function versChargeSaisie(saisie: SaisieRapport): ChargeSaisie {
       fournisseur: ligne.fournisseur,
       designation: ligne.designation,
       quantite: ligne.quantite,
+      unite: ligne.unite,
       bon_livraison: ligne.bonLivraison,
       heure: ligne.heure,
       conformite: ligne.conformite,
       observation: ligne.observation,
     })),
-    besoins: saisie.besoins,
-    equipements: saisie.equipements.map(({ dureeArret, ...ligne }) => ({ ...ligne, duree_arret: dureeArret })),
+    besoins: saisie.besoins.map((besoin) => ({
+      nature: besoin.nature,
+      designation: besoin.designation,
+      quantite: besoin.quantite,
+      unite: besoin.unite,
+      observation: besoin.observation,
+    })),
+    equipements: saisie.equipements.map((ligne) => ({
+      cle: ligne.cle,
+      designation: ligne.designation,
+      reference: ligne.reference,
+      propriete: ligne.propriete,
+      heures_utilisation: ligne.heuresUtilisation,
+      usage: ligne.usage,
+      operateur: ligne.operateur,
+      etat: ligne.etat,
+      duree_arret: ligne.dureeArret,
+      observation: ligne.observation,
+    })),
     incidents: saisie.incidents.map((incident) => ({
       cle: incident.cle,
       nature: incident.nature,
@@ -1002,9 +1161,19 @@ function versChargeSaisie(saisie: SaisieRapport): ChargeSaisie {
       description: incident.description,
       action_entreprise: incident.action,
     })),
-    blocage: saisie.blocage,
+    blocages: saisie.blocages.map((blocage) => ({
+      cle: blocage.cle,
+      blocage_id: blocage.blocageId || null,
+      element_id: blocage.elementId || null,
+      titre: blocage.titre,
+      niveau: blocage.niveau,
+      nature: blocage.nature,
+      description: blocage.description,
+      impact: blocage.impact,
+    })),
     photos: saisie.photos.map((photo) => ({
       cle: photo.cle,
+      element_id: photo.elementId || null,
       fichier: photo.url,
       legende: photo.legende,
       horodatage_utc: photo.priseLe,
@@ -1018,8 +1187,15 @@ function versChargeSaisie(saisie: SaisieRapport): ChargeSaisie {
       type_mime: piece.type,
       taille: piece.taille,
     })),
-    previsions: saisie.previsions,
-    note_cc: saisie.note,
+    previsions: saisie.previsions.map((prevision) => ({
+      activite_id: prevision.activiteId || null,
+      equipe_id: prevision.equipeId || null,
+      activite: prevision.activite,
+      equipe: prevision.equipe,
+      objectif: prevision.objectif,
+      prerequis: prevision.prerequis,
+    })),
+    note_redacteur: saisie.noteRedacteur,
   };
 }
 
@@ -1027,126 +1203,171 @@ function versSaisieDomaine(charge: ChargeSaisie): SaisieRapport {
   return {
     projetId: charge.projet_id,
     date: charge.date,
-    heureDebut: charge.heure_debut,
-    heureFin: charge.heure_fin,
-    arret: charge.arret,
+    heureDebut: charge.heure_debut ?? "",
+    heureFin: charge.heure_fin ?? "",
+    arret: charge.arret ?? null,
     meteo: {
-      matin: charge.meteo.matin,
-      apresMidi: charge.meteo.apres_midi,
-      conditions: charge.meteo.conditions,
-      temperatureMin: charge.meteo.temperature_min,
-      temperatureMax: charge.meteo.temperature_max,
-      humidite: charge.meteo.humidite,
-      vent: charge.meteo.vent,
-      prevision: charge.meteo.prevision,
+      matin: charge.meteo?.matin ?? "",
+      apresMidi: charge.meteo?.apres_midi ?? "",
+      conditions: charge.meteo?.conditions ?? "",
     },
-    effectifs: charge.effectifs,
-    presenceSousTraitant: charge.presence_sous_traitant,
-    production: charge.production.map((ligne) => ({
-      intervenant: ligne.intervenant,
-      personneId: ligne.personne_id ?? null,
-      activiteId: ligne.activite_id,
-      quantiteJour: ligne.quantite_jour,
-      prixUnitaire: ligne.prix_unitaire,
-    })),
     equipes: (charge.equipes ?? []).map((ligne) => ({
       equipeId: ligne.equipe_id,
       presents: ligne.presents ?? [],
       retards: ligne.retards ?? [],
-      heures: ligne.heures,
+      heures: ligne.heures ?? null,
       qualite: ligne.qualite ?? "",
       observation: ligne.observation ?? "",
     })),
-    lotsTravailles: charge.lots_travailles.map((point) => ({
+    lotsTravailles: (charge.lots_travailles ?? []).map((point) => ({
       lotId: point.lot_id,
-      observation: point.observation,
+      observation: point.observation ?? "",
     })),
-    activites: charge.activites.map((ligne) => ({
+    activites: (charge.activites ?? []).map((ligne) => ({
       activiteId: ligne.activite_id,
-      quantiteJour: ligne.quantite_jour,
-      localisation: ligne.localisation,
-      observation: ligne.observation,
+      equipeIds: ligne.equipe_ids ?? [],
+      quantiteJour: ligne.quantite_jour ?? null,
+      pourcentageJour: ligne.pourcentage_jour ?? null,
+      jalonAtteint: ligne.jalon_atteint ?? false,
+      localisation: ligne.localisation ?? "",
+      observation: ligne.observation ?? "",
     })),
-    materiaux: charge.materiaux.map((ligne) => ({
-      designation: ligne.designation,
-      quantite: ligne.quantite_consommee,
-      unite: ligne.unite,
+    materiaux: (charge.materiaux ?? []).map((ligne) => ({
+      designation: ligne.designation ?? "",
+      quantite: ligne.quantite_consommee ?? null,
+      unite: ligne.unite ?? "",
     })),
-    livraisons: charge.livraisons.map((ligne) => ({
-      fournisseur: ligne.fournisseur,
-      designation: ligne.designation,
-      quantite: ligne.quantite,
-      bonLivraison: ligne.bon_livraison,
-      heure: ligne.heure,
-      conformite: ligne.conformite,
-      observation: ligne.observation,
+    livraisons: (charge.livraisons ?? []).map((ligne) => ({
+      fournisseur: ligne.fournisseur ?? "",
+      designation: ligne.designation ?? "",
+      quantite: ligne.quantite ?? null,
+      unite: ligne.unite ?? "",
+      bonLivraison: ligne.bon_livraison ?? "",
+      heure: ligne.heure ?? "",
+      conformite: (ligne.conformite || "CONFORME") as Conformite,
+      observation: ligne.observation ?? "",
     })),
-    besoins: charge.besoins,
-    equipements: charge.equipements.map(({ duree_arret, ...ligne }) => ({ ...ligne, dureeArret: duree_arret })),
-    incidents: charge.incidents.map((incident) => ({
-      cle: incident.cle,
-      nature: incident.nature,
-      type: incident.type,
-      heureDebut: incident.heure_debut,
-      heureFin: incident.heure_fin,
-      gravite: incident.gravite,
-      decidePar: incident.decide_par,
-      description: incident.description,
-      action: incident.action_entreprise,
+    besoins: (charge.besoins ?? []).map((besoin) => ({
+      nature: besoin.nature,
+      designation: besoin.designation ?? "",
+      quantite: besoin.quantite ?? null,
+      unite: besoin.unite ?? "",
+      observation: besoin.observation ?? "",
     })),
-    blocage: charge.blocage,
-    photos: charge.photos.map((photo) => ({
-      cle: photo.cle,
+    equipements: (charge.equipements ?? []).map((ligne, index) => ({
+      cle: ligne.cle || `eq-${index}`,
+      designation: ligne.designation ?? "",
+      reference: ligne.reference ?? "",
+      propriete: ligne.propriete ?? "",
+      heuresUtilisation: ligne.heures_utilisation ?? null,
+      usage: ligne.usage ?? "",
+      operateur: ligne.operateur ?? "",
+      etat: ligne.etat ?? "",
+      dureeArret: ligne.duree_arret ?? null,
+      observation: ligne.observation ?? "",
+    })),
+    incidents: (charge.incidents ?? []).map((incident, index) => ({
+      cle: incident.cle || `inc-${index}`,
+      nature: incident.nature ?? "EVENEMENT_PARTICULIER",
+      type: incident.type ?? "",
+      heureDebut: incident.heure_debut ?? "",
+      heureFin: incident.heure_fin ?? "",
+      gravite: incident.gravite ?? "",
+      decidePar: normaliserDecideur(incident.decide_par),
+      description: incident.description ?? "",
+      action: incident.action_entreprise ?? "",
+    })),
+    blocages: (charge.blocages ?? []).map((blocage, index) => ({
+      cle: blocage.cle || `blc-${index}`,
+      blocageId: blocage.blocage_id ?? null,
+      elementId: blocage.element_id ?? null,
+      titre: blocage.titre ?? "",
+      niveau: blocage.niveau,
+      nature: blocage.nature ?? "",
+      description: blocage.description ?? "",
+      impact: blocage.impact ?? "",
+    })),
+    photos: (charge.photos ?? []).map((photo, index) => ({
+      cle: photo.cle || `ph-${index}`,
+      elementId: photo.element_id ?? null,
       url: photo.fichier,
-      legende: photo.legende,
-      priseLe: photo.horodatage_utc,
-      latitude: photo.latitude,
-      longitude: photo.longitude,
+      legende: photo.legende ?? "",
+      priseLe: photo.horodatage_utc ?? "",
+      latitude: photo.latitude ?? null,
+      longitude: photo.longitude ?? null,
     })),
-    piecesJointes: charge.pieces_jointes.map((piece) => ({
-      cle: piece.cle,
+    piecesJointes: (charge.pieces_jointes ?? []).map((piece, index) => ({
+      cle: piece.cle || `pj-${index}`,
       url: piece.fichier,
       nom: piece.nom,
       type: piece.type_mime,
       taille: piece.taille,
     })),
-    previsions: charge.previsions,
-    note: charge.note_cc,
+    previsions: (charge.previsions ?? []).map(versPrevision),
+    noteRedacteur: charge.note_redacteur ?? "",
   };
 }
 
 function versRapportExistant(charge: ChargeRapportExistant): RapportExistant {
   return {
     id: charge.id,
-    statut: charge.statut,
+    statut: normaliserStatut(charge.statut),
     saisie: versSaisieDomaine(charge.saisie),
     enregistreLe: charge.enregistre_le,
     commentaireRejet: charge.commentaire_rejet,
-    alertesEnvoyees: charge.alertes_envoyees,
+    alertesEnvoyees: charge.alertes_envoyees ?? [],
   };
 }
 
 function versPreparation(charge: ChargePreparation): PreparationSaisie {
+  const meteoSuggeree: MeteoSuggeree | null = charge.meteo_suggeree
+    ? {
+        matin: charge.meteo_suggeree.matin,
+        apresMidi: charge.meteo_suggeree.apres_midi,
+        conditions: charge.meteo_suggeree.conditions,
+        sourceAuto: charge.meteo_suggeree.source_auto,
+      }
+    : null;
+
+  const blocagesOuverts: BlocageOuvert[] = (charge.blocages_ouverts ?? []).map((b) => ({
+    id: b.id,
+    titre: b.titre,
+    severite: b.severite,
+    statut: b.statut,
+    elementId: b.element_id,
+    elementLibelle: b.element_libelle,
+    ouvertLe: b.ouvert_le,
+  }));
+
   return {
     aujourdhui: charge.aujourdhui,
+    estJourOuvre: charge.est_jour_ouvre ?? true,
+    joursSaisissables: charge.jours_saisissables ?? [],
+    meteoSuggeree,
+    previsionsVeille: (charge.previsions_veille ?? []).map(versPrevision),
+    blocagesOuverts,
     projet: {
       id: charge.projet.id,
       nom: charge.projet.nom,
       reference: charge.projet.reference,
-      chefChantier: charge.projet.chef_chantier_nom,
+      redacteur: charge.projet.redacteur_nom ?? charge.projet.chef_chantier_nom ?? "",
     },
     lots: charge.lots.map(versLot),
     sections: charge.sections,
     activites: charge.activites.map((activite) => ({
       activiteId: activite.activite_id,
       lotId: activite.lot_id,
-      suivi: activite.suivi,
+      modeMesure: activite.mode_mesure ?? "QUANTITE",
       code: activite.code,
       libelle: activite.libelle,
+      cheminLibelle: activite.chemin_libelle ?? activite.libelle,
       unite: activite.unite,
       quantitePrevue: activite.quantite_prevue,
       cumulVeille: activite.cumul_veille,
+      pourcentageVeille: activite.pourcentage_veille ?? 0,
       avancementTheorique: activite.avancement_theorique,
+      equipesAffectees: activite.equipes_affectees ?? [],
+      attendueCeJour: activite.attendue_ce_jour ?? true,
     })),
     materiaux: charge.materiaux.map((materiau) => ({
       materiauId: materiau.materiau_id,
@@ -1156,13 +1377,12 @@ function versPreparation(charge: ChargePreparation): PreparationSaisie {
       seuilAlerte: materiau.seuil_alerte,
     })),
     reprises: {
-      effectifs: charge.reprises.effectifs,
-      equipements: charge.reprises.equipements,
-      intervenants: charge.reprises.intervenants.map((ligne) => ({
-        intervenant: ligne.intervenant,
-        personneId: ligne.personne_id ?? null,
-        activiteId: ligne.activite_id,
-        prixUnitaire: ligne.prix_unitaire,
+      equipements: (charge.reprises.equipements ?? []).map((equipement) => ({
+        designation: equipement.designation,
+        reference: equipement.reference,
+        propriete: equipement.propriete,
+        operateur: equipement.operateur,
+        usage: equipement.usage ?? "",
       })),
       equipes: (charge.reprises.equipes ?? []).map((ligne) => ({
         equipeId: ligne.equipe_id,
@@ -1192,57 +1412,60 @@ function versPreparation(charge: ChargePreparation): PreparationSaisie {
 
 interface ChargeRapportsProjet {
   aujourdhui: string;
-  resultats: { id: string; date: string; statut: StatutRapport; enregistre_le: string }[];
+  est_jour_ouvre?: boolean;
+  jours_saisissables?: string[];
+  resultats: { id: string; date: string; statut: StatutBrut; enregistre_le: string }[];
 }
 
-/**
- * Mes rapports sur un chantier, tous statuts et toutes dates : l'écran en
- * déduit ceux qui restent à rédiger (`rapportsEnAttente`).
- */
-export async function lireRapportsProjet(projetId: string, signal?: AbortSignal): Promise<RapportsProjet> {
-  const charge = await api.lire<ChargeRapportsProjet>("/chantier/rapports/", { auteur: "moi", projet: projetId }, signal);
+export async function lireRapportsProjet(
+  projetId: string,
+  signal?: AbortSignal,
+): Promise<RapportsProjet> {
+  const charge = await api.lire<ChargeRapportsProjet>(
+    "/chantier/rapports/",
+    { auteur: "moi", projet: projetId },
+    signal,
+  );
   return {
     aujourdhui: charge.aujourdhui,
+    estJourOuvre: charge.est_jour_ouvre ?? true,
+    joursSaisissables: charge.jours_saisissables ?? [],
     rapports: charge.resultats.map((rapport) => ({
       id: rapport.id,
       date: rapport.date,
-      statut: rapport.statut,
+      statut: normaliserStatut(rapport.statut),
       enregistreLe: rapport.enregistre_le,
     })),
   };
 }
 
-/**
- * Le formulaire d'un chantier pour un jour : les lots en cours, les sections
- * de leurs modes, leurs activités, les reprises, et le rapport déjà commencé
- * s'il en existe un. Le serveur n'a besoin que du chantier et du jour.
- *
- * `materiaux` revient vide tant qu'il n'existe pas de module stocks : la
- * saisie des consommations reste libre.
- */
 export async function preparerSaisie(
   projetId: string,
   date: string,
   signal?: AbortSignal,
 ): Promise<PreparationSaisie> {
   return versPreparation(
-    await api.lire<ChargePreparation>("/chantier/rapports/preparation/", { projet: projetId, date }, signal),
+    await api.lire<ChargePreparation>(
+      "/chantier/rapports/preparation/",
+      { projet: projetId, date },
+      signal,
+    ),
   );
 }
 
-/** Crée le brouillon au premier enregistrement, puis le met à jour. Aucune notification. */
-export async function enregistrerBrouillon(id: string | null, saisie: SaisieRapport): Promise<RapportExistant> {
+export async function enregistrerBrouillon(
+  id: string | null,
+  saisie: SaisieRapport,
+): Promise<RapportExistant> {
   const charge = id
-    ? await api.modifier<ChargeRapportExistant>(`/chantier/rapports/${id}/draft/`, versChargeSaisie(saisie))
+    ? await api.modifier<ChargeRapportExistant>(
+        `/chantier/rapports/${id}/draft/`,
+        versChargeSaisie(saisie),
+      )
     : await api.creer<ChargeRapportExistant>("/chantier/rapports/", versChargeSaisie(saisie));
   return versRapportExistant(charge);
 }
 
-/**
- * Soumet le rapport : il entre dans la file du CT et ne se modifie plus
- * (RG-F2-03). Le serveur revérifie les champs obligatoires (422) et l'unicité
- * chantier × jour (409).
- */
 export async function soumettreRapport(
   id: string | null,
   saisie: SaisieRapport,
@@ -1254,8 +1477,10 @@ export async function soumettreRapport(
   );
 }
 
-/** Prévient le CT et le CP sans attendre la soumission (RG-F2-11). */
-export async function envoyerAlerte(id: string, alerte: AlerteImmediate): Promise<{ envoyeeLe: string }> {
+export async function envoyerAlerte(
+  id: string,
+  alerte: AlerteImmediate,
+): Promise<{ envoyeeLe: string }> {
   const cle = cleAlerte(alerte);
   const charge = await api.creer<{ envoyee_le: string }>(`/chantier/rapports/${id}/alertes/`, {
     cle,
