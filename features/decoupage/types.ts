@@ -50,13 +50,32 @@ export interface ResumeModele {
   nomAffiche: string;
   description: string;
   typesProjet: string[];
+  parDefautPour: string[];
   /** Les libellés de ses niveaux, dans l'ordre. */
   niveaux: string[];
   nombreLignes: number;
+  modifiable: boolean;
   /** Conçu pour le type du projet demandé. */
   pourCeType: boolean;
   /** Celui qui pré-remplit le tableau d'un projet de ce type. */
   parDefaut: boolean;
+  originePlateformeId: string | null;
+  originalModifie: boolean;
+}
+
+/** Un modèle de découpage complet, avec ses niveaux détaillés et ses lignes types. */
+export interface DetailModele extends Omit<ResumeModele, "niveaux"> {
+  niveaux: NiveauGabarit[];
+  lignes: string[][];
+}
+
+export interface SaisieModele {
+  nom: string;
+  description?: string;
+  typesProjet?: string[];
+  parDefautPour?: string[];
+  niveaux: NiveauGabarit[];
+  lignes: string[][];
 }
 
 /** Les unités de mesure d'une feuille (`UniteMesure` du serveur). */

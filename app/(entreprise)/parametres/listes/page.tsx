@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
 import { GestionListesValeurs } from "@/features/decoupage/components/GestionListesValeurs";
+import { GestionModelesDecoupage } from "@/features/decoupage/components/GestionModelesDecoupage";
 import { GestionReferentiel } from "@/features/projets/components/GestionReferentiel";
 import {
   REFERENTIEL_MODES_EXECUTION,
@@ -25,6 +26,7 @@ export default async function Page() {
     <div className="flex flex-col gap-5">
       <EnTetePage titre={t("titrePage")} description={t("descriptionPage")} />
       <GestionListesValeurs />
+      <GestionModelesDecoupage />
       <div className="grid gap-5 lg:grid-cols-2">
         <GestionReferentiel categorie={REFERENTIEL_TYPES_PROJET} />
         <GestionReferentiel categorie={REFERENTIEL_MODES_EXECUTION} />

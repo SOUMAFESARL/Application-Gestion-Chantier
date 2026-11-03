@@ -30,6 +30,7 @@ import type {
   ConstatTableau,
   CourbeAvancement,
   CreationCase,
+  DetailModele,
   EquipeCase,
   Mesure,
   ModeMesure,
@@ -48,6 +49,7 @@ import type {
   ResultatAjoutValeurs,
   ResultatApplication,
   ResumeModele,
+  SaisieModele,
   TableauDemarrage,
   TableauImporte,
   UniteMesure,
@@ -90,10 +92,19 @@ interface ChargeResumeModele {
   nom_affiche?: string;
   description?: string;
   types_projet?: string[];
+  par_defaut_pour?: string[];
   niveaux?: string[];
   nombre_lignes?: number;
+  modifiable?: boolean;
   pour_ce_type?: boolean;
   par_defaut?: boolean;
+  origine_plateforme_id?: string | null;
+  original_modifie?: boolean;
+}
+
+interface ChargeDetailModele extends Omit<ChargeResumeModele, "niveaux"> {
+  niveaux?: ChargeNiveauGabarit[];
+  lignes?: string[][];
 }
 
 interface ChargeNiveauGabarit {
@@ -192,10 +203,46 @@ function versResumeModele(charge: ChargeResumeModele): ResumeModele {
     nomAffiche: charge.nom_affiche ?? charge.nom,
     description: charge.description ?? "",
     typesProjet: charge.types_projet ?? [],
+    parDefautPour: charge.par_defaut_pour ?? [],
     niveaux: charge.niveaux ?? [],
     nombreLignes: charge.nombre_lignes ?? 0,
+    modifiable: charge.modifiable ?? charge.origine === "ENTREPRISE",
     pourCeType: charge.pour_ce_type ?? false,
     parDefaut: charge.par_defaut ?? false,
+    originePlateformeId: charge.origine_plateforme_id ?? null,
+    originalModifie: charge.original_modifie ?? false,
+  };
+}
+
+function versDetailModele(charge: ChargeDetailModele): DetailModele {
+  const niveaux = (charge.niveaux ?? []).map(versNiveauGabarit);
+  return {
+    origine: charge.origine,
+    id: charge.id,
+    nom: charge.nom,
+    nomAffiche: charge.nom_affiche ?? charge.nom,
+    description: charge.description ?? "",
+    typesProjet: charge.types_projet ?? [],
+    parDefautPour: charge.par_defaut_pour ?? [],
+    niveaux,
+    lignes: (charge.lignes ?? []).map((ligne) => ligne.map((c) => String(c ?? ""))),
+    nombreLignes: charge.nombre_lignes ?? (charge.lignes ?? []).length,
+    modifiable: charge.modifiable ?? charge.origine === "ENTREPRISE",
+    pourCeType: charge.pour_ce_type ?? false,
+    parDefaut: charge.par_defaut ?? false,
+    originePlateformeId: charge.origine_plateforme_id ?? null,
+    originalModifie: charge.original_modifie ?? false,
+  };
+}
+
+function versChargeModele(saisie: SaisieModele) {
+  return {
+    nom: saisie.nom.trim(),
+    description: saisie.description?.trim() ?? "",
+    types_projet: saisie.typesProjet ?? [],
+    par_defaut_pour: saisie.parDefautPour ?? [],
+    niveaux: saisie.niveaux.map(versChargeNiveau),
+    lignes: saisie.lignes,
   };
 }
 
@@ -379,6 +426,56 @@ export async function listerModeles(
     signal,
   );
   return aPlat(charge).map(versResumeModele);
+}
+
+/** Lit un modèle de découpage complet (niveaux, listes associées et lignes types). */
+export async function lireModele(
+  origine: OrigineReference,
+  id: string,
+  signal?: AbortSignal,
+): Promise<DetailModele> {
+  const charge = await api.lire<ChargeDetailModele>(
+    `/decoupage/modeles/${origine}/${id}/`,
+    undefined,
+    signal,
+  );
+  return versDetailModele(charge);
+}
+
+/** Crée un nouveau modèle de découpage propre à l'entreprise. */
+export async function creerModele(saisie: SaisieModele): Promise<DetailModele> {
+  const charge = await api.creer<ChargeDetailModele>(
+    "/decoupage/modeles/",
+    versChargeModele(saisie),
+  );
+  return versDetailModele(charge);
+}
+
+/** Met à jour un modèle de découpage propre à l'entreprise. */
+export async function modifierModele(
+  origine: OrigineReference,
+  id: string,
+  saisie: SaisieModele,
+): Promise<DetailModele> {
+  const charge = await api.modifier<ChargeDetailModele>(
+    `/decoupage/modeles/${origine}/${id}/`,
+    versChargeModele(saisie),
+  );
+  return versDetailModele(charge);
+}
+
+/** Supprime un modèle de découpage propre à l'entreprise. */
+export async function supprimerModele(origine: OrigineReference, id: string): Promise<void> {
+  await api.supprimer(`/decoupage/modeles/${origine}/${id}/`);
+}
+
+/** Crée une copie personnalisée d'un modèle de la plateforme dans l'espace de l'entreprise. */
+export async function personnaliserModele(idPlateforme: string): Promise<DetailModele> {
+  const charge = await api.creer<ChargeDetailModele>(
+    `/decoupage/modeles/PLATEFORME/${idPlateforme}/personnaliser/`,
+    {},
+  );
+  return versDetailModele(charge);
 }
 
 /* ------------------------------------------------------------------ *

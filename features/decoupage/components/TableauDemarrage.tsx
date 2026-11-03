@@ -53,6 +53,7 @@ import { cn } from "@/lib/utils";
 
 import {
   appliquerTableau,
+  creerModele,
   importerFichier,
   lireTableauDemarrage,
   listerListes,
@@ -172,8 +173,9 @@ function EditeurTableau({
   const t = useTranslations("decoupage.tableau");
   const tUnite = useTranslations("decoupage.unites");
   const client = useQueryClient();
-  const { peutSurProjet, voitMontants } = useDroits();
+  const { peutCode, peutSurProjet, voitMontants } = useDroits();
   const peutDecouper = peutSurProjet(PERMISSIONS.DECOUPER, projet);
+  const peutGererModeles = peutCode(PERMISSIONS.MODELES_GERER);
 
   const [tableau, setTableau] = useState<Tableau>(() =>
     initial.lignes.length > 0 ? initial : { ...initial, lignes: [ligneVide(initial.niveaux.length)] },
@@ -182,6 +184,10 @@ function EditeurTableau({
   const [verdict, setVerdict] = useState<VerdictTableau | null>(null);
   const [refus, setRefus] = useState<RefusTableau | null>(null);
   const [modeleEnAttente, setModeleEnAttente] = useState<string | null>(null);
+  const [modaleModeleOuverte, setModaleModeleOuverte] = useState(false);
+  const [nomNouveauModele, setNomNouveauModele] = useState("");
+  const [descriptionNouveauModele, setDescriptionNouveauModele] = useState("");
+  const [parDefautCeType, setParDefautCeType] = useState(false);
   const fichier = useRef<HTMLInputElement>(null);
 
   const requeteModeles = useQuery({
@@ -233,6 +239,31 @@ function EditeurTableau({
       URL.revokeObjectURL(url);
     },
     onError: (erreur) => toast.error(messageErreur(erreur, t("erreurImport"))),
+  });
+
+  const sauvegardeModele = useMutation({
+    mutationFn: async () => {
+      const lignesPropres = tableau.lignes
+        .map((l) => l.cellules.map((c) => c.trim()))
+        .filter((l) => l.some((c) => c !== ""));
+      return creerModele({
+        nom: nomNouveauModele,
+        description: descriptionNouveauModele,
+        typesProjet: projet.typeProjet ? [projet.typeProjet] : [],
+        parDefautPour: parDefautCeType && projet.typeProjet ? [projet.typeProjet] : [],
+        niveaux: tableau.niveaux,
+        lignes: lignesPropres,
+      });
+    },
+    onSuccess: (cree) => {
+      setModaleModeleOuverte(false);
+      setNomNouveauModele("");
+      setDescriptionNouveauModele("");
+      setParDefautCeType(false);
+      toast.success(t("modeleEnregistre", { nom: cree.nomAffiche }));
+      void client.invalidateQueries({ queryKey: ["decoupage", "modeles"] });
+    },
+    onError: (erreur) => toast.error(messageErreur(erreur, t("erreurApplication"))),
   });
 
   const application = useMutation({
@@ -446,6 +477,15 @@ function EditeurTableau({
         {verdict && <Verdict verdict={verdict} />}
 
         <div className="flex flex-wrap items-center justify-end gap-3 border-0 border-t border-solid border-neutral-200 pt-4">
+          {peutGererModeles && (
+            <Button
+              variant="outline"
+              onClick={() => setModaleModeleOuverte(true)}
+              disabled={enCours || vide || tableau.niveaux.length === 0}
+            >
+              {t("enregistrerCommeModele")}
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => verification.mutate()}
@@ -506,6 +546,66 @@ function EditeurTableau({
             </Button>
             <Button onClick={() => modeleEnAttente && appliquerModele(modeleEnAttente)}>
               {t("remplacer")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={modaleModeleOuverte}
+        onOpenChange={(ouvert) => !ouvert && !sauvegardeModele.isPending && setModaleModeleOuverte(false)}
+      >
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>{t("enregistrerCommeModeleTitre")}</DialogTitle>
+            <DialogDescription>{t("enregistrerCommeModeleDescription")}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-800">
+              {t("nomModele")}
+              <Input
+                value={nomNouveauModele}
+                maxLength={150}
+                placeholder={t("placeholderNomModele")}
+                disabled={sauvegardeModele.isPending}
+                onChange={(e) => setNomNouveauModele(e.target.value)}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium text-neutral-800">
+              {t("descriptionModele")}
+              <Input
+                value={descriptionNouveauModele}
+                maxLength={300}
+                placeholder={t("placeholderDescriptionModele")}
+                disabled={sauvegardeModele.isPending}
+                onChange={(e) => setDescriptionNouveauModele(e.target.value)}
+              />
+            </label>
+            {projet.typeProjet && (
+              <label className="flex items-center gap-2 text-xs text-neutral-700">
+                <Checkbox
+                  checked={parDefautCeType}
+                  disabled={sauvegardeModele.isPending}
+                  onCheckedChange={(v) => setParDefautCeType(v === true)}
+                />
+                <span>{t("parDefautPourCeType")}</span>
+              </label>
+            )}
+          </div>
+          <DialogFooter className="gap-3">
+            <Button
+              variant="outline"
+              disabled={sauvegardeModele.isPending}
+              onClick={() => setModaleModeleOuverte(false)}
+            >
+              {t("garderSaisie")}
+            </Button>
+            <Button
+              disabled={!nomNouveauModele.trim() || sauvegardeModele.isPending}
+              onClick={() => sauvegardeModele.mutate()}
+            >
+              {sauvegardeModele.isPending && <LoaderCircle className="animate-spin" />}
+              {t("confirmerEnregistrerModele")}
             </Button>
           </DialogFooter>
         </DialogContent>
