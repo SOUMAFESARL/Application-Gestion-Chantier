@@ -5,6 +5,7 @@ import { CATEGORIES_REFERENTIEL_PLATEFORME } from "@/features/administration";
 
 import { EnTeteParametrage } from "../EnTeteParametrage";
 import { GestionListesDecoupagePlateforme } from "./GestionListesDecoupagePlateforme";
+import { GestionModelesDecoupagePlateforme } from "./GestionModelesDecoupagePlateforme";
 import { ListeReferentiel } from "./ListeReferentiel";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -19,6 +20,7 @@ export default function PageReferentiels() {
         <EnTeteParametrage section="referentiels" />
       </div>
       <GestionListesDecoupagePlateforme />
+      <GestionModelesDecoupagePlateforme />
       {CATEGORIES_REFERENTIEL_PLATEFORME.map((categorie) => (
         <ListeReferentiel key={categorie} categorie={categorie} />
       ))}

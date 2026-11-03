@@ -25,6 +25,7 @@ export const CLES_ADMINISTRATION = {
   referentiels: (categorie: string) => ["administration", "referentiels", categorie] as const,
   listesDecoupage: () => ["administration", "decoupage", "listes"] as const,
   modelesDecoupage: () => ["administration", "decoupage", "modeles"] as const,
+  modeleDecoupage: (id: string) => ["administration", "decoupage", "modeles", id] as const,
   messagerie: () => ["administration", "messagerie"] as const,
   journal: (filtres: FiltresJournalPlateforme) =>
     ["administration", "journal", filtres] as const,

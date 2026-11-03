@@ -560,3 +560,46 @@ export interface ResultatAjoutValeursPlateforme {
   ajoutees: { id: string; libelle: string; groupe: string }[];
   ignorees: string[];
 }
+
+export interface NiveauModelePlateforme {
+  libelle: string;
+  alerter: boolean;
+  liste: { id: string; libelle: string } | null;
+}
+
+export interface ResumeModeleDecoupagePlateforme {
+  id: string;
+  nom: string;
+  description: string;
+  typesProjet: string[];
+  parDefautPour: string[];
+  version: number;
+  estActif: boolean;
+  niveaux: string[];
+  nombreLignes: number;
+  modifieLe: string;
+}
+
+export interface DetailModeleDecoupagePlateforme {
+  id: string;
+  nom: string;
+  description: string;
+  typesProjet: string[];
+  parDefautPour: string[];
+  version: number;
+  estActif: boolean;
+  niveaux: NiveauModelePlateforme[];
+  lignes: string[][];
+  nombreLignes: number;
+  modifieLe: string;
+}
+
+export interface SaisieModeleDecoupagePlateforme {
+  nom: string;
+  description?: string;
+  typesProjet?: string[];
+  parDefautPour?: string[];
+  estActif?: boolean;
+  niveaux: NiveauModelePlateforme[];
+  lignes?: string[][];
+}

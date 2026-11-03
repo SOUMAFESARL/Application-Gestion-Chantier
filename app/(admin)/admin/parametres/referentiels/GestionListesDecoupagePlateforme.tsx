@@ -341,7 +341,9 @@ export function GestionListesDecoupagePlateforme() {
                       )}
                       {liste.modeles.length > 0 && (
                         <p className="truncate text-xs text-primary-700">
-                          {t("utiliseeParModeles", { modeles: liste.modeles.join(", ") })}
+                          {t("utiliseeParModeles", {
+                            modeles: liste.modeles.map((m) => m.nom).join(", "),
+                          })}
                         </p>
                       )}
                     </button>
@@ -371,7 +373,9 @@ export function GestionListesDecoupagePlateforme() {
                     </p>
                     {listeActive.modeles.length > 0 && (
                       <p className="mt-1 text-xs text-primary-700">
-                        {t("utiliseeParModeles", { modeles: listeActive.modeles.join(", ") })}
+                        {t("utiliseeParModeles", {
+                          modeles: listeActive.modeles.map((m) => m.nom).join(", "),
+                        })}
                       </p>
                     )}
                   </div>

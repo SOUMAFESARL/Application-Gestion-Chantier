@@ -66,9 +66,13 @@ import type {
   PorteeRoleSysteme,
   RoleSysteme,
   CategorieReferentielPlateforme,
+  DetailModeleDecoupagePlateforme,
   EntreeReferentielPlateforme,
   ListeDecoupagePlateforme,
+  NiveauModelePlateforme,
   ResultatAjoutValeursPlateforme,
+  ResumeModeleDecoupagePlateforme,
+  SaisieModeleDecoupagePlateforme,
   ValeurListeDecoupagePlateforme,
 } from "./types";
 
@@ -1575,4 +1579,172 @@ export async function modifierValeurListePlateforme(
 /** `DELETE /admins/decoupage/valeurs/{id}/`. */
 export async function supprimerValeurListePlateforme(valeurId: string): Promise<void> {
   await apiAdministration.supprimer(`/admins/decoupage/valeurs/${valeurId}/`);
+}
+
+/* ------------------------------------------------------------------ *
+ * Modèles de découpage (plateforme)
+ * ------------------------------------------------------------------ */
+
+interface ChargeNiveauModelePlateforme {
+  rang?: number;
+  libelle: string;
+  alerter?: boolean;
+  liste?: { origine?: string; id: string; libelle?: string } | null;
+}
+
+interface ChargeModeleDecoupagePlateforme {
+  id: string;
+  nom: string;
+  description?: string;
+  types_projet?: string[];
+  par_defaut_pour?: string[];
+  version?: number;
+  est_actif?: boolean;
+  niveaux_libelles?: string[];
+  niveaux?: ChargeNiveauModelePlateforme[];
+  lignes?: string[][];
+  nombre_lignes?: number;
+  modifie_le?: string;
+}
+
+function versNiveauModelePlateforme(charge: ChargeNiveauModelePlateforme): NiveauModelePlateforme {
+  return {
+    libelle: charge.libelle,
+    alerter: Boolean(charge.alerter),
+    liste: charge.liste
+      ? {
+          id: charge.liste.id,
+          libelle: charge.liste.libelle ?? "",
+        }
+      : null,
+  };
+}
+
+function versResumeModeleDecoupagePlateforme(
+  charge: ChargeModeleDecoupagePlateforme,
+): ResumeModeleDecoupagePlateforme {
+  return {
+    id: charge.id,
+    nom: charge.nom,
+    description: charge.description ?? "",
+    typesProjet: charge.types_projet ?? [],
+    parDefautPour: charge.par_defaut_pour ?? [],
+    version: charge.version ?? 1,
+    estActif: charge.est_actif ?? true,
+    niveaux:
+      charge.niveaux_libelles ??
+      (charge.niveaux ? charge.niveaux.map((n) => n.libelle) : []),
+    nombreLignes: charge.nombre_lignes ?? (charge.lignes ? charge.lignes.length : 0),
+    modifieLe: charge.modifie_le ?? "",
+  };
+}
+
+function versDetailModeleDecoupagePlateforme(
+  charge: ChargeModeleDecoupagePlateforme,
+): DetailModeleDecoupagePlateforme {
+  const niveaux = (charge.niveaux ?? []).map(versNiveauModelePlateforme);
+  const lignes = charge.lignes ?? [];
+  return {
+    id: charge.id,
+    nom: charge.nom,
+    description: charge.description ?? "",
+    typesProjet: charge.types_projet ?? [],
+    parDefautPour: charge.par_defaut_pour ?? [],
+    version: charge.version ?? 1,
+    estActif: charge.est_actif ?? true,
+    niveaux,
+    lignes,
+    nombreLignes: charge.nombre_lignes ?? lignes.length,
+    modifieLe: charge.modifie_le ?? "",
+  };
+}
+
+function corpsModelePlateforme(saisie: SaisieModeleDecoupagePlateforme) {
+  return {
+    nom: saisie.nom.trim(),
+    description: (saisie.description ?? "").trim(),
+    types_projet: saisie.typesProjet ?? [],
+    par_defaut_pour: saisie.parDefautPour ?? [],
+    est_actif: saisie.estActif ?? true,
+    niveaux: saisie.niveaux.map((n) => ({
+      libelle: n.libelle.trim(),
+      alerter: Boolean(n.alerter),
+      liste: n.liste ? { origine: "PLATEFORME", id: n.liste.id } : null,
+    })),
+    lignes: saisie.lignes ?? [],
+  };
+}
+
+/** `GET /admins/decoupage/modeles/`. */
+export async function listerModelesDecoupagePlateforme(
+  signal?: AbortSignal,
+): Promise<ResumeModeleDecoupagePlateforme[]> {
+  const charges = await apiAdministration.lire<ChargeModeleDecoupagePlateforme[]>(
+    "/admins/decoupage/modeles/",
+    undefined,
+    signal,
+  );
+  return (Array.isArray(charges) ? charges : []).map(versResumeModeleDecoupagePlateforme);
+}
+
+/** `GET /admins/decoupage/modeles/{id}/`. */
+export async function lireModeleDecoupagePlateforme(
+  id: string,
+  signal?: AbortSignal,
+): Promise<DetailModeleDecoupagePlateforme> {
+  const charge = await apiAdministration.lire<ChargeModeleDecoupagePlateforme>(
+    `/admins/decoupage/modeles/${id}/`,
+    undefined,
+    signal,
+  );
+  return versDetailModeleDecoupagePlateforme(charge);
+}
+
+/** `POST /admins/decoupage/modeles/`. */
+export async function creerModeleDecoupagePlateforme(
+  saisie: SaisieModeleDecoupagePlateforme,
+): Promise<DetailModeleDecoupagePlateforme> {
+  const charge = await apiAdministration.creer<ChargeModeleDecoupagePlateforme>(
+    "/admins/decoupage/modeles/",
+    corpsModelePlateforme(saisie),
+  );
+  return versDetailModeleDecoupagePlateforme(charge);
+}
+
+/** `PATCH /admins/decoupage/modeles/{id}/`. */
+export async function modifierModeleDecoupagePlateforme(
+  id: string,
+  saisie: SaisieModeleDecoupagePlateforme,
+): Promise<DetailModeleDecoupagePlateforme> {
+  const charge = await apiAdministration.modifier<ChargeModeleDecoupagePlateforme>(
+    `/admins/decoupage/modeles/${id}/`,
+    corpsModelePlateforme(saisie),
+  );
+  return versDetailModeleDecoupagePlateforme(charge);
+}
+
+/** `DELETE /admins/decoupage/modeles/{id}/`. */
+export async function supprimerModeleDecoupagePlateforme(id: string): Promise<void> {
+  await apiAdministration.supprimer(`/admins/decoupage/modeles/${id}/`);
+}
+
+/** `GET /admins/decoupage/modeles/modele-excel/`. */
+export async function telechargerModeleExcelDecoupagePlateforme(): Promise<Blob> {
+  return apiAdministration.telecharger("/admins/decoupage/modeles/modele-excel/");
+}
+
+/** `POST /admins/decoupage/modeles/importer-fichier/`. */
+export async function importerFichierModelePlateforme(
+  fichier: File,
+): Promise<{ niveaux: NiveauModelePlateforme[]; lignes: string[][] }> {
+  const corps = new FormData();
+  corps.append("fichier", fichier, fichier.name);
+  const charge = await apiAdministration.creer<{
+    niveaux?: ChargeNiveauModelePlateforme[];
+    lignes?: string[][];
+  }>("/admins/decoupage/modeles/importer-fichier/", corps);
+  return {
+    niveaux: (charge.niveaux ?? []).map(versNiveauModelePlateforme),
+    lignes: charge.lignes ?? [],
+  };
 }
