@@ -33,6 +33,7 @@ import type {
   Personne,
   SaisieEquipe,
   SaisieMembre,
+  SaisieMembresGroupe,
   SaisiePersonne,
   StatutLigneImport,
 } from "./types";
@@ -223,6 +224,15 @@ function versChargeEquipe(saisie: Partial<SaisieEquipe>) {
   if (saisie.nom !== undefined) charge.nom = saisie.nom.trim();
   if (saisie.corpsEtat !== undefined) charge.corps_etat = saisie.corpsEtat.trim();
   if (saisie.entreprisePartenaireId !== undefined) charge.entreprise_partenaire_id = saisie.entreprisePartenaireId;
+  if (saisie.membres !== undefined) {
+    charge.membres = saisie.membres.map((m) => ({
+      personne_id: m.personneId,
+      fonction: m.fonction,
+      est_chef: m.estChef,
+      date_arrivee: m.dateArrivee,
+      date_depart: m.dateDepart ?? null,
+    }));
+  }
   return charge;
 }
 
@@ -271,6 +281,26 @@ export async function ajouterMembre(
     ),
     versMembre,
   );
+}
+
+export async function ajouterMembres(
+  projetId: string,
+  equipeId: string,
+  saisie: SaisieMembresGroupe,
+): Promise<AvecAvertissements<MembreEquipe[]>> {
+  const charge = await api.creer<
+    ChargeMembre & { membres?: ChargeMembre[]; avertissements?: Avertissement[] }
+  >(`/projets/${projetId}/equipes/${equipeId}/membres/`, {
+    personne_ids: saisie.personneIds,
+    fonction: saisie.fonction,
+    est_chef: saisie.estChef,
+    date_arrivee: saisie.dateArrivee,
+  });
+  const liste = Array.isArray(charge.membres) ? charge.membres : [charge];
+  return {
+    resultat: liste.map(versMembre),
+    avertissements: charge.avertissements ?? [],
+  };
 }
 
 export async function modifierMembre(

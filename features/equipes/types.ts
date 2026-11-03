@@ -106,6 +106,7 @@ export interface SaisieEquipe {
   nom: string;
   corpsEtat: string;
   entreprisePartenaireId: string | null;
+  membres?: SaisieMembre[];
 }
 
 export interface SaisieMembre {
@@ -114,6 +115,13 @@ export interface SaisieMembre {
   estChef: boolean;
   dateArrivee: string | null;
   dateDepart?: string | null;
+}
+
+export interface SaisieMembresGroupe {
+  personneIds: string[];
+  fonction: FonctionMembre;
+  estChef: boolean;
+  dateArrivee: string | null;
 }
 
 /* ------------------------------------------------------------------ *

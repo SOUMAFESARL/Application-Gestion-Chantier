@@ -1,9 +1,9 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Crown, LoaderCircle, LogOut, MapPin, Save, Trash2, UserPlus, X } from "lucide-react";
+import { Crown, LoaderCircle, LogOut, MapPin, Save, Search, Trash2, UserPlus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -33,7 +33,7 @@ import { formaterDate } from "@/lib/format";
 
 import {
   affecterEquipeCase,
-  ajouterMembre,
+  ajouterMembres,
   creerEquipeProjet,
   listerPersonnes,
   modifierEquipeProjet,
@@ -43,17 +43,27 @@ import {
 } from "../adaptateur";
 import { cleEquipesProjet, CLE_PARTENAIRES, cleRegistre } from "../cles";
 import { aujourdhuiIso, personnesAjoutables } from "../regles";
-import type { Avertissement, EquipeProjet, FonctionMembre, MembreEquipe } from "../types";
+import type {
+  Avertissement,
+  EquipeProjet,
+  FonctionMembre,
+  MembreEquipe,
+  Personne,
+  SaisieMembre,
+} from "../types";
 import { FONCTIONS_MEMBRE } from "../types";
 import { FenetrePersonne } from "./FenetrePersonne";
 
 const INTERNE = "interne";
 
+interface MembreBrouillon extends SaisieMembre {
+  personne: Personne;
+}
+
 /**
  * Le tiroir d'une équipe du projet : son identité (nom, corps d'état, entreprise), ses membres
- * datés pris dans le registre — avec l'ajout rapide d'une personne absente du registre —, et les
- * cases de l'arbre où elle travaille. Une personne dans deux équipes le même jour est permise :
- * le serveur l'avertit, l'écran le montre.
+ * datés pris dans le registre — avec sélection multiple par fonction et ajout rapide d'une
+ * personne absente du registre —, et les cases de l'arbre où elle travaille.
  */
 export function TiroirEquipeProjet({
   projet,
@@ -128,7 +138,7 @@ function Section({ titre, action, children }: { titre: string; action?: ReactNod
 }
 
 /* ------------------------------------------------------------------ *
- * Identité.
+ * Identité (et membres initiaux lors de la création).
  * ------------------------------------------------------------------ */
 
 function Identite({
@@ -143,16 +153,31 @@ function Identite({
   onCreee: (equipe: EquipeProjet) => void;
 }) {
   const t = useTranslations("equipes.tiroir");
+  const tFonction = useTranslations("equipes.fonctions");
   const actualiser = useActualiser(projet.id);
   const [nom, setNom] = useState(equipe?.nom ?? "");
   const [corpsEtat, setCorpsEtat] = useState(equipe?.corpsEtat ?? "");
   const [entreprise, setEntreprise] = useState(equipe?.entreprise.id ?? INTERNE);
+  const [membresInitiaux, setMembresInitiaux] = useState<MembreBrouillon[]>([]);
+  const [fenetreMembresOuverte, setFenetreMembresOuverte] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const partenaires = useQuery({ queryKey: CLE_PARTENAIRES, queryFn: ({ signal }) => listerTiers(undefined, signal) });
 
   const ecriture = useMutation({
     mutationFn: () => {
-      const saisie = { nom, corpsEtat, entreprisePartenaireId: entreprise === INTERNE ? null : entreprise };
+      const saisie = {
+        nom,
+        corpsEtat,
+        entreprisePartenaireId: entreprise === INTERNE ? null : entreprise,
+        membres: equipe
+          ? undefined
+          : membresInitiaux.map((m) => ({
+              personneId: m.personneId,
+              fonction: m.fonction,
+              estChef: m.estChef,
+              dateArrivee: m.dateArrivee,
+            })),
+      };
       return equipe ? modifierEquipeProjet(projet.id, equipe.id, saisie) : creerEquipeProjet(projet.id, saisie);
     },
     onSuccess: async ({ resultat, avertissements }) => {
@@ -165,57 +190,176 @@ function Identite({
     onError: (e) => setErreur(messageErreur(e, t("erreur"))),
   });
 
+  function ajouterMembresBrouillon(nouveaux: MembreBrouillon[]) {
+    setMembresInitiaux((courants) => {
+      const avecChef = nouveaux.some((n) => n.estChef);
+      const base = avecChef
+        ? courants.map((c) => ({
+            ...c,
+            estChef: false,
+            fonction: c.fonction === "CHEF_EQUIPE" ? ("OUVRIER" as FonctionMembre) : c.fonction,
+          }))
+        : [...courants];
+      const idsPresents = new Set(base.map((c) => c.personneId));
+      for (const n of nouveaux) {
+        if (!idsPresents.has(n.personneId)) {
+          base.push(n);
+          idsPresents.add(n.personneId);
+        }
+      }
+      return base;
+    });
+  }
+
+  function nommerChefBrouillon(personneId: string) {
+    setMembresInitiaux((courants) =>
+      courants.map((m) => ({
+        ...m,
+        estChef: m.personneId === personneId,
+        fonction: m.personneId === personneId ? "CHEF_EQUIPE" : m.fonction === "CHEF_EQUIPE" ? "OUVRIER" : m.fonction,
+      })),
+    );
+  }
+
+  function retirerMembreBrouillon(personneId: string) {
+    setMembresInitiaux((courants) => courants.filter((m) => m.personneId !== personneId));
+  }
+
   return (
-    <Section titre={t("identite")}>
-      <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+    <>
+      <Section titre={t("identite")}>
+        <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+            {t("nom")}
+            <Input value={nom} maxLength={200} onChange={(e) => setNom(e.target.value)} disabled={!permis} />
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+            {t("corpsEtat")}
+            <Input value={corpsEtat} maxLength={200} onChange={(e) => setCorpsEtat(e.target.value)} disabled={!permis} />
+          </label>
+        </div>
         <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
-          {t("nom")}
-          <Input value={nom} maxLength={200} onChange={(e) => setNom(e.target.value)} disabled={!permis} />
+          {t("entreprise")}
+          <Select value={entreprise} onValueChange={setEntreprise} disabled={!permis}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={INTERNE}>{t("notreEntreprise")}</SelectItem>
+              {(partenaires.data ?? []).map((tiers) => (
+                <SelectItem key={tiers.id} value={tiers.id}>
+                  {tiers.raisonSociale}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
-        <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
-          {t("corpsEtat")}
-          <Input value={corpsEtat} maxLength={200} onChange={(e) => setCorpsEtat(e.target.value)} disabled={!permis} />
-        </label>
-      </div>
-      <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
-        {t("entreprise")}
-        <Select value={entreprise} onValueChange={setEntreprise} disabled={!permis}>
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={INTERNE}>{t("notreEntreprise")}</SelectItem>
-            {(partenaires.data ?? []).map((tiers) => (
-              <SelectItem key={tiers.id} value={tiers.id}>
-                {tiers.raisonSociale}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </label>
-      {erreur && (
-        <Alert variant="erreur">
-          <AlertDescription>{erreur}</AlertDescription>
-        </Alert>
+
+        {!equipe && (
+          <div className="mt-2 flex flex-col gap-2.5 rounded-lg border border-neutral-200 bg-neutral-50/50 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-neutral-900">
+                {t("membres", { nombre: membresInitiaux.length })}
+              </span>
+              <BoutonPermis
+                type="button"
+                size="sm"
+                variant="outline"
+                permis={permis}
+                permission={PERMISSIONS.GERER_EQUIPES}
+                onClick={() => setFenetreMembresOuverte(true)}
+              >
+                <UserPlus />
+                {t("ajouterMembre")}
+              </BoutonPermis>
+            </div>
+            {membresInitiaux.length === 0 ? (
+              <p className="m-0 text-xs text-neutral-500">{t("aucunMembre")}</p>
+            ) : (
+              <ul className="m-0 flex list-none flex-col divide-y divide-neutral-100 rounded-lg border border-neutral-200 bg-neutral-0 p-0">
+                {membresInitiaux.map((membre) => (
+                  <li key={membre.personneId} className="flex flex-wrap items-center gap-2 px-3 py-2">
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="flex items-center gap-2 text-sm font-medium text-neutral-900">
+                        {membre.personne.nomComplet}
+                        {membre.estChef && <Badge variante="primaire">{t("chef")}</Badge>}
+                      </span>
+                      <span className="text-xs text-neutral-500">
+                        {t("periodeMembre", {
+                          fonction: tFonction(membre.fonction),
+                          debut: formaterDate(membre.dateArrivee ?? aujourdhuiIso()),
+                        })}
+                      </span>
+                    </span>
+                    <span className="flex gap-1">
+                      {!membre.estChef && (
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label={t("nommerChef")}
+                          title={t("nommerChef")}
+                          onClick={() => nommerChefBrouillon(membre.personneId)}
+                        >
+                          <Crown />
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={t("supprimerMembre")}
+                        title={t("supprimerMembre")}
+                        onClick={() => retirerMembreBrouillon(membre.personneId)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {erreur && (
+          <Alert variant="erreur">
+            <AlertDescription>{erreur}</AlertDescription>
+          </Alert>
+        )}
+        <div className="flex justify-end">
+          <BoutonPermis
+            size="sm"
+            permis={permis}
+            permission={PERMISSIONS.GERER_EQUIPES}
+            onClick={() => ecriture.mutate()}
+            disabled={ecriture.isPending || !nom.trim()}
+          >
+            {ecriture.isPending ? <LoaderCircle className="animate-spin" /> : <Save />}
+            {equipe ? t("enregistrer") : t("creer")}
+          </BoutonPermis>
+        </div>
+      </Section>
+
+      {!equipe && fenetreMembresOuverte && (
+        <FenetreAjoutMembre
+          projet={projet}
+          nomEquipe={nom.trim() || t("titreNouvelle")}
+          entrepriseId={entreprise === INTERNE ? null : entreprise}
+          idsDejaPresents={membresInitiaux.map((m) => m.personneId)}
+          onAjouterBrouillon={(nouveaux) => {
+            ajouterMembresBrouillon(nouveaux);
+            setFenetreMembresOuverte(false);
+          }}
+          onFermer={() => setFenetreMembresOuverte(false)}
+        />
       )}
-      <div className="flex justify-end">
-        <BoutonPermis
-          size="sm"
-          permis={permis}
-          permission={PERMISSIONS.GERER_EQUIPES}
-          onClick={() => ecriture.mutate()}
-          disabled={ecriture.isPending || !nom.trim()}
-        >
-          {ecriture.isPending ? <LoaderCircle className="animate-spin" /> : <Save />}
-          {equipe ? t("enregistrer") : t("creer")}
-        </BoutonPermis>
-      </div>
-    </Section>
+    </>
   );
 }
 
 /* ------------------------------------------------------------------ *
- * Membres.
+ * Membres d'une équipe existante.
  * ------------------------------------------------------------------ */
 
 function Membres({ projet, equipe, permis }: { projet: Projet; equipe: EquipeProjet; permis: boolean }) {
@@ -306,31 +450,136 @@ function Membres({ projet, equipe, permis }: { projet: Projet; equipe: EquipePro
           ))}
         </ul>
       )}
-      {ajout && <FenetreAjoutMembre projet={projet} equipe={equipe} onFermer={() => setAjout(false)} />}
+      {ajout && (
+        <FenetreAjoutMembre
+          projet={projet}
+          equipe={equipe}
+          nomEquipe={equipe.nom}
+          entrepriseId={equipe.entreprise.id}
+          idsDejaPresents={equipe.membres.filter((m) => m.enCours).map((m) => m.personne.id)}
+          onFermer={() => setAjout(false)}
+        />
+      )}
       {depart && <FenetreDepart projet={projet} equipe={equipe} membre={depart} onFermer={() => setDepart(null)} />}
     </Section>
   );
 }
 
-function FenetreAjoutMembre({ projet, equipe, onFermer }: { projet: Projet; equipe: EquipeProjet; onFermer: () => void }) {
+function FenetreAjoutMembre({
+  projet,
+  equipe,
+  nomEquipe,
+  entrepriseId,
+  idsDejaPresents,
+  onAjouterBrouillon,
+  onFermer,
+}: {
+  projet: Projet;
+  equipe?: EquipeProjet;
+  nomEquipe: string;
+  entrepriseId: string | null;
+  idsDejaPresents: string[];
+  onAjouterBrouillon?: (membres: MembreBrouillon[]) => void;
+  onFermer: () => void;
+}) {
   const t = useTranslations("equipes.tiroir");
   const tFonction = useTranslations("equipes.fonctions");
   const { peutCode } = useDroits();
   const actualiser = useActualiser(projet.id);
-  const [personneId, setPersonneId] = useState("");
-  const [fonction, setFonction] = useState<FonctionMembre>("OUVRIER");
+
+  const [personneIds, setPersonneIds] = useState<string[]>([]);
+  const [recherche, setRecherche] = useState("");
+  const [fonction, setFonction] = useState<FonctionMembre>("MANOEUVRE");
   const [estChef, setEstChef] = useState(false);
   const [arrivee, setArrivee] = useState(aujourdhuiIso());
   const [ajoutRapide, setAjoutRapide] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
-  const registre = useQuery({ queryKey: cleRegistre(), queryFn: ({ signal }) => listerPersonnes({}, signal) });
-  const proposees = personnesAjoutables(registre.data ?? [], equipe.membres);
+
+  const registre = useQuery({
+    queryKey: cleRegistre(),
+    queryFn: ({ signal }) => listerPersonnes({}, signal),
+  });
+
+  const proposees = useMemo(() => {
+    const presentes = new Set(idsDejaPresents);
+    const base = equipe
+      ? personnesAjoutables(registre.data ?? [], equipe.membres)
+      : (registre.data ?? []).filter((p) => p.estActive && !presentes.has(p.id));
+    return base.filter((p) => !presentes.has(p.id));
+  }, [registre.data, equipe, idsDejaPresents]);
+
+  const proposeesFiltrees = useMemo(() => {
+    const terme = recherche.trim().toLowerCase();
+    if (!terme) return proposees;
+    return proposees.filter(
+      (p) =>
+        p.nomComplet.toLowerCase().includes(terme) ||
+        p.metier.toLowerCase().includes(terme) ||
+        p.entreprise.nom.toLowerCase().includes(terme),
+    );
+  }, [proposees, recherche]);
+
+  const modeChefUnique = estChef || fonction === "CHEF_EQUIPE";
+
+  function basculerPersonne(id: string, coche: boolean) {
+    if (modeChefUnique) {
+      setPersonneIds(coche ? [id] : []);
+      return;
+    }
+    setPersonneIds((courants) =>
+      coche ? (courants.includes(id) ? courants : [...courants, id]) : courants.filter((x) => x !== id),
+    );
+  }
+
+  function basculerToutVisible() {
+    if (modeChefUnique) return;
+    const idsVisibles = proposeesFiltrees.map((p) => p.id);
+    const toutEstCoche =
+      idsVisibles.length > 0 && idsVisibles.every((id) => personneIds.includes(id));
+    if (toutEstCoche) {
+      const ensembleVisible = new Set(idsVisibles);
+      setPersonneIds((courants) => courants.filter((id) => !ensembleVisible.has(id)));
+    } else {
+      setPersonneIds((courants) => Array.from(new Set([...courants, ...idsVisibles])));
+    }
+  }
 
   const ecriture = useMutation({
-    mutationFn: () =>
-      ajouterMembre(projet.id, equipe.id, { personneId, fonction, estChef, dateArrivee: arrivee || null }),
-    onSuccess: async ({ resultat, avertissements }) => {
-      toast.success(t("membreAjoute", { nom: resultat.personne.nomComplet }));
+    mutationFn: async () => {
+      if (onAjouterBrouillon) {
+        const dictionnaire = new Map((registre.data ?? []).map((p) => [p.id, p]));
+        const nouveaux: MembreBrouillon[] = [];
+        for (const id of personneIds) {
+          const p = dictionnaire.get(id);
+          if (p) {
+            nouveaux.push({
+              personneId: id,
+              personne: p,
+              fonction: estChef ? "CHEF_EQUIPE" : fonction,
+              estChef: modeChefUnique,
+              dateArrivee: arrivee || null,
+            });
+          }
+        }
+        onAjouterBrouillon(nouveaux);
+        return null;
+      }
+      if (!equipe) return null;
+      return ajouterMembres(projet.id, equipe.id, {
+        personneIds,
+        fonction: estChef ? "CHEF_EQUIPE" : fonction,
+        estChef: modeChefUnique,
+        dateArrivee: arrivee || null,
+      });
+    },
+    onSuccess: async (reponse) => {
+      if (!reponse) return;
+      const { resultat, avertissements } = reponse;
+      if (resultat.length === 1 && resultat[0]) {
+        toast.success(t("membreAjoute", { nom: resultat[0].personne.nomComplet }));
+      } else if (resultat.length > 1) {
+        toast.success(t("membresAjoutes", { nombre: resultat.length }));
+      }
       signaler(avertissements);
       onFermer();
       await actualiser();
@@ -338,43 +587,32 @@ function FenetreAjoutMembre({ projet, equipe, onFermer }: { projet: Projet; equi
     onError: (e) => setErreur(messageErreur(e, t("erreur"))),
   });
 
+  const idsVisibles = proposeesFiltrees.map((p) => p.id);
+  const toutVisibleCoche =
+    idsVisibles.length > 0 && idsVisibles.every((id) => personneIds.includes(id));
+
   return (
     <Dialog open onOpenChange={(ouvert) => !ouvert && !ecriture.isPending && onFermer()}>
-      <DialogContent className="sm:max-w-[520px]">
+      <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>{t("titreAjoutMembre", { equipe: equipe.nom })}</DialogTitle>
+          <DialogTitle>{t("titreAjoutMembre", { equipe: nomEquipe })}</DialogTitle>
           <DialogDescription>{t("descriptionAjoutMembre")}</DialogDescription>
         </DialogHeader>
-        <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
-          {t("personne")}
-          <Select value={personneId} onValueChange={setPersonneId}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={registre.isPending ? t("chargement") : t("choisirPersonne")} />
-            </SelectTrigger>
-            <SelectContent>
-              {proposees.map((personne) => (
-                <SelectItem key={personne.id} value={personne.id}>
-                  {personne.metier ? t("personneMetier", { nom: personne.nomComplet, metier: personne.metier }) : personne.nomComplet}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-        <BoutonPermis
-          type="button"
-          size="sm"
-          variant="link"
-          className="self-start px-0"
-          permis={peutCode(PERMISSIONS.MAIN_OEUVRE_GERER)}
-          permission={PERMISSIONS.MAIN_OEUVRE_GERER}
-          onClick={() => setAjoutRapide(true)}
-        >
-          {t("ajoutRapide")}
-        </BoutonPermis>
+
         <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
           <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
             {t("fonction")}
-            <Select value={fonction} onValueChange={(v) => setFonction(v as FonctionMembre)}>
+            <Select
+              value={fonction}
+              onValueChange={(v) => {
+                const nouv = v as FonctionMembre;
+                setFonction(nouv);
+                if (nouv === "CHEF_EQUIPE") {
+                  setEstChef(true);
+                  setPersonneIds((courants) => courants.slice(0, 1));
+                }
+              }}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -392,10 +630,99 @@ function FenetreAjoutMembre({ projet, equipe, onFermer }: { projet: Projet; equi
             <Input type="date" value={arrivee} onChange={(e) => setArrivee(e.target.value)} />
           </label>
         </div>
+
         <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
-          <Checkbox checked={estChef} onCheckedChange={(v) => setEstChef(v === true)} />
+          <Checkbox
+            checked={modeChefUnique}
+            onCheckedChange={(v) => {
+              const coche = v === true;
+              setEstChef(coche);
+              if (coche) {
+                setPersonneIds((courants) => courants.slice(0, 1));
+              } else if (fonction === "CHEF_EQUIPE") {
+                setFonction("OUVRIER");
+              }
+            }}
+          />
           {t("estChef")}
         </label>
+
+        {/* Sélection multiple des personnes du registre */}
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-medium text-neutral-700">
+              {t("personnesSelectionnees", { nombre: personneIds.length })}
+            </span>
+            {!modeChefUnique && proposeesFiltrees.length > 1 && (
+              <button
+                type="button"
+                onClick={basculerToutVisible}
+                className="text-xs font-medium text-primary-600 hover:underline"
+              >
+                {toutVisibleCoche ? t("toutDeselectionner") : t("toutSelectionner")}
+              </button>
+            )}
+          </div>
+
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-neutral-400"
+              aria-hidden="true"
+            />
+            <Input
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+              placeholder={t("rechercherPersonne")}
+              className="pl-9"
+            />
+          </div>
+
+          <div className="max-h-56 overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50/40 divide-y divide-neutral-100">
+            {registre.isPending ? (
+              <p className="m-0 p-3 text-xs text-neutral-500">{t("chargement")}</p>
+            ) : proposeesFiltrees.length === 0 ? (
+              <p className="m-0 p-3 text-xs text-neutral-500">{t("aucunePersonneDisponible")}</p>
+            ) : (
+              proposeesFiltrees.map((personne) => {
+                const coche = personneIds.includes(personne.id);
+                return (
+                  <label
+                    key={personne.id}
+                    className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-neutral-100/70"
+                  >
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <Checkbox
+                        checked={coche}
+                        onCheckedChange={(v) => basculerPersonne(personne.id, v === true)}
+                      />
+                      <span className="truncate font-medium text-neutral-900">
+                        {personne.metier
+                          ? t("personneMetier", { nom: personne.nomComplet, metier: personne.metier })
+                          : personne.nomComplet}
+                      </span>
+                    </span>
+                    {!personne.entreprise.interne && (
+                      <Badge variante="neutre">{personne.entreprise.nom}</Badge>
+                    )}
+                  </label>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <BoutonPermis
+          type="button"
+          size="sm"
+          variant="link"
+          className="self-start px-0"
+          permis={peutCode(PERMISSIONS.MAIN_OEUVRE_GERER)}
+          permission={PERMISSIONS.MAIN_OEUVRE_GERER}
+          onClick={() => setAjoutRapide(true)}
+        >
+          {t("ajoutRapide")}
+        </BoutonPermis>
+
         {erreur && (
           <Alert variant="erreur">
             <AlertDescription>{erreur}</AlertDescription>
@@ -405,17 +732,24 @@ function FenetreAjoutMembre({ projet, equipe, onFermer }: { projet: Projet; equi
           <Button variant="outline" onClick={onFermer} disabled={ecriture.isPending}>
             {t("annuler")}
           </Button>
-          <Button onClick={() => ecriture.mutate()} disabled={ecriture.isPending || !personneId}>
+          <Button
+            onClick={() => ecriture.mutate()}
+            disabled={ecriture.isPending || personneIds.length === 0}
+          >
             {ecriture.isPending && <LoaderCircle className="animate-spin" />}
-            {t("ajouter")}
+            {personneIds.length > 1
+              ? t("ajouterPlusieurs", { nombre: personneIds.length })
+              : t("ajouter")}
           </Button>
         </DialogFooter>
         {ajoutRapide && (
           <FenetrePersonne
             personne={null}
-            entrepriseParDefaut={equipe.entreprise.id}
+            entrepriseParDefaut={entrepriseId}
             onFermer={() => setAjoutRapide(false)}
-            onEnregistree={(personne) => setPersonneId(personne.id)}
+            onEnregistree={(personne) => {
+              basculerPersonne(personne.id, true);
+            }}
           />
         )}
       </DialogContent>
