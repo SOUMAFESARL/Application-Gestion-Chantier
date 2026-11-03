@@ -94,6 +94,14 @@ const SOUS_MENU_PROJETS = [
   { href: "/projets/alertes", cle: "projetsAlertes" },
 ] as const;
 
+/** Les entrées du sous-menu « Listes et modèles », dans l'ordre d'affichage. */
+const SOUS_MENU_LISTES = [
+  { href: "/parametres/listes", cle: "listesValeurs" },
+  { href: "/parametres/listes/modeles", cle: "listesModeles" },
+  { href: "/parametres/listes/modes-execution", cle: "listesModesExecution" },
+  { href: "/parametres/listes/types-projet", cle: "listesTypesProjet" },
+] as const;
+
 /** Le groupe « Plus de modules » disparaît quand aucune de ses entrées n'est ouverte. */
 const MODULES_SECONDAIRES = ["/stocks", "/rh", "/equipements", "/qhse", "/contrats", "/documents", "/tiers"];
 
@@ -351,6 +359,10 @@ export default function LayoutApp({ children }: LayoutAppProps) {
   const estSurRoles = pathname.startsWith("/parametres/roles");
   const estSurConfigurationEntreprise = pathname.startsWith("/parametres/configuration");
   const estSurListes = pathname.startsWith("/parametres/listes");
+  const sousMenuListesActif = estSurListes
+    ? (SOUS_MENU_LISTES.find(({ href }) => href !== "/parametres/listes" && pathname.startsWith(href))
+        ?.href ?? "/parametres/listes")
+    : null;
   const estSurCalendrier = pathname.startsWith("/parametres/calendrier");
 
   const roleLibelle = profil
@@ -704,14 +716,26 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                     </SidebarMenuItem>
                   )}
                   {voit("/parametres/listes") && (
-                    <SidebarMenuItem>
-                      <SidebarMenuButton asChild isActive={estSurListes} tooltip={t("listes")}>
-                        <Link href="/parametres/listes">
-                          <ListChecks />
-                          <span>{t("listes")}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
+                    <SidebarMenuSousMenu
+                      libelle={t("listes")}
+                      declencheur={
+                        <SidebarMenuButton asChild isActive={estSurListes} sousMenu>
+                          <Link href="/parametres/listes">
+                            <ListChecks />
+                            <span>{t("listes")}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      }
+                    >
+                      {SOUS_MENU_LISTES.map(({ href, cle }) => (
+                        <SidebarMenuSousMenuLien
+                          key={href}
+                          isActive={sousMenuListesActif === href}
+                        >
+                          <Link href={href}>{t(cle)}</Link>
+                        </SidebarMenuSousMenuLien>
+                      ))}
+                    </SidebarMenuSousMenu>
                   )}
                   {voit("/parametres/calendrier") && (
                     <SidebarMenuItem>

@@ -1,36 +1,24 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
-import { EnTetePage } from "@/components/layout/EnTetePage";
 import { GestionListesValeurs } from "@/features/decoupage/components/GestionListesValeurs";
-import { GestionModelesDecoupage } from "@/features/decoupage/components/GestionModelesDecoupage";
-import { GestionReferentiel } from "@/features/projets/components/GestionReferentiel";
-import {
-  REFERENTIEL_MODES_EXECUTION,
-  REFERENTIEL_TYPES_PROJET,
-} from "@/features/projets/referentiels";
+
+import { NavigationListesModeles } from "./NavigationListesModeles";
 
 /**
- * Les listes et modèles de l'entreprise : types de projet, modes d'exécution,
- * listes de valeurs et modèles de découpage. Ce qu'elle y ajoute est proposé à
- * tous ses collaborateurs ; ce que la plateforme y a posé ne se retire pas d'ici.
+ * Écran dédié aux listes de valeurs de découpage de l'entreprise (`/parametres/listes`).
  */
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("projets.referentiels.gestion");
-  return { title: t("titrePage") };
+  const t = await getTranslations("decoupage.listes");
+  return { title: t("titre") };
 }
 
-export default async function Page() {
+export default async function PageListesValeurs() {
   const t = await getTranslations("projets.referentiels.gestion");
   return (
     <div className="flex flex-col gap-5">
-      <EnTetePage titre={t("titrePage")} description={t("descriptionPage")} />
+      <NavigationListesModeles titre={t("titrePage")} description={t("descriptionPage")} />
       <GestionListesValeurs />
-      <GestionModelesDecoupage />
-      <div className="grid gap-5 lg:grid-cols-2">
-        <GestionReferentiel categorie={REFERENTIEL_TYPES_PROJET} />
-        <GestionReferentiel categorie={REFERENTIEL_MODES_EXECUTION} />
-      </div>
     </div>
   );
 }

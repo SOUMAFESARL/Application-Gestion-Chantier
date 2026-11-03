@@ -652,6 +652,10 @@
       "referentiels": {
         "titre": "Référentiels",
         "description": "Les listes de valeurs de découpage, les modèles de découpage, les types de projet et les modes d’exécution proposés à toutes les entreprises. Elles peuvent les compléter et les personnaliser, mais pas supprimer ceux d’ici.",
+        "ongletListes": "Listes",
+        "ongletModeles": "Modèles",
+        "ongletModesExecution": "Modes d’exécution",
+        "ongletTypesProjet": "Types de projet",
         "types-projet": {
           "titre": "Types de projet",
           "nomFichier": "types-projet",
@@ -4263,6 +4267,10 @@
       "calendrier": "Calendrier",
       "configuration": "Configuration",
       "listes": "Listes et modèles",
+      "listesValeurs": "Listes",
+      "listesModeles": "Modèles",
+      "listesModesExecution": "Modes d’exécution",
+      "listesTypesProjet": "Types de projet",
       "contrats": "Contrats",
       "deconnexion": "Se déconnecter",
       "descContrats": "Sous-traitance & marchés",
