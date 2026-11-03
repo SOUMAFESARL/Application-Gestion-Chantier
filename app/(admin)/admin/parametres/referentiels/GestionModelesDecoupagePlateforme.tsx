@@ -53,7 +53,7 @@ import { useAdministrateur } from "../../ContexteAdministrateur";
 import { CLES_ADMINISTRATION } from "../../cles";
 
 const SANS_LISTE = "aucune";
-const MAX_NIVEAUX = 5;
+const MAX_NIVEAUX = 10;
 
 function telechargerBlob(blob: Blob, nomFichier: string): void {
   const url = URL.createObjectURL(blob);

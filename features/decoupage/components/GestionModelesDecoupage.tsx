@@ -55,7 +55,7 @@ import type {
 } from "../types";
 
 const SANS_LISTE = "aucune";
-const MAX_NIVEAUX = 5;
+const MAX_NIVEAUX = 10;
 
 function cleModele(m: { origine: OrigineReference; id: string }): string {
   return `${m.origine}:${m.id}`;
