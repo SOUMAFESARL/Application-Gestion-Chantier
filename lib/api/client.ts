@@ -30,6 +30,12 @@ import type { EspaceSession } from "./jetons";
 
 const PREFIXE = "/api/v1";
 
+/**
+ * Délai maximal accordé côté client au traitement d'un fichier lourd (import Excel de modèle,
+ * de découpage ou de liste de valeurs) : 5 minutes par défaut.
+ */
+export const DELAI_TRAITEMENT_FICHIER_MS = 5 * 60 * 1000;
+
 /** La connexion du back-office : un 401 y est un refus d'identifiants, pas un jeton périmé. */
 const CHEMIN_CONNEXION_ADMIN = "/admins/connexion/";
 
@@ -130,6 +136,8 @@ interface Options {
   /** Paramètres de requête. Les valeurs nulles sont ignorées. */
   parametres?: Record<string, string | number | boolean | null | undefined>;
   signal?: AbortSignal;
+  /** Délai maximal (ms) avant annulation automatique de la requête. */
+  delaiMs?: number;
   /** Interdit le renouvellement — utilisé par le renouvellement lui-même. */
   sansRenouvellement?: boolean;
   /**
@@ -367,7 +375,7 @@ function journaliser(methode: Methode, url: string, statut: number | string, deb
 }
 
 async function executer(chemin: string, options: Options): Promise<Response> {
-  const { methode = "GET", corps, parametres, signal, base, espace = "entreprise" } = options;
+  const { methode = "GET", corps, parametres, signal, delaiMs, base, espace = "entreprise" } = options;
 
   const estFormData = typeof FormData !== "undefined" && corps instanceof FormData;
   const entetes: Record<string, string> = { Accept: "application/json" };
@@ -376,6 +384,13 @@ async function executer(chemin: string, options: Options): Promise<Response> {
   const jeton = options.sansJeton ? null : lireJetonAcces(espace);
   if (jeton) entetes.Authorization = `Bearer ${jeton}`;
 
+  const delaiEffectif = delaiMs ?? (estFormData ? DELAI_TRAITEMENT_FICHIER_MS : undefined);
+  const signalEffectif =
+    signal ??
+    (delaiEffectif !== undefined && typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
+      ? AbortSignal.timeout(delaiEffectif)
+      : undefined);
+
   const url = construireUrl(chemin, parametres, base);
   const debut = performance.now();
   try {
@@ -383,7 +398,7 @@ async function executer(chemin: string, options: Options): Promise<Response> {
       method: methode,
       headers: entetes,
       body: corps === undefined ? undefined : estFormData ? corps : JSON.stringify(corps),
-      signal,
+      signal: signalEffectif,
     });
     journaliser(methode, url, reponse.status, debut);
     return reponse;
