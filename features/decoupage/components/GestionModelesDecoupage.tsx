@@ -380,6 +380,7 @@ function FormulaireModeleEntreprise({
       void cache.invalidateQueries({
         queryKey: ["decoupage", "modele", enregistre.origine, enregistre.id],
       });
+      void cache.invalidateQueries({ queryKey: ["projets"] });
       onSelectionnerModele({ origine: enregistre.origine, id: enregistre.id });
     },
     onError: (cause) => setErreur(messageErreur(cause)),
@@ -391,6 +392,7 @@ function FormulaireModeleEntreprise({
       setErreur(null);
       toast.success(t("succesPersonnalisation"));
       void cache.invalidateQueries({ queryKey: ["decoupage", "modeles"] });
+      void cache.invalidateQueries({ queryKey: ["projets"] });
       onSelectionnerModele({ origine: copie.origine, id: copie.id });
     },
     onError: (cause) => setErreur(messageErreur(cause)),
@@ -402,6 +404,7 @@ function FormulaireModeleEntreprise({
       setASupprimer(null);
       toast.success(t("succesSuppression"));
       void cache.invalidateQueries({ queryKey: ["decoupage", "modeles"] });
+      void cache.invalidateQueries({ queryKey: ["projets"] });
       onSelectionnerModele(null);
     },
     onError: (cause) => {

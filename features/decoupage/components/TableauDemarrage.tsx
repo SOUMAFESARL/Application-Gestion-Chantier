@@ -40,7 +40,10 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -262,6 +265,8 @@ function EditeurTableau({
       setParDefautCeType(false);
       toast.success(t("modeleEnregistre", { nom: cree.nomAffiche }));
       void client.invalidateQueries({ queryKey: ["decoupage", "modeles"] });
+      void client.invalidateQueries({ queryKey: ["projets"] });
+      onChangerModele({ origine: cree.origine, id: cree.id });
     },
     onError: (erreur) => toast.error(messageErreur(erreur, t("erreurApplication"))),
   });
@@ -376,6 +381,23 @@ function EditeurTableau({
 
   const valeurModele = initial.modele ? `${initial.modele.origine}:${initial.modele.id}` : MODELE_DEFAUT;
   const vide = tableauEstVide(tableau);
+  const tousLesModeles = useMemo(() => requeteModeles.data ?? [], [requeteModeles.data]);
+  const modelesEntreprise = useMemo(
+    () => tousLesModeles.filter((m) => m.origine === "ENTREPRISE"),
+    [tousLesModeles],
+  );
+  const modelesPlateforme = useMemo(
+    () => tousLesModeles.filter((m) => m.origine === "PLATEFORME"),
+    [tousLesModeles],
+  );
+  const modeleInitialPresent = useMemo(
+    () =>
+      !initial.modele ||
+      tousLesModeles.some(
+        (m) => m.origine === initial.modele?.origine && m.id === initial.modele?.id,
+      ),
+    [initial.modele, tousLesModeles],
+  );
 
   return (
     <Grille.Provider value={contexte}>
@@ -395,12 +417,44 @@ function EditeurTableau({
                 </SelectTrigger>
                 <SelectContent>
                   {!initial.modele && <SelectItem value={MODELE_DEFAUT}>{t("modeleAucun")}</SelectItem>}
-                  {(requeteModeles.data ?? []).map((m) => (
-                    <SelectItem key={`${m.origine}:${m.id}`} value={`${m.origine}:${m.id}`}>
-                      {m.nomAffiche}
-                      {m.parDefaut ? ` — ${t("modeleParDefaut")}` : m.pourCeType ? ` — ${t("modelePourCeType")}` : ""}
-                    </SelectItem>
-                  ))}
+                  {initial.modele && !modeleInitialPresent && (
+                    <SelectItem value={valeurModele}>{initial.modele.nom}</SelectItem>
+                  )}
+                  {modelesEntreprise.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>{t("groupeModelesEntreprise")}</SelectLabel>
+                      {modelesEntreprise.map((m) => (
+                        <SelectItem key={`${m.origine}:${m.id}`} value={`${m.origine}:${m.id}`}>
+                          {m.nomAffiche}
+                          {m.niveaux.length > 0 ? t("niveauxModele", { niveaux: m.niveaux.join(" → ") }) : ""}
+                          {m.parDefaut
+                            ? ` — ${t("modeleParDefaut")}`
+                            : m.pourCeType
+                              ? ` — ${t("modelePourCeType")}`
+                              : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                  {modelesEntreprise.length > 0 && modelesPlateforme.length > 0 && (
+                    <SelectSeparator />
+                  )}
+                  {modelesPlateforme.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>{t("groupeModelesPlateforme")}</SelectLabel>
+                      {modelesPlateforme.map((m) => (
+                        <SelectItem key={`${m.origine}:${m.id}`} value={`${m.origine}:${m.id}`}>
+                          {m.nomAffiche}
+                          {m.niveaux.length > 0 ? t("niveauxModele", { niveaux: m.niveaux.join(" → ") }) : ""}
+                          {m.parDefaut
+                            ? ` — ${t("modeleParDefaut")}`
+                            : m.pourCeType
+                              ? ` — ${t("modelePourCeType")}`
+                              : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
                 </SelectContent>
               </Select>
             </label>
