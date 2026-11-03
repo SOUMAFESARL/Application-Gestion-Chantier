@@ -441,6 +441,41 @@ export async function exporterArbre(projetId: string, format: "xlsx" | "csv"): P
 }
 
 /**
+ * Télécharge l'exemple type Excel (.xlsx) à remplir pour découper ce projet, adapté aux niveaux
+ * du modèle choisi (ou du modèle par défaut du type de projet).
+ */
+export async function telechargerModeleExcelProjet(
+  projetId: string,
+  modele: Pick<ModeleApplique, "origine" | "id"> | null,
+): Promise<Blob> {
+  return api.telecharger(
+    `/projets/${projetId}/decoupage/modele-excel/`,
+    modele ? { modele_origine: modele.origine, modele_id: modele.id } : undefined,
+  );
+}
+
+/** Télécharge un exemple type Excel (.xlsx) générique pour créer un modèle de découpage. */
+export async function telechargerModeleExcelDecoupage(): Promise<Blob> {
+  return api.telecharger("/decoupage/modeles/modele-excel/");
+}
+
+/** Extrait les niveaux et lignes types d'un fichier Excel (.xlsx) ou CSV pour un modèle. */
+export async function importerFichierModele(
+  fichier: File,
+): Promise<{ niveaux: NiveauGabarit[]; lignes: string[][] }> {
+  const corps = new FormData();
+  corps.append("fichier", fichier, fichier.name);
+  const charge = await api.creer<{ niveaux: ChargeNiveauGabarit[]; lignes: string[][] }>(
+    "/decoupage/modeles/importer-fichier/",
+    corps,
+  );
+  return {
+    niveaux: (charge.niveaux ?? []).map(versNiveauGabarit),
+    lignes: charge.lignes ?? [],
+  };
+}
+
+/**
  * Le refus d'une application, s'il en est un : des bloquants, ou des avertissements à
  * confirmer (`confirmation_requise`). Toute autre erreur reste une `ErreurApi` ordinaire.
  */

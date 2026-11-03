@@ -58,6 +58,7 @@ import {
   listerListes,
   listerModeles,
   refusTableau,
+  telechargerModeleExcelProjet,
   verifierTableau,
 } from "../adaptateur";
 import { CLE_LISTES, cleDecoupage, cleModeles, cleTableauDemarrage } from "../cles";
@@ -221,6 +222,19 @@ function EditeurTableau({
     onError: (erreur) => toast.error(messageErreur(erreur, t("erreurImport"))),
   });
 
+  const telechargementModeleExcel = useMutation({
+    mutationFn: async () => {
+      const blob = await telechargerModeleExcelProjet(projet.id, initial.modele);
+      const url = URL.createObjectURL(blob);
+      const lien = document.createElement("a");
+      lien.href = url;
+      lien.download = `modele-decoupage-${projet.reference || projet.id}.xlsx`;
+      lien.click();
+      URL.revokeObjectURL(url);
+    },
+    onError: (erreur) => toast.error(messageErreur(erreur, t("erreurImport"))),
+  });
+
   const application = useMutation({
     mutationFn: (confirmer: boolean) => appliquerTableau(projet.id, tableau, confirmer),
     onSuccess: async (resultat) => {
@@ -372,6 +386,15 @@ function EditeurTableau({
                   if (choisi) importation.mutate(choisi);
                 }}
               />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => telechargementModeleExcel.mutate()}
+                disabled={enCours || telechargementModeleExcel.isPending}
+              >
+                {telechargementModeleExcel.isPending ? <LoaderCircle className="animate-spin" /> : <Download />}
+                {t("telechargerModeleExcel")}
+              </Button>
               <Button variant="outline" size="sm" onClick={() => fichier.current?.click()} disabled={enCours}>
                 {importation.isPending ? <LoaderCircle className="animate-spin" /> : <FileUp />}
                 {t("importer")}

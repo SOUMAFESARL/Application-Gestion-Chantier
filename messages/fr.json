@@ -5721,6 +5721,7 @@
       "modeleAucun": "Aucun modèle",
       "modeleParDefaut": "par défaut",
       "modelePourCeType": "pour ce type de projet",
+      "telechargerModeleExcel": "Exemple Excel à remplir (.xlsx)",
       "importer": "Importer un fichier",
       "exporter": "Exporter (CSV)",
       "aideImport": "Le fichier reprend les colonnes du tableau : une colonne par niveau, puis, facultatives, Unité, Quantité, Montant (FCFA), Début et Fin. Formats acceptés : .xlsx et .csv.",
