@@ -13,7 +13,10 @@ import type {
   CourbeAvancement,
   ConstatTableau,
   LigneTableau,
+  ListeValeurs,
   NiveauGabarit,
+  NiveauProjet,
+  ReferenceListe,
   TableauDemarrage,
   UniteMesure,
 } from "./types";
@@ -170,6 +173,58 @@ export function aplatirCases(cases: CaseArbre[]): CaseArbre[] {
 export function trouverCase(cases: CaseArbre[], id: string | null): CaseArbre | null {
   if (!id) return null;
   return aplatirCases(cases).find((une) => une.id === id) ?? null;
+}
+
+/** La liste de valeurs associée à un niveau, désignée par son origine et son identifiant. */
+export function trouverListeDuNiveau(
+  listes: ListeValeurs[],
+  reference: Pick<ReferenceListe, "origine" | "id"> | null | undefined,
+): ListeValeurs | undefined {
+  if (!reference) return undefined;
+  return listes.find((liste) => liste.origine === reference.origine && liste.id === reference.id);
+}
+
+/**
+ * Les valeurs déjà saisies dans la colonne d'indice `index` sur les autres lignes du tableau,
+ * sans doublon (insensible à la casse). Permet de regrouper deux lignes sous un même parent en un
+ * clic.
+ */
+export function valeursSaisiesColonne(
+  lignes: LigneTableau[],
+  index: number,
+  exclureCle?: string,
+): string[] {
+  const vues = new Set<string>();
+  const resultat: string[] = [];
+  for (const ligne of lignes) {
+    if (exclureCle && ligne.cle === exclureCle) continue;
+    const texte = (ligne.cellules[index] ?? "").trim();
+    if (!texte) continue;
+    const cle = texte.toLowerCase();
+    if (vues.has(cle)) continue;
+    vues.add(cle);
+    resultat.push(texte);
+  }
+  return resultat;
+}
+
+/**
+ * Le niveau que prendra une nouvelle case ajoutée sous `parent` (ou à la racine si `parent` est
+ * `null`), selon les règles A-1 et A-2 du serveur (`_niveau_pour_enfant`).
+ */
+export function niveauCibleAjout(
+  niveaux: NiveauProjet[],
+  parent: CaseArbre | null,
+): NiveauProjet | null {
+  if (niveaux.length === 0) return null;
+  if (parent === null) return niveaux[0] ?? null;
+  const freresActifs = parent.enfants.filter((enfant) => enfant.estActif);
+  if (freresActifs.length > 0) {
+    return niveaux.find((niveau) => niveau.id === freresActifs[0].niveau.id) ?? null;
+  }
+  const rangParent = niveaux.findIndex((niveau) => niveau.id === parent.niveau.id);
+  if (rangParent === -1) return null;
+  return niveaux[rangParent + 1] ?? niveaux[rangParent] ?? null;
 }
 
 /** Les chiffres de structure d'un arbre : cases et tâches actives, niveaux. */

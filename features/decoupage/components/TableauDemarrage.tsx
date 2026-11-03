@@ -27,6 +27,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Combobox, type OptionCombobox } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -70,6 +71,8 @@ import {
   recaler,
   retirerNiveau,
   tableauEstVide,
+  trouverListeDuNiveau,
+  valeursSaisiesColonne,
   lignesFichier,
 } from "../regles";
 import type {
@@ -792,24 +795,69 @@ function CelluleNiveau({ ligne, index }: { ligne: LigneTableau; index: number })
   const t = useTranslations("decoupage.tableau");
   const { tableau, listes, modifierCellule, desactive } = useGrille();
   const niveau = tableau.niveaux[index];
-  const liste = niveau?.liste ? listes.find((l) => l.id === niveau.liste?.id) : undefined;
-  const idValeurs = liste ? `valeurs-${liste.origine}-${liste.id}` : undefined;
+  const libelleNiveau = niveau?.libelle || t("niveauSansNom", { rang: index + 1 });
+  const valeurCourante = ligne.cellules[index] ?? "";
+  const liste = trouverListeDuNiveau(listes, niveau?.liste);
+  const dejaSaisies = useMemo(
+    () => valeursSaisiesColonne(tableau.lignes, index, ligne.cle),
+    [tableau.lignes, index, ligne.cle],
+  );
+
+  const options = useMemo<OptionCombobox[]>(() => {
+    if (!liste) return [];
+    const dansListe = new Set(liste.valeurs.map((v) => v.libelle.toLowerCase()));
+    const horsListe = dejaSaisies
+      .filter((texte) => !dansListe.has(texte.toLowerCase()))
+      .map((texte) => ({
+        valeur: texte,
+        libelle: texte,
+        groupe: t("groupeDejaSaisies"),
+      }));
+    const valeursListe = liste.valeurs.map((valeur) => ({
+      valeur: valeur.libelle,
+      libelle: valeur.libelle,
+      groupe: valeur.groupe || undefined,
+    }));
+    return [
+      ...(valeurCourante !== "" ? [{ valeur: "", libelle: t("viderCellule") }] : []),
+      ...horsListe,
+      ...valeursListe,
+    ];
+  }, [liste, dejaSaisies, valeurCourante, t]);
+
+  if (liste) {
+    return (
+      <Combobox
+        options={options}
+        valeur={valeurCourante}
+        onChange={(valeur) => modifierCellule(ligne.cle, index, valeur.slice(0, 200))}
+        placeholder={libelleNiveau}
+        placeholderRecherche={t("rechercherValeur")}
+        aucunResultat={t("aucuneValeur")}
+        libelleSaisieLibre={(saisie) => t("utiliserValeurLibre", { saisie })}
+        aria-label={libelleNiveau}
+        disabled={desactive}
+        className="h-9 min-w-44 text-sm"
+      />
+    );
+  }
+
+  const idColonne = dejaSaisies.length > 0 ? `colonne-${index}-${ligne.cle}` : undefined;
   return (
     <>
       <Input
-        value={ligne.cellules[index] ?? ""}
+        value={valeurCourante}
         maxLength={200}
-        list={idValeurs}
-        aria-label={niveau?.libelle || t("niveauSansNom", { rang: index + 1 })}
+        list={idColonne}
+        aria-label={libelleNiveau}
         onChange={(evenement) => modifierCellule(ligne.cle, index, evenement.target.value)}
         disabled={desactive}
         className="h-9 min-w-40"
       />
-      {/* Les valeurs de la liste du niveau, proposées à la saisie (C-7 avertit d'une coquille). */}
-      {liste && idValeurs && (
-        <datalist id={idValeurs}>
-          {liste.valeurs.map((valeur) => (
-            <option key={valeur.id} value={valeur.libelle} />
+      {idColonne && (
+        <datalist id={idColonne}>
+          {dejaSaisies.map((texte) => (
+            <option key={texte} value={texte} />
           ))}
         </datalist>
       )}

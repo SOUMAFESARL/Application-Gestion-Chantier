@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -33,15 +34,16 @@ import {
   cloturerCase,
   creerCase,
   desactiverCase,
+  listerListes,
   mesurerCase,
   modifierCase,
   planifierCase,
   prolongationsRequises,
   reactiverCase,
 } from "../adaptateur";
-import { cleDecoupage } from "../cles";
-import type { GesteCase } from "../regles";
-import type { CaseArbre, ModeMesure, ModificationCase, Prolongation, UniteMesure } from "../types";
+import { CLE_LISTES, cleDecoupage } from "../cles";
+import { niveauCibleAjout, trouverListeDuNiveau, type GesteCase } from "../regles";
+import type { CaseArbre, ModeMesure, ModificationCase, NiveauProjet, Prolongation, UniteMesure } from "../types";
 import { MODES_MESURE, UNITES_MESURE } from "../types";
 import { premierMessage, schemaDates, schemaJustification, schemaLibelle, schemaMotif } from "../validations";
 
@@ -63,10 +65,12 @@ export interface GesteOuvert {
  */
 export function FenetreGeste({
   projet,
+  niveaux = [],
   ouvert,
   onFermer,
 }: {
   projet: Projet;
+  niveaux?: NiveauProjet[];
   ouvert: GesteOuvert | null;
   onFermer: () => void;
 }) {
@@ -74,9 +78,13 @@ export function FenetreGeste({
   const cle = `${ouvert.geste}-${ouvert.cible?.id ?? "racine"}`;
   switch (ouvert.geste) {
     case "ajouter":
-      return <FenetreAjout key={cle} projet={projet} parent={ouvert.cible} onFermer={onFermer} />;
+      return <FenetreAjout key={cle} projet={projet} niveaux={niveaux} parent={ouvert.cible} onFermer={onFermer} />;
     case "modifier":
-      return ouvert.cible && <FenetreModification key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />;
+      return (
+        ouvert.cible && (
+          <FenetreModification key={cle} projet={projet} niveaux={niveaux} cible={ouvert.cible} onFermer={onFermer} />
+        )
+      );
     case "planifier":
       return ouvert.cible && <FenetrePlanification key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />;
     case "reprogrammer":
@@ -211,17 +219,69 @@ function nombreOuNull(texte: string): number | null {
   return Number.isFinite(nombre) ? nombre : null;
 }
 
+function ChampIntituleCase({
+  valeur,
+  onChange,
+  niveau,
+  autoFocus,
+}: {
+  valeur: string;
+  onChange: (valeur: string) => void;
+  niveau: NiveauProjet | null;
+  autoFocus?: boolean;
+}) {
+  const t = useTranslations("decoupage.gestes.champs");
+  const requeteListes = useQuery({
+    queryKey: CLE_LISTES,
+    queryFn: ({ signal }) => listerListes(signal),
+    enabled: Boolean(niveau?.liste),
+  });
+  const liste = trouverListeDuNiveau(requeteListes.data ?? [], niveau?.liste);
+
+  if (liste) {
+    const options = liste.valeurs.map((entree) => ({
+      valeur: entree.libelle,
+      libelle: entree.libelle,
+      groupe: entree.groupe || undefined,
+    }));
+    return (
+      <Combobox
+        options={options}
+        valeur={valeur}
+        onChange={(choix) => onChange(choix.slice(0, 200))}
+        placeholder={t("choisirOuSaisir")}
+        placeholderRecherche={t("rechercherOuSaisir")}
+        aucunResultat={t("aucuneValeur")}
+        libelleSaisieLibre={(saisie) => t("utiliserValeurLibre", { saisie })}
+      />
+    );
+  }
+
+  return <Input value={valeur} maxLength={200} onChange={(e) => onChange(e.target.value)} autoFocus={autoFocus} />;
+}
+
 /* ------------------------------------------------------------------ *
  * Ajouter une case.
  * ------------------------------------------------------------------ */
 
-function FenetreAjout({ projet, parent, onFermer }: { projet: Projet; parent: CaseArbre | null; onFermer: () => void }) {
+function FenetreAjout({
+  projet,
+  niveaux,
+  parent,
+  onFermer,
+}: {
+  projet: Projet;
+  niveaux: NiveauProjet[];
+  parent: CaseArbre | null;
+  onFermer: () => void;
+}) {
   const t = useTranslations("decoupage.gestes");
   const [libelle, setLibelle] = useState("");
   const [code, setCode] = useState("");
   const [motif, setMotif] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
   const motifRequis = parent?.commence ?? false;
+  const niveauCible = niveauCibleAjout(niveaux, parent);
 
   const ecriture = useEcriture(
     projet,
@@ -259,7 +319,7 @@ function FenetreAjout({ projet, parent, onFermer }: { projet: Projet; parent: Ca
       onFermer={onFermer}
     >
       <Champ libelle={t("champs.libelle")}>
-        <Input value={libelle} maxLength={200} onChange={(e) => setLibelle(e.target.value)} autoFocus />
+        <ChampIntituleCase valeur={libelle} onChange={setLibelle} niveau={niveauCible} autoFocus />
       </Champ>
       <Champ libelle={t("champs.code")} aide={t("champs.codeAide")}>
         <Input value={code} maxLength={30} onChange={(e) => setCode(e.target.value)} />
@@ -277,7 +337,17 @@ function FenetreAjout({ projet, parent, onFermer }: { projet: Projet; parent: Ca
  * Modifier : renommer, recoder, chiffrer, métrer.
  * ------------------------------------------------------------------ */
 
-function FenetreModification({ projet, cible, onFermer }: { projet: Projet; cible: CaseArbre; onFermer: () => void }) {
+function FenetreModification({
+  projet,
+  niveaux,
+  cible,
+  onFermer,
+}: {
+  projet: Projet;
+  niveaux: NiveauProjet[];
+  cible: CaseArbre;
+  onFermer: () => void;
+}) {
   const t = useTranslations("decoupage.gestes");
   const tUnite = useTranslations("decoupage.unites");
   const tMode = useTranslations("decoupage.modesMesure");
@@ -291,6 +361,7 @@ function FenetreModification({ projet, cible, onFermer }: { projet: Projet; cibl
   const [montant, setMontant] = useState(montantInitial === null ? "" : String(montantInitial / 100));
   const [motif, setMotif] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
+  const niveauCible = niveaux.find((niveau) => niveau.id === cible.niveau.id) ?? null;
 
   /** Seuls les champs changés partent : chacun exige sa permission (découper ou chiffrer). */
   function modifications(): ModificationCase {
@@ -357,7 +428,7 @@ function FenetreModification({ projet, cible, onFermer }: { projet: Projet; cibl
     >
       <div className="grid grid-cols-[2fr_1fr] gap-3 max-sm:grid-cols-1">
         <Champ libelle={t("champs.libelle")}>
-          <Input value={libelle} maxLength={200} onChange={(e) => setLibelle(e.target.value)} />
+          <ChampIntituleCase valeur={libelle} onChange={setLibelle} niveau={niveauCible} />
         </Champ>
         <Champ libelle={t("champs.code")}>
           <Input value={code} maxLength={30} onChange={(e) => setCode(e.target.value)} />

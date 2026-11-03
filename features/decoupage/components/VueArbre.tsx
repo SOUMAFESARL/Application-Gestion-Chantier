@@ -145,7 +145,7 @@ export function VueArbre({ projet }: { projet: Projet }) {
         onFermer={() => setCaseOuverte(null)}
         onGeste={(gesteChoisi, cible) => setGeste({ geste: gesteChoisi, cible })}
       />
-      <FenetreGeste projet={projet} ouvert={geste} onFermer={() => setGeste(null)} />
+      <FenetreGeste projet={projet} niveaux={arbre.niveaux} ouvert={geste} onFermer={() => setGeste(null)} />
     </div>
   );
 }

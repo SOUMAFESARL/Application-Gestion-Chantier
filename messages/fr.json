@@ -2008,13 +2008,13 @@
   },
   "pageParametres": {
     "titre": "Paramètres",
-    "metaDescription": "Les réglages de l’entreprise : collaborateurs, rôles, listes, calendrier et configuration.",
+    "metaDescription": "Les réglages de l’entreprise : collaborateurs, rôles, listes et modèles, calendrier et configuration.",
     "description": "Les réglages de votre entreprise, regroupés au même endroit.",
     "aucune": "Aucun réglage n’est ouvert à votre compte.",
     "descriptions": {
       "collaborateurs": "Inviter les membres de l’équipe, suivre leurs comptes et leurs affectations.",
       "roles": "Créer les rôles et régler ce que chacun peut voir et faire.",
-      "listes": "Les types de projet et les noms de lot proposés à toute l’entreprise.",
+      "listes": "Les types de projet, les modes d’exécution, les listes de valeurs et les modèles de découpage proposés à toute l’entreprise.",
       "calendrier": "Les jours ouvrés de l’entreprise : semaine type, jours fériés et exceptions.",
       "configuration": "Les informations de l’entreprise qui figurent sur vos documents officiels.",
       "documentsPdf": "Le logo et les mentions imprimés en haut et en bas de vos PDF."
@@ -2886,16 +2886,14 @@
         "placeholder": "Choisir un mode de base"
       },
       "gestion": {
-        "titrePage": "Listes de l’entreprise",
-        "descriptionPage": "Les types de projet, les noms de lot et les modes d’exécution proposés dans les formulaires. Vos ajouts sont proposés à tous vos collaborateurs ; ceux de la plateforme ne se retirent pas.",
+        "titrePage": "Listes et modèles",
+        "descriptionPage": "Les types de projet, les modes d’exécution, les listes de valeurs et les modèles de découpage proposés dans les projets. Vos ajouts sont proposés à tous vos collaborateurs ; ceux de la plateforme ne se retirent pas.",
         "titre": {
           "types-projet": "Types de projet",
-          "lots": "Noms de lot",
           "modes-execution": "Modes d’exécution"
         },
         "placeholder": {
           "types-projet": "Nouveau type de projet",
-          "lots": "Nouveau nom de lot",
           "modes-execution": "Nouveau mode d’exécution"
         },
         "groupe": {
@@ -4160,7 +4158,7 @@
       "collaborateurs": "Collaborateurs",
       "calendrier": "Calendrier",
       "configuration": "Configuration",
-      "listes": "Listes",
+      "listes": "Listes et modèles",
       "contrats": "Contrats",
       "deconnexion": "Se déconnecter",
       "descContrats": "Sous-traitance & marchés",
@@ -5698,6 +5696,11 @@
       "retirerNiveau": "Retirer ce niveau et sa colonne",
       "sansListe": "Sans liste de valeurs",
       "alerter": "Alerter à ce niveau",
+      "rechercherValeur": "Rechercher ou saisir une valeur…",
+      "aucuneValeur": "Aucune valeur dans cette liste.",
+      "utiliserValeurLibre": "Utiliser « {saisie} »",
+      "viderCellule": "— Vider la cellule",
+      "groupeDejaSaisies": "Déjà saisies dans cette colonne",
       "numero": "Ligne",
       "unite": "Unité",
       "sansUnite": "—",
@@ -5840,6 +5843,10 @@
       },
       "champs": {
         "libelle": "Intitulé",
+        "choisirOuSaisir": "Choisir dans la liste ou saisir…",
+        "rechercherOuSaisir": "Rechercher ou saisir un intitulé…",
+        "aucuneValeur": "Aucune valeur correspondante.",
+        "utiliserValeurLibre": "Utiliser « {saisie} »",
         "code": "Code libre",
         "codeAide": "Facultatif : la numérotation du bordereau du client.",
         "motif": "Motif",

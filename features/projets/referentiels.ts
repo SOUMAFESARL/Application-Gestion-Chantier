@@ -1,9 +1,9 @@
 /**
- * Les référentiels dynamiques du domaine Projets : types de projet, noms de
- * lot et modes d'exécution. Chaque liste réunit deux origines — la
- * **plateforme** (posée par le super admin, commune à toutes les entreprises,
- * non supprimable ici) et l'**entreprise** (ajoutée par qui en a la
- * permission, retirée par le DG ou l'administrateur).
+ * Les référentiels dynamiques du domaine Projets : types de projet et modes
+ * d'exécution. Chaque liste réunit deux origines — la **plateforme** (posée par
+ * le super admin, commune à toutes les entreprises, non supprimable ici) et
+ * l'**entreprise** (ajoutée par qui en a la permission, retirée par le DG ou
+ * l'administrateur).
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -12,12 +12,10 @@ import { useCallback, useMemo } from "react";
 import { api } from "@/lib/api";
 
 export const REFERENTIEL_TYPES_PROJET = "types-projet";
-export const REFERENTIEL_LOTS = "lots";
 export const REFERENTIEL_MODES_EXECUTION = "modes-execution";
 
 export type CategorieReferentiel =
   | typeof REFERENTIEL_TYPES_PROJET
-  | typeof REFERENTIEL_LOTS
   | typeof REFERENTIEL_MODES_EXECUTION;
 
 /**
@@ -32,11 +30,11 @@ export type CategorieReferentielLibre = Exclude<
 export type OrigineReferentiel = "PLATEFORME" | "ENTREPRISE";
 
 export interface EntreeReferentiel {
-  /** Ce que le projet enregistre pour un type ; sans usage pour un lot, qui garde le libellé. */
+  /** Ce que le projet enregistre pour un type. */
   code: string;
   libelle: string;
   /**
-   * Le titre de groupe dans la liste — le corps d'état d'un lot. Vide : aucun.
+   * Le titre de groupe dans la liste. Vide : aucun.
    * Pour un mode d'exécution, le code du mode de base auquel il se rattache.
    */
   groupe: string;
