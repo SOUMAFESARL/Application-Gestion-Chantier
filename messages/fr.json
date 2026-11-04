@@ -5630,6 +5630,16 @@
         "APPROBATION": "Rapport approuvé.",
         "rejet": "Rapport renvoyé au rédacteur."
       },
+      "rejete": {
+        "titre": {
+          "VALIDATION": "Rapport rejeté lors de la validation",
+          "APPROBATION": "Rapport rejeté lors de l'approbation"
+        },
+        "par": "Par {nom} : « {motif} »",
+        "motifSeul": "Motif : « {motif} »",
+        "rappel": "Ce rapport doit être corrigé et soumis de nouveau afin d'être revalidé et réapprouvé par l'ensemble des signataires attendus.",
+        "corriger": "Corriger et re-soumettre"
+      },
       "erreur": "La signature n'a pas pu être enregistrée. Réessayez."
     },
     "syntheseCircuit": {

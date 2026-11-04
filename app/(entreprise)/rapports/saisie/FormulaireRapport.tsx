@@ -33,7 +33,7 @@ import {
 import type { PreparationSaisie, ResumeSaisie } from "@/features/chantier";
 import { enregistrerBrouillon, envoyerAlerte, soumettreRapport } from "@/features/chantier/adaptateur";
 import { ecrireCopieLocale, effacerCopieLocale, lireCopieLocale } from "@/features/chantier/brouillonLocal";
-import { CLE_JOURNAL, cleRapportsProjet } from "@/features/chantier/cles";
+import { CLE_JOURNAL, cleRapport, cleRapportsProjet } from "@/features/chantier/cles";
 import { schemaRapport, valeursDepuis, versSaisie, type ValeursRapport } from "@/features/chantier/validations";
 import { useDefile, useResteEnBas } from "@/hooks/use-defilement";
 import { ErreurApi } from "@/lib/api";
@@ -315,6 +315,8 @@ export function FormulaireRapport({
       modifie.current = false;
       void cache.invalidateQueries({ queryKey: CLE_JOURNAL });
       void cache.invalidateQueries({ queryKey: cleRapportsProjet(projet.id) });
+      void cache.invalidateQueries({ queryKey: cleRapport(id) });
+      void cache.invalidateQueries({ queryKey: ["projets", projet.id] });
       toast.success(t("soumission.succes", { reference }));
       router.push(`/rapports/${id}`);
     },
