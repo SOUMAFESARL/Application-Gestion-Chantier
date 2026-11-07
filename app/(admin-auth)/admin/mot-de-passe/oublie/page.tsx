@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
  *
  * **Un ecran distinct de celui des entreprises**, et pas un alias vers
  * `/mot-de-passe/oublie` : les deux espaces ont deux tables de comptes. Poser
- * une adresse d'administrateur sur l'endpoint du tenant aurait produit le
+ * une adresse d'administrateur sur l'endpoint des entreprises aurait produit le
  * meme `202` silencieux que n'importe quelle adresse inconnue — un echec que
  * rien, a l'ecran, n'aurait distingue d'un succes.
  *

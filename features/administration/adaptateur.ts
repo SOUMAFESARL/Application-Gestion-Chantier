@@ -5,11 +5,10 @@
  * seul qui connaisse la forme de ce qu'il envoie. Écrans et règles manipulent
  * les types de `types.ts` et ignorent qu'il y a eu une requête.
  *
- * Il appelle `apiAdministration`, jamais `api` : le back-office vit sur le
- * domaine principal, dans le schéma `public`, et présente les jetons de
- * l'espace `administration`. Passer par `api` viserait le sous-domaine d'un
- * client — où aucune de ces routes n'existe, et où le `404` obtenu n'aurait
- * pas accusé la bonne cause.
+ * Il appelle `apiAdministration`, jamais `api` : le back-office présente les
+ * jetons de l'espace `administration`, pas ceux d'une entreprise. Passer par
+ * `api` enverrait le jeton d'un collaborateur à des routes qui le refusent —
+ * et le refus obtenu n'aurait pas accusé la bonne cause.
  *
  * **Tout le domaine est réel** depuis le lot 2 (14/10/2026) : chaque
  * fonction appelle `/api/v1/admins/…`, quel que soit `NEXT_PUBLIC_API_SIMULE`.

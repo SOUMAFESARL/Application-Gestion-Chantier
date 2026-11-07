@@ -167,7 +167,8 @@ export function EcranActivation() {
     };
   }, [etat, t]);
 
-  // Redirection vers le sous-domaine du client, une fois l'espace prêt.
+  // Redirection vers l'écran de connexion, une fois l'espace prêt : le même pour
+  // toutes les entreprises, le serveur retrouve la sienne depuis l'e-mail.
   useEffect(() => {
     if (etat.nom !== "pret") return;
     const minuterie = setTimeout(() => {

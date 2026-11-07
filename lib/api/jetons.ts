@@ -1,9 +1,9 @@
 /**
  * Conservation des jetons, **pour deux espaces distincts**.
  *
- * Le produit a deux espaces : celui d'une entreprise cliente, sur son
- * sous-domaine, et celui de l'administrateur de la plateforme, sur le domaine
- * principal. Les comptes vivent dans **deux tables separees** cote Django :
+ * Le produit a deux espaces : celui d'une entreprise cliente et celui de
+ * l'administrateur de la plateforme, servis par le meme hote d'API. Les
+ * comptes vivent dans **deux tables separees** cote Django :
  * ce ne sont pas deux roles d'un meme utilisateur, ce sont deux identites qui
  * ne se recouvrent jamais.
  *

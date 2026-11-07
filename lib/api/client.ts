@@ -3,7 +3,7 @@
  *
  * Ce que ce module prend en charge, pour que 19 écrans n'aient pas à le
  * refaire chacun de leur côté :
- *   · l'adresse de base, dépendante du sous-domaine du client ;
+ *   · l'adresse de base, un seul hôte pour toutes les entreprises ;
  *   · l'en-tête `Authorization` ;
  *   · le **renouvellement du jeton sur 401**, avec une seule tentative en
  *     vol — sinon dix requêtes simultanées déclenchent dix renouvellements
@@ -40,55 +40,23 @@ export const DELAI_TRAITEMENT_FICHIER_MS = 5 * 60 * 1000;
 const CHEMIN_CONNEXION_ADMIN = "/admins/connexion/";
 
 /**
- * Surcharge explicite de l'adresse de l'API — **à n'employer qu'en dernier
- * recours.**
+ * L'adresse de l'API — **un seul hôte pour toutes les entreprises**.
  *
- * Elle **épingle le frontend sur un seul tenant**. C'est ce qu'elle faisait en
- * développement, et le défaut qui en découlait est instructif : après son
- * inscription, un nouveau client suivait `url_connexion` jusqu'à
- * `<son-slug>.localhost:3000` — et l'écran de connexion interrogeait l'API de
- * `demo`, où son compte n'existe pas. *Mêmes identifiants : `401` chez demo,
- * `200` chez lui.* Le compte existait ; il était demandé au mauvais client.
+ * L'entreprise ne se lit pas dans l'adresse : elle voyage dans le jeton de
+ * connexion, et le serveur la retrouve depuis l'e-mail au moment de la
+ * connexion. Aucune entreprise n'a de sous-domaine.
+ *
+ * `deploy-cpanel.yml` la fixe en production (`https://api-chantier.soumafe.com`) ;
+ * à défaut, le backend local. `127.0.0.1` et non `localhost` : Windows résout
+ * `localhost` en `::1` d'abord, alors que le serveur de développement de Django
+ * n'écoute qu'en IPv4 — chaque nouvelle connexion attendait le refus de `::1`.
+ *
+ * Seule l'origine compte : `new URL("/api/v1…", base)` remplace tout chemin.
  */
-const SURCHARGE = process.env.NEXT_PUBLIC_API_URL;
+const ADRESSE_API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-/**
- * Port de l'API, quand il diffère de celui du frontend.
- *
- * **C'est toute la difficulté du développement local** : le frontend écoute sur
- * `3000` et l'API sur `8000`, si bien que l'hôte du navigateur ne suffit pas à
- * désigner l'API. En production les deux partagent l'hôte **et** le port ;
- * cette variable est alors absente et rien ne s'y substitue.
- */
-const PORT_API = process.env.NEXT_PUBLIC_API_PORT;
-
-/**
- * Le domaine de la plateforme — `localhost` en développement,
- * `ccd-digital.ci` en production. Pendant du `DOMAINE_PRINCIPAL` de Django.
- *
- * Il est **déclaré** plutôt que déduit du nom d'hôte : retirer « le premier
- * label » marcherait sur `sotra.ccd-digital.ci` et échouerait sur
- * `sotra.localhost`, qui n'en a que deux. Une heuristique qui dépend du nombre
- * de points est une heuristique qui casse au premier changement de domaine.
- */
-const DOMAINE_PLATEFORME = process.env.NEXT_PUBLIC_DOMAINE_PRINCIPAL ?? "localhost";
-
-/**
- * L'adresse de base, déduite du sous-domaine du client.
- *
- * Le sous-domaine **est** l'identité du tenant : c'est lui que
- * `TenantMainMiddleware` lit pour résoudre le schéma. Le même build sert donc
- * toutes les entreprises — `sotra.ccd-digital.ci` appelle
- * `sotra.ccd-digital.ci`, et en développement `sotra.localhost:3000` appelle
- * `sotra.localhost:8000`.
- */
 function baseApi(): string {
-  if (SURCHARGE) return SURCHARGE;
-  // Rendu serveur : pas de `window`. Le schéma public est la seule cible sûre.
-  if (typeof window === "undefined") return "http://localhost:8000";
-
-  const { protocol, hostname, host } = window.location;
-  return PORT_API ? `${protocol}//${hostname}:${PORT_API}` : `${protocol}//${host}`;
+  return ADRESSE_API;
 }
 
 type Methode = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
@@ -126,9 +94,9 @@ function signalerSessionExpiree(espace: EspaceSession): void {
 
 interface Options {
   /**
-   * Adresse de base explicite. Sert aux endpoints du **domaine plateforme** —
-   * l'inscription, la facturation — qui ne vivent pas sur le sous-domaine
-   * d'un client : au moment de s'inscrire, on n'en a pas encore.
+   * Adresse de base explicite. Sert aux endpoints **de la plateforme** —
+   * l'inscription, la facturation — appelés sans jeton d'entreprise : au
+   * moment de s'inscrire, on n'en a pas encore.
    */
   base?: string;
   methode?: Methode;
@@ -159,11 +127,10 @@ const renouvellementsEnCours = new Map<EspaceSession, Promise<boolean>>();
 /**
  * Ou renouveler, selon l'espace.
  *
- * L'administration ne peut pas passer par `baseApi()` : celle-ci vise le
- * sous-domaine d'un client, et le compte d'administration n'appartient a
- * aucun client. Presenter son jeton de renouvellement au `/auth/token/refresh/`
- * d'un tenant aurait produit un `401` — donc une deconnexion — pour une
- * raison qui n'a rien a voir avec la validite du jeton.
+ * Le compte d'administration n'appartient a aucune entreprise : il a son
+ * propre point de renouvellement, `/admins/token/refresh/`. Presenter son jeton
+ * au `/auth/token/refresh/` des entreprises produirait un `401` — donc une
+ * deconnexion — pour une raison qui n'a rien a voir avec la validite du jeton.
  */
 function urlRenouvellement(espace: EspaceSession): string {
   return espace === "administration"
@@ -502,24 +469,16 @@ export async function appelerBlob(chemin: string, options: Options = {}): Promis
 }
 
 /**
- * L'adresse du **domaine plateforme** — schéma `public`.
+ * L'adresse des appels **de la plateforme** : l'inscription, la facturation et
+ * l'administration de l'éditeur.
  *
- * L'inscription, la facturation et l'administration de la plateforme y vivent.
- * Elles ne peuvent pas passer par `baseApi()` : celle-ci vise le sous-domaine
- * d'un client, et une entreprise qui s'inscrit n'en a pas encore.
- *
- * En développement, `localhost:8000` ; en production, le domaine principal.
+ * C'est le même hôte que `baseApi()` ; `NEXT_PUBLIC_API_PLATEFORME` ne sert
+ * qu'à le séparer si un jour la plateforme a son propre hôte. Ce qui distingue
+ * ces appels n'est pas l'adresse mais le jeton : `apiPlateforme` n'en présente
+ * aucun (inscription), `apiAdministration` présente celui de l'administration.
  */
 export function basePlateforme(): string {
-  const surcharge = process.env.NEXT_PUBLIC_API_PLATEFORME;
-  if (surcharge) return surcharge;
-  if (SURCHARGE) return SURCHARGE;
-  if (typeof window === "undefined") return "http://localhost:8000";
-
-  const { protocol } = window.location;
-  return PORT_API
-    ? `${protocol}//${DOMAINE_PLATEFORME}:${PORT_API}`
-    : `${protocol}//${DOMAINE_PLATEFORME}`;
+  return process.env.NEXT_PUBLIC_API_PLATEFORME || ADRESSE_API;
 }
 
 export const api = {
@@ -539,11 +498,11 @@ export const api = {
 };
 
 /**
- * Le même client, braqué sur le domaine plateforme.
+ * Le même client, pour les appels de la plateforme, sans jeton d'entreprise.
  *
  * Un second objet plutôt qu'un paramètre à chaque appel : l'oubli du paramètre
- * enverrait la requête au sous-domaine d'un client, où la route n'existe pas —
- * et un `404` sur `/inscription/` n'accuse pas la bonne cause.
+ * enverrait le jeton d'un collaborateur à l'inscription, qui ne doit en porter
+ * aucun.
  */
 export const apiPlateforme = {
   lire: <T>(chemin: string, parametres?: Options["parametres"], signal?: AbortSignal) =>

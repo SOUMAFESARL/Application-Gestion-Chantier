@@ -126,7 +126,7 @@ export function cleCollaborateur(id: string) {
 }
 
 /**
- * Tous les collaborateurs du tenant : comptes et invitations en cours.
+ * Tous les collaborateurs de l'entreprise : comptes et invitations en cours.
  *
  * La liste vient toujours du serveur.
  */

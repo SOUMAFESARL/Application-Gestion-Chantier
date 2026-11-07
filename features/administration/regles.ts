@@ -186,7 +186,7 @@ export function trierParUrgence(
  * où en est la facturation. D'où un seul type, et deux champs de statut.
  */
 export interface CriteresClients {
-  /** Recherche libre : raison sociale, nom commercial, ville ou sous-domaine. */
+  /** Recherche libre : raison sociale, nom commercial, ville ou identifiant. */
   recherche: string;
   /** Vide : tous les statuts de compte. */
   statutClient: StatutClient | "";
@@ -225,8 +225,8 @@ function normaliser(valeur: string): string {
 /**
  * Les entreprises, restreintes aux critères de l'écran.
  *
- * Le sous-domaine fait partie de la recherche : c'est souvent la seule chose
- * qu'un client sait citer au téléphone — il la lit dans sa barre d'adresse.
+ * L'identifiant fait partie de la recherche : c'est souvent la seule chose
+ * qu'un client sait citer au téléphone, en plus de sa raison sociale.
  * L'ordre d'entrée est conservé : le tri est l'affaire de l'écran.
  */
 export function filtrerClients(

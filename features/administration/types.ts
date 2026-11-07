@@ -211,7 +211,7 @@ export interface ClientPlateforme {
   id: string;
   raisonSociale: string;
   nomCommercial: string;
-  /** Le sous-domaine, donc le schéma PostgreSQL. */
+  /** L'identifiant lisible de l'entreprise, dérivé de sa raison sociale. */
   slug: string;
   pays: string;
   ville: string;

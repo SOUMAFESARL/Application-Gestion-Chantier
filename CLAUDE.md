@@ -37,28 +37,29 @@ nothing on screen — which is literally the acceptance criterion of lot 1. See
 
 Demo login against a connected backend: `admin@demo.ci` / `Demo1234!`.
 
-## Multi-tenancy: one API host, the tenant travels in the token
+## Companies: one API host, the company travels in the token
 
-**Production serves a single API host**, `api-chantier.soumafe.com`:
+**There is a single API host**, `api-chantier.soumafe.com` in production:
 `deploy-cpanel.yml` sets `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_API_PLATEFORME`
-to it, and no client company has a subdomain. The backend
-(`apps/core/middleware_tenant.py`) picks the tenant, in this order:
+to it. **No company has a subdomain, and the frontend never derives anything
+from the browser's address**: `baseApi()` (`lib/api/client.ts`) returns
+`NEXT_PUBLIC_API_URL`, or `http://127.0.0.1:8000` when it is empty. The
+frontend sends no `X-Tenant` header either. At login the server finds the
+user's company from the email; afterwards the JWT carries it.
 
-1. the `schema` claim of the JWT, written at login — the server finds the
-   user's company from the email, in the public schema;
-2. an explicit `X-Tenant` header;
-3. the hostname — `demo.localhost:8000` — a **development fallback only**;
-4. otherwise the public schema.
+The backend is leaving django-tenants for a single schema where each row
+carries its company (`../API-Gestion-Chantier/docs/multi-tenant/plan-sortie-schemas.md`).
+Until that switch, its response fields still say `schema` / `schema_name`;
+they become `entreprise` at the switch — the only frontend change it requires.
 
 What follows from it:
 
-- **A tenant route called without a token answers 404, not 401**: the request
+- **A company route called without a token answers 404, not 401**: the request
   falls on the public URL conf, which does not know `/projets/`.
-- **Develop the way production runs**: `NEXT_PUBLIC_API_URL=http://localhost:8000`
-  in `.env.local`, and browse `http://localhost:3000`. Leaving
-  `NEXT_PUBLIC_API_URL` empty makes `baseApi()` (`lib/api/client.ts`) derive the
-  API from the browser's subdomain, which only exercises fallback 3.
-- `apiPlateforme` targets the *platform* schema anonymously (signup). Use `api`
+- **Develop the way production runs**: `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000`
+  in `.env.local`, and browse `http://localhost:3000`. `127.0.0.1`, not
+  `localhost`: Windows tries `::1` first, where Django's dev server does not listen.
+- `apiPlateforme` calls the platform anonymously (signup). Use `api`
   for everything a signed-in user does. Picking the wrong one fails silently
   as a 404, not an auth error.
 
@@ -67,7 +68,7 @@ What follows from it:
 The product has **two distinct spaces**, and the frontend used to know only
 the first:
 
-- the **tenant space**, one subdomain per client company — everything under
+- the **company space**, shared by every client company — everything under
   `app/(entreprise)/`, `(auth)/`, `(public)/`;
 - the **platform admin space** (`ccd-digital.ci/admin`), the SaaS editor's
   back-office: clients, subscriptions, billing, support. It lives under

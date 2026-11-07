@@ -133,8 +133,9 @@ export function refuser(
 // ---------------------------------------------------------------------------
 /**
  * Reproduit `deriver_slug` du serveur. **Liste blanche `[a-z0-9]`**, jamais
- * liste noire : c'est ce qui neutralise l'injection du piège P-1, où le
- * validateur de django-tenants accepte `a"; DROP SCHEMA public CASCADE; --`.
+ * liste noire : un identifiant fait de lettres et de chiffres ne peut rien
+ * porter d'autre — c'est ce qui neutralisait l'injection du piège P-1
+ * (`a"; DROP SCHEMA public CASCADE; --`).
  *
  * Côté client ce n'est qu'un aperçu — le serveur reste seul juge (R-60).
  */

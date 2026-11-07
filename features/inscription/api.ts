@@ -1,8 +1,8 @@
 /**
  * Inscription d'une entreprise — contrat T-021.
  *
- * Cinq endpoints, tous sur le **domaine de la plateforme** : au moment de
- * l'inscription, le client n'a pas encore de sous-domaine.
+ * Cinq endpoints **de la plateforme**, appelés sans jeton : au moment de
+ * l'inscription, le client n'a pas encore de compte.
  *
  * Deux points du contrat que ce module rend visibles dans les types :
  *   · `POST /inscription/` répond **`202`, toujours** — que l'adresse soit

@@ -24,7 +24,7 @@
  * teinte parmi six (charte §10), injectée à l'exécution. Un client qui n'a pas
  * pris cette teinte par défaut obtient donc encore la mauvaise couleur de
  * barre de navigateur. La corriger demande une source côté serveur — la
- * personnalisation du tenant — qui n'existe pas encore : le jour où elle
+ * personnalisation de l'entreprise — qui n'existe pas encore : le jour où elle
  * existera, c'est `generateViewport()` qui la lira, et cette constante
  * redeviendra ce que son nom dit, un simple défaut.
  */
