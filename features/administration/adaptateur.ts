@@ -178,7 +178,6 @@ interface ChargeUtilisateurSuperAdmin {
   is_superuser: boolean;
   is_staff: boolean;
   langue: string;
-  schema: string;
   /** Le rôle de back-office réel : `is_superuser` côté Django. */
   role?: RoleAdministrateur;
   /** Absent de la réponse de connexion ; présent dans celle de `PATCH /admins/moi/`. */

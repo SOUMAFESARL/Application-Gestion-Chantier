@@ -50,9 +50,13 @@ export interface Activation {
   mot_de_passe: string;
 }
 
+/**
+ * L'espace est créé dans la transaction même de l'activation (D9, R-12) : le serveur répond
+ * `PRET`, et la sonde le confirme dès son premier appel.
+ */
 export interface AccuseActivation {
   suivi: string;
-  statut: "PROVISIONNEMENT";
+  statut: "PRET";
 }
 
 export type EtatProvisionnement =

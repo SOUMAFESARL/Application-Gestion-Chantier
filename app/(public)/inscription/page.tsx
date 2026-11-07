@@ -14,7 +14,7 @@ import { FormulaireInscription } from "./FormulaireInscription";
  * chantier à gauche, le formulaire à droite.
  *
  * Contrat : `contrat_inscription_CCD_Digital.md` (T-021).
- * Provisionnement : `provisioning_multi_tenant_CCD_Digital.md` (T-020).
+ * Création de l'espace : décision D9 (`decision_schema_unique_CCD_Digital.md`), R-12.
  *
  * **L'écran 5 de M8 n'existe plus.** Il affichait « Cet email est déjà
  * utilisé » — une réponse qui, sur un formulaire public sans

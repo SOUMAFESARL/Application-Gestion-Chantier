@@ -74,7 +74,8 @@ export interface ProfilUtilisateur {
 export interface EntrepriseProfil {
   id: string;
   raison_sociale: string;
-  schema_name: string;
+  /** Identifiant lisible de l'entreprise (D9, R-13). */
+  slug: string;
   logo_url: string | null;
 }
 

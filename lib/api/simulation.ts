@@ -80,7 +80,7 @@ interface EtatSimule {
       email: string;
       jeton: string;
       slug: string;
-      statut: "EN_ATTENTE" | "PROVISIONNEMENT" | "PRET";
+      statut: "EN_ATTENTE" | "PRET";
       activee_le: number | null;
     }
   >;
@@ -230,11 +230,12 @@ export const simulation = {
       refuser("inscription_deja_activee", "Cet espace est déjà actif. Connectez-vous.", 409);
     }
 
-    demande.statut = "PROVISIONNEMENT";
+    // L'espace est créé dans la transaction de l'activation (D9, R-12).
+    demande.statut = "PRET";
     demande.activee_le = Date.now();
     ecrireEtat(etat);
 
-    return attendre({ suivi: demande.id, statut: "PROVISIONNEMENT" as const });
+    return attendre({ suivi: demande.id, statut: "PRET" as const });
   },
 
   /** `GET /inscription/etat/{suivi}/` — §7.1 : `200` même sur un échec. */
@@ -245,15 +246,10 @@ export const simulation = {
       refuser("introuvable", "La ressource demandée est introuvable.", 404);
     }
 
-    // Le provisionnement réel prend des secondes : migrations d'un schéma
-    // complet (T-020 §3.2). On en simule quatre.
-    const ecoule = Date.now() - (demande.activee_le ?? Date.now());
-    if (ecoule < 4000) {
+    // Une demande activée est prête : la sonde le dit dès son premier appel (D9, R-12).
+    if (demande.statut !== "PRET") {
       return attendre({ statut: "PROVISIONNEMENT" as const }, 200);
     }
-
-    demande.statut = "PRET";
-    ecrireEtat(etat);
     return attendre(
       {
         statut: "PRET" as const,

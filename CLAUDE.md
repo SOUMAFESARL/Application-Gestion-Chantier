@@ -47,10 +47,11 @@ from the browser's address**: `baseApi()` (`lib/api/client.ts`) returns
 frontend sends no `X-Tenant` header either. At login the server finds the
 user's company from the email; afterwards the JWT carries it.
 
-The backend is leaving django-tenants for a single schema where each row
-carries its company (`../API-Gestion-Chantier/docs/multi-tenant/plan-sortie-schemas.md`).
-Until that switch, its response fields still say `schema` / `schema_name`;
-they become `entreprise` at the switch — the only frontend change it requires.
+The backend runs on a single schema where each row carries its company
+(decision D9, `../API-Gestion-Chantier/docs/multi-tenant/plan-sortie-schemas.md`).
+Responses no longer carry `schema` / `schema_name`: the token has an `entreprise`
+claim (absent for platform staff), and the `entreprise` object of the profile
+gives its `id` and `slug`.
 
 What follows from it:
 
