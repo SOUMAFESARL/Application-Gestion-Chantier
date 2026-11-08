@@ -11,6 +11,7 @@ import {
   PowerOff,
   RotateCcw,
   TriangleAlert,
+  Undo2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
@@ -35,6 +36,7 @@ const ICONE_GESTE: Record<GesteCase, ReactNode> = {
   reprogrammer: <CalendarClock />,
   mesurer: <Gauge />,
   cloturer: <CheckCheck />,
+  rouvrir: <Undo2 />,
   desactiver: <PowerOff />,
   reactiver: <RotateCcw />,
 };

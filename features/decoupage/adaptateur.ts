@@ -16,7 +16,7 @@
  *   POST/PATCH /projets/{id}/niveaux/[{niveau_id}/]  réglages des niveaux
  *   POST       /projets/{id}/elements/               ajouter une case
  *   PATCH      /elements/{id}/                       renommer, chiffrer, métrer
- *   POST       /elements/{id}/planifier|mesure|cloturer|desactiver|reactiver/
+ *   POST       /elements/{id}/planifier|mesure|cloturer|rouvrir|desactiver|reactiver/
  *
  * Les charges (`Charge*`) sont privées : elles décrivent un transport.
  */
@@ -938,6 +938,17 @@ export async function mesurerCase(caseId: string, mesure: Mesure): Promise<CaseA
 
 export async function cloturerCase(caseId: string): Promise<CaseArbre> {
   return versCase(await api.creer<ChargeCase>(`/elements/${caseId}/cloturer/`, {}), new Map());
+}
+
+/**
+ * Rouvrir une tâche clôturée : sa fin réelle s'efface, et ses parents puis le projet se rouvrent
+ * avec elle. Motif de 10 caractères au moins.
+ */
+export async function rouvrirCase(caseId: string, motif: string): Promise<CaseArbre> {
+  return versCase(
+    await api.creer<ChargeCase>(`/elements/${caseId}/rouvrir/`, { motif }),
+    new Map(),
+  );
 }
 
 /** Sortir une case des calculs ; elle garde son historique. Motif de 10 caractères au moins. */

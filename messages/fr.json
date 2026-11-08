@@ -5968,6 +5968,7 @@
         "planifier": "Planifier",
         "mesurer": "Mesurer",
         "cloturer": "Clôturer",
+        "rouvrir": "Rouvrir",
         "desactiver": "Désactiver",
         "reactiver": "Réactiver",
         "reprogrammer": "Reprogrammer"
@@ -6043,6 +6044,12 @@
         "description": "Pour une tâche terminée avant d’avoir atteint son prévu : elle passe à 100 %. À 100 % mesuré, une tâche se clôt d’elle-même. Elle pourra être rouverte, avec un motif.",
         "action": "Clôturer",
         "succes": "« {libelle} » clôturée."
+      },
+      "rouvrir": {
+        "titre": "Rouvrir « {libelle} » ?",
+        "description": "La tâche redevient ouverte et sa fin réelle s’efface. Ses cases parentes et le projet se rouvrent avec elle. Le motif est obligatoire.",
+        "action": "Rouvrir",
+        "succes": "« {libelle} » rouverte."
       },
       "reactiver": {
         "titre": "Réactiver « {libelle} » ?",

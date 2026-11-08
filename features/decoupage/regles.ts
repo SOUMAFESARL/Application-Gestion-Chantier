@@ -258,6 +258,7 @@ export type GesteCase =
   | "reprogrammer"
   | "mesurer"
   | "cloturer"
+  | "rouvrir"
   | "desactiver"
   | "reactiver";
 
@@ -275,6 +276,9 @@ export function gestesPossibles(une: CaseArbre): GesteCase[] {
   // La première saisie des dates se planifie ; des dates fixées se reprogramment, avec un motif.
   gestes.push(!une.dateDebutPrevue || !une.dateFinPrevue ? "planifier" : "reprogrammer");
   if (une.estFeuille && !une.cloture) gestes.push("mesurer", "cloturer");
+  // Une tâche clôturée se rouvre, avec un motif : c'est la voie de retour d'une clôture, et donc
+  // d'un projet « Terminé » — il se déduit des tâches, il se rouvre par elles.
+  if (une.estFeuille && une.cloture) gestes.push("rouvrir");
   gestes.push("desactiver");
   return gestes;
 }
@@ -287,6 +291,8 @@ export const PERMISSION_DU_GESTE: Record<GesteCase, CodePermission> = {
   reprogrammer: PERMISSIONS.PLANIFIER,
   mesurer: PERMISSIONS.MESURER,
   cloturer: PERMISSIONS.MESURER,
+  // Le serveur exige la même permission pour rouvrir que pour mesurer ou clôturer.
+  rouvrir: PERMISSIONS.MESURER,
   desactiver: PERMISSIONS.DECOUPER,
   reactiver: PERMISSIONS.DECOUPER,
 };

@@ -42,6 +42,7 @@ import {
   planifierCase,
   prolongationsRequises,
   reactiverCase,
+  rouvrirCase,
 } from "../adaptateur";
 import { CLE_LISTES, cleDecoupage } from "../cles";
 import { niveauCibleAjout, trouverListeDuNiveau, type GesteCase } from "../regles";
@@ -114,6 +115,8 @@ export function FenetreGeste({
           <FenetreConfirmation key={cle} projet={projet} cible={ouvert.cible} geste={ouvert.geste} onFermer={onFermer} />
         )
       );
+    case "rouvrir":
+      return ouvert.cible && <FenetreReouverture key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />;
     case "desactiver":
       return ouvert.cible && <FenetreDesactivation key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />;
   }
@@ -756,6 +759,45 @@ function FenetreConfirmation({
       onValider={() => ecriture.mutate(undefined, { onError: (e) => setErreur(messageServeur(e, t("erreur"))) })}
       onFermer={onFermer}
     />
+  );
+}
+
+/** Rouvrir une tâche clôturée : un motif, et le serveur rouvre ses parents et le projet avec elle. */
+function FenetreReouverture({ projet, cible, onFermer }: { projet: Projet; cible: CaseArbre; onFermer: () => void }) {
+  const t = useTranslations("decoupage.gestes");
+  const [motif, setMotif] = useState("");
+  const [erreur, setErreur] = useState<string | null>(null);
+  const ecriture = useEcriture(
+    projet,
+    () => rouvrirCase(cible.id, motif.trim()),
+    t("rouvrir.succes", { libelle: cible.libelle }),
+    onFermer,
+  );
+
+  function valider() {
+    const refus = premierMessage(schemaMotif.safeParse(motif));
+    if (refus) {
+      setErreur(refus);
+      return;
+    }
+    setErreur(null);
+    ecriture.mutate(undefined, { onError: (e) => setErreur(messageServeur(e, t("erreur"))) });
+  }
+
+  return (
+    <Cadre
+      titre={t("rouvrir.titre", { libelle: cible.libelle })}
+      description={t("rouvrir.description")}
+      erreur={erreur}
+      enCours={ecriture.isPending}
+      libelleAction={t("rouvrir.action")}
+      onValider={valider}
+      onFermer={onFermer}
+    >
+      <Champ libelle={t("champs.motif")}>
+        <Textarea value={motif} onChange={(e) => setMotif(e.target.value)} rows={3} />
+      </Champ>
+    </Cadre>
   );
 }
 
