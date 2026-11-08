@@ -1,7 +1,21 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ChevronDown, LoaderCircle, Pause, Pencil, Play, Printer, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArrowLeft,
+  Ban,
+  ChevronDown,
+  LoaderCircle,
+  Pause,
+  Pencil,
+  PackageCheck,
+  Play,
+  PowerOff,
+  Printer,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -24,13 +38,28 @@ import { lireProjet } from "@/features/projets/adaptateur";
 import { cleProjet } from "@/features/projets/cles";
 import { useGestionProjet } from "@/features/projets/components/GestionProjet";
 import { REFERENTIEL_TYPES_PROJET, useReferentiel } from "@/features/projets/referentiels";
-import { peutReprendre, peutSuspendre, projetModifiable } from "@/features/projets/regles";
+import {
+  changementsPossibles,
+  PERMISSION_DU_CHANGEMENT,
+  peutReprendre,
+  peutSuspendre,
+  projetModifiable,
+} from "@/features/projets/regles";
+import type { ChangementStatut } from "@/features/projets/regles";
 import { cn } from "@/lib/utils";
 
 import { BARRE_PROJET, BARRE_PROJET_COLLEE, TON_STATUT } from "../classes";
 import { useEstColle } from "../EnteteChantier";
 import { useGenerationFicheProjet } from "./GenerationFicheProjet";
 import { OngletsProjet } from "./OngletsProjet";
+
+const ICONE_CHANGEMENT: Record<ChangementStatut, ReactNode> = {
+  receptionner: <PackageCheck aria-hidden="true" />,
+  archiver: <Archive aria-hidden="true" />,
+  desactiver: <PowerOff aria-hidden="true" />,
+  resilier: <Ban className="text-erreur" aria-hidden="true" />,
+  reactiver: <RotateCcw aria-hidden="true" />,
+};
 
 /**
  * Le cadre de la fiche d'un projet, commun à ses onglets (décision P5) : le lien de retour,
@@ -57,7 +86,7 @@ export function CadreFicheProjet({ projetId, children }: { projetId: string; chi
   const colle = useEstColle(entete);
   const router = useRouter();
   // Un projet supprimé n'a plus de fiche : on revient au portefeuille.
-  const { modifier, basculerSuspension, supprimer, modaux } = useGestionProjet(() =>
+  const { modifier, basculerSuspension, changerStatut, supprimer, modaux } = useGestionProjet(() =>
     router.replace("/projets"),
   );
   const fichePdf = useGenerationFicheProjet(requete.data);
@@ -108,6 +137,11 @@ export function CadreFicheProjet({ projetId, children }: { projetId: string; chi
   const peutModifierProjet = peutSurProjet("projets.ecrire", projet);
   const peutChangerStatutProjet = peutSurProjet("projets.changer_statut", projet);
   const peutResilierProjet = peutSurProjet("projets.resilier_archiver", projet);
+  // Les actes qui changent le statut (réceptionner, archiver…) : ceux qui ont un sens depuis le
+  // statut actuel, et que ce compte a le droit de faire.
+  const changementsOuverts = changementsPossibles(projet).filter((changement) =>
+    peutSurProjet(PERMISSION_DU_CHANGEMENT[changement], projet),
+  );
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -191,6 +225,17 @@ export function CadreFicheProjet({ projetId, children }: { projetId: string; chi
                     {t("reprendre")}
                   </DropdownMenuItem>
                 )}
+                {changementsOuverts.length > 0 && <DropdownMenuSeparator />}
+                {changementsOuverts.map((changement) => (
+                  <DropdownMenuItem
+                    key={changement}
+                    onSelect={() => changerStatut(projet, changement)}
+                    className={changement === "resilier" ? "text-erreur focus:text-erreur" : undefined}
+                  >
+                    {ICONE_CHANGEMENT[changement]}
+                    {t(`changementStatut.${changement}`)}
+                  </DropdownMenuItem>
+                ))}
                 {peutResilierProjet && (
                   <>
                     <DropdownMenuSeparator />

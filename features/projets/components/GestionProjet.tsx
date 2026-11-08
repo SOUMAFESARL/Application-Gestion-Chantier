@@ -4,9 +4,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 
 import { CLE_LISTE_PROJETS, cleProjet } from "@/features/projets/cles";
+import type { ChangementStatut } from "@/features/projets/regles";
 import type { Projet } from "@/features/projets/types";
 
 import { ModaleCadrageProjet, type ObjetCadrage } from "./ModaleCadrageProjet";
+import { ModaleChangementStatutProjet, type ChangementOuvert } from "./ModaleChangementStatutProjet";
 import { ModaleRetraitEncadrement, type RetraitEncadrement } from "./ModaleRetraitEncadrement";
 import { ModaleSuppressionProjet } from "./ModaleSuppressionProjet";
 import { ModaleSuspensionProjet } from "./ModaleSuspensionProjet";
@@ -42,6 +44,7 @@ export function useGestionProjet(apresSuppression?: (projet: Projet) => void) {
     rang: number;
   } | null>(null);
   const [suspension, setSuspension] = useState<Projet | null>(null);
+  const [changementStatut, setChangementStatut] = useState<ChangementOuvert | null>(null);
   const [suppression, setSuppression] = useState<Projet | null>(null);
   const [retrait, setRetrait] = useState<RetraitEncadrement | null>(null);
   const [cadrage, setCadrage] = useState<{ projet: Projet; objet: ObjetCadrage } | null>(null);
@@ -63,6 +66,11 @@ export function useGestionProjet(apresSuppression?: (projet: Projet) => void) {
   }, []);
 
   const basculerSuspension = useCallback((projet: Projet) => setSuspension(projet), []);
+
+  const changerStatut = useCallback(
+    (projet: Projet, changement: ChangementStatut) => setChangementStatut({ projet, changement }),
+    [],
+  );
 
   const supprimer = useCallback((projet: Projet) => setSuppression(projet), []);
 
@@ -101,6 +109,11 @@ export function useGestionProjet(apresSuppression?: (projet: Projet) => void) {
         onFermer={() => setSuspension(null)}
         onTermine={actualiser}
       />
+      <ModaleChangementStatutProjet
+        ouvert={changementStatut}
+        onFermer={() => setChangementStatut(null)}
+        onTermine={actualiser}
+      />
       <ModaleRetraitEncadrement
         retrait={retrait}
         onFermer={() => setRetrait(null)}
@@ -119,5 +132,5 @@ export function useGestionProjet(apresSuppression?: (projet: Projet) => void) {
     </>
   );
 
-  return { modifier, basculerSuspension, supprimer, retirerEncadrement, cadrer, modaux };
+  return { modifier, basculerSuspension, changerStatut, supprimer, retirerEncadrement, cadrer, modaux };
 }

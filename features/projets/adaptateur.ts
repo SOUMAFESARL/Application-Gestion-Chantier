@@ -22,8 +22,10 @@ import { api } from "@/lib/api";
 import {
   ROLE_MEMBRE_PAR_DEFAUT,
   STATUT_DECLARE_PAR_DEFAUT,
+  STATUT_VISE,
   statutDeReprise,
 } from "./regles";
+import type { ChangementStatut } from "./regles";
 
 import type {
   AffectationCollaborateur,
@@ -567,6 +569,19 @@ export async function modifierProjet(
  */
 export async function suspendreProjet(id: string): Promise<Projet> {
   return versProjet(await api.modifier<ChargeProjet>(`/projets/${id}/`, { statut: "SUSPENDU" }));
+}
+
+/**
+ * Un changement de statut qui est un acte (réceptionner, archiver, désactiver, résilier,
+ * réactiver) : comme la suspension, une écriture du statut. Le serveur le refuse quand la règle ne
+ * tient pas — réceptionner sans que toutes les tâches soient clôturées — et son message s'affiche.
+ */
+export async function changerStatutProjet(
+  projet: Projet,
+  changement: ChangementStatut,
+): Promise<Projet> {
+  const statut = changement === "reactiver" ? statutDeReprise(projet) : STATUT_VISE[changement];
+  return versProjet(await api.modifier<ChargeProjet>(`/projets/${projet.id}/`, { statut }));
 }
 
 export async function reprendreProjet(projet: Projet): Promise<Projet> {

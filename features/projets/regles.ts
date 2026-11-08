@@ -243,6 +243,64 @@ export function statutDeReprise(
     : "EN_ATTENTE";
 }
 
+/**
+ * Les changements de statut qui sont **un acte** : le reste (en attente, en cours, en retard,
+ * critique, terminé) se déduit du travail et ne s'écrit pas à la main. « Suspendre » a son propre
+ * geste, plus haut.
+ *
+ * - **réceptionner** : le client reçoit l'ouvrage terminé ;
+ * - **archiver** : ranger un projet achevé ou arrêté, en lecture seule ;
+ * - **désactiver** : mettre de côté un projet en cours, en lecture seule ;
+ * - **résilier** : le marché est rompu ;
+ * - **réactiver** : sortir de la désactivation ou de l'archive.
+ */
+export type ChangementStatut = "receptionner" | "archiver" | "desactiver" | "resilier" | "reactiver";
+
+/** Le statut qu'écrit chaque changement ; `reactiver` retrouve celui de `statutDeReprise`. */
+export const STATUT_VISE: Record<Exclude<ChangementStatut, "reactiver">, StatutProjet> = {
+  receptionner: "RECEPTIONNE",
+  archiver: "ARCHIVE",
+  desactiver: "DESACTIVE",
+  resilier: "RESILIE",
+};
+
+/**
+ * La permission qu'exige chaque changement (le serveur la juge de toute façon) : réceptionner est
+ * un statut opérationnel ; les trois états de fin de vie, et la sortie de l'un d'eux, relèvent de
+ * la direction.
+ */
+export const PERMISSION_DU_CHANGEMENT = {
+  receptionner: "projets.changer_statut",
+  archiver: "projets.resilier_archiver",
+  desactiver: "projets.resilier_archiver",
+  resilier: "projets.resilier_archiver",
+  reactiver: "projets.resilier_archiver",
+} as const satisfies Record<ChangementStatut, string>;
+
+const STATUTS_ARRETABLES: StatutProjet[] = [
+  "EN_ATTENTE",
+  "EN_COURS",
+  "EN_RETARD",
+  "CRITIQUE",
+  "SUSPENDU",
+  "BLOQUE",
+];
+
+/**
+ * Les changements qui ont un sens depuis ce statut. Un projet terminé se réceptionne ; un projet
+ * en cours se désactive ou se résilie, pas un projet achevé ; un projet clos se range, ou se
+ * réactive. Le serveur reste juge : réceptionner est refusé tant qu'une tâche n'est pas clôturée.
+ */
+export function changementsPossibles(projet: Pick<Projet, "statut">): ChangementStatut[] {
+  const statut = projet.statut;
+  const changements: ChangementStatut[] = [];
+  if (statut === "TERMINE") changements.push("receptionner");
+  if (["TERMINE", "RECEPTIONNE", "DESACTIVE", "RESILIE"].includes(statut)) changements.push("archiver");
+  if (STATUTS_ARRETABLES.includes(statut)) changements.push("desactiver", "resilier");
+  if (statut === "DESACTIVE" || statut === "ARCHIVE") changements.push("reactiver");
+  return changements;
+}
+
 /** Un projet clos (terminé ou archivé) ne se modifie plus : il fait foi tel qu'il a fini. */
 export function projetModifiable(projet: Pick<Projet, "statut">): boolean {
   return projet.statut !== "TERMINE" && projet.statut !== "ARCHIVE";

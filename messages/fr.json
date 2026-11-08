@@ -1601,6 +1601,13 @@
     "modifier": "Modifier",
     "suspendre": "Suspendre",
     "reprendre": "Reprendre",
+    "changementStatut": {
+      "receptionner": "Réceptionner",
+      "archiver": "Archiver",
+      "desactiver": "Désactiver",
+      "resilier": "Résilier",
+      "reactiver": "Réactiver"
+    },
     "supprimer": "Supprimer",
     "exporterPdf": "Imprimer",
     "actions": "Actions",
@@ -2870,6 +2877,40 @@
       "confirmerReprendre": "Reprendre le projet",
       "annuler": "Annuler",
       "erreurGenerique": "L'opération n'a pas pu aboutir. Réessayez."
+    },
+    "changementStatut": {
+      "annuler": "Annuler",
+      "erreurGenerique": "L'opération n'a pas pu aboutir. Réessayez.",
+      "receptionner": {
+        "titre": "Réceptionner « {nom} » ?",
+        "description": "Le client reçoit l'ouvrage : le projet passe au statut « Réceptionné ». C'est possible seulement quand toutes les tâches sont clôturées, et son statut ne se recalcule plus ensuite.",
+        "confirmer": "Réceptionner le projet",
+        "succes": "« {nom} » est réceptionné."
+      },
+      "archiver": {
+        "titre": "Archiver « {nom} » ?",
+        "description": "Le projet est rangé : il passe en lecture seule, avec tout son historique. Vous pourrez le réactiver si besoin.",
+        "confirmer": "Archiver le projet",
+        "succes": "« {nom} » est archivé."
+      },
+      "desactiver": {
+        "titre": "Désactiver « {nom} » ?",
+        "description": "Le projet est mis de côté et passe en lecture seule : plus de rapport ni de modification. Son historique est conservé, et vous pourrez le réactiver.",
+        "confirmer": "Désactiver le projet",
+        "succes": "« {nom} » est désactivé."
+      },
+      "resilier": {
+        "titre": "Résilier « {nom} » ?",
+        "description": "Le marché est rompu : le projet passe en lecture seule, avec tout son historique. Cette décision engage l'entreprise : confirmez-la en connaissance de cause.",
+        "confirmer": "Résilier le projet",
+        "succes": "« {nom} » est résilié."
+      },
+      "reactiver": {
+        "titre": "Réactiver « {nom} » ?",
+        "description": "Le projet sort de l'archive ou de la désactivation et reprend son cours : son statut sera recalculé à partir de ses tâches et de son planning.",
+        "confirmer": "Réactiver le projet",
+        "succes": "« {nom} » est réactivé."
+      }
     },
     "encadrement": {
       "titre": "Équipe d'encadrement et de gestion",
