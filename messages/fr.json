@@ -2818,7 +2818,6 @@
         "ajout": {
           "titre": "Ajouter un membre",
           "sousTitre": "Un collaborateur affecté au chantier, ou une personne saisie sur le chantier.",
-          "champPersonne": "Personne",
           "champRole": "Rôle dans l'équipe",
           "annuler": "Annuler",
           "ajouter": "Ajouter à l'équipe",
@@ -6366,7 +6365,6 @@
       "supprimerMembre": "Supprimer (ajouté par erreur)",
       "titreAjoutMembre": "Ajouter des membres à {equipe}",
       "descriptionAjoutMembre": "Choisissez la fonction sur le chantier et cochez une ou plusieurs personnes du registre partageant cette fonction.",
-      "personne": "Personne",
       "personnesSelectionnees": "{nombre, plural, =0 {Personnes du registre (aucune sélectionnée)} one {Personnes du registre (# sélectionnée)} other {Personnes du registre (# sélectionnées)}}",
       "toutSelectionner": "Tout cocher",
       "toutDeselectionner": "Tout décocher",
