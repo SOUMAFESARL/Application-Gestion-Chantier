@@ -301,6 +301,11 @@ export interface ModificationCase {
   quantitePrevue?: number | null;
   montant?: number | null;
   enveloppe?: number | null;
+  /**
+   * Le code du mode d'exécution propre à la case ; `null` la fait hériter de sa case parente.
+   * Le serveur le refuse sur une tâche commencée (RG-03).
+   */
+  modeExecution?: string | null;
   /** Obligatoire pour changer la quantité ou le montant d'une tâche commencée. */
   motif?: string;
 }

@@ -889,6 +889,7 @@ export async function modifierCase(caseId: string, modification: ModificationCas
       quantite_prevue: modification.quantitePrevue,
       montant: modification.montant,
       enveloppe: modification.enveloppe,
+      mode_execution: modification.modeExecution,
       motif: modification.motif,
     }),
   );

@@ -25,7 +25,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useDroits } from "@/features/habilitations";
 import { listerMotifsReport } from "@/features/projets/adaptateur";
 import { CLE_MOTIFS_REPORT } from "@/features/projets/cles";
+import { ComboboxModeExecution } from "@/features/projets/components/ComboboxModeExecution";
 import { ModaleReprogrammation } from "@/features/projets/components/ModaleReprogrammation";
+import { REFERENTIEL_MODES_EXECUTION, useReferentiel } from "@/features/projets/referentiels";
 import type { Projet } from "@/features/projets/types";
 import { ErreurApi } from "@/lib/api";
 import { formaterDate } from "@/lib/format";
@@ -359,15 +361,20 @@ function FenetreModification({
   const [quantite, setQuantite] = useState(cible.quantitePrevue === null ? "" : String(cible.quantitePrevue));
   const montantInitial = cible.estFeuille ? cible.montant : cible.enveloppe;
   const [montant, setMontant] = useState(montantInitial === null ? "" : String(montantInitial / 100));
+  const [modeExecution, setModeExecution] = useState(cible.modeExecution);
+  const { libelle: libelleMode } = useReferentiel(REFERENTIEL_MODES_EXECUTION);
   const [motif, setMotif] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
   const niveauCible = niveaux.find((niveau) => niveau.id === cible.niveau.id) ?? null;
+  // Le mode d'une tâche commencée est figé (RG-03) ; sur un parent, le serveur juge des tâches dessous.
+  const modeFige = cible.estFeuille && cible.commence;
 
   /** Seuls les champs changés partent : chacun exige sa permission (découper ou chiffrer). */
   function modifications(): ModificationCase {
     const resultat: ModificationCase = {};
     if (libelle.trim() !== cible.libelle) resultat.libelle = libelle.trim();
     if (code.trim() !== cible.code) resultat.code = code.trim();
+    if (modeExecution !== cible.modeExecution) resultat.modeExecution = modeExecution || null;
     if (cible.estFeuille) {
       if (modeMesure !== cible.modeMesure) resultat.modeMesure = modeMesure;
       if (unite !== cible.unite) resultat.unite = unite;
@@ -434,6 +441,27 @@ function FenetreModification({
           <Input value={code} maxLength={30} onChange={(e) => setCode(e.target.value)} />
         </Champ>
       </div>
+      <Champ
+        libelle={t("champs.modeExecution")}
+        aide={modeFige ? t("champs.modeExecutionFige") : t("champs.modeExecutionAide")}
+      >
+        <ComboboxModeExecution
+          valeur={modeExecution}
+          onChange={setModeExecution}
+          libelleActuel={libelleMode(cible.modeExecution)}
+          disabled={modeFige}
+        />
+        {!modeFige && modeExecution && (
+          <Button type="button" variant="link" size="sm" className="h-auto self-start p-0" onClick={() => setModeExecution("")}>
+            {t("champs.modeExecutionHeriter")}
+          </Button>
+        )}
+        {!modeExecution && cible.modeExecutionEffectif && (
+          <span className="text-xs text-neutral-500">
+            {t("champs.modeExecutionHerite", { mode: libelleMode(cible.modeExecutionEffectif) })}
+          </span>
+        )}
+      </Champ>
       {cible.estFeuille && (
         <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-1">
           <Champ libelle={t("champs.modeMesure")}>

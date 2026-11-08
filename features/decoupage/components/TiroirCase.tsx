@@ -20,6 +20,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { EquipesDeLaCase } from "@/features/equipes/components/EquipesDeLaCase";
 import { BoutonPermis, useDroits } from "@/features/habilitations";
+import { REFERENTIEL_MODES_EXECUTION, useReferentiel } from "@/features/projets/referentiels";
 import type { Projet } from "@/features/projets/types";
 import { ABSENT, formaterDate, formaterMontant, formaterQuantite } from "@/lib/format";
 
@@ -61,6 +62,7 @@ export function TiroirCase({
   const tUnite = useTranslations("decoupage.unites");
   const tMode = useTranslations("decoupage.modesMesure");
   const { peutSurProjet, voitMontants } = useDroits();
+  const { libelle: libelleMode } = useReferentiel(REFERENTIEL_MODES_EXECUTION);
 
   return (
     <Sheet open={cible !== null} onOpenChange={(ouvert) => !ouvert && onFermer()}>
@@ -169,7 +171,18 @@ export function TiroirCase({
                   </Section>
 
                   <Section titre={t("execution")}>
-                    <Ligne libelle={t("modeExecution")}>{cible.modeExecutionEffectif || ABSENT}</Ligne>
+                    <Ligne libelle={t("modeExecution")}>
+                      {cible.modeExecutionEffectif ? (
+                        <>
+                          {libelleMode(cible.modeExecutionEffectif)}
+                          {!cible.modeExecution && (
+                            <span className="ml-1.5 text-xs text-neutral-500">{t("modeHerite")}</span>
+                          )}
+                        </>
+                      ) : (
+                        ABSENT
+                      )}
+                    </Ligne>
                     <Ligne libelle={t("equipes")}>
                       <EquipesDeLaCase
                         projet={projet}
