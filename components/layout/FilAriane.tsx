@@ -42,6 +42,7 @@ const CARTE_SEGMENTS: Record<string, string> = {
   "/projets/alertes": "projetsAlertes",
   "/rapports": "chantier",
   "/rapports/synthese": "chantierSynthese",
+  "/rapports/saisie": "chantierSaisie",
   "/planning": "planning",
   "/finance": "finance",
   "/achats": "achats",
@@ -74,10 +75,19 @@ const ONGLETS_FIL: Record<string, string> = {
   "/avenants": "projetAvenants",
 };
 
-/** L'identifiant du projet de `/projets/[id]/…`, s'il y en a un. */
+/**
+ * L'identifiant du projet de `/projets/[id]/…` ou de `/rapports/saisie/[projetId]`, s'il y en a un
+ * — ce segment se nomme par le nom du projet, jamais par son UUID.
+ */
 function projetDuChemin(segments: string[]): string | undefined {
+  if (segments[0] === "rapports" && segments[1] === "saisie") return segments[2];
   if (segments[0] !== "projets" || !segments[1]) return undefined;
   return CARTE_SEGMENTS[`/projets/${segments[1]}`] ? undefined : segments[1];
+}
+
+/** Le chemin du segment qui porte l'identifiant du projet (`/projets/[id]` ou `/rapports/saisie/[id]`). */
+function cheminDuProjet(segments: string[], projetId: string): string {
+  return segments[0] === "rapports" ? `/rapports/saisie/${projetId}` : `/projets/${projetId}`;
 }
 
 function humaniser(segment: string): string {
@@ -98,12 +108,15 @@ export function FilAriane() {
   });
 
   function libelle(chemin: string, segmentBrut: string): ReactNode {
-    if (projetId !== undefined && chemin === `/projets/${projetId}`) {
+    if (projetId !== undefined && chemin === cheminDuProjet(segments, projetId)) {
       if (projet.data) return projet.data.nom;
       return projet.isError ? humaniser(segmentBrut) : <Skeleton className="h-4 w-32" />;
     }
     // Les onglets de la fiche projet (`/projets/[id]/decoupage`…) se nomment comme leur onglet.
-    const onglet = projetId !== undefined ? ONGLETS_FIL[chemin.replace(`/projets/${projetId}`, "")] : undefined;
+    const onglet =
+      projetId !== undefined && segments[0] === "projets"
+        ? ONGLETS_FIL[chemin.replace(`/projets/${projetId}`, "")]
+        : undefined;
     if (onglet) return t(onglet);
     // Un rapport journalier (`/rapports/[id]`) se nomme par son type, pas par son identifiant.
     const cle = CARTE_SEGMENTS[chemin] ?? (/^\/rapports\/(rap|abs)-/.test(chemin) ? "chantierRapport" : undefined);

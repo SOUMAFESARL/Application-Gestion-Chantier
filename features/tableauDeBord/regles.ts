@@ -54,11 +54,11 @@ const RANG_NIVEAU: Record<NiveauSante, number> = { CRITIQUE: 0, VIGILANCE: 1, BO
  * Le périmètre.
  * ------------------------------------------------------------------ */
 
-/** Ce qui ne se pilote plus : un chantier livré ou archivé sort du tableau de bord. */
-const STATUTS_CLOS: StatutProjet[] = ["TERMINE", "ARCHIVE"];
+/** Ce qui ne se pilote plus : un chantier livré, résilié, désactivé ou archivé sort du tableau de bord. */
+const STATUTS_CLOS: StatutProjet[] = ["TERMINE", "RESILIE", "DESACTIVE", "ARCHIVE"];
 
-/** Un chantier en travaux — ni en attente de démarrage, ni suspendu, ni clos. */
-const STATUTS_ACTIFS: StatutProjet[] = ["EN_COURS", "EN_RETARD", "CRITIQUE"];
+/** Un chantier en travaux — ni en attente de démarrage, ni suspendu, ni clos (même liste que le serveur). */
+const STATUTS_ACTIFS: StatutProjet[] = ["EN_COURS", "EN_RETARD", "CRITIQUE", "BLOQUE"];
 
 /** Les chantiers que le DG suit : tout ce qui n'est pas clos. */
 export function chantiersSuivis(lignes: LigneChantier[]): LigneChantier[] {

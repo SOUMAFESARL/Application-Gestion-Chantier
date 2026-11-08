@@ -679,7 +679,27 @@ export const ORDRE_STATUTS: StatutProjet[] = [
   "EN_COURS",
   "SUSPENDU",
   "EN_ATTENTE",
+  "RECEPTIONNE",
   "TERMINE",
+  "ARCHIVE",
+];
+
+/**
+ * Les onze statuts du serveur, dans le même ordre d'urgence : le sélecteur de la liste les
+ * propose tous, quand le portefeuille en porte. Les tuiles, elles, n'affichent que
+ * `ORDRE_STATUTS` — les états rares (bloqué, résilié, désactivé) restent filtrables.
+ */
+export const TOUS_STATUTS: StatutProjet[] = [
+  "CRITIQUE",
+  "BLOQUE",
+  "EN_RETARD",
+  "EN_COURS",
+  "SUSPENDU",
+  "EN_ATTENTE",
+  "RECEPTIONNE",
+  "TERMINE",
+  "RESILIE",
+  "DESACTIVE",
   "ARCHIVE",
 ];
 
@@ -751,7 +771,7 @@ export function filtrerProjets(projets: Projet[], criteres: CriteresProjets): Pr
 /** Les statuts effectivement portés par le portefeuille, dans l'ordre d'urgence. */
 export function statutsPresents(projets: Projet[]): StatutProjet[] {
   const presents = new Set(projets.map((projet) => projet.statut));
-  return ORDRE_STATUTS.filter((statut) => presents.has(statut));
+  return TOUS_STATUTS.filter((statut) => presents.has(statut));
 }
 
 /**
@@ -760,7 +780,7 @@ export function statutsPresents(projets: Projet[]): StatutProjet[] {
  * d'indicateurs garde la même place d'un portefeuille à l'autre.
  */
 export function compterParStatut(projets: Projet[]): Record<StatutProjet, number> {
-  const compte = Object.fromEntries(ORDRE_STATUTS.map((statut) => [statut, 0])) as Record<
+  const compte = Object.fromEntries(TOUS_STATUTS.map((statut) => [statut, 0])) as Record<
     StatutProjet,
     number
   >;

@@ -13,14 +13,22 @@
  * en francs est un acte d'affichage, et il appartient à `lib/format`.
  */
 
-/** L'état d'un chantier, tel que le serveur le nomme. */
+/**
+ * L'état d'un chantier, tel que le serveur le nomme — les onze valeurs de
+ * `StatutProjet` (`apps/core/enums.py`). Une valeur que le frontend ne nomme
+ * pas s'afficherait en clé brute : le serveur fait loi, le frontend les nomme toutes.
+ */
 export type StatutProjet =
   | "EN_ATTENTE"
   | "EN_COURS"
   | "EN_RETARD"
   | "CRITIQUE"
   | "SUSPENDU"
+  | "RECEPTIONNE"
   | "TERMINE"
+  | "BLOQUE"
+  | "DESACTIVE"
+  | "RESILIE"
   | "ARCHIVE";
 
 /** Un chef de projet ou un conducteur de travaux, vu depuis une fiche. */

@@ -2243,7 +2243,11 @@
       "EN_COURS": "En cours",
       "EN_RETARD": "En retard",
       "SUSPENDU": "Suspendu",
-      "TERMINE": "Terminé"
+      "RECEPTIONNE": "Réceptionné",
+      "TERMINE": "Terminé",
+      "BLOQUE": "Bloqué",
+      "DESACTIVE": "Désactivé",
+      "RESILIE": "Résilié"
     },
     "tiroirCreation": {
       "annuler": "Annuler",
@@ -4354,6 +4358,7 @@
       "tarifs": "Tarifs",
       "tiers": "Tiers",
       "chantierSynthese": "Synthèse périodique",
+      "chantierSaisie": "Rédiger le rapport",
       "chantierRapport": "Rapport journalier",
       "monProfil": "Mon profil",
       "projetDecoupage": "Découpage",

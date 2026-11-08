@@ -63,7 +63,11 @@ export const TON_STATUT: Record<StatutProjet, VarianteBadge> = {
   EN_RETARD: "avertissement",
   CRITIQUE: "erreur",
   SUSPENDU: "avertissement",
+  RECEPTIONNE: "succes",
   TERMINE: "succes",
+  BLOQUE: "erreur",
+  DESACTIVE: "neutre",
+  RESILIE: "neutre",
   ARCHIVE: "neutre",
 };
 
@@ -79,7 +83,11 @@ export const FOND_STATUT: Record<StatutProjet, FondIndicateur> = {
   EN_RETARD: "avertissement",
   CRITIQUE: "erreur",
   SUSPENDU: "avertissement",
+  RECEPTIONNE: "succes",
   TERMINE: "succes",
+  BLOQUE: "erreur",
+  DESACTIVE: "secondaire",
+  RESILIE: "secondaire",
   ARCHIVE: "secondaire",
 };
 

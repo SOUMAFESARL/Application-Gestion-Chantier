@@ -137,8 +137,10 @@ export interface Periode {
 }
 
 /**
- * La semaine complète qui contient `jour` : du lundi au dimanche, afin d'inclure
- * le samedi (ou dimanche exceptionnel) lorsque le calendrier d'entreprise l'ouvre.
+ * La semaine qui contient `jour` : du lundi au dimanche, comme l'exige le backend
+ * (`DemandeSyntheseSerializer`). La période est calendaire ; ce que la synthèse en retient,
+ * ce sont les jours ouvrés du calendrier de l'entreprise (lundi-vendredi par défaut, samedi
+ * si elle l'ouvre) — c'est le backend qui les compte.
  */
 export function semaineDe(jour: string): Periode {
   const rang = jourDeSemaine(jour) || 7;
@@ -681,10 +683,12 @@ export function cielDepuisReleve(condition: ConditionMeteo | string | null): Met
 
 /**
  * Les jours ouvrés saisissables (`J`, `J-1`, `J-2`), tels que calculés par le
- * calendrier d'entreprise côté serveur, avec repli local sur les 3 derniers jours ouvrés.
+ * calendrier d'entreprise côté serveur — et, pour un chantier, resserrés à son premier jour de
+ * rapport. La réponse du serveur fait loi, **même vide** (chantier qui n'a pas encore commencé) :
+ * le repli local sur les 3 derniers jours ouvrés ne sert qu'avant que le serveur ait répondu.
  */
 export function joursSaisissables(aujourdhui: string, joursServeur?: string[]): string[] {
-  if (joursServeur && joursServeur.length > 0) return joursServeur;
+  if (joursServeur) return joursServeur;
   return Array.from({ length: JOURS_RETROACTIFS_SAISIE + 1 }, (_, rang) =>
     jourOuvreAvant(aujourdhui, rang),
   );
