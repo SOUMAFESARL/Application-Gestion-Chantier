@@ -4,6 +4,7 @@ import { appliquerDocumentsAuPdf } from "@/features/documents";
 import type { DocumentsResolus } from "@/features/documents";
 import {
   avancementLot,
+  budgetEnVigueur,
   budgetRestant,
   ecartAvancement,
   echeancierProjet,
@@ -202,12 +203,14 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
   /* --- 2. Calendrier & budget --- */
 
   const echeancier = echeancierProjet(projet, maintenant);
-  const ratio = ratioConsommationBudget(projet.budgetInitial, projet.budgetConsomme);
+  // Comme à l'écran : tout se mesure sur le budget en vigueur (initial plus avenants).
+  const budget = budgetEnVigueur(projet);
+  const ratio = ratioConsommationBudget(budget, projet.budgetConsomme);
   const niveau = niveauBudget(ratio);
   const restant = budgetRestant(projet);
   const part = (centimes: number) =>
-    projet.budgetInitial && projet.budgetInitial > 0
-      ? t("budget.part", { valeur: Math.round((centimes / projet.budgetInitial) * 100) })
+    budget && budget > 0
+      ? t("budget.part", { valeur: Math.round((centimes / budget) * 100) })
       : undefined;
 
   const calendrierBudget: SectionPdf = {

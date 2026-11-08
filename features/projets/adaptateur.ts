@@ -115,7 +115,12 @@ interface ChargeProjet {
   indice_sante?: number | null;
   /** Un `DecimalField` : Django peut l'envoyer en chaîne. */
   budget_initial_montant: number | string | null;
+  /** Le budget en vigueur : l'initial plus les avenants. */
+  budget_contractuel?: number | string | null;
+  /** La valeur de ce qui est réalisé (centimes) : le serveur le calcule sur l'arbre. */
   budget_consomme_montant?: number;
+  /** Ce que le découpage chiffre au total (centimes). */
+  budget_decoupage_montant?: number;
   date_debut_prevue?: string | null;
   date_fin_prevue?: string | null;
   date_debut_reelle?: string | null;
@@ -383,7 +388,9 @@ export function versProjet(charge: ChargeProjet, affectations: ChargeAffectation
     deltaRetard: versNombre(charge.delta_retard),
     indiceSante: charge.indice_sante ?? null,
     budgetInitial: versMontant(charge.budget_initial_montant),
+    budgetCourant: versMontant(charge.budget_contractuel),
     budgetConsomme: charge.budget_consomme_montant ?? 0,
+    budgetDecoupage: charge.budget_decoupage_montant ?? null,
     dateDebutPrevue: charge.date_debut_prevue ?? null,
     dateFinPrevue: charge.date_fin_prevue ?? null,
     dateDebutReelle: charge.date_debut_reelle ?? null,

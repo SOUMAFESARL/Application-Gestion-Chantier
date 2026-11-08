@@ -46,7 +46,9 @@ import {
 import { useGestionProjet } from "@/features/projets/components/GestionProjet";
 import { HistoriqueDatesProjet } from "@/features/projets/components/HistoriqueDatesProjet";
 import {
+  budgetEnVigueur,
   budgetRestant,
+  depassementDecoupage,
   ecartAvancement,
   echeancierProjet,
   effectifProjet,
@@ -660,24 +662,22 @@ function CarteCalendrier({ projet, onDefinir }: { projet: Projet; onDefinir?: ()
 
 function CarteBudget({ projet, onDefinir }: { projet: Projet; onDefinir?: () => void }) {
   const t = useTranslations("ficheProjet.budget");
-  const ratio = ratioConsommationBudget(
-    projet.budgetInitial,
-    projet.budgetConsomme,
-  );
+  // Tout se mesure sur le budget **en vigueur** (l'initial plus les avenants). Le « consommé » est
+  // la valeur de ce qui est réalisé : pas de module financier, donc pas de dépensé réel.
+  const ratio = ratioConsommationBudget(budgetEnVigueur(projet), projet.budgetConsomme);
   const niveau = niveauBudget(ratio);
   const restant = budgetRestant(projet);
+  const depasseDecoupage = depassementDecoupage(projet);
+  const avenants =
+    projet.budgetCourant !== null && projet.budgetInitial !== null
+      ? projet.budgetCourant - projet.budgetInitial
+      : 0;
 
   return (
     <CarteCle
       icone={<Wallet size={18} />}
       titre={t("titre")}
-      pastille={
-        niveau === "depassement"
-          ? "erreur"
-          : niveau === "alerte"
-            ? "avertissement"
-            : "secondaire"
-      }
+      pastille={niveau === "depassement" || (depasseDecoupage ?? 0) > 0 ? "erreur" : "secondaire"}
       mention={
         ratio !== null && niveau ? (
           <span
@@ -722,6 +722,27 @@ function CarteBudget({ projet, onDefinir }: { projet: Projet; onDefinir?: () => 
           }
           className={cn(restant !== null && restant < 0 && "text-erreur")}
         />
+        {projet.budgetDecoupage !== null && projet.budgetDecoupage > 0 && (
+          <Detail
+            libelle={t("decoupage")}
+            valeur={formaterMontantCourt(projet.budgetDecoupage)}
+            className={cn((depasseDecoupage ?? 0) > 0 && "text-erreur")}
+          />
+        )}
+        {avenants !== 0 && (
+          <Detail
+            libelle={t("avenants")}
+            valeur={t("avenantsValeur", {
+              sens: avenants > 0 ? "plus" : "moins",
+              montant: formaterMontantCourt(Math.abs(avenants)),
+            })}
+          />
+        )}
+        {(depasseDecoupage ?? 0) > 0 && (
+          <p className="col-span-2 m-0 text-xs text-erreur">
+            {t("decoupageDepasse", { montant: formaterMontantCourt(depasseDecoupage ?? 0) })}
+          </p>
+        )}
         {onDefinir && projet.budgetInitial !== null && (
           <div className="col-span-2 flex justify-end">
             <BoutonCadrage defini onClick={onDefinir} />

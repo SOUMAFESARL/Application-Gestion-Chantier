@@ -1524,10 +1524,14 @@
       "titre": "Budget",
       "initial": "Budget prévisionnel",
       "nonDefini": "Budget non défini",
-      "consomme": "Consommé",
-      "restant": "Reste à engager",
+      "consomme": "Réalisé",
+      "restant": "Reste à réaliser",
       "depasse": "Dépassement",
-      "ratio": "{valeur} % consommé"
+      "ratio": "{valeur} % du budget réalisé",
+      "decoupage": "Chiffré au découpage",
+      "avenants": "Avenants",
+      "avenantsValeur": "{sens, select, plus {+{montant}} other {−{montant}}}",
+      "decoupageDepasse": "Le découpage chiffre {montant} de plus que le budget."
     },
     "avancement": {
       "titre": "Avancement",
@@ -1661,8 +1665,8 @@
       },
       "budget": {
         "initial": "Budget prévisionnel",
-        "consomme": "Consommé",
-        "restant": "Reste à engager",
+        "consomme": "Réalisé",
+        "restant": "Reste à réaliser",
         "depasse": "Dépassement",
         "part": "{valeur} % du budget",
         "nonDefini": "Non défini"
@@ -1704,7 +1708,7 @@
         "ECHEANCE_DEPASSEE": "Échéance contractuelle dépassée de {jours, plural, one {# jour} other {# jours}}.",
         "RETARD_AVANCEMENT": "Avancement en retard de {ecart} points sur le théorique.",
         "BUDGET_alerte": "Budget consommé à {ratio} % : seuil d'alerte franchi.",
-        "BUDGET_depassement": "Budget dépassé : {ratio} % consommés.",
+        "BUDGET_depassement": "Budget dépassé : {ratio} % du budget réalisé.",
         "LOT_EN_RETARD": "Lot {code} — {nom} : en retard.",
         "ACTIVITE_EN_RETARD": "{code} {libelle} : {reel} réalisés pour {theorique} attendus, fin prévue le {fin}.",
         "BLOCAGES": "{nombre, plural, one {# blocage signalé} other {# blocages signalés}} au journal de chantier sur les neuf dernières semaines.",
@@ -4209,10 +4213,10 @@
     },
     "graphique": {
       "aucun": "Aucun projet suivi n'a encore de budget défini.",
-      "consomme": "Dépensé",
+      "consomme": "Réalisé",
       "prevu": "Budget prévu",
       "sousTitre": "Par projet suivi, en FCFA",
-      "titre": "Budget prévu et dépensé"
+      "titre": "Budget prévu et réalisé"
     },
     "indicateurs": {
       "actifs": "Projets actifs",

@@ -138,10 +138,14 @@ export function libelleDelta(delta: number | null | undefined): ResultatLibelleD
 }
 
 /**
- * La part du budget initial déjà consommée, en pourcentage entier.
+ * La part du budget déjà réalisée, en pourcentage entier.
+ *
+ * Le « consommé » est la **valeur de ce qui est réalisé** (Σ montant × avancement des feuilles),
+ * pas un dépensé : le projet n'a pas de module financier. Ce ratio est donc un avancement exprimé
+ * en budget — un projet réalisé à 85 % est bien avancé, pas en danger.
  *
  * Renvoie `null` quand la question n'a pas de sens — budget non défini, ou
- * nul. C'est volontairement différent de `0` : « rien n'est consommé » et
+ * nul. C'est volontairement différent de `0` : « rien n'est réalisé » et
  * « on ne sait pas » ne se peignent pas de la même couleur.
  *
  * Les deux copies précédentes de ce calcul ne se gardaient pas pareil du
@@ -162,18 +166,16 @@ export function ratioConsommationBudget(
 export type NiveauBudget = "conforme" | "alerte" | "depassement";
 
 /**
- * Le niveau d'alerte d'un budget, à partir de son ratio de consommation.
+ * Le niveau d'alerte d'un budget, à partir de son ratio de réalisé.
  *
- * Les bornes étaient écrites en dur dans le JSX du tableau de bord, sous
- * forme de deux ternaires imbriqués choisissant une classe CSS. Les nommer
- * ici permet à un autre écran de prendre la même décision sans recopier les
- * seuils — et de ne pas avoir à recopier la couleur avec.
+ * Il n'y a **plus de niveau « alerte »** (08/11/2026) : un réalisé qui passe 80 % du budget est un
+ * chantier bien avancé, pas un budget menacé — l'alerte aurait sonné sur tout projet presque fini.
+ * Seul le dépassement a un sens : le réalisé vaut plus que le budget. L'alerte utile, c'est un
+ * découpage qui chiffre plus que le budget (`depassementDecoupage`).
  */
 export function niveauBudget(ratio: number | null): NiveauBudget | null {
   if (ratio === null) return null;
-  if (ratio > SEUIL_BUDGET_DEPASSEMENT) return "depassement";
-  if (ratio > SEUIL_BUDGET_ALERTE) return "alerte";
-  return "conforme";
+  return ratio > SEUIL_BUDGET_DEPASSEMENT ? "depassement" : "conforme";
 }
 
 /**
@@ -246,10 +248,36 @@ export function projetModifiable(projet: Pick<Projet, "statut">): boolean {
   return projet.statut !== "TERMINE" && projet.statut !== "ARCHIVE";
 }
 
-/** Un budget défini, moins ce qui en est déjà consommé. Négatif : budget dépassé. */
-export function budgetRestant(projet: Pick<Projet, "budgetInitial" | "budgetConsomme">): number | null {
-  if (projet.budgetInitial === null) return null;
-  return projet.budgetInitial - projet.budgetConsomme;
+/**
+ * Le budget sur lequel tout se mesure : celui **en vigueur** — l'initial plus les avenants —, et à
+ * défaut l'initial. `null` tant que le budget n'est pas défini.
+ */
+export function budgetEnVigueur(
+  projet: Pick<Projet, "budgetInitial" | "budgetCourant">,
+): number | null {
+  return projet.budgetCourant ?? projet.budgetInitial;
+}
+
+/** Le budget en vigueur, moins ce qui en est déjà réalisé. Négatif : budget dépassé. */
+export function budgetRestant(
+  projet: Pick<Projet, "budgetInitial" | "budgetCourant" | "budgetConsomme">,
+): number | null {
+  const budget = budgetEnVigueur(projet);
+  return budget === null ? null : budget - projet.budgetConsomme;
+}
+
+/**
+ * De combien le découpage chiffre **au-delà du budget** (centimes), 0 sinon. C'est l'alerte
+ * précoce : bien avant que le réalisé ne dépasse, un découpage plus cher que le budget dit que le
+ * chantier coûtera plus que prévu. `null` quand l'un des deux manque (ou sans le droit de voir les
+ * montants).
+ */
+export function depassementDecoupage(
+  projet: Pick<Projet, "budgetInitial" | "budgetCourant" | "budgetDecoupage">,
+): number | null {
+  const budget = budgetEnVigueur(projet);
+  if (budget === null || budget <= 0 || projet.budgetDecoupage === null) return null;
+  return Math.max(0, projet.budgetDecoupage - budget);
 }
 
 /**
@@ -1913,7 +1941,7 @@ export function pointsDeVigilance(
   const ecart = ecartAvancement(projet.avancementReel, projet.avancementTheorique);
   if (estEnRetard(ecart)) points.push({ code: "RETARD_AVANCEMENT", ecart });
 
-  const ratio = ratioConsommationBudget(projet.budgetInitial, projet.budgetConsomme);
+  const ratio = ratioConsommationBudget(budgetEnVigueur(projet), projet.budgetConsomme);
   const niveau = niveauBudget(ratio);
   if (ratio !== null && niveau && niveau !== "conforme") {
     points.push({ code: "BUDGET", niveau, ratio });

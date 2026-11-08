@@ -48,6 +48,7 @@ interface ChargeLigneChantier {
   delta_retard?: number | null;
   ecart: number;
   budget_initial_montant: number | null;
+  budget_contractuel_montant?: number | null;
   budget_consomme_montant?: number;
   montant_marche?: number | null;
   marge_previsionnelle?: number | null;
@@ -129,7 +130,9 @@ function versLigneChantier(charge: ChargeLigneChantier): LigneChantier {
     // SFD F3 formule 5 : delta_retard = temporel − réel ; ecart = réel − temporel = −delta_retard
     ecart: charge.delta_retard != null ? -charge.delta_retard : (charge.ecart ?? 0),
     deltaRetard: charge.delta_retard ?? null,
-    budgetInitial: charge.budget_initial_montant ?? null,
+    // Le budget d'une ligne du portefeuille est celui **en vigueur** : l'initial plus les avenants,
+    // comme sur la fiche du projet. Sans avenant, c'est l'initial.
+    budgetInitial: charge.budget_contractuel_montant ?? charge.budget_initial_montant ?? null,
     budgetConsomme: charge.budget_consomme_montant ?? 0,
     montantMarche: charge.montant_marche ?? null,
     margePrevisionnelle: charge.marge_previsionnelle ?? null,

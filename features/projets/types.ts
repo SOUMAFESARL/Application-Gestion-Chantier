@@ -104,8 +104,15 @@ export interface Projet {
   indiceSante: number | null;
   /** En centimes. `null` tant que le budget n'est pas défini. */
   budgetInitial: number | null;
-  /** En centimes. */
+  /**
+   * En centimes. Le budget en vigueur : l'initial plus les avenants. `null` : pas d'avenant, ou
+   * budget non défini. Il sert de base au reste à réaliser.
+   */
+  budgetCourant: number | null;
+  /** En centimes. La valeur de ce qui est réalisé (Σ montant × avancement), pas un dépensé. */
   budgetConsomme: number;
+  /** En centimes. Ce que le découpage chiffre au total. `null` sans le droit de voir les montants. */
+  budgetDecoupage: number | null;
   /** `null` tant que le planning contractuel n'est pas fixé : il ne se demande plus à la création. */
   dateDebutPrevue: string | null;
   dateFinPrevue: string | null;
