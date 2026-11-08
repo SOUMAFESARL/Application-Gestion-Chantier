@@ -139,7 +139,7 @@ export function TiroirCase({
 
                   <Section titre={t("dates")}>
                     <Ligne libelle={t("prevues")}>
-                      <Periode debut={cible.dateDebutPrevue} fin={cible.dateFinPrevue} />
+                      <Periode debut={cible.dateDebutPrevue} fin={cible.dateFinPrevue} calculees={cible.datesCalculees} />
                       {cible.datesCalculees && (
                         <span className="ml-1.5 text-xs text-neutral-500">{t("datesCalculees")}</span>
                       )}

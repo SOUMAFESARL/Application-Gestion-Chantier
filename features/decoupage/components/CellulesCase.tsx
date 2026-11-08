@@ -13,6 +13,9 @@ import type { CaseArbre } from "../types";
  * Les cellules d'une case, communes au tableau en arbre et au tiroir de la case.
  */
 
+/** Le statut qu'envoie le serveur pour une case clôturée, feuille ou parent (§10). */
+const STATUT_CLOTURE = "CLOTURE";
+
 /** Ce qu'un montant devient sans `projets.voir_montants` (décision P7). */
 export const MONTANT_MASQUE = "•••";
 
@@ -60,19 +63,35 @@ export function Statut({ une }: { une: CaseArbre }) {
   const t = useTranslations("decoupage.arbre.etats");
   if (une.acces !== "COMPLET") return null;
   if (!une.estActif) return <Badge variante="neutre">{t("desactivee")}</Badge>;
-  if (une.cloture) return <Badge variante="succes">{t("cloturee")}</Badge>;
+  // Une feuille se clôt (`cloture`) ; un parent est clôturé *parce que* tous ses enfants le sont,
+  // et le serveur le dit par `statut` : `cloture` ne vaut que pour une feuille.
+  if (une.cloture || une.statut === STATUT_CLOTURE) return <Badge variante="succes">{t("cloturee")}</Badge>;
   if (une.suspendu) return <Badge variante="avertissement">{t("suspendue")}</Badge>;
   if (une.aCloturer) return <Badge variante="information">{t("aCloturer")}</Badge>;
   if (une.aCompleter) return <Badge variante="avertissement">{t("aCompleter")}</Badge>;
   return <Badge variante={une.commence ? "information" : "neutre"}>{une.commence ? t("commencee") : t("aVenir")}</Badge>;
 }
 
-/** « 01/07/2026 → 15/08/2026 » ; un tiret quand aucune des deux dates n'est connue. */
-export function Periode({ debut, fin }: { debut: string | null; fin: string | null }) {
+/**
+ * « 01/07/2026 → 15/08/2026 » ; un tiret quand aucune des deux dates n'est connue. En italique
+ * quand le parent les lit chez ses enfants (`calculees`) : personne ne les a posées à la main.
+ */
+export function Periode({
+  debut,
+  fin,
+  calculees = false,
+}: {
+  debut: string | null;
+  fin: string | null;
+  calculees?: boolean;
+}) {
   const t = useTranslations("decoupage.arbre");
   if (!debut && !fin) return <>{ABSENT}</>;
   return (
-    <span className="whitespace-nowrap tabular-nums">
+    <span
+      className={cn("whitespace-nowrap tabular-nums", calculees && "text-neutral-600 italic")}
+      title={calculees ? t("datesCalculees") : undefined}
+    >
       {t("periode", { debut: formaterDate(debut), fin: formaterDate(fin) })}
     </span>
   );

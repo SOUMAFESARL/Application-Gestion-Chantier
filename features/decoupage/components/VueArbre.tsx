@@ -207,7 +207,11 @@ function TableauArbre({ cases, onOuvrir }: { cases: CaseArbre[]; onOuvrir: (id: 
           header: () => t("colonnes.dates"),
           cell: ({ row }) =>
             row.original.acces === "COMPLET" ? (
-              <Periode debut={row.original.dateDebutPrevue} fin={row.original.dateFinPrevue} />
+              <Periode
+                debut={row.original.dateDebutPrevue}
+                fin={row.original.dateFinPrevue}
+                calculees={row.original.datesCalculees}
+              />
             ) : (
               ABSENT
             ),

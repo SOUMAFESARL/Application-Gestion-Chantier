@@ -5919,7 +5919,8 @@
         "commencee": "Commencée",
         "aVenir": "À venir"
       },
-      "periode": "{debut} → {fin}"
+      "periode": "{debut} → {fin}",
+      "datesCalculees": "Dates calculées d’après les cases en dessous"
     },
     "tiroir": {
       "horsPerimetre": "Cette case mène à votre périmètre : ses données ne vous sont pas accessibles.",
