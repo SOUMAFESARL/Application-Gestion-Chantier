@@ -2,7 +2,23 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { Alerte, Bouton, Modale } from "@/components/ui";
+import { Alerte, Bouton } from "@/components/ui";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { RoleItem } from "../types";
 
 interface Props {
@@ -41,69 +57,73 @@ export function ModalReassignationRole({
     await onConfirmer(roleCibleId);
   }
 
-  const actions = (
-    <>
-      <Bouton variante="secondaire" onClick={onFermer} disabled={enCours}>
-        {t("annuler")}
-      </Bouton>
-      <Bouton
-        variante="danger"
-        onClick={valider}
-        enCours={enCours}
-        disabled={!roleCibleId || enCours}
-      >
-        {t("confirmerSuppression")}
-      </Bouton>
-    </>
-  );
-
   return (
-    <Modale
-      ouverte={ouverte}
-      titre={t("titreSuppression", { role: roleASupprimer.libelle })}
-      onFermer={enCours ? undefined : onFermer}
-      actions={actions}
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-        <Alerte type="avertissement">
-          {roleASupprimer.nb_utilisateurs > 0
-            ? t("avertissementSuppression", { n: roleASupprimer.nb_utilisateurs })
-            : t("confirmationSuppressionSimple")}
-        </Alerte>
+    <Dialog open={ouverte} onOpenChange={(visible) => !visible && !enCours && onFermer()}>
+      <DialogContent className="sm:max-w-[540px]">
+        <DialogHeader className="pr-8 text-left">
+          <DialogTitle className="text-lg leading-[1.3] font-bold text-neutral-900">
+            {t("titreSuppression", { role: roleASupprimer.libelle })}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {t("titreSuppression", { role: roleASupprimer.libelle })}
+          </DialogDescription>
+        </DialogHeader>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
-          <label style={{ fontSize: "var(--font-size-sm)", fontWeight: "var(--font-weight-medium)" }}>
-            {t("champRoleRemplacement")}{" "}
-            <span style={{ color: "var(--color-danger-500)" }}>*</span>
-          </label>
-          <select
-            value={roleCibleId}
-            onChange={(e) => {
-              setRoleCibleId(e.target.value);
-              setErreur(null);
-            }}
-            style={{
-              width: "100%",
-              padding: "var(--space-2)",
-              borderRadius: "var(--radius-sm)",
-              border: "1px solid var(--color-neutral-300)",
-              backgroundColor: "var(--color-neutral-0)",
-            }}
-          >
-            <option value="">{t("choisirRemplacement")}</option>
-            {rolesEligibles.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.libelle} ({r.code})
-              </option>
-            ))}
-          </select>
-          {erreur && (
-            <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-danger-500)" }}>
-              {erreur}
-            </span>
-          )}
+        <div className="flex flex-col gap-4 [&>[role=alert]]:mb-0">
+          <Alerte type="avertissement">
+            {roleASupprimer.nb_utilisateurs > 0
+              ? t("avertissementSuppression", { n: roleASupprimer.nb_utilisateurs })
+              : t("confirmationSuppressionSimple")}
+          </Alerte>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="role-remplacement" className="font-normal leading-snug text-neutral-900">
+              {t("champRoleRemplacement")}
+              <span className="ml-0.5 text-erreur" aria-hidden="true">
+                *
+              </span>
+            </Label>
+            <Select
+              value={roleCibleId}
+              onValueChange={(valeur) => {
+                setRoleCibleId(valeur);
+                setErreur(null);
+              }}
+              disabled={enCours}
+            >
+              <SelectTrigger
+                id="role-remplacement"
+                className="w-full data-placeholder:text-neutral-400"
+                aria-invalid={Boolean(erreur)}
+              >
+                <SelectValue placeholder={t("choisirRemplacement")} />
+              </SelectTrigger>
+              <SelectContent>
+                {rolesEligibles.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.libelle} ({r.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {erreur && <span className="text-xs text-erreur">{erreur}</span>}
+          </div>
         </div>
-      </div>
-    </Modale>
+
+        <DialogFooter className="mt-2 gap-3 sm:flex-wrap sm:items-center sm:justify-end">
+          <Bouton variante="secondaire" onClick={onFermer} disabled={enCours}>
+            {t("annuler")}
+          </Bouton>
+          <Bouton
+            variante="danger"
+            onClick={valider}
+            enCours={enCours}
+            disabled={!roleCibleId || enCours}
+          >
+            {t("confirmerSuppression")}
+          </Bouton>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

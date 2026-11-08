@@ -253,7 +253,7 @@ export default function ParametresRolesPage() {
       />
 
       <ModalModificationRole
-        key={roleAEditer?.id ?? "vide"}
+        key={`edition-${roleAEditer?.id ?? "vide"}`}
         ouverte={Boolean(roleAEditer)}
         role={roleAEditer}
         rolesExistant={roles}
@@ -271,6 +271,7 @@ export default function ParametresRolesPage() {
       />
 
       <ModalReassignationRole
+        key={`suppression-${roleASupprimer?.id ?? "vide"}`}
         ouverte={Boolean(roleASupprimer)}
         roleASupprimer={roleASupprimer}
         rolesDisponibles={roles}
