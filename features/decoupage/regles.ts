@@ -346,11 +346,6 @@ export function pointsCourbe(courbe: Pick<CourbeAvancement, "prevu" | "reel">): 
   return [...parDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/** Les tâches qu'on peut clôturer (100 % atteint, le serveur propose « Clôturer ? »). */
-export function tachesACloturer(cases: CaseArbre[]): CaseArbre[] {
-  return aplatirCases(cases).filter((une) => une.acces === "COMPLET" && une.estActif && une.aCloturer);
-}
-
 /** Les tâches dont le réalisé dépasse le prévu, du plus fort dépassement au plus faible. */
 export function tachesEnDepassement(cases: CaseArbre[]): CaseArbre[] {
   return aplatirCases(cases)

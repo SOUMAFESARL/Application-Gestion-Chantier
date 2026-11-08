@@ -672,6 +672,7 @@ interface ChargeCase {
   date_fin_baseline?: string | null;
   date_debut_reelle?: string | null;
   date_fin_reelle?: string | null;
+  dates_calculees?: boolean;
   jours_accordes?: number;
   date_fin_contractuelle?: string | null;
   mode_execution?: string;
@@ -788,6 +789,7 @@ function versCase(charge: ChargeCase, temporels: Temporels): CaseArbre {
     dateFinBaseline: charge.date_fin_baseline ?? null,
     dateDebutReelle: charge.date_debut_reelle ?? null,
     dateFinReelle: charge.date_fin_reelle ?? null,
+    datesCalculees: charge.dates_calculees ?? false,
     joursAccordes: charge.jours_accordes ?? 0,
     dateFinContractuelle: charge.date_fin_contractuelle ?? null,
     modeExecution: charge.mode_execution ?? "",

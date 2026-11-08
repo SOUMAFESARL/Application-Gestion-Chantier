@@ -5966,12 +5966,13 @@
       "tachesEnDepassement": "Tâches en dépassement",
       "dates": "Dates",
       "prevues": "Prévues",
+      "datesCalculees": "(calculées d’après les cases en dessous)",
       "origine": "Origine",
       "finContractuelle": "Fin contractuelle",
       "reelles": "Réelles",
       "montants": "Montants",
       "montant": "Montant",
-      "poids": "Poids (somme des tâches)",
+      "montantCalcule": "(somme des cases en dessous)",
       "enveloppe": "Enveloppe",
       "execution": "Exécution",
       "modeExecution": "Mode d’exécution",
@@ -6063,8 +6064,8 @@
         "succes": "Mesure de « {libelle} » enregistrée."
       },
       "cloturer": {
-        "titre": "Clôturer « {libelle} » ?",
-        "description": "La tâche passe à 100 %. Elle pourra être rouverte, avec un motif.",
+        "titre": "Clôturer « {libelle} » avant son prévu ?",
+        "description": "Pour une tâche terminée avant d’avoir atteint son prévu : elle passe à 100 %. À 100 % mesuré, une tâche se clôt d’elle-même. Elle pourra être rouverte, avec un motif.",
         "action": "Clôturer",
         "succes": "« {libelle} » clôturée."
       },
@@ -6131,10 +6132,6 @@
       "repereFinPrevue": "Fin prévue",
       "repereFinContractuelle": "Contractuelle",
       "repereFinEstimee": "Estimée",
-      "aCloturer": "Clôturer ? ({nombre})",
-      "aucuneACloturer": "Aucune tâche à 100 % en attente de clôture.",
-      "cent": "100 %",
-      "cloturer": "Clôturer",
       "depassements": "Dépassements ({nombre})",
       "aucunDepassement": "Aucune tâche ne dépasse sa quantité prévue.",
       "depassement": "+{valeur} % sur le prévu"

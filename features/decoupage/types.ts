@@ -250,6 +250,8 @@ export interface CaseArbre {
   dateFinBaseline: string | null;
   dateDebutReelle: string | null;
   dateFinReelle: string | null;
+  /** Vrai : les dates prévues de ce parent se lisent chez ses enfants, personne ne les a posées. */
+  datesCalculees: boolean;
   joursAccordes: number;
   dateFinContractuelle: string | null;
   modeExecution: string;

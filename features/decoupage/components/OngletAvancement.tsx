@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { CheckCheck, TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -12,7 +12,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BoutonPermis, PERMISSIONS, useDroits } from "@/features/habilitations";
 import type { Projet } from "@/features/projets/types";
 import { formaterDate, formaterPourcentage } from "@/lib/format";
 
@@ -22,12 +21,10 @@ import {
   casesAvecCourbe,
   etatAvancement,
   pointsCourbe,
-  tachesACloturer,
   tachesEnDepassement,
   tachesIndisponibles,
 } from "../regles";
 import type { CaseArbre } from "../types";
-import { FenetreGeste, type GesteOuvert } from "./FenetreGeste";
 
 const PROJET_ENTIER = "projet";
 
@@ -48,15 +45,14 @@ const POINTILLE_FIN = "2 2";
  * tiré des dates et des montants, le réel relevé chaque nuit — et la **fin estimée** au rythme
  * des quatre dernières semaines, affichée seulement. Pour le projet entier ou une case.
  *
- * Autour : l'avancement « partiel » ou « indisponible » plutôt qu'un faux 0 %, les tâches en
- * dépassement (le réalisé passe le prévu), et celles à 100 % que le serveur propose de clôturer
- * — il ne clôture jamais seul.
+ * Autour : l'avancement « partiel » ou « indisponible » plutôt qu'un faux 0 %, et les tâches en
+ * dépassement (le réalisé passe le prévu). Un écran de lecture : il n'y a plus rien à clôturer
+ * ici, une tâche se clôt d'elle-même à 100 % (le geste « Clôturer » reste dans le tiroir de la
+ * case, pour une tâche terminée avant son prévu).
  */
 export function OngletAvancement({ projet }: { projet: Projet }) {
   const t = useTranslations("decoupage.avancement");
-  const { peutSurProjet } = useDroits();
   const [caseId, setCaseId] = useState<string | null>(null);
-  const [geste, setGeste] = useState<GesteOuvert | null>(null);
 
   const arbre = useQuery({ queryKey: cleArbre(projet.id), queryFn: ({ signal }) => lireArbre(projet.id, signal), enabled: projet.decoupageCree });
   const courbe = useQuery({
@@ -70,11 +66,9 @@ export function OngletAvancement({ projet }: { projet: Projet }) {
   if (arbre.isError) return <EtatErreur onReessayer={() => void arbre.refetch()} />;
 
   const cases = arbre.data.cases;
-  const aCloturer = tachesACloturer(cases);
   const depassements = tachesEnDepassement(cases);
   const indisponibles = tachesIndisponibles(cases);
   const etat = etatAvancement(arbre.data);
-  const peutMesurer = peutSurProjet(PERMISSIONS.MESURER, projet);
 
   return (
     <div className="flex flex-col gap-6">
@@ -133,34 +127,12 @@ export function OngletAvancement({ projet }: { projet: Projet }) {
         {courbe.isSuccess && <Graphique courbe={courbe.data} />}
       </section>
 
-      <div className="grid grid-cols-2 gap-6 max-lg:grid-cols-1">
-        <ListeTaches
-          titre={t("aCloturer", { nombre: aCloturer.length })}
-          vide={t("aucuneACloturer")}
-          taches={aCloturer}
-          detail={() => t("cent")}
-          action={(une) => (
-            <BoutonPermis
-              size="sm"
-              variant="outline"
-              permis={peutMesurer}
-              permission={PERMISSIONS.MESURER}
-              onClick={() => setGeste({ geste: "cloturer", cible: une })}
-            >
-              <CheckCheck />
-              {t("cloturer")}
-            </BoutonPermis>
-          )}
-        />
-        <ListeTaches
-          titre={t("depassements", { nombre: depassements.length })}
-          vide={t("aucunDepassement")}
-          taches={depassements}
-          detail={(une) => t("depassement", { valeur: une.depassement ?? 0 })}
-        />
-      </div>
-
-      <FenetreGeste projet={projet} ouvert={geste} onFermer={() => setGeste(null)} />
+      <ListeTaches
+        titre={t("depassements", { nombre: depassements.length })}
+        vide={t("aucunDepassement")}
+        taches={depassements}
+        detail={(une) => t("depassement", { valeur: une.depassement ?? 0 })}
+      />
     </div>
   );
 }
@@ -179,13 +151,11 @@ function ListeTaches({
   vide,
   taches,
   detail,
-  action,
 }: {
   titre: string;
   vide: string;
   taches: CaseArbre[];
   detail: (une: CaseArbre) => string;
-  action?: (une: CaseArbre) => ReactNode;
 }) {
   return (
     <section className="flex flex-col gap-2 rounded-xl border border-solid border-neutral-200 bg-neutral-0 p-4 shadow-sm">
@@ -199,7 +169,6 @@ function ListeTaches({
               <span className="font-mono text-xs text-neutral-500">{une.numero}</span>
               <span className="min-w-0 flex-1 text-sm text-neutral-900">{une.libelle}</span>
               <span className="text-xs text-neutral-600">{detail(une)}</span>
-              {action?.(une)}
             </li>
           ))}
         </ul>

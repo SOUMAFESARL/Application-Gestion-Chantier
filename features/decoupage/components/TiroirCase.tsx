@@ -140,6 +140,9 @@ export function TiroirCase({
                   <Section titre={t("dates")}>
                     <Ligne libelle={t("prevues")}>
                       <Periode debut={cible.dateDebutPrevue} fin={cible.dateFinPrevue} />
+                      {cible.datesCalculees && (
+                        <span className="ml-1.5 text-xs text-neutral-500">{t("datesCalculees")}</span>
+                      )}
                     </Ligne>
                     <Ligne libelle={t("origine")}>
                       <Periode debut={cible.dateDebutBaseline} fin={cible.dateFinBaseline} />
@@ -160,8 +163,11 @@ export function TiroirCase({
                   </Section>
 
                   <Section titre={t("montants")}>
-                    <Ligne libelle={cible.estFeuille ? t("montant") : t("poids")}>
+                    <Ligne libelle={t("montant")}>
                       <Montant une={cible} voitMontants={voitMontants} />
+                      {!cible.estFeuille && (
+                        <span className="ml-1.5 text-xs text-neutral-500">{t("montantCalcule")}</span>
+                      )}
                     </Ligne>
                     {!cible.estFeuille && (
                       <Ligne libelle={t("enveloppe")}>
