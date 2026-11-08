@@ -4,9 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 
 import { CLE_LISTE_PROJETS, cleProjet } from "@/features/projets/cles";
-import type { FonctionProjet, Projet } from "@/features/projets/types";
+import type { Projet } from "@/features/projets/types";
 
-import { ModaleAjoutEncadrement } from "./ModaleAjoutEncadrement";
 import { ModaleCadrageProjet, type ObjetCadrage } from "./ModaleCadrageProjet";
 import { ModaleRetraitEncadrement, type RetraitEncadrement } from "./ModaleRetraitEncadrement";
 import { ModaleSuppressionProjet } from "./ModaleSuppressionProjet";
@@ -44,13 +43,6 @@ export function useGestionProjet(apresSuppression?: (projet: Projet) => void) {
   } | null>(null);
   const [suspension, setSuspension] = useState<Projet | null>(null);
   const [suppression, setSuppression] = useState<Projet | null>(null);
-  const [encadrement, setEncadrement] = useState<{
-    projet: Projet;
-    fonction: FonctionProjet;
-    fonctionsAutorisees: FonctionProjet[];
-    ouverte: boolean;
-    rang: number;
-  } | null>(null);
   const [retrait, setRetrait] = useState<RetraitEncadrement | null>(null);
   const [cadrage, setCadrage] = useState<{ projet: Projet; objet: ObjetCadrage } | null>(null);
 
@@ -86,19 +78,6 @@ export function useGestionProjet(apresSuppression?: (projet: Projet) => void) {
     [clientRequetes, apresSuppression],
   );
 
-  const encadrer = useCallback(
-    (projet: Projet, fonction: FonctionProjet, fonctionsAutorisees: FonctionProjet[]) => {
-      setEncadrement((courant) => ({
-        projet,
-        fonction,
-        fonctionsAutorisees,
-        ouverte: true,
-        rang: (courant?.rang ?? 0) + 1,
-      }));
-    },
-    [],
-  );
-
   const retirerEncadrement = useCallback((cible: RetraitEncadrement) => setRetrait(cible), []);
 
   const cadrer = useCallback(
@@ -122,17 +101,6 @@ export function useGestionProjet(apresSuppression?: (projet: Projet) => void) {
         onFermer={() => setSuspension(null)}
         onTermine={actualiser}
       />
-      {encadrement && (
-        <ModaleAjoutEncadrement
-          key={encadrement.rang}
-          ouverte={encadrement.ouverte}
-          onFermer={() => setEncadrement((courant) => courant && { ...courant, ouverte: false })}
-          projet={encadrement.projet}
-          fonctionInitiale={encadrement.fonction}
-          fonctionsAutorisees={encadrement.fonctionsAutorisees}
-          onModifie={actualiser}
-        />
-      )}
       <ModaleRetraitEncadrement
         retrait={retrait}
         onFermer={() => setRetrait(null)}
@@ -151,5 +119,5 @@ export function useGestionProjet(apresSuppression?: (projet: Projet) => void) {
     </>
   );
 
-  return { modifier, basculerSuspension, supprimer, encadrer, retirerEncadrement, cadrer, modaux };
+  return { modifier, basculerSuspension, supprimer, retirerEncadrement, cadrer, modaux };
 }

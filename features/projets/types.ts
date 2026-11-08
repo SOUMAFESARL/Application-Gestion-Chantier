@@ -227,18 +227,6 @@ export interface AutreMembreProjet {
   affectationId?: string | null;
 }
 
-/**
- * L'arrivée d'une personne dans l'équipe d'encadrement. `intervenant` vient
- * de la liste des utilisateurs du compte : le serveur n'en lit que l'`id`.
- * Désigner un chef de projet remplace le précédent.
- */
-export type AjoutEncadrement =
-  | { fonction: "CHEF_PROJET" | "CONDUCTEUR_TRAVAUX"; intervenant: Intervenant }
-  /** `lotId` : un lot du projet. `null` : tout le chantier. */
-  | { fonction: "CHEF_CHANTIER"; intervenant: Intervenant; lotId: string | null }
-  /** Tout autre rôle de portée Projet, par son code (QSE, VI…) — décision du 16/10/2026. */
-  | { fonction: "AUTRE_MEMBRE"; intervenant: Intervenant; roleCode: string };
-
 /** Le planning contractuel, fixé par le chef de projet après la création. */
 export interface PlanningProjet {
   /** Absente : la date déjà fixée ne se réécrit pas, elle se reprogramme (RG-11). */

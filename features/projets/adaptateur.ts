@@ -21,7 +21,6 @@ import { api } from "@/lib/api";
 
 import {
   ROLE_MEMBRE_PAR_DEFAUT,
-  ROLE_PROJET_PAR_FONCTION,
   STATUT_DECLARE_PAR_DEFAUT,
   statutDeReprise,
 } from "./regles";
@@ -29,7 +28,6 @@ import {
 import type {
   AffectationCollaborateur,
   Activite,
-  AjoutEncadrement,
   AlerteIntemperies,
   AutreMembreProjet,
   ChefChantierProjet,
@@ -608,33 +606,10 @@ export async function definirBudgetProjet(id: string, budgetInitial: number): Pr
 
 /*
  * L'équipe d'encadrement et de gestion du projet. Affectations servies par
- * Django : ajout, modification, retrait par effacement physique journalisé.
+ * Django : modification, retrait par effacement physique journalisé. L'ajout passe par le tiroir
+ * d'affectations (`affecterCollaborateur`), la seule porte.
  * Chaque écriture relit le projet entier (lireProjet).
  */
-
-export async function ajouterMembreEncadrement(
-  projetId: string,
-  ajout: AjoutEncadrement,
-): Promise<Projet> {
-  const payload: {
-    utilisateur_id: string;
-    role_projet: string;
-    perimetres_ids?: string[];
-  } = {
-    utilisateur_id: ajout.intervenant.id,
-    // Le rôle tenu sur le projet est celui de la plateforme, quel qu'il soit.
-    role_projet:
-      ajout.fonction === "AUTRE_MEMBRE" ? ajout.roleCode : ROLE_PROJET_PAR_FONCTION[ajout.fonction],
-  };
-
-  if (ajout.fonction === "CHEF_CHANTIER") {
-    // Une case de l'arbre borne son périmètre ; absente, le chef de chantier a tout le chantier.
-    payload.perimetres_ids = ajout.lotId ? [ajout.lotId] : [];
-  }
-
-  await api.creer(`/projets/${projetId}/affectations/`, payload);
-  return lireProjet(projetId);
-}
 
 export async function retirerMembreEncadrement(
   projetId: string,

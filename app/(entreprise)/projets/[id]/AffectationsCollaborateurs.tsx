@@ -24,7 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { BORD_DROIT_TABLEAU, TableauListe } from "@/components/ui/tableau-liste";
 import { SelecteurPerimetre } from "@/features/decoupage/components/SelecteurPerimetre";
-import { BoutonPermis, PERMISSIONS, useDroits } from "@/features/habilitations";
+import { BoutonPermis, PERMISSIONS, peutDesignerChefProjet, useDroits } from "@/features/habilitations";
 import {
   affecterCollaborateur,
   changerChefChantier,
@@ -46,6 +46,10 @@ const colonne = aideColonnes<AffectationCollaborateur>();
 
 /** Le code du rôle de chef de chantier (registre des rôles du serveur, `RoleProjet.CC`). */
 const ROLE_CHEF_CHANTIER = "CC";
+/** Celui du chef de projet (`RoleProjet.CP`) : seule la direction le désigne. */
+const ROLE_CHEF_PROJET = "CP";
+/** Le Directeur Général ne tient aucune fonction de chantier (décision du 14/10/2026). */
+const ROLE_DIRECTEUR_GENERAL = "DG";
 
 type Fenetre =
   | { type: "affecter" }
@@ -272,19 +276,32 @@ function useRolesProjet() {
  * Affecter, ou modifier le rôle et le périmètre.
  * ------------------------------------------------------------------ */
 
-function TiroirAffectationCollaborateur({
+/**
+ * **La seule porte pour affecter un collaborateur à un projet**, depuis le tableau ci-dessous comme
+ * depuis l'encadrement de la fiche (qui l'ouvre avec le rôle de la place choisie, `roleInitial`).
+ *
+ * Elle propose les collaborateurs **pas encore affectés** — jamais le Directeur Général, qui ne
+ * tient aucune fonction de chantier — et les rôles que ce compte peut donner : le chef de projet
+ * n'est désignable que par la direction. Le serveur refuse de toute façon ; cacher l'impossible
+ * épargne l'erreur.
+ */
+export function TiroirAffectationCollaborateur({
   projet,
   affectation,
+  roleInitial = "",
   onFermer,
 }: {
   projet: Projet;
   affectation: AffectationCollaborateur | null;
+  /** Le rôle présélectionné à l'ouverture : celui de la place qu'on vient pourvoir. */
+  roleInitial?: string;
   onFermer: () => void;
 }) {
   const t = useTranslations("ficheProjet.affectations");
   const actualiser = useActualiser(projet.id);
+  const { droits } = useDroits();
   const [utilisateurId, setUtilisateurId] = useState(affectation?.utilisateur.id ?? "");
-  const [role, setRole] = useState(affectation?.roleProjet ?? "");
+  const [role, setRole] = useState(affectation?.roleProjet ?? roleInitial);
   const [perimetres, setPerimetres] = useState<string[]>(affectation?.perimetres.map((c) => c.id) ?? []);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -293,7 +310,24 @@ function TiroirAffectationCollaborateur({
     queryFn: ({ signal }) => listerAffectables(projet.id, signal),
     enabled: affectation === null,
   });
+  const dejaAffectes = useQuery({
+    queryKey: cleAffectationsCollaborateurs(projet.id),
+    queryFn: ({ signal }) => listerAffectationsCollaborateurs(projet.id, signal),
+    enabled: affectation === null,
+  });
   const roles = useRolesProjet();
+
+  // Ceux qui tiennent déjà une affectation en cours n'ont pas à être proposés : « Modifier » change
+  // leur rôle, « Remplacer » leur titulaire.
+  const enPlace = new Set(
+    (dejaAffectes.data ?? []).filter((a) => !a.dateFin).map((a) => a.utilisateur.id),
+  );
+  const proposes = (candidats.data ?? []).filter(
+    (candidat) => candidat.roleCode !== ROLE_DIRECTEUR_GENERAL && !enPlace.has(candidat.id),
+  );
+  const rolesProposes = (roles.data ?? []).filter(
+    (r) => r.code.toUpperCase() !== ROLE_CHEF_PROJET || peutDesignerChefProjet(projet, droits),
+  );
 
   const ecriture = useMutation({
     mutationFn: () =>
@@ -339,7 +373,7 @@ function TiroirAffectationCollaborateur({
                   <SelectValue placeholder={candidats.isPending ? t("chargement") : t("choisirCollaborateur")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {(candidats.data ?? []).map((candidat) => (
+                  {proposes.map((candidat) => (
                     <SelectItem key={candidat.id} value={candidat.id}>
                       {t("candidat", { nom: candidat.nom, role: candidat.role })}
                     </SelectItem>
@@ -355,7 +389,7 @@ function TiroirAffectationCollaborateur({
                 <SelectValue placeholder={t("choisirRole")} />
               </SelectTrigger>
               <SelectContent>
-                {(roles.data ?? []).map((r) => (
+                {rolesProposes.map((r) => (
                   <SelectItem key={r.id} value={r.code.toUpperCase()}>
                     {r.libelle}
                     {r.unique_par_projet ? ` — ${t("unique")}` : ""}
@@ -401,7 +435,7 @@ function TiroirAffectationCollaborateur({
  * Remplacer un titulaire, ou changer de chef de chantier.
  * ------------------------------------------------------------------ */
 
-function FenetreRemplacement({
+export function FenetreRemplacement({
   projet,
   affectation,
   onFermer,

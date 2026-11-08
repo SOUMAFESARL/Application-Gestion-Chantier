@@ -27,7 +27,7 @@ interface Props {
   peutDesigner: boolean;
   /** Ajouter et retirer les autres membres — la direction et le chef de projet. */
   peutGerer: boolean;
-  onAjouter: (fonction: FonctionProjet, fonctionsAutorisees: FonctionProjet[]) => void;
+  onAjouter: (fonction: FonctionProjet) => void;
   onRetirer: (fonction: FonctionProjet, intervenant: Intervenant, affectationId: string) => void;
 }
 
@@ -71,7 +71,7 @@ export function EquipeEncadrement({
           <Button
             type="button"
             size="sm"
-            onClick={() => onAjouter(fonctionParDefaut, autorisees)}
+            onClick={() => onAjouter(fonctionParDefaut)}
           >
             <UserPlus aria-hidden="true" />
             {t("ajouterMembre")}
@@ -92,7 +92,7 @@ export function EquipeEncadrement({
                     type="button"
                     size="sm"
                     variant="ghost"
-                    onClick={() => onAjouter("CHEF_PROJET", autorisees)}
+                    onClick={() => onAjouter("CHEF_PROJET")}
                   >
                     {t("changerChefProjet")}
                   </Button>

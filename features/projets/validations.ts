@@ -22,7 +22,6 @@ import { chaineNonVide } from "@/lib/validations/champs";
 import {
   NATURES_EQUIPE,
   ROLE_MEMBRE_PAR_DEFAUT,
-  ROLE_PROJET_PAR_FONCTION,
   ROLES_MEMBRE_EQUIPE,
   TYPES_BORDEREAU,
   NOMBRE_MAX_CONTRATS,
@@ -39,12 +38,9 @@ import {
 } from "./regles";
 import type {
   Activite,
-  AjoutEncadrement,
   CreationEquipe,
   CreationLotProjet,
   CreationProjet,
-  FonctionProjet,
-  Intervenant,
   Lot,
   MiseAJourAvancement,
   ModificationProjet,
@@ -766,55 +762,6 @@ export const schemaAffectation = z.object({
 });
 
 export type SaisieAffectation = z.input<typeof schemaAffectation>;
-
-/* ------------------------------------------------------------------ *
- * L'équipe d'encadrement et de gestion du projet.
- * ------------------------------------------------------------------ */
-
-/**
- * L'arrivée d'une personne dans l'encadrement. Le lot ne vaut que pour un
- * chef de chantier, et il est facultatif : vide, la personne a tout le chantier.
- */
-export const schemaAjoutEncadrement = z.object({
-  // Le code du rôle de portée Projet choisi (CP, CT, CC, QSE…) : la liste est dynamique.
-  role: chaineNonVide(texte("projets.encadrement.ajout.erreurFonctionRequise")),
-  utilisateurId: chaineNonVide(texte("projets.encadrement.ajout.erreurUtilisateurRequis")),
-  // L'identifiant d'un lot du projet ; vide : tout le chantier.
-  lotId: z.string(),
-});
-
-export type SaisieAjoutEncadrement = z.input<typeof schemaAjoutEncadrement>;
-export type ValeursAjoutEncadrement = z.output<typeof schemaAjoutEncadrement>;
-
-/** La place d'un rôle : CP, CT et CC ont la leur, tout autre rôle va aux « autres membres ». */
-export function fonctionDuRole(role: string): FonctionProjet {
-  const place = (Object.keys(ROLE_PROJET_PAR_FONCTION) as FonctionProjet[]).find(
-    (fonction) => fonction !== "AUTRE_MEMBRE" && ROLE_PROJET_PAR_FONCTION[fonction] === role,
-  );
-  return place ?? "AUTRE_MEMBRE";
-}
-
-export function saisieEncadrementVide(fonction: FonctionProjet): SaisieAjoutEncadrement {
-  const role = fonction === "AUTRE_MEMBRE" ? "" : ROLE_PROJET_PAR_FONCTION[fonction];
-  return { role, utilisateurId: "", lotId: "" };
-}
-
-/** La saisie validée, avec la personne choisie dans la liste des utilisateurs du compte. */
-export function versAjoutEncadrement(
-  valeurs: ValeursAjoutEncadrement,
-  intervenant: Intervenant,
-): AjoutEncadrement {
-  switch (fonctionDuRole(valeurs.role)) {
-    case "CHEF_CHANTIER":
-      return { fonction: "CHEF_CHANTIER", intervenant, lotId: valeurs.lotId || null };
-    case "AUTRE_MEMBRE":
-      return { fonction: "AUTRE_MEMBRE", intervenant, roleCode: valeurs.role };
-    case "CONDUCTEUR_TRAVAUX":
-      return { fonction: "CONDUCTEUR_TRAVAUX", intervenant };
-    default:
-      return { fonction: "CHEF_PROJET", intervenant };
-  }
-}
 
 /* ------------------------------------------------------------------ *
  * Le cadrage du projet — planning et budget, fixés par le chef de projet.

@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import { Badge, EtatChargement, EtatErreur } from "@/components/ui";
@@ -32,9 +32,11 @@ import {
   lireProjet,
   lireSanteProjet,
   lireStatistiques,
+  listerAffectationsCollaborateurs,
   listerEquipes,
 } from "@/features/projets/adaptateur";
 import {
+  cleAffectationsCollaborateurs,
   cleEquipes,
   cleHistoriqueSante,
   cleProjet,
@@ -54,11 +56,12 @@ import {
   niveauBudget,
   principalePenalite,
   ratioConsommationBudget,
+  ROLE_PROJET_PAR_FONCTION,
   tonSante,
 } from "@/features/projets/regles";
 import { REFERENTIEL_TYPES_PROJET, useReferentiel } from "@/features/projets/referentiels";
 import type { NiveauBudget } from "@/features/projets/regles";
-import type { BadgeSante, Projet } from "@/features/projets/types";
+import type { AffectationCollaborateur, BadgeSante, Projet } from "@/features/projets/types";
 import { afficherTelephone } from "@/features/referentiels/telephone";
 import {
   ABSENT,
@@ -77,7 +80,11 @@ import {
   TON_SANTE,
   type FondIndicateur,
 } from "../classes";
-import { AffectationsCollaborateurs } from "./AffectationsCollaborateurs";
+import {
+  AffectationsCollaborateurs,
+  FenetreRemplacement,
+  TiroirAffectationCollaborateur,
+} from "./AffectationsCollaborateurs";
 import { EquipeEncadrement } from "./EquipeEncadrement";
 
 /**
@@ -150,10 +157,20 @@ export function FicheProjet({ projetId }: { projetId: string }) {
     queryFn: ({ signal }) => lireStatistiques(projetId, signal),
   });
 
-  // Les fenêtres d'encadrement et de cadrage ; celles du projet (modifier, suspendre,
+  // Les fenêtres de retrait de l'encadrement et de cadrage ; celles du projet (modifier, suspendre,
   // supprimer) vivent dans l'en-tête commun aux onglets (`CadreFicheProjet`).
-  const { encadrer, retirerEncadrement, cadrer, modaux } = useGestionProjet(() => undefined);
+  const { retirerEncadrement, cadrer, modaux } = useGestionProjet(() => undefined);
   const { droits, voitMontants } = useDroits();
+
+  // Pourvoir une place de l'encadrement ouvre **le tiroir d'affectations**, le même que celui du
+  // tableau en dessous : il n'y a qu'une façon d'affecter un collaborateur. Changer le chef de
+  // projet passe par « Remplacer », la seule voie d'un rôle unique par projet.
+  const [ajout, setAjout] = useState<{ role: string; rang: number } | null>(null);
+  const [remplacement, setRemplacement] = useState<AffectationCollaborateur | null>(null);
+  const requeteAffectations = useQuery({
+    queryKey: cleAffectationsCollaborateurs(projetId),
+    queryFn: ({ signal }) => listerAffectationsCollaborateurs(projetId, signal),
+  });
 
   const requeteProfil = useQuery({
     queryKey: ["profil-moi"],
@@ -301,19 +318,24 @@ export function FicheProjet({ projetId }: { projetId: string }) {
               <LienSection href={`/projets/${projet.id}/equipes`}>
                 {t("structure.voirEquipes")}
               </LienSection>
-              {/* Pas de chiffre tant qu'on ne le connaît pas : « 0 » se lirait comme un fait. */}
+              {/* Pas de chiffre tant qu'on ne le connaît pas : « 0 » se lirait comme un fait.
+                  Deux chiffres, deux réalités : les collaborateurs (des comptes affectés au
+                  projet) et les membres d'équipes (la main-d'œuvre du registre, sans compte). */}
+              {requeteAffectations.isSuccess && (
+                <PastilleEffectif>
+                  {t.rich("structure.collaborateurs", {
+                    nombre: requeteAffectations.data.filter((a) => !a.dateFin).length,
+                    fort: (chunks) => <strong className="text-base font-bold">{chunks}</strong>,
+                  })}
+                </PastilleEffectif>
+              )}
               {requeteEquipes.isSuccess && (
-                <span className="inline-flex items-center gap-2 rounded-md border border-solid border-primary-200 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700">
-                  <Users size={16} aria-hidden="true" />
-                  <span>
-                    {t.rich("structure.collaborateurs", {
-                      nombre: effectifProjet(requeteEquipes.data),
-                      fort: (chunks) => (
-                        <strong className="text-base font-bold">{chunks}</strong>
-                      ),
-                    })}
-                  </span>
-                </span>
+                <PastilleEffectif>
+                  {t.rich("structure.membresEquipes", {
+                    nombre: effectifProjet(requeteEquipes.data),
+                    fort: (chunks) => <strong className="text-base font-bold">{chunks}</strong>,
+                  })}
+                </PastilleEffectif>
               )}
             </div>
           </Bloc>
@@ -324,7 +346,20 @@ export function FicheProjet({ projetId }: { projetId: string }) {
           profil={profilRetrait}
           peutDesigner={peutDesignerChefProjet(projet, droits)}
           peutGerer={peutGererEncadrement(projet, droits)}
-          onAjouter={(fonction, autorisees) => encadrer(projet, fonction, autorisees)}
+          onAjouter={(fonction) => {
+            const chef = projet.chefProjet;
+            const affectationChef = chef
+              ? requeteAffectations.data?.find((a) => a.utilisateur.id === chef.id)
+              : undefined;
+            if (fonction === "CHEF_PROJET" && affectationChef) {
+              setRemplacement(affectationChef);
+              return;
+            }
+            setAjout((courant) => ({
+              role: fonction === "AUTRE_MEMBRE" ? "" : ROLE_PROJET_PAR_FONCTION[fonction],
+              rang: (courant?.rang ?? 0) + 1,
+            }));
+          }}
           onRetirer={(fonction, intervenant, affectationId) =>
             retirerEncadrement({ projet, fonction, intervenant, affectationId })
           }
@@ -335,8 +370,30 @@ export function FicheProjet({ projetId }: { projetId: string }) {
 
       <HistoriqueDatesProjet projet={projet} />
 
+      {ajout && (
+        <TiroirAffectationCollaborateur
+          key={ajout.rang}
+          projet={projet}
+          affectation={null}
+          roleInitial={ajout.role}
+          onFermer={() => setAjout(null)}
+        />
+      )}
+      {remplacement && (
+        <FenetreRemplacement projet={projet} affectation={remplacement} onFermer={() => setRemplacement(null)} />
+      )}
+
       {modaux}
     </div>
+  );
+}
+
+function PastilleEffectif({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-md border border-solid border-primary-200 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700">
+      <Users size={16} aria-hidden="true" />
+      <span>{children}</span>
+    </span>
   );
 }
 
