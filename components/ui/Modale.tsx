@@ -157,7 +157,7 @@ export function Modale({
             dernier — sens de lecture. Sur mobile elles s'empilent, la
             principale en haut. */}
         {actions && (
-          <footer className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <footer className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
             {actions}
           </footer>
         )}
