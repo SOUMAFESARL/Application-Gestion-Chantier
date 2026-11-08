@@ -15,6 +15,7 @@ import { AccesNonAutorise, peutRedigerJournal, projetVisible, useDroits } from "
 import { lireProjet } from "@/features/projets/adaptateur";
 import { cleProjet } from "@/features/projets/cles";
 import { ErreurApi } from "@/lib/api";
+import { formaterDate } from "@/lib/format";
 
 import { FormulaireRapport } from "../FormulaireRapport";
 
@@ -88,6 +89,52 @@ export function EcranSaisie({ projetId, date: demandee }: { projetId: string; da
   }
 
   if (!estRejete && !jourSaisissable(date, donnees.aujourdhui, donnees.joursSaisissables)) {
+    // Un jour qui n'est pas encore arrivé ne se rapporte pas à l'avance.
+    if (date > donnees.aujourdhui) {
+      return (
+        <div className="flex w-full flex-col gap-4">
+          {entete}
+          <EtatVide
+            titre={t("futur.titre")}
+            description={t("futur.description", { date: formaterDate(date) })}
+            action={
+              <Button asChild>
+                <Link href={`/rapports/saisie?projet=${projetId}`}>{t("futur.action")}</Link>
+              </Button>
+            }
+          />
+        </div>
+      );
+    }
+    // Avant le premier jour du chantier, la raison n'est pas le délai : le serveur n'attend
+    // aucun rapport (chantier pas encore commencé, ou enregistré après ce jour).
+    const premierJour = donnees.premierJour;
+    if (premierJour && date < premierJour) {
+      const aVenir = premierJour > donnees.aujourdhui;
+      const redigeable = jourSaisissable(premierJour, donnees.aujourdhui, donnees.joursSaisissables);
+      return (
+        <div className="flex w-full flex-col gap-4">
+          {entete}
+          <EtatVide
+            titre={t(aVenir ? "avantDebut.titreAVenir" : "avantDebut.titre")}
+            description={t(aVenir ? "avantDebut.descriptionAVenir" : "avantDebut.description", {
+              date: formaterDate(premierJour),
+            })}
+            action={
+              <Button asChild>
+                {redigeable ? (
+                  <Link href={`/rapports/saisie/${projetId}?date=${premierJour}`}>
+                    {t("avantDebut.action", { date: formaterDate(premierJour) })}
+                  </Link>
+                ) : (
+                  <Link href={`/rapports/saisie?projet=${projetId}`}>{t("avantDebut.retour")}</Link>
+                )}
+              </Button>
+            }
+          />
+        </div>
+      );
+    }
     const dernierJourOuvre = donnees.joursSaisissables[0] ?? donnees.aujourdhui;
     return (
       <div className="flex w-full flex-col gap-4">

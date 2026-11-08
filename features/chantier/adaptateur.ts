@@ -1011,6 +1011,8 @@ interface ChargePreparation {
   aujourdhui: string;
   est_jour_ouvre: boolean;
   jours_saisissables: string[];
+  /** Le premier jour qui attend un rapport (début du chantier ou enregistrement). */
+  premier_jour?: string;
   meteo_suggeree: {
     matin: Meteo;
     apres_midi: Meteo;
@@ -1343,6 +1345,7 @@ function versPreparation(charge: ChargePreparation): PreparationSaisie {
     aujourdhui: charge.aujourdhui,
     estJourOuvre: charge.est_jour_ouvre ?? true,
     joursSaisissables: charge.jours_saisissables ?? [],
+    premierJour: charge.premier_jour ?? null,
     meteoSuggeree,
     previsionsVeille: (charge.previsions_veille ?? []).map(versPrevision),
     blocagesOuverts,

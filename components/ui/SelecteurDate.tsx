@@ -32,7 +32,7 @@ function versDate(valeur: string | undefined): Date | undefined {
   return isValid(date) ? date : undefined;
 }
 
-interface Props extends Omit<ComponentProps<"button">, "value" | "onChange" | "children"> {
+interface Props extends Omit<ComponentProps<"button">, "value" | "onChange" | "onBlur" | "children"> {
   /** La date au format ISO court (`2026-09-23`). Chaîne vide : aucune date. */
   valeur: string;
   onChange: (valeur: string) => void;
@@ -46,6 +46,14 @@ interface Props extends Omit<ComponentProps<"button">, "value" | "onChange" | "c
    * dans une `Modale` (`z-100`), passer `z-110` pour qu'il passe devant.
    */
   classeCalendrier?: string;
+  /**
+   * Appelé quand le champ est **quitté**, c'est-à-dire quand le calendrier se referme (date
+   * choisie, Échap, clic à côté) ou que le bouton perd le focus calendrier fermé. Jamais à
+   * l'ouverture : le focus passe alors au calendrier, et un `onBlur` immédiat ferait afficher
+   * « date requise » avant même le premier choix — l'erreur décale le formulaire et déplace
+   * le calendrier sous le clic.
+   */
+  onBlur?: () => void;
 }
 
 /**
@@ -71,9 +79,16 @@ export function SelecteurDate({
   classeCalendrier,
   className,
   disabled,
+  onBlur,
   ...props
 }: Props) {
   const [ouvert, setOuvert] = useState(false);
+
+  /** Ouvrir ou fermer le calendrier ; le fermer, c'est quitter le champ. */
+  function changerOuverture(suivant: boolean) {
+    setOuvert(suivant);
+    if (!suivant) onBlur?.();
+  }
   const date = versDate(valeur);
   const debutBorne = versDate(auPlusTot);
   const finBorne = versDate(auPlusTard);
@@ -86,13 +101,16 @@ export function SelecteurDate({
   ];
 
   return (
-    <Popover open={ouvert} onOpenChange={setOuvert}>
+    <Popover open={ouvert} onOpenChange={changerOuverture}>
       <PopoverTrigger asChild>
         <Button
           data-champ=""
           type="button"
           variant="outline"
           disabled={disabled}
+          onBlur={() => {
+            if (!ouvert) onBlur?.();
+          }}
           className={cn(
             "h-[var(--input-height)] w-full justify-start gap-2 rounded-md border-input bg-card px-[var(--input-padding-x)] text-base font-normal shadow-none hover:bg-card",
             "aria-invalid:border-destructive",
@@ -119,7 +137,7 @@ export function SelecteurDate({
           disabled={joursInterdits}
           onSelect={(jour) => {
             onChange(jour ? format(jour, FORMAT_ISO) : "");
-            setOuvert(false);
+            changerOuverture(false);
           }}
         />
       </PopoverContent>

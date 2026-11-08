@@ -684,6 +684,8 @@ export interface PreparationSaisie {
   aujourdhui: string;
   estJourOuvre: boolean;
   joursSaisissables: string[];
+  /** Le premier jour qui attend un rapport sur ce chantier (début du chantier ou enregistrement). */
+  premierJour: string | null;
   meteoSuggeree: MeteoSuggeree | null;
   previsionsVeille: Prevision[];
   blocagesOuverts: BlocageOuvert[];

@@ -5234,6 +5234,19 @@
         "description": "Un rapport se rédige sur les trois derniers jours ouvrés de l'entreprise, sauf correction d'un rapport rejeté.",
         "action": "Rédiger le rapport du jour"
       },
+      "futur": {
+        "titre": "Ce jour n'est pas encore arrivé",
+        "description": "Le {date} n'a pas commencé : un rapport se rédige le jour même ou dans les trois jours ouvrés qui suivent, jamais à l'avance.",
+        "action": "Voir mes rapports"
+      },
+      "avantDebut": {
+        "titre": "Ce chantier n'attendait pas encore de rapport ce jour-là",
+        "description": "Le premier rapport de ce chantier est attendu le {date} : son début, ou le jour de son enregistrement sur la plateforme s'il est plus tardif.",
+        "titreAVenir": "Ce chantier n'a pas encore commencé",
+        "descriptionAVenir": "Aucun rapport n'est attendu avant le {date}, premier jour du chantier.",
+        "action": "Rédiger le rapport du {date}",
+        "retour": "Voir mes rapports"
+      },
       "dejaSoumis": {
         "titre": "Ce rapport est déjà soumis",
         "description": "Un rapport soumis ne se modifie plus. Seul un rejet lors de la validation ou de l'approbation vous le rendrait pour correction.",
