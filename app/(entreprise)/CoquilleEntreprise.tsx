@@ -76,6 +76,7 @@ import type { MeteoProjet } from "@/features/projets/types";
 import { useIdentitePlateforme } from "@/features/plateforme/hooks";
 import { useDefile } from "@/hooks/use-defilement";
 import { cn } from "@/lib/utils";
+import { appliquerCouleurPrimaire } from "@/styles/couleurs";
 import { FournisseurDroits, GardeRoute, routeAccueil, routeAutorisee } from "@/features/habilitations";
 import {
   IncarnationBarreHaut,
@@ -298,6 +299,12 @@ export default function LayoutApp({ children }: LayoutAppProps) {
     window.addEventListener(EVENEMENT_ENTREPRISE_MODIFIEE, chargerEntreprise);
     return () => window.removeEventListener(EVENEMENT_ENTREPRISE_MODIFIEE, chargerEntreprise);
   }, [chargerEntreprise]);
+
+  useEffect(() => {
+    if (!entreprise) return;
+    const aUnLogo = Boolean(entreprise.logo || entreprise.logo_1x);
+    appliquerCouleurPrimaire(aUnLogo ? entreprise.couleur_primaire : null);
+  }, [entreprise]);
 
   const estDirecteurGeneral = Boolean(profil?.is_dg || profil?.role_global === "DG");
 

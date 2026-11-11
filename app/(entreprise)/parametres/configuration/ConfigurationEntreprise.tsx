@@ -45,6 +45,7 @@ import {
 import { ErreurApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { nomDePays } from "@/lib/format";
+import { appliquerCouleurPrimaire, extraireCouleurDominante } from "@/styles/couleurs";
 
 import { Alerte, Bouton, Champ, EtatChargement } from "./_ui";
 
@@ -279,6 +280,7 @@ export function ConfigurationEntreprise() {
       URL.revokeObjectURL(apercuLogo);
     }
     setApercuLogo(URL.createObjectURL(fichier));
+    void extraireCouleurDominante(fichier).then(appliquerCouleurPrimaire);
   }
 
   function retirerLogo() {
@@ -289,6 +291,7 @@ export function ConfigurationEntreprise() {
     setApercuLogo(null);
     setLogo(null);
     modifier("retirer_logo", true);
+    appliquerCouleurPrimaire(null);
   }
 
   async function soumettre(evenement: FormEvent) {
@@ -315,11 +318,9 @@ export function ConfigurationEntreprise() {
     try {
       const reponse = await enregistrerEntreprise(donnees, fichierLogo);
       setFondNonDetoure(reponse.fond_retire === false);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { couleur_primaire, ...sansCouleur } = reponse;
       const enregistrees: DonneesEntreprise = {
         ...donnees,
-        ...sansCouleur,
+        ...reponse,
         telephones: reponse.telephones ?? donnees.telephones,
         retirer_logo: undefined,
       };
@@ -329,6 +330,9 @@ export function ConfigurationEntreprise() {
       if (reponse.logo) {
         setApercuLogo(reponse.logo);
         setLogo({ nom: t("logoActuel"), taille: 0 });
+        appliquerCouleurPrimaire(reponse.couleur_primaire);
+      } else {
+        appliquerCouleurPrimaire(null);
       }
       setFichierLogo(null);
       toast.success(t("succesTitre"), { description: t("succes") });

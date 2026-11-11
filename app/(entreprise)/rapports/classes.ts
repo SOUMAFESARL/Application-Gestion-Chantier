@@ -74,13 +74,13 @@ export function teintesChiffresRapport(chiffres: {
   const { retard, presenceInsuffisante, livraisonsPartielles, incidents, incidentsMajeurs, blocages } = chiffres;
   return {
     avancement: retard !== null && retard >= 10 ? "erreur" : "primaire",
-    effectifs: presenceInsuffisante ? "erreur" : "information",
-    heures: "secondaire",
-    activites: "succes",
-    livraisons: livraisonsPartielles > 0 ? "avertissement" : "information",
-    incidents: incidentsMajeurs > 0 ? "erreur" : incidents > 0 ? "avertissement" : "succes",
-    blocages: blocages > 0 ? "erreur" : "succes",
-    photos: "secondaire",
+    effectifs: presenceInsuffisante ? "erreur" : "neutre",
+    heures: "neutre",
+    activites: "neutre",
+    livraisons: livraisonsPartielles > 0 ? "avertissement" : "neutre",
+    incidents: incidentsMajeurs > 0 ? "erreur" : incidents > 0 ? "avertissement" : "neutre",
+    blocages: blocages > 0 ? "erreur" : "neutre",
+    photos: "neutre",
   } satisfies Record<string, FondIndicateur>;
 }
 
@@ -94,24 +94,24 @@ export function teintesChiffresSynthese(chiffres: {
 }) {
   const { presenceInsuffisante, livraisonsPartielles, incidents, incidentsMajeurs, blocages, manquants } = chiffres;
   return {
-    presence: presenceInsuffisante ? "erreur" : "information",
-    heures: "secondaire",
-    livraisons: livraisonsPartielles > 0 ? "avertissement" : "information",
-    incidents: incidentsMajeurs > 0 ? "erreur" : incidents > 0 ? "avertissement" : "succes",
-    blocages: blocages > 0 ? "erreur" : "succes",
-    remise: manquants > 0 ? "erreur" : "succes",
+    presence: presenceInsuffisante ? "erreur" : "neutre",
+    heures: "neutre",
+    livraisons: livraisonsPartielles > 0 ? "avertissement" : "neutre",
+    incidents: incidentsMajeurs > 0 ? "erreur" : incidents > 0 ? "avertissement" : "neutre",
+    blocages: blocages > 0 ? "erreur" : "neutre",
+    remise: manquants > 0 ? "erreur" : "primaire",
   } satisfies Record<string, FondIndicateur>;
 }
 
 export const TEINTE_METEO = {
-  ciel: "information",
-  temperature: "avertissement",
-  humidite: "secondaire",
+  ciel: "neutre",
+  temperature: "neutre",
+  humidite: "neutre",
   vent: "neutre",
 } as const satisfies Record<string, FondIndicateur>;
 
 export const TEINTE_CONDITIONS: Record<ConditionsTravail, FondIndicateur> = {
-  FAVORABLES: "succes",
+  FAVORABLES: "neutre",
   DIFFICILES: "avertissement",
   ARRET: "erreur",
 };

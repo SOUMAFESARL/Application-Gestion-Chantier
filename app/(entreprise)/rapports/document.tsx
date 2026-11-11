@@ -129,11 +129,11 @@ export function EnTeteDocument({
   bandeau?: ReactNode;
 }) {
   return (
-    <header className="overflow-hidden rounded-t-xl">
-      <div className="flex flex-wrap items-start justify-between gap-4 bg-secondary-900 px-5 py-5 text-neutral-0 sm:px-8">
+    <header className="overflow-hidden rounded-t-xl border-b border-primary-100 bg-primary-50/60">
+      <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-5 text-neutral-900 sm:px-8">
         <div className="min-w-0">
-          <h1 className="m-0 text-h3 font-semibold !text-neutral-0">{titre}</h1>
-          <p className="m-0 mt-1 text-sm text-secondary-200">{sousTitre}</p>
+          <h1 className="m-0 text-h3 font-semibold text-primary-900">{titre}</h1>
+          <p className="m-0 mt-1 text-sm text-neutral-600">{sousTitre}</p>
         </div>
       </div>
       {bandeau}
@@ -225,9 +225,11 @@ export function SectionDocument({
 }) {
   return (
     <section className="flex flex-col gap-3 break-inside-avoid-page">
-      <header className="flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-primary-500 pb-1.5">
-        <h2 className="m-0 flex items-baseline gap-2 text-base font-semibold text-neutral-900">
-          <span className="text-primary-600 tabular-nums">{numero}.</span>
+      <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-neutral-200 pb-2">
+        <h2 className="m-0 flex items-center gap-2 text-base font-semibold text-neutral-900">
+          <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-primary-50 text-xs font-semibold text-primary-700 tabular-nums">
+            {numero}
+          </span>
           {titre}
         </h2>
         {complement && <span className="text-xs text-neutral-500">{complement}</span>}

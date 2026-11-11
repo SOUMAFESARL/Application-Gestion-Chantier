@@ -759,8 +759,8 @@ function Document({ rapport }: { rapport: RapportJournalier }) {
 
           <SectionDocument numero={numero("blocages")} titre={t("sections.blocages")}>
             {rapport.listeBlocages.length === 0 ? (
-              <p className="m-0 flex items-center gap-2 rounded-lg bg-succes-fond px-3 py-2 text-sm text-succes">
-                <CheckCircle2 className="size-4" aria-hidden="true" />
+              <p className="m-0 flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-600">
+                <CheckCircle2 className="size-4 text-succes" aria-hidden="true" />
                 {t("blocages.aucun")}
               </p>
             ) : (

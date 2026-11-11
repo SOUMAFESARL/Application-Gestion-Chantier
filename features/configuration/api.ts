@@ -89,9 +89,8 @@ export interface DonneesEntreprise {
   logo_1x?: string;
   logo_original?: string;
   /**
-   * Encore renvoyée par le serveur, **ignorée** : la couleur de marque par
-   * entreprise est supprimée. Déclarée seulement pour être retirée de ce que
-   * l'écran de configuration renvoie.
+   * Couleur primaire extraite du logo par le serveur (code hexadécimal),
+   * appliquée sur `:root` via `appliquerCouleurPrimaire`.
    */
   couleur_primaire?: string;
   statut?: string;
@@ -149,6 +148,9 @@ export function enregistrerEntreprise(
   const charge: Record<string, unknown> = { ...donnees };
   // Ne plus envoyer telephone_contact, le serveur le dérive du numéro principal
   delete charge.telephone_contact;
+  if (fichierLogo || donnees.retirer_logo) {
+    delete charge.couleur_primaire;
+  }
 
   if (donnees.telephones) {
     charge.telephones = donnees.telephones.map((t) => ({
