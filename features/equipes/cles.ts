@@ -14,6 +14,13 @@ export function cleRegistre(filtres: FiltresRegistre = {}) {
 /** Les tiers de l'entreprise, tous rôles confondus : les partenaires d'une équipe. */
 export const CLE_PARTENAIRES = ["tiers", "tous"] as const;
 
+/** Les collaborateurs avec compte de l'entreprise pour affectation aux équipes. */
+export const CLE_UTILISATEURS_ENTREPRISE = ["main-oeuvre", "utilisateurs"] as const;
+
+export function cleUtilisateursEntreprise() {
+  return CLE_UTILISATEURS_ENTREPRISE;
+}
+
 /** Les équipes d'un projet. Sous `["projets", id]` : invalider le projet les périme aussi. */
 export function cleEquipesProjet(projetId: string) {
   return ["projets", projetId, "equipes-chantier"] as const;

@@ -25,7 +25,21 @@ export interface Personne {
   entreprise: EntrepriseRattachement;
   /** Elle a aussi un compte sur la plateforme. */
   aUnCompte: boolean;
+  utilisateurId?: string | null;
   estActive: boolean;
+}
+
+/** Un collaborateur avec compte utilisateur de l'entreprise. */
+export interface UtilisateurEntreprise {
+  id: string;
+  nom: string;
+  prenom: string;
+  nomComplet: string;
+  email: string;
+  telephone: string;
+  role: string;
+  roleCode: string;
+  personneId: string | null;
 }
 
 export interface SaisiePersonne {
@@ -110,7 +124,8 @@ export interface SaisieEquipe {
 }
 
 export interface SaisieMembre {
-  personneId: string;
+  personneId?: string;
+  utilisateurId?: string;
   fonction: FonctionMembre;
   estChef: boolean;
   dateArrivee: string | null;
@@ -118,7 +133,8 @@ export interface SaisieMembre {
 }
 
 export interface SaisieMembresGroupe {
-  personneIds: string[];
+  personneIds?: string[];
+  utilisateurIds?: string[];
   fonction: FonctionMembre;
   estChef: boolean;
   dateArrivee: string | null;
