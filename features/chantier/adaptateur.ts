@@ -121,6 +121,8 @@ interface ChargeLot {
   projet_reference: string;
   redacteur_nom?: string;
   chef_chantier_nom?: string;
+  date_debut?: string | null;
+  date_fin?: string | null;
 }
 
 interface ChargeChantier {
@@ -416,6 +418,8 @@ function versLot(charge: ChargeLot): LotJournal {
     projetNom: charge.projet_nom,
     projetReference: charge.projet_reference,
     redacteur: charge.redacteur_nom ?? charge.chef_chantier_nom ?? "",
+    dateDebut: charge.date_debut ?? null,
+    dateFin: charge.date_fin ?? null,
   };
 }
 
@@ -1052,6 +1056,8 @@ interface ChargePreparation {
     avancement_theorique: number;
     equipes_affectees: string[];
     attendue_ce_jour: boolean;
+    date_debut?: string | null;
+    date_fin?: string | null;
   }[];
   materiaux: {
     materiau_id: string;
@@ -1371,6 +1377,8 @@ function versPreparation(charge: ChargePreparation): PreparationSaisie {
       avancementTheorique: activite.avancement_theorique,
       equipesAffectees: activite.equipes_affectees ?? [],
       attendueCeJour: activite.attendue_ce_jour ?? true,
+      dateDebut: activite.date_debut ?? null,
+      dateFin: activite.date_fin ?? null,
     })),
     materiaux: charge.materiaux.map((materiau) => ({
       materiauId: materiau.materiau_id,
