@@ -4,12 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, CalendarDays, FileCheck2, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
+import { useMemo } from "react";
 
 import { Badge, EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import { Button } from "@/components/ui/button";
-import { jourDe, jourSaisissable, rapportModifiable } from "@/features/chantier";
+import { estElementDatePourJour, jourDe, jourSaisissable, rapportModifiable } from "@/features/chantier";
 import type { PreparationSaisie } from "@/features/chantier";
 import { preparerSaisie } from "@/features/chantier/adaptateur";
+import { lireCopieLocale } from "@/features/chantier/brouillonLocal";
 import { clePreparation } from "@/features/chantier/cles";
 import { AccesNonAutorise, peutRedigerJournal, projetVisible, useDroits } from "@/features/habilitations";
 import { lireProjet } from "@/features/projets/adaptateur";
@@ -42,6 +44,33 @@ export function EcranSaisie({ projetId, date: demandee }: { projetId: string; da
     refetchOnMount: "always",
   });
 
+  const donneesBrutes = preparation.data;
+  const donnees = useMemo(() => {
+    if (!donneesBrutes) return undefined;
+    const copieLocale = lireCopieLocale(projetId, date);
+    const idsSaisis = new Set<string>();
+    donneesBrutes.rapport?.saisie.activites?.forEach((a) => idsSaisis.add(a.activiteId));
+    donneesBrutes.rapport?.saisie.lotsTravailles?.forEach((l) => idsSaisis.add(l.lotId));
+    copieLocale?.valeurs.lotsTravailles?.forEach((l) => idsSaisis.add(l.lotId));
+
+    const activitesFiltrees = donneesBrutes.activites.filter(
+      (act) => idsSaisis.has(act.activiteId) || estElementDatePourJour(act, date),
+    );
+    const lotsAvecActivites = new Set(activitesFiltrees.map((a) => a.lotId));
+    const lotsFiltres = donneesBrutes.lots.filter(
+      (lot) =>
+        idsSaisis.has(lot.id) ||
+        lotsAvecActivites.has(lot.id) ||
+        estElementDatePourJour(lot, date),
+    );
+
+    return {
+      ...donneesBrutes,
+      lots: lotsFiltres,
+      activites: activitesFiltrees,
+    };
+  }, [donneesBrutes, projetId, date]);
+
   if (!peutRedigerJournal(droits)) return <AccesNonAutorise />;
   if (projet.isPending || preparation.isPending) return <EtatChargement />;
   if (projet.isError) {
@@ -55,8 +84,7 @@ export function EcranSaisie({ projetId, date: demandee }: { projetId: string; da
         : t("erreurChargement");
     return <EtatErreur message={message} onReessayer={() => void preparation.refetch()} />;
   }
-
-  const donnees = preparation.data;
+  if (!donnees) return null;
   const retourListe = `/rapports/saisie?date=${date}&projet=${projetId}`;
   const haut = <HautSaisie preparation={donnees} retour={retourListe} />;
   const titre = <TitreSaisie preparation={donnees} date={date} ville={projet.data.ville} />;

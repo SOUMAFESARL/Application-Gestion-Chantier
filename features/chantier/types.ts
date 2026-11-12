@@ -75,6 +75,8 @@ export interface LotJournal {
   projetNom: string;
   projetReference: string;
   redacteur: string;
+  dateDebut?: string | null;
+  dateFin?: string | null;
 }
 
 export interface EntreeJournal {
@@ -512,6 +514,8 @@ export interface ActivitePreparee {
   avancementTheorique: number;
   equipesAffectees: string[];
   attendueCeJour: boolean;
+  dateDebut?: string | null;
+  dateFin?: string | null;
 }
 
 export interface MateriauDisponible {

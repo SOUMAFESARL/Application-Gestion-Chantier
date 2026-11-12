@@ -927,6 +927,21 @@ export function depassePrevu(activite: ActivitePreparee, quantiteJour: number | 
   );
 }
 
+/**
+ * Un élément du découpage n'est ouvert à la sélection / saisie du journal que s'il est daté pour ce jour :
+ * dateDebut et dateFin sont renseignées ET dateDebut <= dateJournal <= dateFin (incluses).
+ */
+export function estElementDatePourJour(
+  element: { dateDebut?: string | null; dateFin?: string | null },
+  dateJournal: string,
+): boolean {
+  if (!element.dateDebut || !element.dateFin) return false;
+  const jour = dateJournal.slice(0, 10);
+  const debut = element.dateDebut.slice(0, 10);
+  const fin = element.dateFin.slice(0, 10);
+  return debut <= jour && jour <= fin;
+}
+
 /** Les groupes (lots) portant au moins une feuille ouverte dans l'arbre du projet. */
 export function lotsSuivisAvancement(
   preparation: Pick<PreparationSaisie, "lots" | "activites">,
