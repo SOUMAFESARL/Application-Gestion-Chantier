@@ -30,18 +30,20 @@ import type { Projet } from "@/features/projets/types";
 import { listerTiers } from "@/features/tiers/adaptateur";
 import { ErreurApi } from "@/lib/api";
 import { formaterDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 import {
   affecterEquipeCase,
   ajouterMembres,
   creerEquipeProjet,
   listerPersonnes,
+  listerUtilisateursEntreprise,
   modifierEquipeProjet,
   modifierMembre,
   retirerAffectationEquipe,
   retirerMembre,
 } from "../adaptateur";
-import { cleEquipesProjet, CLE_PARTENAIRES, cleRegistre } from "../cles";
+import { cleEquipesProjet, CLE_PARTENAIRES, cleRegistre, cleUtilisateursEntreprise } from "../cles";
 import { aujourdhuiIso, personnesAjoutables } from "../regles";
 import type {
   Avertissement,
@@ -57,7 +59,14 @@ import { FenetrePersonne } from "./FenetrePersonne";
 const INTERNE = "interne";
 
 interface MembreBrouillon extends SaisieMembre {
-  personne: Personne;
+  nomComplet: string;
+  roleOuMetier?: string;
+  estUtilisateur?: boolean;
+  personne?: Personne;
+}
+
+function cleMembre(m: { utilisateurId?: string; personneId?: string }): string {
+  return m.utilisateurId ? `u:${m.utilisateurId}` : `p:${m.personneId}`;
 }
 
 /**
@@ -173,6 +182,7 @@ function Identite({
           ? undefined
           : membresInitiaux.map((m) => ({
               personneId: m.personneId,
+              utilisateurId: m.utilisateurId,
               fonction: m.fonction,
               estChef: m.estChef,
               dateArrivee: m.dateArrivee,
@@ -200,29 +210,33 @@ function Identite({
             fonction: c.fonction === "CHEF_EQUIPE" ? ("OUVRIER" as FonctionMembre) : c.fonction,
           }))
         : [...courants];
-      const idsPresents = new Set(base.map((c) => c.personneId));
+      const clesPresentes = new Set(base.map(cleMembre));
       for (const n of nouveaux) {
-        if (!idsPresents.has(n.personneId)) {
+        const k = cleMembre(n);
+        if (!clesPresentes.has(k)) {
           base.push(n);
-          idsPresents.add(n.personneId);
+          clesPresentes.add(k);
         }
       }
       return base;
     });
   }
 
-  function nommerChefBrouillon(personneId: string) {
+  function nommerChefBrouillon(cle: string) {
     setMembresInitiaux((courants) =>
-      courants.map((m) => ({
-        ...m,
-        estChef: m.personneId === personneId,
-        fonction: m.personneId === personneId ? "CHEF_EQUIPE" : m.fonction === "CHEF_EQUIPE" ? "OUVRIER" : m.fonction,
-      })),
+      courants.map((m) => {
+        const estCible = cleMembre(m) === cle;
+        return {
+          ...m,
+          estChef: estCible,
+          fonction: estCible ? "CHEF_EQUIPE" : m.fonction === "CHEF_EQUIPE" ? "OUVRIER" : m.fonction,
+        };
+      }),
     );
   }
 
-  function retirerMembreBrouillon(personneId: string) {
-    setMembresInitiaux((courants) => courants.filter((m) => m.personneId !== personneId));
+  function retirerMembreBrouillon(cle: string) {
+    setMembresInitiaux((courants) => courants.filter((m) => cleMembre(m) !== cle));
   }
 
   return (
@@ -277,46 +291,51 @@ function Identite({
               <p className="m-0 text-xs text-neutral-500">{t("aucunMembre")}</p>
             ) : (
               <ul className="m-0 flex list-none flex-col divide-y divide-neutral-100 rounded-lg border border-neutral-200 bg-neutral-0 p-0">
-                {membresInitiaux.map((membre) => (
-                  <li key={membre.personneId} className="flex flex-wrap items-center gap-2 px-3 py-2">
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="flex items-center gap-2 text-sm font-medium text-neutral-900">
-                        {membre.personne.nomComplet}
-                        {membre.estChef && <Badge variante="primaire">{t("chef")}</Badge>}
+                {membresInitiaux.map((membre) => {
+                  const cle = cleMembre(membre);
+                  return (
+                    <li key={cle} className="flex flex-wrap items-center gap-2 px-3 py-2">
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="flex items-center gap-2 text-sm font-medium text-neutral-900">
+                          {membre.nomComplet}
+                          {membre.estChef && <Badge variante="primaire">{t("chef")}</Badge>}
+                          {membre.estUtilisateur && <Badge variante="neutre">{t("avecCompte")}</Badge>}
+                        </span>
+                        <span className="text-xs text-neutral-500">
+                          {t("periodeMembre", {
+                            fonction: tFonction(membre.fonction),
+                            debut: formaterDate(membre.dateArrivee ?? aujourdhuiIso()),
+                          })}
+                          {membre.roleOuMetier ? ` · ${membre.roleOuMetier}` : ""}
+                        </span>
                       </span>
-                      <span className="text-xs text-neutral-500">
-                        {t("periodeMembre", {
-                          fonction: tFonction(membre.fonction),
-                          debut: formaterDate(membre.dateArrivee ?? aujourdhuiIso()),
-                        })}
-                      </span>
-                    </span>
-                    <span className="flex gap-1">
-                      {!membre.estChef && (
+                      <span className="flex gap-1">
+                        {!membre.estChef && (
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label={t("nommerChef")}
+                            title={t("nommerChef")}
+                            onClick={() => nommerChefBrouillon(cle)}
+                          >
+                            <Crown />
+                          </Button>
+                        )}
                         <Button
                           type="button"
                           size="icon-sm"
                           variant="ghost"
-                          aria-label={t("nommerChef")}
-                          title={t("nommerChef")}
-                          onClick={() => nommerChefBrouillon(membre.personneId)}
+                          aria-label={t("supprimerMembre")}
+                          title={t("supprimerMembre")}
+                          onClick={() => retirerMembreBrouillon(cle)}
                         >
-                          <Crown />
+                          <Trash2 />
                         </Button>
-                      )}
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="ghost"
-                        aria-label={t("supprimerMembre")}
-                        title={t("supprimerMembre")}
-                        onClick={() => retirerMembreBrouillon(membre.personneId)}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </span>
-                  </li>
-                ))}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -346,7 +365,8 @@ function Identite({
           projet={projet}
           nomEquipe={nom.trim() || t("titreNouvelle")}
           entrepriseId={entreprise === INTERNE ? null : entreprise}
-          idsDejaPresents={membresInitiaux.map((m) => m.personneId)}
+          idsDejaPresents={membresInitiaux.map((m) => m.personneId).filter(Boolean) as string[]}
+          utilisateursDejaPresents={membresInitiaux.map((m) => m.utilisateurId).filter(Boolean) as string[]}
           onAjouterBrouillon={(nouveaux) => {
             ajouterMembresBrouillon(nouveaux);
             setFenetreMembresOuverte(false);
@@ -403,6 +423,7 @@ function Membres({ projet, equipe, permis }: { projet: Projet; equipe: EquipePro
                 <span className="flex items-center gap-2 font-medium text-neutral-900">
                   {membre.personne.nomComplet}
                   {membre.estChef && <Badge variante="primaire">{t("chef")}</Badge>}
+                  {membre.personne.aUnCompte && <Badge variante="neutre">{t("avecCompte")}</Badge>}
                   {!membre.personne.entreprise.interne && membre.personne.entreprise.id !== equipe.entreprise.id && (
                     <Badge variante="avertissement">{membre.personne.entreprise.nom}</Badge>
                   )}
@@ -457,6 +478,9 @@ function Membres({ projet, equipe, permis }: { projet: Projet; equipe: EquipePro
           nomEquipe={equipe.nom}
           entrepriseId={equipe.entreprise.id}
           idsDejaPresents={equipe.membres.filter((m) => m.enCours).map((m) => m.personne.id)}
+          utilisateursDejaPresents={equipe.membres
+            .filter((m) => m.enCours && m.personne.utilisateurId)
+            .map((m) => m.personne.utilisateurId as string)}
           onFermer={() => setAjout(false)}
         />
       )}
@@ -471,6 +495,7 @@ function FenetreAjoutMembre({
   nomEquipe,
   entrepriseId,
   idsDejaPresents,
+  utilisateursDejaPresents = [],
   onAjouterBrouillon,
   onFermer,
 }: {
@@ -479,6 +504,7 @@ function FenetreAjoutMembre({
   nomEquipe: string;
   entrepriseId: string | null;
   idsDejaPresents: string[];
+  utilisateursDejaPresents?: string[];
   onAjouterBrouillon?: (membres: MembreBrouillon[]) => void;
   onFermer: () => void;
 }) {
@@ -487,8 +513,11 @@ function FenetreAjoutMembre({
   const { peutCode } = useDroits();
   const actualiser = useActualiser(projet.id);
 
+  const [onglet, setOnglet] = useState<"utilisateurs" | "registre">("utilisateurs");
   const [personneIds, setPersonneIds] = useState<string[]>([]);
-  const [recherche, setRecherche] = useState("");
+  const [utilisateurIds, setUtilisateurIds] = useState<string[]>([]);
+  const [recherchePersonne, setRecherchePersonne] = useState("");
+  const [rechercheUtilisateur, setRechercheUtilisateur] = useState("");
   const [fonction, setFonction] = useState<FonctionMembre>("MANOEUVRE");
   const [estChef, setEstChef] = useState(false);
   const [arrivee, setArrivee] = useState(aujourdhuiIso());
@@ -500,16 +529,46 @@ function FenetreAjoutMembre({
     queryFn: ({ signal }) => listerPersonnes({}, signal),
   });
 
+  const utilisateurs = useQuery({
+    queryKey: cleUtilisateursEntreprise(),
+    queryFn: ({ signal }) => listerUtilisateursEntreprise(signal),
+  });
+
+  const ensemblePersonnesPresentes = useMemo(() => new Set(idsDejaPresents), [idsDejaPresents]);
+  const ensembleUtilisateursPresents = useMemo(() => new Set(utilisateursDejaPresents), [utilisateursDejaPresents]);
+
+  const utilisateursProposes = useMemo(() => {
+    return (utilisateurs.data ?? []).filter((u) => {
+      if (ensembleUtilisateursPresents.has(u.id)) return false;
+      if (u.personneId && ensemblePersonnesPresentes.has(u.personneId)) return false;
+      return true;
+    });
+  }, [utilisateurs.data, ensembleUtilisateursPresents, ensemblePersonnesPresentes]);
+
+  const utilisateursFiltres = useMemo(() => {
+    const terme = rechercheUtilisateur.trim().toLowerCase();
+    if (!terme) return utilisateursProposes;
+    return utilisateursProposes.filter(
+      (u) =>
+        (u.nomComplet || `${u.prenom ?? ""} ${u.nom}`).toLowerCase().includes(terme) ||
+        (u.role || "").toLowerCase().includes(terme) ||
+        u.email.toLowerCase().includes(terme),
+    );
+  }, [utilisateursProposes, rechercheUtilisateur]);
+
   const proposees = useMemo(() => {
-    const presentes = new Set(idsDejaPresents);
     const base = equipe
       ? personnesAjoutables(registre.data ?? [], equipe.membres)
-      : (registre.data ?? []).filter((p) => p.estActive && !presentes.has(p.id));
-    return base.filter((p) => !presentes.has(p.id));
-  }, [registre.data, equipe, idsDejaPresents]);
+      : (registre.data ?? []).filter((p) => p.estActive);
+    return base.filter((p) => {
+      if (ensemblePersonnesPresentes.has(p.id)) return false;
+      if (p.utilisateurId && ensembleUtilisateursPresents.has(p.utilisateurId)) return false;
+      return true;
+    });
+  }, [registre.data, equipe, ensemblePersonnesPresentes, ensembleUtilisateursPresents]);
 
   const proposeesFiltrees = useMemo(() => {
-    const terme = recherche.trim().toLowerCase();
+    const terme = recherchePersonne.trim().toLowerCase();
     if (!terme) return proposees;
     return proposees.filter(
       (p) =>
@@ -517,18 +576,67 @@ function FenetreAjoutMembre({
         p.metier.toLowerCase().includes(terme) ||
         p.entreprise.nom.toLowerCase().includes(terme),
     );
-  }, [proposees, recherche]);
+  }, [proposees, recherchePersonne]);
 
   const modeChefUnique = estChef || fonction === "CHEF_EQUIPE";
 
-  function basculerPersonne(id: string, coche: boolean) {
+  function basculerUtilisateur(id: string, coche: boolean) {
     if (modeChefUnique) {
-      setPersonneIds(coche ? [id] : []);
+      if (coche) {
+        setUtilisateurIds([id]);
+        setPersonneIds([]);
+      } else {
+        setUtilisateurIds([]);
+      }
       return;
     }
-    setPersonneIds((courants) =>
-      coche ? (courants.includes(id) ? courants : [...courants, id]) : courants.filter((x) => x !== id),
-    );
+    if (coche) {
+      const u = (utilisateurs.data ?? []).find((x) => x.id === id);
+      if (u?.personneId) {
+        setPersonneIds((courants) => courants.filter((pid) => pid !== u.personneId));
+      }
+      setUtilisateurIds((courants) => (courants.includes(id) ? courants : [...courants, id]));
+    } else {
+      setUtilisateurIds((courants) => courants.filter((x) => x !== id));
+    }
+  }
+
+  function basculerPersonne(id: string, coche: boolean) {
+    if (modeChefUnique) {
+      if (coche) {
+        setPersonneIds([id]);
+        setUtilisateurIds([]);
+      } else {
+        setPersonneIds([]);
+      }
+      return;
+    }
+    if (coche) {
+      const p = (registre.data ?? []).find((x) => x.id === id);
+      if (p?.utilisateurId) {
+        setUtilisateurIds((courants) => courants.filter((uid) => uid !== p.utilisateurId));
+      }
+      setPersonneIds((courants) => (courants.includes(id) ? courants : [...courants, id]));
+    } else {
+      setPersonneIds((courants) => courants.filter((x) => x !== id));
+    }
+  }
+
+  function basculerTousUtilisateursVisibles() {
+    if (modeChefUnique) return;
+    const idsVisibles = utilisateursFiltres.map((u) => u.id);
+    const toutEstCoche =
+      idsVisibles.length > 0 && idsVisibles.every((id) => utilisateurIds.includes(id));
+    if (toutEstCoche) {
+      const ensembleVisible = new Set(idsVisibles);
+      setUtilisateurIds((courants) => courants.filter((id) => !ensembleVisible.has(id)));
+    } else {
+      const personnesARetirer = new Set(
+        utilisateursFiltres.filter((u) => u.personneId).map((u) => u.personneId as string),
+      );
+      setPersonneIds((courants) => courants.filter((id) => !personnesARetirer.has(id)));
+      setUtilisateurIds((courants) => Array.from(new Set([...courants, ...idsVisibles])));
+    }
   }
 
   function basculerToutVisible() {
@@ -540,6 +648,10 @@ function FenetreAjoutMembre({
       const ensembleVisible = new Set(idsVisibles);
       setPersonneIds((courants) => courants.filter((id) => !ensembleVisible.has(id)));
     } else {
+      const utilisateursARetirer = new Set(
+        proposeesFiltrees.filter((p) => p.utilisateurId).map((p) => p.utilisateurId as string),
+      );
+      setUtilisateurIds((courants) => courants.filter((id) => !utilisateursARetirer.has(id)));
       setPersonneIds((courants) => Array.from(new Set([...courants, ...idsVisibles])));
     }
   }
@@ -547,26 +659,49 @@ function FenetreAjoutMembre({
   const ecriture = useMutation({
     mutationFn: async () => {
       if (onAjouterBrouillon) {
-        const dictionnaire = new Map((registre.data ?? []).map((p) => [p.id, p]));
+        const dictionnairePersonnes = new Map((registre.data ?? []).map((p) => [p.id, p]));
+        const dictionnaireUtilisateurs = new Map((utilisateurs.data ?? []).map((u) => [u.id, u]));
         const nouveaux: MembreBrouillon[] = [];
-        for (const id of personneIds) {
-          const p = dictionnaire.get(id);
-          if (p) {
+
+        for (const uid of utilisateurIds) {
+          const u = dictionnaireUtilisateurs.get(uid);
+          if (u) {
             nouveaux.push({
-              personneId: id,
-              personne: p,
+              utilisateurId: uid,
+              nomComplet: u.nomComplet || `${u.prenom ?? ""} ${u.nom}`.trim(),
+              roleOuMetier: u.role || u.roleCode || "",
+              estUtilisateur: true,
               fonction: estChef ? "CHEF_EQUIPE" : fonction,
               estChef: modeChefUnique,
               dateArrivee: arrivee || null,
             });
           }
         }
+
+        for (const pid of personneIds) {
+          const p = dictionnairePersonnes.get(pid);
+          if (p) {
+            nouveaux.push({
+              personneId: pid,
+              personne: p,
+              nomComplet: p.nomComplet,
+              roleOuMetier: p.metier,
+              estUtilisateur: Boolean(p.utilisateurId || p.aUnCompte),
+              fonction: estChef ? "CHEF_EQUIPE" : fonction,
+              estChef: modeChefUnique,
+              dateArrivee: arrivee || null,
+            });
+          }
+        }
+
         onAjouterBrouillon(nouveaux);
         return null;
       }
+
       if (!equipe) return null;
       return ajouterMembres(projet.id, equipe.id, {
-        personneIds,
+        personneIds: personneIds.length > 0 ? personneIds : undefined,
+        utilisateurIds: utilisateurIds.length > 0 ? utilisateurIds : undefined,
         fonction: estChef ? "CHEF_EQUIPE" : fonction,
         estChef: modeChefUnique,
         dateArrivee: arrivee || null,
@@ -587,9 +722,15 @@ function FenetreAjoutMembre({
     onError: (e) => setErreur(messageErreur(e, t("erreur"))),
   });
 
-  const idsVisibles = proposeesFiltrees.map((p) => p.id);
+  const idsVisiblesPersonnes = proposeesFiltrees.map((p) => p.id);
   const toutVisibleCoche =
-    idsVisibles.length > 0 && idsVisibles.every((id) => personneIds.includes(id));
+    idsVisiblesPersonnes.length > 0 && idsVisiblesPersonnes.every((id) => personneIds.includes(id));
+
+  const idsVisiblesUtilisateurs = utilisateursFiltres.map((u) => u.id);
+  const tousUtilisateursVisiblesCoches =
+    idsVisiblesUtilisateurs.length > 0 && idsVisiblesUtilisateurs.every((id) => utilisateurIds.includes(id));
+
+  const totalSelectionnes = personneIds.length + utilisateurIds.length;
 
   return (
     <Dialog open onOpenChange={(ouvert) => !ouvert && !ecriture.isPending && onFermer()}>
@@ -609,7 +750,12 @@ function FenetreAjoutMembre({
                 setFonction(nouv);
                 if (nouv === "CHEF_EQUIPE") {
                   setEstChef(true);
-                  setPersonneIds((courants) => courants.slice(0, 1));
+                  if (utilisateurIds.length > 0) {
+                    setUtilisateurIds((c) => c.slice(0, 1));
+                    setPersonneIds([]);
+                  } else {
+                    setPersonneIds((c) => c.slice(0, 1));
+                  }
                 }
               }}
             >
@@ -638,7 +784,12 @@ function FenetreAjoutMembre({
               const coche = v === true;
               setEstChef(coche);
               if (coche) {
-                setPersonneIds((courants) => courants.slice(0, 1));
+                if (utilisateurIds.length > 0) {
+                  setUtilisateurIds((c) => c.slice(0, 1));
+                  setPersonneIds([]);
+                } else {
+                  setPersonneIds((c) => c.slice(0, 1));
+                }
               } else if (fonction === "CHEF_EQUIPE") {
                 setFonction("OUVRIER");
               }
@@ -647,81 +798,177 @@ function FenetreAjoutMembre({
           {t("estChef")}
         </label>
 
-        {/* Sélection multiple des personnes du registre */}
+        {/* Onglets Collaborateurs / Registre */}
+        <div className="flex border-b border-neutral-200">
+          <button
+            type="button"
+            onClick={() => setOnglet("utilisateurs")}
+            className={cn(
+              "border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+              onglet === "utilisateurs"
+                ? "border-primary-600 text-primary-600"
+                : "border-transparent text-neutral-500 hover:text-neutral-700",
+            )}
+          >
+            {t("ongletUtilisateurs", { nombre: utilisateursProposes.length })}
+          </button>
+          <button
+            type="button"
+            onClick={() => setOnglet("registre")}
+            className={cn(
+              "border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+              onglet === "registre"
+                ? "border-primary-600 text-primary-600"
+                : "border-transparent text-neutral-500 hover:text-neutral-700",
+            )}
+          >
+            {t("ongletRegistre", { nombre: proposees.length })}
+          </button>
+        </div>
+
+        {/* Sélection des personnes */}
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-medium text-neutral-700">
-              {t("personnesSelectionnees", { nombre: personneIds.length })}
+              {t("totalMembresSelectionnes", { nombre: totalSelectionnes })}
             </span>
-            {!modeChefUnique && proposeesFiltrees.length > 1 && (
-              <button
-                type="button"
-                onClick={basculerToutVisible}
-                className="text-xs font-medium text-primary-600 hover:underline"
-              >
-                {toutVisibleCoche ? t("toutDeselectionner") : t("toutSelectionner")}
-              </button>
-            )}
-          </div>
-
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-neutral-400"
-              aria-hidden="true"
-            />
-            <Input
-              value={recherche}
-              onChange={(e) => setRecherche(e.target.value)}
-              placeholder={t("rechercherPersonne")}
-              className="pl-9"
-            />
-          </div>
-
-          <div className="max-h-56 overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50/40 divide-y divide-neutral-100">
-            {registre.isPending ? (
-              <p className="m-0 p-3 text-xs text-neutral-500">{t("chargement")}</p>
-            ) : proposeesFiltrees.length === 0 ? (
-              <p className="m-0 p-3 text-xs text-neutral-500">{t("aucunePersonneDisponible")}</p>
-            ) : (
-              proposeesFiltrees.map((personne) => {
-                const coche = personneIds.includes(personne.id);
-                return (
-                  <label
-                    key={personne.id}
-                    className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-neutral-100/70"
+            {!modeChefUnique &&
+              (onglet === "utilisateurs" ? (
+                utilisateursFiltres.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={basculerTousUtilisateursVisibles}
+                    className="text-xs font-medium text-primary-600 hover:underline"
                   >
-                    <span className="flex min-w-0 items-center gap-2.5">
-                      <Checkbox
-                        checked={coche}
-                        onCheckedChange={(v) => basculerPersonne(personne.id, v === true)}
-                      />
-                      <span className="truncate font-medium text-neutral-900">
-                        {personne.metier
-                          ? t("personneMetier", { nom: personne.nomComplet, metier: personne.metier })
-                          : personne.nomComplet}
-                      </span>
-                    </span>
-                    {!personne.entreprise.interne && (
-                      <Badge variante="neutre">{personne.entreprise.nom}</Badge>
-                    )}
-                  </label>
-                );
-              })
-            )}
+                    {tousUtilisateursVisiblesCoches ? t("toutDeselectionner") : t("toutSelectionner")}
+                  </button>
+                )
+              ) : (
+                proposeesFiltrees.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={basculerToutVisible}
+                    className="text-xs font-medium text-primary-600 hover:underline"
+                  >
+                    {toutVisibleCoche ? t("toutDeselectionner") : t("toutSelectionner")}
+                  </button>
+                )
+              ))}
           </div>
-        </div>
 
-        <BoutonPermis
-          type="button"
-          size="sm"
-          variant="link"
-          className="self-start px-0"
-          permis={peutCode(PERMISSIONS.MAIN_OEUVRE_GERER)}
-          permission={PERMISSIONS.MAIN_OEUVRE_GERER}
-          onClick={() => setAjoutRapide(true)}
-        >
-          {t("ajoutRapide")}
-        </BoutonPermis>
+          {onglet === "utilisateurs" ? (
+            <>
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-neutral-400"
+                  aria-hidden="true"
+                />
+                <Input
+                  value={rechercheUtilisateur}
+                  onChange={(e) => setRechercheUtilisateur(e.target.value)}
+                  placeholder={t("rechercherUtilisateur")}
+                  className="pl-9"
+                />
+              </div>
+
+              <div className="max-h-56 overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50/40 divide-y divide-neutral-100">
+                {utilisateurs.isPending ? (
+                  <p className="m-0 p-3 text-xs text-neutral-500">{t("chargement")}</p>
+                ) : utilisateursFiltres.length === 0 ? (
+                  <p className="m-0 p-3 text-xs text-neutral-500">{t("aucunUtilisateurDisponible")}</p>
+                ) : (
+                  utilisateursFiltres.map((u) => {
+                    const coche = utilisateurIds.includes(u.id);
+                    const nomAffiche = u.nomComplet || `${u.prenom ?? ""} ${u.nom}`.trim();
+                    return (
+                      <label
+                        key={u.id}
+                        className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-neutral-100/70"
+                      >
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <Checkbox
+                            checked={coche}
+                            onCheckedChange={(v) => basculerUtilisateur(u.id, v === true)}
+                          />
+                          <span className="flex min-w-0 flex-col">
+                            <span className="truncate font-medium text-neutral-900">
+                              {u.role ? t("utilisateurRole", { nom: nomAffiche, role: u.role }) : nomAffiche}
+                            </span>
+                            <span className="truncate text-xs text-neutral-500">{u.email}</span>
+                          </span>
+                        </span>
+                        <Badge variante="neutre">{t("avecCompte")}</Badge>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-neutral-400"
+                  aria-hidden="true"
+                />
+                <Input
+                  value={recherchePersonne}
+                  onChange={(e) => setRecherchePersonne(e.target.value)}
+                  placeholder={t("rechercherPersonne")}
+                  className="pl-9"
+                />
+              </div>
+
+              <div className="max-h-56 overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50/40 divide-y divide-neutral-100">
+                {registre.isPending ? (
+                  <p className="m-0 p-3 text-xs text-neutral-500">{t("chargement")}</p>
+                ) : proposeesFiltrees.length === 0 ? (
+                  <p className="m-0 p-3 text-xs text-neutral-500">{t("aucunePersonneDisponible")}</p>
+                ) : (
+                  proposeesFiltrees.map((personne) => {
+                    const coche = personneIds.includes(personne.id);
+                    return (
+                      <label
+                        key={personne.id}
+                        className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-neutral-100/70"
+                      >
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <Checkbox
+                            checked={coche}
+                            onCheckedChange={(v) => basculerPersonne(personne.id, v === true)}
+                          />
+                          <span className="truncate font-medium text-neutral-900">
+                            {personne.metier
+                              ? t("personneMetier", { nom: personne.nomComplet, metier: personne.metier })
+                              : personne.nomComplet}
+                          </span>
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          {personne.aUnCompte && <Badge variante="neutre">{t("avecCompte")}</Badge>}
+                          {!personne.entreprise.interne && (
+                            <Badge variante="neutre">{personne.entreprise.nom}</Badge>
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+
+              <BoutonPermis
+                type="button"
+                size="sm"
+                variant="link"
+                className="self-start px-0"
+                permis={peutCode(PERMISSIONS.MAIN_OEUVRE_GERER)}
+                permission={PERMISSIONS.MAIN_OEUVRE_GERER}
+                onClick={() => setAjoutRapide(true)}
+              >
+                {t("ajoutRapide")}
+              </BoutonPermis>
+            </>
+          )}
+        </div>
 
         {erreur && (
           <Alert variant="erreur">
@@ -734,11 +981,11 @@ function FenetreAjoutMembre({
           </Button>
           <Button
             onClick={() => ecriture.mutate()}
-            disabled={ecriture.isPending || personneIds.length === 0}
+            disabled={ecriture.isPending || totalSelectionnes === 0}
           >
             {ecriture.isPending && <LoaderCircle className="animate-spin" />}
-            {personneIds.length > 1
-              ? t("ajouterPlusieurs", { nombre: personneIds.length })
+            {totalSelectionnes > 1
+              ? t("ajouterPlusieurs", { nombre: totalSelectionnes })
               : t("ajouter")}
           </Button>
         </DialogFooter>
