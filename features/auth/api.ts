@@ -14,6 +14,7 @@ import {
   lireJetonRenouvellement,
 } from "@/lib/api";
 import type { Jetons } from "@/lib/api";
+import { appliquerCouleurPrimaire } from "@/styles/couleurs";
 
 export type OrigineConnexion = "WEB" | "MOBILE";
 
@@ -77,6 +78,7 @@ export interface EntrepriseProfil {
   /** Identifiant lisible de l'entreprise (D9, R-13). */
   slug: string;
   logo_url: string | null;
+  couleur_primaire?: string | null;
 }
 
 /** Ce que `PATCH /auth/profil/` accepte de l'utilisateur lui-même. */
@@ -247,6 +249,7 @@ export async function seDeconnecter(): Promise<void> {
   }
   effacerJetons();
   ecrireProfilLocal(null);
+  appliquerCouleurPrimaire(null);
 }
 
 

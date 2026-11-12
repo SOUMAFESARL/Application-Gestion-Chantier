@@ -146,6 +146,8 @@ export function ConfigurationEntreprise() {
   const [fichierLogo, setFichierLogo] = useState<File | null>(null);
   const [apercuLogo, setApercuLogo] = useState<string | null>(null);
   const [logo, setLogo] = useState<{ nom: string; taille: number } | null>(null);
+  const [couleurApercue, setCouleurApercue] = useState<string | null>(null);
+  const couleurActiveRef = useRef<string | null>(null);
   const [erreurLogo, setErreurLogo] = useState<string | null>(null);
   const [fondNonDetoure, setFondNonDetoure] = useState(false);
 
@@ -181,6 +183,7 @@ export function ConfigurationEntreprise() {
         if (entreprise.logo) {
           setApercuLogo(entreprise.logo);
           setLogo({ nom: t("logoActuel"), taille: 0 });
+          setCouleurApercue(entreprise.couleur_primaire || null);
         }
       })
       .catch((cause) => {
@@ -193,6 +196,18 @@ export function ConfigurationEntreprise() {
       vivant = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const aUnLogo = Boolean(reference.logo || reference.logo_1x);
+    couleurActiveRef.current = aUnLogo ? (reference.couleur_primaire || null) : null;
+  }, [reference]);
+
+  // Si l'utilisateur quitte l'écran sans enregistrer, la couleur active de l'entreprise est restaurée
+  useEffect(() => {
+    return () => {
+      appliquerCouleurPrimaire(couleurActiveRef.current);
+    };
   }, []);
 
   function modifier(champ: keyof DonneesEntreprise, valeur: string | string[] | boolean) {
@@ -280,7 +295,11 @@ export function ConfigurationEntreprise() {
       URL.revokeObjectURL(apercuLogo);
     }
     setApercuLogo(URL.createObjectURL(fichier));
-    void extraireCouleurDominante(fichier).then(appliquerCouleurPrimaire);
+    void extraireCouleurDominante(fichier).then((couleur) => {
+      setCouleurApercue(couleur);
+      modifier("couleur_primaire", couleur);
+      appliquerCouleurPrimaire(couleur);
+    });
   }
 
   function retirerLogo() {
@@ -290,7 +309,9 @@ export function ConfigurationEntreprise() {
     setFichierLogo(null);
     setApercuLogo(null);
     setLogo(null);
+    setCouleurApercue(null);
     modifier("retirer_logo", true);
+    modifier("couleur_primaire", "");
     appliquerCouleurPrimaire(null);
   }
 
@@ -330,8 +351,10 @@ export function ConfigurationEntreprise() {
       if (reponse.logo) {
         setApercuLogo(reponse.logo);
         setLogo({ nom: t("logoActuel"), taille: 0 });
+        setCouleurApercue(reponse.couleur_primaire || null);
         appliquerCouleurPrimaire(reponse.couleur_primaire);
       } else {
+        setCouleurApercue(null);
         appliquerCouleurPrimaire(null);
       }
       setFichierLogo(null);
@@ -434,6 +457,23 @@ export function ConfigurationEntreprise() {
               {erreurLogo && <p className="text-xs font-medium text-erreur">{erreurLogo}</p>}
               {fondNonDetoure && (
                 <Alerte type="avertissement">{t("logoFondNonDetoure")}</Alerte>
+              )}
+              {apercuLogo && (couleurApercue || donnees.couleur_primaire) && (
+                <div className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-2.5">
+                  <div
+                    className="size-8 shrink-0 rounded-lg border border-black/10 shadow-sm"
+                    style={{ backgroundColor: (couleurApercue || donnees.couleur_primaire)! }}
+                    aria-hidden="true"
+                  />
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-medium text-foreground">
+                      {t("couleurExtraite")}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground font-mono">
+                      {couleurApercue || donnees.couleur_primaire}
+                    </span>
+                  </div>
+                </div>
               )}
             </div>
 
