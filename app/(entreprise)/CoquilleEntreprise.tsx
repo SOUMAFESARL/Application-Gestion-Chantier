@@ -301,10 +301,22 @@ export default function LayoutApp({ children }: LayoutAppProps) {
   }, [chargerEntreprise]);
 
   useEffect(() => {
-    if (!entreprise) return;
+    if (!entreprise) {
+      if (profil?.entreprise) {
+        const aUnLogo = Boolean(profil.entreprise.logo_url);
+        appliquerCouleurPrimaire(aUnLogo ? profil.entreprise.couleur_primaire : null);
+        return;
+      }
+      appliquerCouleurPrimaire(null);
+      return;
+    }
     const aUnLogo = Boolean(entreprise.logo || entreprise.logo_1x);
     appliquerCouleurPrimaire(aUnLogo ? entreprise.couleur_primaire : null);
-  }, [entreprise]);
+
+    return () => {
+      appliquerCouleurPrimaire(null);
+    };
+  }, [entreprise, profil]);
 
   const estDirecteurGeneral = Boolean(profil?.is_dg || profil?.role_global === "DG");
 
@@ -462,6 +474,7 @@ export default function LayoutApp({ children }: LayoutAppProps) {
 
   async function deconnexion() {
     quitterIncarnation();
+    appliquerCouleurPrimaire(null);
     await seDeconnecter();
     router.replace("/connexion");
   }

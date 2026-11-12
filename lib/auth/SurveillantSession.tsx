@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { ecrireProfilLocal } from "@/features/auth/api";
 import { demarrerRenouvellementAuto, effacerJetons, EVENEMENT_SESSION_EXPIREE } from "@/lib/api";
 import { sauvegarderBrouillons } from "@/lib/auth/session";
+import { appliquerCouleurPrimaire } from "@/styles/couleurs";
 
 const ECRAN_CONNEXION = "/connexion";
 
@@ -54,6 +55,7 @@ export function SurveillantSession() {
       sauvegarderBrouillons();
       effacerJetons();
       ecrireProfilLocal(null);
+      appliquerCouleurPrimaire(null);
       window.location.replace(`${ECRAN_CONNEXION}?session=expiree`);
     }
 

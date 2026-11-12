@@ -148,8 +148,8 @@ export function enregistrerEntreprise(
   const charge: Record<string, unknown> = { ...donnees };
   // Ne plus envoyer telephone_contact, le serveur le dérive du numéro principal
   delete charge.telephone_contact;
-  if (fichierLogo || donnees.retirer_logo) {
-    delete charge.couleur_primaire;
+  if (donnees.retirer_logo) {
+    charge.couleur_primaire = "";
   }
 
   if (donnees.telephones) {

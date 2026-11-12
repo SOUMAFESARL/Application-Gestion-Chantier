@@ -57,6 +57,7 @@ import type { ProfilAdministrateur } from "@/features/administration";
 import { useIdentitePlateforme } from "@/features/plateforme/hooks";
 import { EVENEMENT_SESSION_ADMIN_EXPIREE, sessionOuverte } from "@/lib/api";
 import { SurveillantSessionAdmin } from "@/lib/auth/SurveillantSessionAdmin";
+import { appliquerCouleurPrimaire } from "@/styles/couleurs";
 
 import { CLES_ADMINISTRATION } from "./cles";
 import { FournisseurAdministrateur } from "./ContexteAdministrateur";
@@ -196,6 +197,10 @@ export default function LayoutAdministration({
     () => sessionOuverte("administration"),
     () => null,
   );
+
+  useEffect(() => {
+    appliquerCouleurPrimaire(null);
+  }, []);
 
   useEffect(() => {
     if (estAuthentifie === false) router.replace(ECRAN_CONNEXION);
