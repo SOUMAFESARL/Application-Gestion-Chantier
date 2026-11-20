@@ -173,3 +173,64 @@ export function peutChangerPortee(
   return compte.estDirection;
 }
 
+export const CATEGORIES_GED = [
+  "plans",
+  "contrats",
+  "rapports",
+  "administratif",
+  "photos",
+  "divers",
+] as const;
+
+export type CategorieGed = (typeof CATEGORIES_GED)[number];
+
+export const ACTIONS_GED = ["voir", "deposer", "supprimer"] as const;
+
+export type ActionGed = (typeof ACTIONS_GED)[number];
+
+export interface LigneCategorieGed {
+  categorie: CategorieGed;
+  actions: Partial<Record<ActionGed, PermissionCatalogue>>;
+}
+
+/**
+ * Sépare les permissions générales de la GED (`ged.lire`, `ged.telecharger`) et regroupe
+ * les permissions par catégorie BTP (`plans`, `contrats`, `rapports`, `administratif`, `photos`, `divers`)
+ * dans l'ordre `voir` -> `deposer` -> `supprimer`.
+ */
+export function grouperPermissionsGed(permissions: PermissionCatalogue[]): {
+  generales: PermissionCatalogue[];
+  categories: LigneCategorieGed[];
+} {
+  const generales: PermissionCatalogue[] = [];
+  const parCategorie = new Map<CategorieGed, Partial<Record<ActionGed, PermissionCatalogue>>>();
+
+  for (const perm of permissions) {
+    const code = perm.code.toLowerCase();
+    const correspondance = /^ged\.(voir|deposer|supprimer)_([a-z]+)$/.exec(code);
+    if (!correspondance) {
+      generales.push(perm);
+      continue;
+    }
+    const action = correspondance[1] as ActionGed;
+    const cat = correspondance[2] as CategorieGed;
+    if (!CATEGORIES_GED.includes(cat)) {
+      generales.push(perm);
+      continue;
+    }
+    const actuel = parCategorie.get(cat) ?? {};
+    actuel[action] = perm;
+    parCategorie.set(cat, actuel);
+  }
+
+  const categories: LigneCategorieGed[] = [];
+  for (const cat of CATEGORIES_GED) {
+    const actions = parCategorie.get(cat);
+    if (actions && Object.keys(actions).length > 0) {
+      categories.push({ categorie: cat, actions });
+    }
+  }
+
+  return { generales, categories };
+}
+

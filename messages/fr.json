@@ -3222,7 +3222,26 @@
     "editer": "Éditer",
     "editeur": {
       "aide": "Cochez les permissions que ce rôle accorde. Chaque module a les siennes ; ce qui est coché est exactement ce que le rôle permet.",
-      "catalogueVide": "Vous ne détenez aucune permission que vous puissiez accorder."
+      "catalogueVide": "Vous ne détenez aucune permission que vous puissiez accorder.",
+      "ged": {
+        "colonneCategorie": "Catégorie documentaire",
+        "badgeSuppression": "AD / CP",
+        "indisponible": "—",
+        "noteSuppression": "La suppression manuelle d’un document est réservée à l’Administrateur (AD), au Chef de Projet (CP) et au Directeur Général (DG). Les documents générés automatiquement sont inaltérables.",
+        "actions": {
+          "voir": "Voir",
+          "deposer": "Déposer",
+          "supprimer": "Supprimer"
+        },
+        "categories": {
+          "plans": "Plans & études techniques",
+          "contrats": "Contrats & marchés",
+          "rapports": "Rapports & PV",
+          "administratif": "Documents administratifs",
+          "photos": "Photos de chantier",
+          "divers": "Divers & bons de livraison"
+        }
+      }
     },
     "enregistrer": "Enregistrer",
     "erreurAction": "L’action n’a pas abouti. Réessayez.",
