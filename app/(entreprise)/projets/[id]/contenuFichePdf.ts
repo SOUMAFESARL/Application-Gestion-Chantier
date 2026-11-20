@@ -22,7 +22,14 @@ import {
   tauxRespectDelais,
 } from "@/features/projets/regles";
 import type { NiveauConformite, PointVigilance, StatutLot } from "@/features/projets/regles";
-import type { Equipe, FonctionAutreMembre, Intervenant, Lot, Projet } from "@/features/projets/types";
+import type {
+  Equipe,
+  FonctionAutreMembre,
+  Intervenant,
+  Lot,
+  NatureProjet,
+  Projet,
+} from "@/features/projets/types";
 import { afficherTelephone } from "@/features/referentiels/telephone";
 import {
   ABSENT,
@@ -34,7 +41,9 @@ import {
   formaterPourcentage,
 } from "@/lib/format";
 import type {
+  BlocPdf,
   CellulePdf,
+  CleValeurPdf,
   DocumentPdf,
   ImagePdf,
   PastillePdf,
@@ -42,18 +51,7 @@ import type {
   TonPdf,
 } from "@/lib/export/documentPdf";
 
-import { TON_STATUT } from "../classes";
-import { BADGE_STATUT } from "../classes";
-
-/**
- * Le contenu de la fiche projet générée — F1 §9.4, ses huit sections dans
- * l'ordre de la spécification, puis les signatures de la maquette validée.
- *
- * Ce module ne dessine rien et ne calcule rien : il **traduit**. Les chiffres
- * viennent de `features/projets/regles` (les mêmes que l'écran, pour que la
- * fiche ne qualifie pas un chantier autrement que lui) ; la mise en page,
- * de `lib/export/documentPdf`.
- */
+import { BADGE_STATUT, TON_STATUT } from "../classes";
 
 /** Le traducteur de `ficheProjet.pdf` (next-intl). */
 type Traduire = (cle: string, valeurs?: Record<string, string | number>) => string;
@@ -69,12 +67,13 @@ export interface DonneesFiche {
   logo: ImagePdf | null;
   /** `null` : le réglage de l'en-tête et du pied n'a pas pu être lu — la fiche sort sans mentions. */
   documents: DocumentsResolus | null;
-  /** La note libre du chef de projet ; vide, la section 8 n'apparaît pas. */
+  /** La note libre du chef de projet ; vide, on replie sur `informationsComplementaires.note_cp`. */
   note: string;
   /** Le nom de la plateforme : l'émetteur à défaut d'entreprise connue. */
   marque: string;
-  /** Les libellés d'énumération de l'écran (type, statut, bordereau) ; le mode du lot vient du serveur. */
+  /** Les libellés d'énumération de l'écran (nature, type, statut, bordereau). */
   libelles: {
+    natureProjet?: (nature: NatureProjet) => string;
     typeProjet: (type: NonNullable<Projet["typeProjet"]>) => string;
     statutProjet: (statut: Projet["statut"]) => string;
     typeBordereau: (type: Lot["typeBordereau"]) => string;
@@ -97,7 +96,6 @@ const TON_CONFORMITE: Record<NiveauConformite, TonPdf> = {
   critique: "erreur",
 };
 
-/** Un taux sans valeur reste neutre : l'absence de mesure n'est ni bonne ni mauvaise. */
 function tonTaux(taux: number | null | undefined): TonPdf {
   const niveau = niveauConformite(taux ?? null);
   return niveau ? TON_CONFORMITE[niveau] : "neutre";
@@ -109,17 +107,22 @@ const TON_BUDGET: Record<NonNullable<ReturnType<typeof niveauBudget>>, TonPdf> =
   depassement: "erreur",
 };
 
-/** Un montant en francs entiers, sans devise : l'en-tête de colonne la porte. */
-function francs(centimes: number | null): string {
-  return centimes === null ? ABSENT : formaterMontant(centimes, { avecDevise: false });
+/** Un montant en francs entiers, avec devise FCFA pour les lignes clé-valeur. */
+function francs(centimes: number | null, avecDevise = false): string {
+  return centimes === null ? ABSENT : formaterMontant(centimes, { avecDevise });
 }
 
-/**
- * L'entreprise émettrice d'un document généré : son nom dans l'en-tête (la
- * plateforme à défaut), et la ligne de pied qui la présente avec ses
- * coordonnées. Partagé avec le rapport journalier, pour que tous les
- * documents d'une entreprise se signent de la même façon.
- */
+function ajouterSiRempli(
+  cible: CleValeurPdf[],
+  libelle: string,
+  valeur: string | undefined | null,
+  large = false,
+) {
+  if (valeur && valeur.trim().length > 0) {
+    cible.push({ libelle, valeur: valeur.trim(), ...(large ? { large: true } : {}) });
+  }
+}
+
 export function emetteurDocument(
   entreprise: DonneesEntreprise | null,
   marque: string,
@@ -150,60 +153,164 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
     libelles,
     maintenant,
   } = donnees;
+  const infos = projet.informationsComplementaires ?? {};
+  const estPublic = projet.natureProjet === "PUBLIC";
   const genereLe = formaterDateHeure(maintenant);
   const lieu = [projet.quartier, projet.ville].filter(Boolean).join(", ");
   const nomOuAbsent = (intervenant: Intervenant | null) =>
     intervenant ? intervenant.nomComplet || intervenant.email : t("equipe.nonDesigne");
 
-  /* --- En-tête --- */
+  /* --- En-tête & Pastilles --- */
 
   const sante = couleurIndiceSante(projet.indiceSante);
+  const libelleNature =
+    projet.natureProjet && libelles.natureProjet
+      ? libelles.natureProjet(projet.natureProjet)
+      : null;
+
   const pastilles: PastillePdf[] = [
-    ...(projet.typeProjet ? [{ texte: libelles.typeProjet(projet.typeProjet), ton: "neutre" as const }] : []),
+    ...(libelleNature
+      ? [
+          {
+            texte: libelleNature,
+            ton: (projet.natureProjet === "PUBLIC" ? "secondaire" : "primaire") as TonPdf,
+          },
+        ]
+      : []),
+    ...(projet.typeProjet
+      ? [{ texte: libelles.typeProjet(projet.typeProjet), ton: "neutre" as const }]
+      : []),
+    ...(infos.phase ? [{ texte: infos.phase, ton: "neutre" as const }] : []),
     { texte: libelles.statutProjet(projet.statut), ton: TON_STATUT[projet.statut] },
   ];
 
-  /* --- 1. Identification --- */
+  /* --- 1. Identification du projet --- */
 
-  const contactClient = [
-    projet.client.telephone ? afficherTelephone(projet.client.telephone) : null,
-    projet.client.email,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const contactClient =
+    infos.contact?.trim() ||
+    [
+      projet.client.telephone ? afficherTelephone(projet.client.telephone) : null,
+      projet.client.email,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+  const clesIdentification: CleValeurPdf[] = [
+    ...(libelleNature
+      ? [{ libelle: t("identification.natureProjet"), valeur: libelleNature }]
+      : []),
+    { libelle: t("identification.reference"), valeur: projet.reference },
+  ];
+  ajouterSiRempli(clesIdentification, t("identification.numeroFiche"), infos.numero_fiche);
+  clesIdentification.push({
+    libelle: t("identification.type"),
+    valeur: projet.typeProjet
+      ? libelles.typeProjet(projet.typeProjet)
+      : t("identification.nonRenseigne"),
+  });
+  ajouterSiRempli(clesIdentification, t("identification.secteur"), infos.secteur);
+  ajouterSiRempli(clesIdentification, t("identification.phase"), infos.phase);
+  clesIdentification.push(
+    {
+      libelle: estPublic ? t("identification.maitreOuvrage") : t("identification.client"),
+      valeur: projet.client.raisonSociale,
+    },
+    { libelle: t("identification.contactClient"), valeur: contactClient || ABSENT },
+    {
+      libelle: t("identification.maitreOeuvre"),
+      valeur: projet.maitreOeuvre ?? t("identification.nonRenseigne"),
+    },
+  );
+  ajouterSiRempli(clesIdentification, t("identification.tutelle"), infos.tutelle);
+  ajouterSiRempli(clesIdentification, t("identification.delegue"), infos.delegue);
+  ajouterSiRempli(clesIdentification, t("identification.agence"), infos.agence);
+  ajouterSiRempli(clesIdentification, t("identification.operateur"), infos.operateur);
+  ajouterSiRempli(clesIdentification, t("identification.region"), infos.region);
+  clesIdentification.push({ libelle: t("identification.localisation"), valeur: lieu || ABSENT });
+  if (projet.ordreService) {
+    clesIdentification.push({
+      libelle: t("identification.ordreService"),
+      valeur: projet.ordreService.nom,
+    });
+  }
+  if (projet.contrats.length > 0) {
+    clesIdentification.push({
+      libelle: t("identification.contrats"),
+      valeur: projet.contrats.map((c) => c.nom).join(", "),
+    });
+  }
+  ajouterSiRempli(
+    clesIdentification,
+    t("identification.description"),
+    projet.description,
+    true,
+  );
+  ajouterSiRempli(clesIdentification, t("identification.interet"), infos.interet, true);
+
+  const blocsIdentification: BlocPdf[] = [{ type: "cles", elements: clesIdentification }];
+  if (infos.objectifs && infos.objectifs.length > 0) {
+    blocsIdentification.push({
+      type: "liste",
+      vide: "",
+      elements: infos.objectifs.map((obj) => ({
+        texte: `${t("identification.objectifs")} : ${obj}`,
+        ton: "neutre" as const,
+      })),
+    });
+  }
 
   const identification: SectionPdf = {
     titre: t("sections.identification"),
-    blocs: [
-      {
-        type: "cles",
-        elements: [
-          { libelle: t("identification.client"), valeur: projet.client.raisonSociale },
-          { libelle: t("identification.reference"), valeur: projet.reference },
-          { libelle: t("identification.contactClient"), valeur: contactClient || ABSENT },
-          {
-            libelle: t("identification.type"),
-            valeur: projet.typeProjet
-              ? libelles.typeProjet(projet.typeProjet)
-              : t("identification.nonRenseigne"),
-          },
-          {
-            libelle: t("identification.maitreOeuvre"),
-            valeur: projet.maitreOeuvre ?? t("identification.nonRenseigne"),
-          },
-          { libelle: t("identification.localisation"), valeur: lieu || ABSENT },
-          ...(projet.description
-            ? [{ libelle: t("identification.description"), valeur: projet.description, large: true }]
-            : []),
-        ],
-      },
-    ],
+    blocs: blocsIdentification,
   };
 
-  /* --- 2. Calendrier & budget --- */
+  /* --- 2. Programme et caractéristiques (affichée si renseignée) --- */
+
+  const clesProgramme: CleValeurPdf[] = [];
+  const suffixeUnite = infos.unite_capacite ? ` (${infos.unite_capacite.trim()})` : "";
+  if (infos.capacite_projet?.trim()) {
+    clesProgramme.push({
+      libelle: t("programme.capaciteProjet"),
+      valeur: `${infos.capacite_projet.trim()}${suffixeUnite}`,
+    });
+  }
+  if (infos.capacite_terme?.trim()) {
+    clesProgramme.push({
+      libelle: t("programme.capaciteTerme"),
+      valeur: `${infos.capacite_terme.trim()}${suffixeUnite}`,
+    });
+  }
+  ajouterSiRempli(clesProgramme, t("programme.lits"), infos.lits);
+  ajouterSiRempli(clesProgramme, t("programme.superficieHa"), infos.superficie_ha);
+  ajouterSiRempli(clesProgramme, t("programme.terrainM2"), infos.terrain_m2);
+  ajouterSiRempli(clesProgramme, t("programme.surfaceBatie"), infos.surface_batie);
+  ajouterSiRempli(clesProgramme, t("programme.niveaux"), infos.niveaux);
+  ajouterSiRempli(clesProgramme, t("programme.usage"), infos.usage);
+  ajouterSiRempli(clesProgramme, t("programme.perimetre"), infos.perimetre, true);
+  ajouterSiRempli(clesProgramme, t("programme.offreFormation"), infos.offre_formation, true);
+
+  const blocsProgramme: BlocPdf[] = [];
+  if (clesProgramme.length > 0) {
+    blocsProgramme.push({ type: "cles", elements: clesProgramme });
+  }
+  if (infos.impacts && infos.impacts.length > 0) {
+    blocsProgramme.push({
+      type: "liste",
+      vide: "",
+      elements: infos.impacts.map((imp) => ({
+        texte: `${t("programme.impacts")} : ${imp}`,
+        ton: "succes" as const,
+      })),
+    });
+  }
+  const sectionProgramme: SectionPdf[] =
+    blocsProgramme.length > 0
+      ? [{ titre: t("sections.programme"), blocs: blocsProgramme }]
+      : [];
+
+  /* --- 3. Calendrier & budget (sans grosses cases : uniquement des lignes clé-valeur) --- */
 
   const echeancier = echeancierProjet(projet, maintenant);
-  // Comme à l'écran : tout se mesure sur le budget en vigueur (initial plus avenants).
   const budget = budgetEnVigueur(projet);
   const ratio = ratioConsommationBudget(budget, projet.budgetConsomme);
   const niveau = niveauBudget(ratio);
@@ -211,65 +318,210 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
   const part = (centimes: number) =>
     budget && budget > 0
       ? t("budget.part", { valeur: Math.round((centimes / budget) * 100) })
-      : undefined;
+      : null;
+
+  const clesCalendrierBudget: CleValeurPdf[] = [];
+  if (infos.date_situation) {
+    clesCalendrierBudget.push({
+      libelle: t("calendrier.dateSituation"),
+      valeur: formaterDate(infos.date_situation),
+    });
+  }
+  clesCalendrierBudget.push(
+    { libelle: t("calendrier.debutPrevu"), valeur: formaterDate(projet.dateDebutPrevue) },
+    { libelle: t("calendrier.finPrevue"), valeur: formaterDate(projet.dateFinPrevue) },
+    { libelle: t("calendrier.duree"), valeur: formaterDuree(projet.duree ?? echeancier.duree) },
+  );
+  ajouterSiRempli(clesCalendrierBudget, t("calendrier.dureeContrat"), infos.duree_contrat);
+  clesCalendrierBudget.push(
+    {
+      libelle: t("calendrier.debutReel"),
+      valeur: projet.dateDebutReelle
+        ? formaterDate(projet.dateDebutReelle)
+        : t("calendrier.nonDemarre"),
+    },
+    {
+      libelle: t("calendrier.delaiEcoule"),
+      valeur:
+        echeancier.tempsEcoule === null
+          ? ABSENT
+          : t("calendrier.delaiEcouleValeur", { valeur: echeancier.tempsEcoule }),
+    },
+    {
+      libelle: t("calendrier.echeance"),
+      valeur: libelleEcheance(t, projet, echeancier.joursRestants),
+      ton:
+        echeancier.joursRestants !== null && echeancier.joursRestants < 0
+          ? "erreur"
+          : undefined,
+    },
+  );
+  ajouterSiRempli(
+    clesCalendrierBudget,
+    t("calendrier.reprogrammation"),
+    infos.reprogrammation,
+    true,
+  );
+
+  // Chiffres budgétaires en lignes clé-valeur sobres (pas de tuiles)
+  clesCalendrierBudget.push({
+    libelle: t("budget.initial"),
+    valeur:
+      projet.budgetInitial === null
+        ? t("budget.nonDefini")
+        : francs(projet.budgetInitial, true),
+  });
+  if (projet.budgetCourant !== null && projet.budgetCourant !== projet.budgetInitial) {
+    clesCalendrierBudget.push({
+      libelle: t("budget.contractuel"),
+      valeur: francs(projet.budgetCourant, true),
+    });
+  } else if (infos.budget_contractuel?.trim()) {
+    clesCalendrierBudget.push({
+      libelle: t("budget.contractuel"),
+      valeur: infos.budget_contractuel.trim(),
+    });
+  }
+  if (infos.cout?.trim()) {
+    const dev = infos.devise || "FCFA";
+    clesCalendrierBudget.push({
+      libelle: t("budget.coutDeclare"),
+      valeur: `${infos.cout.trim()} ${dev}`,
+    });
+    if (dev !== "FCFA" && infos.taux_change?.trim()) {
+      clesCalendrierBudget.push({
+        libelle: t("budget.tauxChange", { devise: dev }),
+        valeur: `${infos.taux_change.trim()} FCFA`,
+      });
+    }
+  }
+  ajouterSiRempli(clesCalendrierBudget, t("budget.regime"), infos.regime);
+
+  const partConsomme = part(projet.budgetConsomme);
+  clesCalendrierBudget.push({
+    libelle: t("budget.consomme"),
+    valeur: partConsomme
+      ? `${francs(projet.budgetConsomme, true)} (${partConsomme})`
+      : francs(projet.budgetConsomme, true),
+    ton: niveau ? TON_BUDGET[niveau] : undefined,
+  });
+
+  const partRestant = restant !== null ? part(Math.abs(restant)) : null;
+  const valeurRestant =
+    restant === null
+      ? ABSENT
+      : partRestant
+        ? `${francs(Math.abs(restant), true)} (${partRestant})`
+        : francs(Math.abs(restant), true);
+  clesCalendrierBudget.push({
+    libelle: restant !== null && restant < 0 ? t("budget.depasse") : t("budget.restant"),
+    valeur: valeurRestant,
+    ton: restant !== null && restant < 0 ? "erreur" : undefined,
+  });
 
   const calendrierBudget: SectionPdf = {
     titre: t("sections.calendrierBudget"),
-    blocs: [
-      {
-        type: "cles",
-        elements: [
-          { libelle: t("calendrier.debutPrevu"), valeur: formaterDate(projet.dateDebutPrevue) },
-          { libelle: t("calendrier.finPrevue"), valeur: formaterDate(projet.dateFinPrevue) },
-          { libelle: t("calendrier.duree"), valeur: formaterDuree(projet.duree ?? echeancier.duree) },
-          {
-            libelle: t("calendrier.debutReel"),
-            valeur: projet.dateDebutReelle
-              ? formaterDate(projet.dateDebutReelle)
-              : t("calendrier.nonDemarre"),
-          },
-          {
-            libelle: t("calendrier.delaiEcoule"),
-            valeur:
-              echeancier.tempsEcoule === null
-                ? ABSENT
-                : t("calendrier.delaiEcouleValeur", { valeur: echeancier.tempsEcoule }),
-          },
-          {
-            libelle: t("calendrier.echeance"),
-            valeur: libelleEcheance(t, projet, echeancier.joursRestants),
-            ton: echeancier.joursRestants !== null && echeancier.joursRestants < 0 ? "erreur" : undefined,
-          },
-        ],
-      },
-      {
-        type: "tuiles",
-        tuiles: [
-          {
-            libelle: t("budget.initial"),
-            valeur:
-              projet.budgetInitial === null ? t("budget.nonDefini") : francs(projet.budgetInitial),
-            detail: projet.budgetInitial === null ? undefined : "FCFA",
-            ton: "secondaire",
-          },
-          {
-            libelle: t("budget.consomme"),
-            valeur: francs(projet.budgetConsomme),
-            detail: part(projet.budgetConsomme),
-            ton: niveau ? TON_BUDGET[niveau] : "neutre",
-          },
-          {
-            libelle: restant !== null && restant < 0 ? t("budget.depasse") : t("budget.restant"),
-            valeur: restant === null ? ABSENT : francs(Math.abs(restant)),
-            detail: restant === null ? undefined : part(Math.abs(restant)),
-            ton: restant !== null && restant < 0 ? "erreur" : "primaire",
-          },
-        ],
-      },
-    ],
+    blocs: [{ type: "cles", elements: clesCalendrierBudget }],
   };
 
-  /* --- 3. Avancement global --- */
+  /* --- 4. Financement (affichée si renseignée) --- */
+
+  const clesFinancement: CleValeurPdf[] = [];
+  ajouterSiRempli(clesFinancement, t("financement.modeFin"), infos.mode_fin);
+  ajouterSiRempli(clesFinancement, t("financement.sourceFin"), infos.source_fin);
+  ajouterSiRempli(clesFinancement, t("financement.statutFin"), infos.statut_fin);
+  ajouterSiRempli(clesFinancement, t("financement.etablissement"), infos.etablissement);
+  ajouterSiRempli(
+    clesFinancement,
+    t("financement.contractualisation"),
+    infos.contractualisation,
+  );
+  ajouterSiRempli(clesFinancement, t("financement.etatImputation"), infos.etat_imputation);
+  ajouterSiRempli(clesFinancement, t("financement.etatEffectif"), infos.etat_effectif);
+  ajouterSiRempli(clesFinancement, t("financement.etatDecaissement"), infos.etat_decaissement);
+  ajouterSiRempli(clesFinancement, t("financement.procedure"), infos.procedure);
+  ajouterSiRempli(clesFinancement, t("financement.texteApplicable"), infos.texte_applicable, true);
+  ajouterSiRempli(clesFinancement, t("financement.historique"), infos.historique, true);
+
+  const blocsFinancement: BlocPdf[] = [];
+  if (clesFinancement.length > 0) {
+    blocsFinancement.push({ type: "cles", elements: clesFinancement });
+  }
+  if (infos.bailleurs && infos.bailleurs.length > 0) {
+    blocsFinancement.push({
+      type: "tableau",
+      vide: t("financement.bailleurs.vide"),
+      tableau: {
+        entetes: [
+          t("financement.bailleurs.org"),
+          t("financement.bailleurs.type"),
+          t("financement.bailleurs.signature"),
+          t("financement.bailleurs.limite"),
+          t("financement.bailleurs.effectif"),
+          t("financement.bailleurs.decaisse"),
+        ],
+        largeurs: [0.24, 0.16, 0.14, 0.14, 0.16, 0.16],
+        lignes: infos.bailleurs.map((b) => [
+          { texte: b.org || ABSENT, gras: true },
+          { texte: b.type || ABSENT },
+          { texte: b.signature ? formaterDate(b.signature) : ABSENT },
+          { texte: b.limite ? formaterDate(b.limite) : ABSENT },
+          { texte: b.effectif || ABSENT },
+          { texte: b.decaisse || ABSENT },
+        ]),
+      },
+    });
+  }
+  const sectionFinancement: SectionPdf[] =
+    blocsFinancement.length > 0
+      ? [{ titre: t("sections.financement"), blocs: blocsFinancement }]
+      : [];
+
+  /* --- 5. Foncier, autorisations et études (affichée si renseignée) --- */
+
+  const clesFoncier: CleValeurPdf[] = [];
+  ajouterSiRempli(clesFoncier, t("foncierEtudes.disponibilite"), infos.disponibilite);
+  ajouterSiRempli(clesFoncier, t("foncierEtudes.delimitation"), infos.delimitation);
+  ajouterSiRempli(clesFoncier, t("foncierEtudes.titreFoncier"), infos.titre_foncier);
+  ajouterSiRempli(clesFoncier, t("foncierEtudes.permisStatut"), infos.permis_statut);
+  ajouterSiRempli(clesFoncier, t("foncierEtudes.permisNum"), infos.permis_num);
+  ajouterSiRempli(clesFoncier, t("foncierEtudes.purgeTotal"), infos.purge_total);
+  ajouterSiRempli(clesFoncier, t("foncierEtudes.purgeEngage"), infos.purge_engage);
+  ajouterSiRempli(clesFoncier, t("foncierEtudes.purgePaye"), infos.purge_paye);
+
+  const blocsFoncier: BlocPdf[] = [];
+  if (clesFoncier.length > 0) {
+    blocsFoncier.push({ type: "cles", elements: clesFoncier });
+  }
+  if (infos.etudes && infos.etudes.length > 0) {
+    blocsFoncier.push({
+      type: "tableau",
+      vide: t("foncierEtudes.etudes.vide"),
+      tableau: {
+        entetes: [
+          t("foncierEtudes.etudes.nom"),
+          t("foncierEtudes.etudes.statut"),
+          t("foncierEtudes.etudes.avancement"),
+          t("foncierEtudes.etudes.prestataire"),
+          t("foncierEtudes.etudes.montant"),
+        ],
+        largeurs: [0.3, 0.16, 0.14, 0.24, 0.16],
+        lignes: infos.etudes.map((et) => [
+          { texte: et.nom || ABSENT, gras: true },
+          { texte: et.statut || ABSENT },
+          { texte: et.avancement ? `${et.avancement} %` : ABSENT },
+          { texte: et.prestataire || ABSENT },
+          { texte: et.montant || ABSENT },
+        ]),
+      },
+    });
+  }
+  const sectionFoncierEtudes: SectionPdf[] =
+    blocsFoncier.length > 0
+      ? [{ titre: t("sections.foncierEtudes"), blocs: blocsFoncier }]
+      : [];
+
+  /* --- 6. Avancement global --- */
 
   const ecart = ecartAvancement(projet.avancementReel, projet.avancementTheorique);
   const retard = estEnRetard(ecart);
@@ -278,27 +530,40 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
     maximumFractionDigits: 1,
   }).format(ecart);
 
-  const lignesLots: CellulePdf[][] = lots.map((lot) => {
-    const statut = statutLot(lot, maintenant);
-    const avancement = lot.avancement ?? avancementLot(lot);
-    const ton: TonPdf = statut === "SANS_ACTIVITE" ? "neutre" : BADGE_STATUT[statut];
-    return [
-      { texte: lot.code, gras: true },
-      { texte: lot.nom, gras: true },
-      { texte: lot.modeExecutionLibelle },
-      { texte: libelles.typeBordereau(lot.typeBordereau) },
-      avancement === null
-        ? { texte: ABSENT, ton: "neutre" }
-        : { texte: formaterPourcentage(avancement), gras: true, ton },
-      { texte: francs(lot.budget) },
-      {
-        texte:
-          statut === "SANS_ACTIVITE" ? t("lots.sansActivite") : libelles.statutActivite(statut),
-        gras: true,
-        ton,
-      },
-    ];
-  });
+  const lignesLots: CellulePdf[][] =
+    infos.lots && infos.lots.length > 0
+      ? infos.lots.map((lot) => [
+          { texte: lot.code || ABSENT, gras: true },
+          { texte: lot.nom || ABSENT, gras: true },
+          { texte: lot.prestataire || ABSENT },
+          { texte: ABSENT },
+          { texte: lot.avancement ? `${lot.avancement} %` : ABSENT, gras: true },
+          { texte: lot.montant || ABSENT },
+          { texte: lot.statut || ABSENT, gras: true },
+        ])
+      : lots.map((lot) => {
+          const statut = statutLot(lot, maintenant);
+          const avancement = lot.avancement ?? avancementLot(lot);
+          const ton: TonPdf = statut === "SANS_ACTIVITE" ? "neutre" : BADGE_STATUT[statut];
+          return [
+            { texte: lot.code, gras: true },
+            { texte: lot.nom, gras: true },
+            { texte: lot.modeExecutionLibelle },
+            { texte: libelles.typeBordereau(lot.typeBordereau) },
+            avancement === null
+              ? { texte: ABSENT, ton: "neutre" }
+              : { texte: formaterPourcentage(avancement), gras: true, ton },
+            { texte: francs(lot.budget) },
+            {
+              texte:
+                statut === "SANS_ACTIVITE"
+                  ? t("lots.sansActivite")
+                  : libelles.statutActivite(statut),
+              gras: true,
+              ton,
+            },
+          ];
+        });
 
   const deltaInfo = libelleDelta(projet.deltaRetard);
   const texteEcart = [
@@ -307,6 +572,15 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
   ]
     .filter(Boolean)
     .join(" · ");
+
+  const clesAvancementExtra: CleValeurPdf[] = [];
+  if (infos.taux_saisi?.trim()) {
+    clesAvancementExtra.push({
+      libelle: t("avancement.tauxDeclare"),
+      valeur: `${infos.taux_saisi.trim()} %`,
+    });
+  }
+  ajouterSiRempli(clesAvancementExtra, t("avancement.etatNarratif"), infos.etat_narratif, true);
 
   const avancement: SectionPdf = {
     titre: t("sections.avancement"),
@@ -329,6 +603,9 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
         ],
       },
       { type: "paragraphe", texte: texteEcart },
+      ...(clesAvancementExtra.length > 0
+        ? [{ type: "cles" as const, elements: clesAvancementExtra }]
+        : []),
       {
         type: "tableau",
         vide: t("lots.vide"),
@@ -342,54 +619,61 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
             t("lots.budget"),
             t("lots.statut"),
           ],
-          largeurs: [0.06, 0.24, 0.15, 0.12, 0.16, 0.14, 0.13],
+          largeurs: [0.08, 0.24, 0.16, 0.11, 0.14, 0.14, 0.13],
           lignes: lignesLots,
         },
       },
     ],
   };
 
-  /* --- 4. Indicateurs clés --- */
+  /* --- 7. Indicateurs clés (sans grosses cases : lignes clé-valeur sobres) --- */
 
   const respect = tauxRespectDelais(lots, maintenant);
+  const detailSoumission = journal
+    ? t("indicateurs.soumissionDetail", {
+        deposes: journal.soumission.deposes,
+        attendus: journal.soumission.attendus,
+      })
+    : t("indicateurs.journalIndisponible");
+  const detailIncidents = journal
+    ? t("indicateurs.incidentsDetail", { blocages: journal.blocages })
+    : t("indicateurs.journalIndisponible");
+  const detailEcart = t("indicateurs.ecartDetail", {
+    reel: formaterPourcentage(projet.avancementReel),
+    theorique: formaterPourcentage(projet.avancementTheorique),
+  });
+
   const indicateurs: SectionPdf = {
     titre: t("sections.indicateurs"),
     blocs: [
       {
-        type: "tuiles",
-        tuiles: [
+        type: "cles",
+        elements: [
           {
             libelle: t("indicateurs.respectDelais"),
-            valeur: respect === null ? ABSENT : formaterPourcentage(respect),
-            detail: t("indicateurs.respectDelaisDetail"),
+            valeur:
+              respect === null
+                ? ABSENT
+                : `${formaterPourcentage(respect)} (${t("indicateurs.respectDelaisDetail")})`,
             ton: tonTaux(respect),
           },
           {
             libelle: t("indicateurs.soumission"),
-            valeur: formaterPourcentage(journal?.soumission.taux),
-            detail: journal
-              ? t("indicateurs.soumissionDetail", {
-                  deposes: journal.soumission.deposes,
-                  attendus: journal.soumission.attendus,
-                })
-              : t("indicateurs.journalIndisponible"),
+            valeur: `${formaterPourcentage(journal?.soumission.taux)} (${detailSoumission})`,
             ton: tonTaux(journal?.soumission.taux),
           },
           {
             libelle: t("indicateurs.incidents"),
-            valeur: journal ? String(journal.incidents) : ABSENT,
-            detail: journal
-              ? t("indicateurs.incidentsDetail", { blocages: journal.blocages })
-              : t("indicateurs.journalIndisponible"),
-            ton: !journal ? "neutre" : journal.incidents > 0 || journal.blocages > 0 ? "avertissement" : "succes",
+            valeur: journal ? `${journal.incidents} (${detailIncidents})` : ABSENT,
+            ton: !journal
+              ? "neutre"
+              : journal.incidents > 0 || journal.blocages > 0
+                ? "avertissement"
+                : "succes",
           },
           {
             libelle: t("indicateurs.ecart"),
-            valeur: t("indicateurs.points", { valeur: ecartTexte }),
-            detail: t("indicateurs.ecartDetail", {
-              reel: formaterPourcentage(projet.avancementReel),
-              theorique: formaterPourcentage(projet.avancementTheorique),
-            }),
+            valeur: `${t("indicateurs.points", { valeur: ecartTexte })} (${detailEcart})`,
             ton: retard ? "erreur" : "succes",
           },
         ],
@@ -397,79 +681,180 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
     ],
   };
 
-  /* --- 5. Risques et vigilance --- */
+  /* --- 8. Risques, blocages et recommandations --- */
 
   const points = pointsDeVigilance(projet, lots, maintenant).map((point) =>
     pointVigilance(t, point),
   );
   if (journal && journal.blocages > 0) {
-    points.push({ texte: t("vigilance.BLOCAGES", { nombre: journal.blocages }), ton: "avertissement" });
+    points.push({
+      texte: t("vigilance.BLOCAGES", { nombre: journal.blocages }),
+      ton: "avertissement",
+    });
   }
+
+  const blocsRisques: BlocPdf[] = [{ type: "liste", elements: points, vide: t("vigilance.vide") }];
+  if (infos.difficultes && infos.difficultes.length > 0) {
+    blocsRisques.push({
+      type: "tableau",
+      vide: "",
+      tableau: {
+        entetes: [
+          t("vigilance.difficultes.desc"),
+          t("vigilance.difficultes.gravite"),
+          t("vigilance.difficultes.date"),
+          t("vigilance.difficultes.statut"),
+        ],
+        largeurs: [0.46, 0.2, 0.16, 0.18],
+        lignes: infos.difficultes.map((d) => [
+          { texte: d.desc || ABSENT, gras: true },
+          { texte: d.gravite || ABSENT, ton: "avertissement" },
+          { texte: d.date ? formaterDate(d.date) : ABSENT },
+          { texte: d.statut || ABSENT },
+        ]),
+      },
+    });
+  }
+  if (infos.recos && infos.recos.length > 0) {
+    blocsRisques.push({
+      type: "tableau",
+      vide: "",
+      tableau: {
+        entetes: [
+          t("vigilance.recos.texte"),
+          t("vigilance.recos.dest"),
+          t("vigilance.recos.echeance"),
+        ],
+        largeurs: [0.54, 0.28, 0.18],
+        lignes: infos.recos.map((r) => [
+          { texte: r.texte || ABSENT, gras: true },
+          { texte: r.dest || ABSENT },
+          { texte: r.echeance ? formaterDate(r.echeance) : ABSENT },
+        ]),
+      },
+    });
+  }
+
   const risques: SectionPdf = {
     titre: t("sections.risques"),
-    blocs: [{ type: "liste", elements: points, vide: t("vigilance.vide") }],
+    blocs: blocsRisques,
   };
 
-  /* --- 6. Équipe d'encadrement et de gestion --- */
+  /* --- 9. Équipe d'encadrement et intervenants --- */
 
-  // Le chef de projet et les conducteurs restent lisibles même non désignés :
-  // leur absence est une information. Les autres places ne s'impriment que pourvues.
-  const membres: { role: string; intervenant: Intervenant | null }[] = [
-    { role: t("equipe.chefProjet"), intervenant: projet.chefProjet },
-    ...(projet.conducteursTravaux.length > 0
-      ? projet.conducteursTravaux.map((conducteur) => ({
-          role: t("equipe.conducteurTravaux"),
-          intervenant: conducteur,
-        }))
-      : [{ role: t("equipe.conducteurTravaux"), intervenant: null }]),
-    ...projet.chefsChantier.map((chef) => {
-      const precision = precisionChefChantier(chef);
-      return {
-        role: precision
-          ? t("equipe.chefChantierZone", { zone: precision })
-          : t("equipe.chefChantier"),
-        intervenant: chef.intervenant,
-      };
-    }),
-    ...projet.autresMembres.map((membre) => ({
-      role: libelles.fonctionAutreMembre(membre.fonction),
-      intervenant: membre.intervenant,
-    })),
+  const membres: { role: string; nom: string; tel: string; email: string; designe: boolean }[] = [];
+  if (infos.coordonnateur?.nom?.trim()) {
+    membres.push({
+      role: t("equipe.coordonnateur"),
+      nom: infos.coordonnateur.nom.trim(),
+      tel: infos.coordonnateur.tel?.trim() || ABSENT,
+      email: infos.coordonnateur.email?.trim() || ABSENT,
+      designe: true,
+    });
+  }
+  const ajouterIntervenantInterne = (role: string, intervenant: Intervenant | null) => {
+    membres.push({
+      role,
+      nom: intervenant ? nomOuAbsent(intervenant) : t("equipe.nonDesigne"),
+      tel: intervenant?.telephone ? afficherTelephone(intervenant.telephone) : ABSENT,
+      email: intervenant?.email || ABSENT,
+      designe: Boolean(intervenant),
+    });
+  };
+  ajouterIntervenantInterne(t("equipe.chefProjet"), projet.chefProjet);
+  if (projet.conducteursTravaux.length > 0) {
+    for (const ct of projet.conducteursTravaux) {
+      ajouterIntervenantInterne(t("equipe.conducteurTravaux"), ct);
+    }
+  } else {
+    ajouterIntervenantInterne(t("equipe.conducteurTravaux"), null);
+  }
+  for (const chef of projet.chefsChantier) {
+    const precision = precisionChefChantier(chef);
+    ajouterIntervenantInterne(
+      precision ? t("equipe.chefChantierZone", { zone: precision }) : t("equipe.chefChantier"),
+      chef.intervenant,
+    );
+  }
+  for (const membre of projet.autresMembres) {
+    ajouterIntervenantInterne(
+      libelles.fonctionAutreMembre(membre.fonction),
+      membre.intervenant,
+    );
+  }
+
+  const blocsEquipe: BlocPdf[] = [
+    {
+      type: "tableau",
+      vide: "",
+      tableau: {
+        entetes: [t("equipe.role"), t("equipe.nom"), t("equipe.telephone"), t("equipe.email")],
+        largeurs: [0.22, 0.26, 0.2, 0.32],
+        lignes: membres.map((m) => [
+          { texte: m.role, gras: true },
+          m.designe ? { texte: m.nom } : { texte: m.nom, ton: "neutre" },
+          { texte: m.tel },
+          { texte: m.email },
+        ]),
+      },
+    },
   ];
+  if (infos.intervenants && infos.intervenants.length > 0) {
+    blocsEquipe.push({
+      type: "tableau",
+      vide: "",
+      tableau: {
+        entetes: [
+          t("equipe.intervenants.role"),
+          t("equipe.intervenants.org"),
+          t("equipe.intervenants.lot"),
+        ],
+        largeurs: [0.3, 0.4, 0.3],
+        lignes: infos.intervenants.map((intv) => [
+          { texte: intv.role || ABSENT, gras: true },
+          { texte: intv.org || ABSENT },
+          { texte: intv.lot || ABSENT },
+        ]),
+      },
+    });
+  }
+  if (equipes) {
+    blocsEquipe.push({
+      type: "paragraphe",
+      texte: t("equipe.equipesChantier", {
+        equipes: equipes.length,
+        personnes: effectifProjet(equipes),
+      }),
+    });
+  }
+
   const equipe: SectionPdf = {
     titre: t("sections.equipe"),
-    blocs: [
-      {
-        type: "tableau",
-        vide: "",
-        tableau: {
-          entetes: [t("equipe.role"), t("equipe.nom"), t("equipe.telephone"), t("equipe.email")],
-          largeurs: [0.22, 0.26, 0.2, 0.32],
-          lignes: membres.map(({ role, intervenant }) => [
-            { texte: role, gras: true },
-            intervenant
-              ? { texte: nomOuAbsent(intervenant) }
-              : { texte: t("equipe.nonDesigne"), ton: "neutre" },
-            { texte: intervenant?.telephone ? afficherTelephone(intervenant.telephone) : ABSENT },
-            { texte: intervenant?.email || ABSENT },
-          ]),
-        },
-      },
-      ...(equipes
-        ? [
-            {
-              type: "paragraphe" as const,
-              texte: t("equipe.equipesChantier", {
-                equipes: equipes.length,
-                personnes: effectifProjet(equipes),
-              }),
-            },
-          ]
-        : []),
-    ],
+    blocs: blocsEquipe,
   };
 
-  /* --- 7. Prochaines étapes --- */
+  /* --- 10. Prochaines étapes --- */
+
+  const lignesEtapesSaisies: CellulePdf[][] = (infos.etapes ?? []).map((et, idx) => [
+    { texte: `E-${String(idx + 1).padStart(2, "0")}`, gras: true },
+    { texte: et.etape || ABSENT },
+    { texte: ABSENT },
+    { texte: ABSENT },
+    { texte: et.echeance ? formaterDate(et.echeance) : ABSENT },
+    { texte: et.resp || ABSENT },
+  ]);
+  const lignesEtapesArbre: CellulePdf[][] = prochainesEtapes(lots, maintenant).map(
+    ({ activite, lot }) => [
+      { texte: activite.code, gras: true },
+      { texte: activite.libelle },
+      { texte: `${lot.code} ${lot.nom}` },
+      { texte: formaterDate(activite.dateDebutPrevue) },
+      { texte: formaterDate(activite.dateFinPrevue) },
+      activite.equipe
+        ? { texte: activite.equipe.nom }
+        : { texte: t("etapes.aAffecter"), ton: "avertissement" },
+    ],
+  );
 
   const etapes: SectionPdf = {
     titre: t("sections.prochainesEtapes"),
@@ -487,24 +872,15 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
             t("etapes.equipe"),
           ],
           largeurs: [0.08, 0.34, 0.2, 0.11, 0.11, 0.16],
-          lignes: prochainesEtapes(lots, maintenant).map(({ activite, lot }) => [
-            { texte: activite.code, gras: true },
-            { texte: activite.libelle },
-            { texte: `${lot.code} ${lot.nom}` },
-            { texte: formaterDate(activite.dateDebutPrevue) },
-            { texte: formaterDate(activite.dateFinPrevue) },
-            activite.equipe
-              ? { texte: activite.equipe.nom }
-              : { texte: t("etapes.aAffecter"), ton: "avertissement" },
-          ]),
+          lignes: [...lignesEtapesSaisies, ...lignesEtapesArbre],
         },
       },
     ],
   };
 
-  /* --- 8. Note du chef de projet : absente si vide (F1 §9.4) --- */
+  /* --- 11. Note du chef de projet : absente si vide (F1 §9.4) --- */
 
-  const texteNote = note.trim();
+  const texteNote = (note || infos.note_cp || "").trim();
   const sectionNote: SectionPdf[] = texteNote
     ? [
         {
@@ -514,7 +890,10 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
             {
               type: "encadre",
               auteur: projet.chefProjet
-                ? t("note.auteur", { nom: nomOuAbsent(projet.chefProjet), date: formaterDate(maintenant) })
+                ? t("note.auteur", {
+                    nom: nomOuAbsent(projet.chefProjet),
+                    date: formaterDate(maintenant),
+                  })
                 : t("note.auteurSansNom", { date: formaterDate(maintenant) }),
               texte: texteNote,
             },
@@ -523,7 +902,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
       ]
     : [];
 
-  /* --- Signatures --- */
+  /* --- Signatures (gardées en cases, comme demandé) --- */
 
   const signatures: SectionPdf = {
     titre: t("sections.signatures"),
@@ -536,7 +915,11 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
             mention: t("signatures.signature"),
             nom: projet.chefProjet ? nomOuAbsent(projet.chefProjet) : ABSENT,
           },
-          { role: t("signatures.directeurGeneral"), mention: t("signatures.signature"), nom: ABSENT },
+          {
+            role: t("signatures.directeurGeneral"),
+            mention: t("signatures.signature"),
+            nom: ABSENT,
+          },
           {
             role: t("signatures.directeurFinancier"),
             mention: t("signatures.signature"),
@@ -576,7 +959,10 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
     },
     sections: [
       identification,
+      ...sectionProgramme,
       calendrierBudget,
+      ...sectionFinancement,
+      ...sectionFoncierEtudes,
       avancement,
       indicateurs,
       risques,
@@ -599,7 +985,8 @@ function libelleEcheance(t: Traduire, projet: Projet, joursRestants: number | nu
     return t("calendrier.termineLe", { date: formaterDate(projet.dateFinReelle) });
   }
   if (joursRestants === null) return t("calendrier.clos");
-  if (joursRestants < 0) return t("calendrier.echeanceDepassee", { jours: Math.abs(joursRestants) });
+  if (joursRestants < 0)
+    return t("calendrier.echeanceDepassee", { jours: Math.abs(joursRestants) });
   return t("calendrier.joursRestants", { jours: joursRestants });
 }
 

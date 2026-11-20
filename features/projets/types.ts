@@ -75,6 +75,145 @@ export interface DureeProjet {
 }
 
 /**
+ * Le type juridique et financier du chantier : public ou privé (T1).
+ * Distinct de `typeProjet` (le type d'ouvrage : bâtiment, pont, chaussée, VRD…).
+ */
+export type NatureProjet = "PUBLIC" | "PRIVE";
+
+export interface BailleurProjet {
+  org: string;
+  type: string;
+  signature: string;
+  limite: string;
+  effectif: string;
+  decaisse: string;
+}
+
+export interface EtudeProjet {
+  nom: string;
+  statut: string;
+  avancement: string;
+  prestataire: string;
+  montant: string;
+}
+
+export interface LotComplementaireProjet {
+  code: string;
+  nom: string;
+  montant: string;
+  avancement: string;
+  statut: string;
+  prestataire: string;
+}
+
+export interface DifficulteProjet {
+  desc: string;
+  gravite: string;
+  date: string;
+  statut: string;
+}
+
+export interface RecommandationProjet {
+  texte: string;
+  dest: string;
+  echeance: string;
+}
+
+export interface IntervenantExterneProjet {
+  role: string;
+  org: string;
+  lot: string;
+}
+
+export interface EtapeAvenirProjet {
+  etape: string;
+  echeance: string;
+  resp: string;
+}
+
+export interface CoordonnateurProjet {
+  nom: string;
+  tel: string;
+  email: string;
+}
+
+/**
+ * Les informations complémentaires structurées de la fiche projet (T6).
+ */
+export interface InformationsComplementairesProjet {
+  // 1. Identification
+  delegue?: string;
+  tutelle?: string;
+  agence?: string;
+  operateur?: string;
+  numero_fiche?: string;
+  secteur?: string;
+  contact?: string;
+  phase?: string;
+  region?: string;
+  interet?: string;
+  objectifs?: string[];
+  // 2. Programme et caractéristiques
+  capacite_projet?: string;
+  capacite_terme?: string;
+  unite_capacite?: string;
+  lits?: string;
+  superficie_ha?: string;
+  perimetre?: string;
+  niveaux?: string;
+  usage?: string;
+  terrain_m2?: string;
+  surface_batie?: string;
+  offre_formation?: string;
+  impacts?: string[];
+  // 3. Calendrier et budget complémentaires
+  date_situation?: string;
+  duree_contrat?: string;
+  reprogrammation?: string;
+  cout?: string;
+  devise?: string;
+  taux_change?: string;
+  regime?: string;
+  budget_contractuel?: string;
+  // 4. Financement
+  mode_fin?: string;
+  statut_fin?: string;
+  etat_imputation?: string;
+  etat_effectif?: string;
+  etat_decaissement?: string;
+  procedure?: string;
+  texte_applicable?: string;
+  historique?: string;
+  source_fin?: string;
+  etablissement?: string;
+  contractualisation?: string;
+  bailleurs?: BailleurProjet[];
+  // 5. Foncier, autorisations et études
+  disponibilite?: string;
+  delimitation?: string;
+  purge_total?: string;
+  purge_engage?: string;
+  purge_paye?: string;
+  titre_foncier?: string;
+  permis_statut?: string;
+  permis_num?: string;
+  etudes?: EtudeProjet[];
+  // 6. Avancement
+  taux_saisi?: string;
+  etat_narratif?: string;
+  lots?: LotComplementaireProjet[];
+  // 7. Risques, blocages et recommandations
+  difficultes?: DifficulteProjet[];
+  recos?: RecommandationProjet[];
+  // 8. Équipe et intervenants
+  coordonnateur?: CoordonnateurProjet;
+  intervenants?: IntervenantExterneProjet[];
+  // 9. Prochaines étapes et note
+  etapes?: EtapeAvenirProjet[];
+  note_cp?: string;
+}
+
+/**
  * Un chantier dans son détail.
  *
  * `budgetInitial` est `null` quand le budget n'a **pas encore été défini** —
@@ -88,8 +227,12 @@ export interface Projet {
   /** Le droit de modifier le nom : réservé au DG et à l'administrateur (US 3.2). */
   peutRenommer: boolean;
   description: string;
-  /** `null` pour un projet ouvert avant que le type ne soit demandé. */
+  /** Le type de projet : public ou privé (T1). `null` si non renseigné. */
+  natureProjet: NatureProjet | null;
+  /** `null` pour un projet ouvert avant que le type d'ouvrage ne soit demandé. */
   typeProjet: TypeProjet | null;
+  /** Les informations complémentaires structurées (T6). */
+  informationsComplementaires: InformationsComplementairesProjet;
   client: ClientProjet;
   ville: string;
   quartier: string;
@@ -313,8 +456,10 @@ export interface CreationProjet {
   nom: string;
   /** Absente : le serveur engendre la référence. */
   reference?: string;
+  natureProjet?: NatureProjet;
   typeProjet: TypeProjet;
   ville: string;
+  quartier?: string;
   /** Le maître d'ouvrage, en clair : entreprise ou particulier. */
   maitreOuvrage: string;
   maitreOeuvre?: string;
@@ -324,6 +469,7 @@ export interface CreationProjet {
   /** En centimes. */
   budgetInitial?: number;
   description?: string;
+  informationsComplementaires?: InformationsComplementairesProjet;
   /** Le contrat du marché et ses avenants, en PDF ou image. */
   contrats?: File[];
   /** L'ordre de service de démarrage (facultatif). */
@@ -340,13 +486,22 @@ export interface CreationProjet {
 export interface ModificationProjet {
   /** Absent si l'utilisateur n'a pas le droit de renommer le projet (DG / AD uniquement, US 3.2). */
   nom?: string;
-  typeProjet: TypeProjet;
-  ville: string;
-  maitreOuvrage: string;
+  natureProjet?: NatureProjet | "";
+  typeProjet?: TypeProjet;
+  ville?: string;
+  quartier?: string;
+  maitreOuvrage?: string;
   maitreOeuvre?: string;
+  description?: string;
   /** Absentes : le planning déjà enregistré ne change pas. */
   dateDebutPrevue?: string;
   dateFinPrevue?: string;
+  dateDebutReelle?: string | null;
+  dateFinReelle?: string | null;
+  budgetInitial?: number | null;
+  informationsComplementaires?: InformationsComplementairesProjet;
+  /** Nouveaux contrats joints au projet. */
+  contrats?: File[];
   /** Nouvel ordre de service de démarrage déposé ou remplacé en configuration. */
   ordreService?: File;
 }

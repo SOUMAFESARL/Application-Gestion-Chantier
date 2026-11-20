@@ -21,6 +21,7 @@ import { chaineNonVide } from "@/lib/validations/champs";
 
 import {
   NATURES_EQUIPE,
+  NATURES_PROJET,
   ROLE_MEMBRE_PAR_DEFAUT,
   ROLES_MEMBRE_EQUIPE,
   TYPES_BORDEREAU,
@@ -45,6 +46,7 @@ import type {
   MiseAJourAvancement,
   ModificationProjet,
   NatureEquipe,
+  NatureProjet,
   PlanningProjet,
   Projet,
   Reprogrammation,
@@ -80,7 +82,8 @@ export const schemaProjet = z
       message: texte("projets.tiroirCreation.erreurNomTropLong"),
     }),
     reference: z.string().trim(),
-    // Un type prédéfini (son code) ou un libellé saisi librement.
+    natureProjet: choixParmi(NATURES_PROJET, texte("projets.tiroirCreation.erreurNatureRequise")),
+    // Un type d'ouvrage prédéfini (son code) ou un libellé saisi librement.
     typeProjet: chaineNonVide(texte("projets.tiroirCreation.erreurTypeRequis")),
     ville: chaineNonVide(texte("projets.tiroirCreation.erreurVilleRequise")),
     maitreOuvrage: chaineNonVide(texte("projets.tiroirCreation.erreurMaitreOuvrageRequis")),
@@ -128,6 +131,7 @@ export function saisieProjetVide(reference = ""): SaisieProjet {
   return {
     nom: "",
     reference,
+    natureProjet: "PRIVE",
     typeProjet: "",
     ville: "",
     maitreOuvrage: "",
@@ -146,6 +150,7 @@ export function versCreationProjet(valeurs: ValeursProjet): CreationProjet {
   return {
     nom: valeurs.nom,
     reference: valeurs.reference || undefined,
+    natureProjet: valeurs.natureProjet as NatureProjet,
     typeProjet: valeurs.typeProjet,
     ville: valeurs.ville,
     maitreOuvrage: valeurs.maitreOuvrage,
@@ -165,6 +170,7 @@ export function saisieDepuisProjet(projet: Projet): SaisieProjet {
   return {
     nom: projet.nom,
     reference: projet.reference,
+    natureProjet: projet.natureProjet ?? "PRIVE",
     typeProjet: projet.typeProjet ?? "",
     ville: projet.ville,
     maitreOuvrage: projet.client.raisonSociale,
@@ -187,6 +193,7 @@ export function versModificationProjet(
 ): ModificationProjet {
   return {
     ...(peutRenommer ? { nom: valeurs.nom } : {}),
+    natureProjet: valeurs.natureProjet as NatureProjet,
     typeProjet: valeurs.typeProjet,
     ville: valeurs.ville,
     maitreOuvrage: valeurs.maitreOuvrage,

@@ -1,9 +1,9 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CircleX, Download, LoaderCircle, Printer } from "lucide-react";
+import { CircleX, Download, LoaderCircle, Printer, RefreshCw } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -15,16 +15,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { indicateursJournalProjet } from "@/features/chantier";
 import { lireJournal } from "@/features/chantier/adaptateur";
 import { CLE_JOURNAL } from "@/features/chantier/cles";
 import { lireEntreprise } from "@/features/configuration/api";
+import { lireArbre } from "@/features/decoupage/adaptateur";
+import { cleArbre } from "@/features/decoupage/cles";
+import type { CaseArbre } from "@/features/decoupage/types";
 import { lireDocumentsOuNull } from "@/features/documents/adaptateur";
 import { useIdentitePlateforme } from "@/features/plateforme/hooks";
 import { listerEquipes, listerLots } from "@/features/projets/adaptateur";
 import { cleEquipes, cleLots } from "@/features/projets/cles";
 import { REFERENTIEL_TYPES_PROJET, useReferentiel } from "@/features/projets/referentiels";
-import type { Projet } from "@/features/projets/types";
+import type { Activite, Lot, Projet, StatutDeclare } from "@/features/projets/types";
 import { chargerImagePdf, genererDocumentPdf } from "@/lib/export/documentPdf";
 
 import { contenuFicheProjet } from "./contenuFichePdf";
@@ -38,31 +43,73 @@ async function ouNull<T>(promesse: Promise<T>): Promise<T | null> {
   }
 }
 
+function collecterFeuilles(noeud: CaseArbre): CaseArbre[] {
+  if (noeud.estFeuille || noeud.enfants.length === 0) {
+    return [noeud];
+  }
+  return noeud.enfants.flatMap(collecterFeuilles);
+}
+
+function statutDeclareDeCase(noeud: CaseArbre): StatutDeclare {
+  if (noeud.cloture || (noeud.avancement !== null && noeud.avancement >= 100)) return "TERMINE";
+  if (noeud.suspendu) return "BLOQUE";
+  if (noeud.commence || (noeud.avancement !== null && noeud.avancement > 0)) return "EN_COURS";
+  return "NON_DEMARRE";
+}
+
+function lotsDepuisArbre(projetId: string, cases: CaseArbre[]): Lot[] {
+  return cases.map((racine, idx) => {
+    const codeLot = racine.code || racine.numero || `L-${String(idx + 1).padStart(2, "0")}`;
+    const feuilles = collecterFeuilles(racine);
+    const activites: Activite[] = feuilles.map((f, fIdx) => ({
+      id: f.id,
+      lotId: racine.id,
+      code: f.code || f.numero || `${codeLot}.${String(fIdx + 1).padStart(2, "0")}`,
+      libelle: f.libelle,
+      quantitePrevue: f.quantitePrevue,
+      unite: null,
+      budget: f.montant,
+      dateDebutPrevue: f.dateDebutPrevue,
+      dateFinPrevue: f.dateFinPrevue,
+      avancement: f.avancement ?? 0,
+      quantiteRealisee: f.quantiteRealisee,
+      surCheminCritique: false,
+      dependanceId: null,
+      responsableId: null,
+      equipe:
+        f.equipes.length > 0
+          ? { id: f.equipes[0].equipeId, nom: f.equipes[0].nom, effectif: 0 }
+          : null,
+      statut: statutDeclareDeCase(f),
+    }));
+
+    return {
+      id: racine.id,
+      projetId,
+      code: codeLot,
+      nom: racine.libelle,
+      modeExecution: racine.modeExecutionEffectif || racine.modeExecution || "REGIE",
+      modeExecutionLibelle: racine.modeExecutionEffectif || racine.modeExecution || "—",
+      typeBordereau:
+        racine.typeBordereauEffectif === "PRIX_UNITAIRE" ? "PRIX_UNITAIRE" : "FORFAIT_GLOBAL",
+      budget: racine.montant,
+      dateDebut: racine.dateDebutPrevue,
+      dateFin: racine.dateFinPrevue,
+      statut: statutDeclareDeCase(racine),
+      avancement: racine.avancement,
+      avancementTemporel: racine.avancementTemporel,
+      deltaRetard: racine.ecart,
+      activites,
+    };
+  });
+}
+
 /** Le PDF généré, prêt à l'aperçu : son URL `blob:` et le nom sous lequel le télécharger. */
 interface ApercuPdf {
   url: string;
   nomFichier: string;
 }
 
-/**
- * La génération de la fiche projet (F1 §9).
- *
- * Le clic ouvre l'étape **« Imprimer »** : la fiche est générée puis montrée
- * en aperçu, et c'est seulement là qu'on choisit de la télécharger ou de
- * l'imprimer — on voit ce qu'on sort avant de le sortir. Les deux sorties
- * partent du même PDF que l'aperçu. Tout est lu au moment du clic, pour que
- * le document soit figé à cette heure-là et non à celle du dernier
- * chargement de l'écran.
- *
- * Pendant la génération, `indicateur` affiche un chargeur bloquant — les
- * lectures et la mise en page prennent quelques secondes sur une connexion
- * de chantier. En cas d'échec, le même cadre porte l'erreur et propose de
- * réessayer.
- *
- * Seuls les lots sont indispensables : sans eux, la moitié de la fiche serait
- * fausse. Le journal, les équipes, l'entreprise et son logo sont facultatifs —
- * leur absence se lit dans le document au lieu de l'empêcher.
- */
 export function useGenerationFicheProjet(projet: Projet | undefined) {
   const t = useTranslations("ficheProjet.pdf");
   const tProjets = useTranslations("projets");
@@ -72,23 +119,35 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
   const identite = useIdentitePlateforme().data;
 
   const cadre = useRef<HTMLIFrameElement>(null);
+  const [noteModifiee, setNoteModifiee] = useState<string | null>(null);
+  const noteSaisie = noteModifiee ?? projet?.informationsComplementaires?.note_cp ?? "";
 
   const generation = useMutation({
-    mutationFn: async (projet: Projet): Promise<ApercuPdf> => {
+    mutationFn: async ({
+      cible,
+      note,
+    }: {
+      cible: Projet;
+      note: string;
+    }): Promise<ApercuPdf> => {
       const maintenant = new Date();
-      const [lots, equipes, journal, entreprise, documents] = await Promise.all([
-        // La route des lots a disparu avec le découpage en arbre : le PDF sort sans eux en
-        // attendant de reprendre tous les niveaux de l'arbre (lot 14, décision P8).
+      const [lotsApi, arbre, equipes, journal, entreprise, documents] = await Promise.all([
         client
           .fetchQuery({
-            queryKey: cleLots(projet.id),
-            queryFn: ({ signal }) => listerLots(projet.id, signal),
+            queryKey: cleLots(cible.id),
+            queryFn: ({ signal }) => listerLots(cible.id, signal),
           })
           .catch(() => []),
         ouNull(
           client.fetchQuery({
-            queryKey: cleEquipes(projet.id),
-            queryFn: ({ signal }) => listerEquipes(projet.id, signal),
+            queryKey: cleArbre(cible.id),
+            queryFn: ({ signal }) => lireArbre(cible.id, signal),
+          }),
+        ),
+        ouNull(
+          client.fetchQuery({
+            queryKey: cleEquipes(cible.id),
+            queryFn: ({ signal }) => listerEquipes(cible.id, signal),
           }),
         ),
         ouNull(
@@ -100,27 +159,34 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
         ouNull(lireEntreprise()),
         lireDocumentsOuNull(),
       ]);
+      const lots =
+        lotsApi.length > 0
+          ? lotsApi
+          : arbre && arbre.cases.length > 0
+            ? lotsDepuisArbre(cible.id, arbre.cases)
+            : [];
       const logo = await chargerImagePdf(entreprise?.logo_original ?? entreprise?.logo);
 
       const contenu = contenuFicheProjet((cle, valeurs) => t(cle, valeurs), {
-        projet,
+        projet: cible,
         lots,
         equipes,
         journal: journal
-          ? indicateursJournalProjet(journal.entrees, projet.id, journal.aujourdhui)
+          ? indicateursJournalProjet(journal.entrees, cible.id, journal.aujourdhui)
           : null,
         entreprise,
         logo,
         documents,
-        note: "",
+        note,
         marque: identite?.nom || tMarque("nom"),
         libelles: {
-          typeProjet: (type) =>
-            libelleType(type),
+          natureProjet: (nature) => tProjets(`natureProjet.${nature}`),
+          typeProjet: (type) => libelleType(type),
           statutProjet: (statut) => tProjets(`statut.${statut}`),
           typeBordereau: (type) => tProjets(`tiroirCreation.typeBordereau.${type}`),
           statutActivite: (statut) => tProjets(`lotsActivites.statutActivite.${statut}`),
-          fonctionAutreMembre: (fonction) => tProjets(`encadrement.fonctionAutreMembre.${fonction}`),
+          fonctionAutreMembre: (fonction) =>
+            tProjets(`encadrement.fonctionAutreMembre.${fonction}`),
         },
         maintenant,
       });
@@ -137,7 +203,9 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
   }, [url]);
 
   function generer() {
-    if (projet && !generation.isPending) generation.mutate(projet);
+    if (projet && !generation.isPending) {
+      generation.mutate({ cible: projet, note: noteSaisie });
+    }
   }
 
   function telecharger() {
@@ -148,11 +216,6 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
     lien.click();
   }
 
-  /**
-   * On imprime le PDF de l'aperçu, pas la page : imprimer l'écran donnerait
-   * un autre papier. Un navigateur qui refuse d'imprimer le cadre (lecteur
-   * PDF externe, mobile) reçoit le PDF dans un onglet, où il s'imprime.
-   */
   function imprimer() {
     if (!generation.data) return;
     try {
@@ -166,9 +229,16 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
   const ouverte = generation.isPending || generation.isError || generation.isSuccess;
 
   const indicateur = (
-    <Dialog open={ouverte} onOpenChange={(ouvert) => !ouvert && !generation.isPending && generation.reset()}>
+    <Dialog
+      open={ouverte}
+      onOpenChange={(ouvert) => !ouvert && !generation.isPending && generation.reset()}
+    >
       <DialogContent
-        className={generation.isSuccess ? "flex h-[90vh] flex-col sm:max-w-[960px]" : "sm:max-w-[420px]"}
+        className={
+          generation.isSuccess
+            ? "flex h-[90vh] flex-col sm:max-w-[960px]"
+            : "sm:max-w-[420px]"
+        }
         showCloseButton={!generation.isPending}
       >
         <DialogHeader>
@@ -184,6 +254,25 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
 
         {generation.isSuccess ? (
           <>
+            <div className="flex items-end gap-2 rounded-md border border-solid border-neutral-200 bg-neutral-50 p-2.5">
+              <div className="flex flex-1 flex-col gap-1">
+                <Label htmlFor="pdf-note-cp" className="text-xs font-semibold text-neutral-700">
+                  {t("generation.champNote")}
+                </Label>
+                <Textarea
+                  id="pdf-note-cp"
+                  rows={2}
+                  value={noteSaisie}
+                  placeholder={t("generation.champNotePlaceholder")}
+                  onChange={(e) => setNoteModifiee(e.target.value)}
+                  className="bg-white text-xs"
+                />
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={generer}>
+                <RefreshCw className="size-3.5" aria-hidden="true" />
+                {t("generation.actualiserApercu")}
+              </Button>
+            </div>
             <iframe
               ref={cadre}
               src={generation.data.url}
