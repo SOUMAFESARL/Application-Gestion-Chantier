@@ -136,6 +136,7 @@ interface ChargeProjet {
   } | null;
   maitre_oeuvre?: string | null;
   contrat?: ChargeContrat[];
+  ordre_service?: ChargeOrdreService | null;
   chef_projet?: ChargeIntervenant | null;
   conducteurs_travaux?: ChargeIntervenant[];
   chefs_chantier?: ChargeChefChantier[];
@@ -162,6 +163,13 @@ interface ChargeStatistiques {
 
 interface ChargeContrat {
   id: string;
+  nom: string;
+  taille: number;
+  type_contenu: string;
+  url: string;
+}
+
+interface ChargeOrdreService {
   nom: string;
   taille: number;
   type_contenu: string;
@@ -408,6 +416,14 @@ export function versProjet(charge: ChargeProjet, affectations: ChargeAffectation
       : null,
     maitreOeuvre: charge.maitre_oeuvre || null,
     contrats: (charge.contrat ?? []).map(versContrat),
+    ordreService: charge.ordre_service
+      ? {
+          nom: charge.ordre_service.nom,
+          taille: charge.ordre_service.taille,
+          typeContenu: charge.ordre_service.type_contenu,
+          url: charge.ordre_service.url,
+        }
+      : null,
     chefProjet: versIntervenant(charge.chef_projet),
     chefProjetModifiable: affectationChef?.modifiable === true,
     conducteursTravaux: intervenants(charge.conducteurs_travaux),
@@ -533,19 +549,23 @@ export async function lireProjet(id: string): Promise<Projet> {
 }
 
 /**
- * Sans contrat, la création part en JSON. Avec, elle part en `multipart` :
- * les champs à plat, et un `contrats` répété par fichier — la forme que lit
- * `request.FILES.getlist("contrats")` côté Django.
+ * Sans fichier joint, la création part en JSON. Avec contrat ou ordre de service, elle part en
+ * `multipart` : les champs à plat, un `contrat` répété par fichier et `ordre_service`.
  */
 function versCorpsCreation(creation: CreationProjet): ChargeCreationProjet | FormData {
   const charge = versChargeCreation(creation);
-  if (!creation.contrats?.length) return charge;
+  if (!creation.contrats?.length && !creation.ordreService) return charge;
 
   const corps = new FormData();
   for (const [cle, valeur] of Object.entries(charge)) {
     if (valeur !== undefined && valeur !== "") corps.append(cle, String(valeur));
   }
-  for (const contrat of creation.contrats) corps.append("contrats", contrat, contrat.name);
+  for (const contrat of creation.contrats ?? []) {
+    corps.append("contrat", contrat, contrat.name);
+  }
+  if (creation.ordreService) {
+    corps.append("ordre_service", creation.ordreService, creation.ordreService.name);
+  }
   return corps;
 }
 
@@ -553,13 +573,38 @@ export async function creerProjet(creation: CreationProjet): Promise<Projet> {
   return versProjet(await api.creer<ChargeProjet>("/projets/", versCorpsCreation(creation)));
 }
 
+function versCorpsModification(
+  modification: ModificationProjet,
+): Record<string, unknown> | FormData {
+  const charge = versChargeModification(modification);
+  if (!modification.ordreService) return charge;
+
+  const corps = new FormData();
+  for (const [cle, valeur] of Object.entries(charge)) {
+    if (valeur !== undefined && valeur !== "") corps.append(cle, String(valeur));
+  }
+  corps.append("ordre_service", modification.ordreService, modification.ordreService.name);
+  return corps;
+}
+
 export async function modifierProjet(
   id: string,
   modification: ModificationProjet,
 ): Promise<Projet> {
   return versProjet(
-    await api.modifier<ChargeProjet>(`/projets/${id}/`, versChargeModification(modification)),
+    await api.modifier<ChargeProjet>(`/projets/${id}/`, versCorpsModification(modification)),
   );
+}
+
+export async function telechargerOrdreServiceProjet(projetId: string): Promise<Blob> {
+  return api.telecharger(`/projets/${projetId}/ordre-service/`);
+}
+
+export async function telechargerContratProjet(
+  projetId: string,
+  contratId: string,
+): Promise<Blob> {
+  return api.telecharger(`/projets/${projetId}/?contrat=${contratId}`);
 }
 
 /**

@@ -32,7 +32,13 @@ import type { Projet } from "@/features/projets/types";
 import { ErreurApi } from "@/lib/api";
 import { ABSENT, centimesEnFrancs, formaterDate, formaterMontant } from "@/lib/format";
 
-import { enregistrerAvenant, listerAvenants, retirerAvenant, telechargerDocumentAvenant } from "../adaptateur";
+import {
+  enregistrerAvenant,
+  listerAvenants,
+  retirerAvenant,
+  telechargerDocumentAvenant,
+  telechargerOrdreServiceAvenant,
+} from "../adaptateur";
 import { cleAvenants } from "../cles";
 import type { Avenant } from "../types";
 
@@ -66,6 +72,18 @@ export function OngletAvenants({ projet }: { projet: Projet }) {
     onError: (e) => toast.error(e instanceof ErreurApi && e.message ? e.message : t("erreur")),
   });
 
+  const ordreService = useMutation({
+    mutationFn: async (avenant: Avenant) => {
+      const fichier = await telechargerOrdreServiceAvenant(avenant.id);
+      const lien = window.document.createElement("a");
+      lien.href = URL.createObjectURL(fichier);
+      lien.download = avenant.ordreService?.nom || `ordre-service-avenant-${avenant.numero}`;
+      lien.click();
+      URL.revokeObjectURL(lien.href);
+    },
+    onError: (e) => toast.error(e instanceof ErreurApi && e.message ? e.message : t("erreur")),
+  });
+
   const colonnes = useMemo(
     () => [
       colonne.display({ id: "numero", header: t("colonnes.numero"), cell: ({ row }) => <span className="font-medium">{row.original.numero}</span> }),
@@ -91,6 +109,25 @@ export function OngletAvenants({ projet }: { projet: Projet }) {
         header: t("colonnes.porteSur"),
         cell: ({ row }) =>
           row.original.porteSur === "PROJET" ? t("projetEntier") : row.original.cases.map((c) => c.libelle).join(", "),
+      }),
+      colonne.display({
+        id: "ordreService",
+        header: t("colonnes.ordreService"),
+        cell: ({ row }) =>
+          row.original.ordreService ? (
+            <button
+              type="button"
+              onClick={() => ordreService.mutate(row.original)}
+              disabled={ordreService.isPending}
+              title={row.original.ordreService.nom}
+              className="inline-flex max-w-48 cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-left text-xs font-medium text-primary-600 hover:underline"
+            >
+              <FileDown className="size-3.5 shrink-0" aria-hidden="true" />
+              <span className="truncate">{row.original.ordreService.nom}</span>
+            </button>
+          ) : (
+            ABSENT
+          ),
       }),
       colonne.display({
         id: "actions",
@@ -125,7 +162,7 @@ export function OngletAvenants({ projet }: { projet: Projet }) {
         meta: { classe: BORD_DROIT_TABLEAU },
       }),
     ],
-    [t, voitMontants, permis, document],
+    [t, voitMontants, permis, document, ordreService],
   );
 
   const exporter = useMemo<ExportTableau<Avenant>>(
@@ -143,6 +180,10 @@ export function OngletAvenants({ projet }: { projet: Projet }) {
         {
           entete: t("colonnes.porteSur"),
           valeur: (a) => (a.porteSur === "PROJET" ? t("projetEntier") : a.cases.map((c) => c.libelle).join(", ")),
+        },
+        {
+          entete: t("colonnes.ordreService"),
+          valeur: (a) => a.ordreService?.nom ?? "",
         },
       ],
     }),
@@ -206,11 +247,15 @@ function TiroirAvenant({ projet, onFermer, onEnregistre }: { projet: Projet; onF
   const [montant, setMontant] = useState("");
   const [cases, setCases] = useState<string[]>([]);
   const [fichier, setFichier] = useState<File | null>(null);
+  const [ordreServiceFichier, setOrdreServiceFichier] = useState<File | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
 
   const ecriture = useMutation({
-    mutationFn: () =>
-      enregistrerAvenant(projet.id, {
+    mutationFn: () => {
+      if (!ordreServiceFichier) {
+        throw new Error(t("erreurOrdreServiceRequis"));
+      }
+      return enregistrerAvenant(projet.id, {
         numero,
         dateSignature: date,
         objet,
@@ -219,7 +264,9 @@ function TiroirAvenant({ projet, onFermer, onEnregistre }: { projet: Projet; onF
         montant: montant.trim() === "" ? null : Math.round(Number(montant) * 100),
         casesIds: cases,
         document: fichier,
-      }),
+        ordreService: ordreServiceFichier,
+      });
+    },
     onSuccess: async (avenant) => {
       toast.success(t("succes", { numero: avenant.numero }));
       onFermer();
@@ -228,7 +275,7 @@ function TiroirAvenant({ projet, onFermer, onEnregistre }: { projet: Projet; onF
     onError: (e) => setErreur(messageErreur(e, t("erreur"))),
   });
 
-  const complet = numero.trim() && date && objet.trim();
+  const complet = Boolean(numero.trim() && date && objet.trim() && ordreServiceFichier);
 
   return (
     <Sheet open onOpenChange={(ouvert) => !ouvert && !ecriture.isPending && onFermer()}>
@@ -274,6 +321,21 @@ function TiroirAvenant({ projet, onFermer, onEnregistre }: { projet: Projet; onF
               <span className="text-sm text-neutral-500">{t("projetEntier")}</span>
             )}
           </div>
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+            <span>
+              {t("ordreService")}{" "}
+              <span className="text-erreur" aria-hidden="true">
+                *
+              </span>
+            </span>
+            <Input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              required
+              onChange={(e) => setOrdreServiceFichier(e.target.files?.[0] ?? null)}
+            />
+            <span className="text-xs font-normal text-neutral-500">{t("ordreServiceAide")}</span>
+          </label>
           <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
             {t("document")}
             <Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setFichier(e.target.files?.[0] ?? null)} />
