@@ -256,14 +256,25 @@ export function ListeProjets() {
         }),
         colonne.accessor("typeProjet", {
           header: t("colonneType"),
-          cell: ({ getValue }) => {
+          cell: ({ row, getValue }) => {
             const type = getValue();
-            return type ? (
-              <Badge variante="neutre">
-                {libelleType(type)}
-              </Badge>
-            ) : (
-              <span className="text-neutral-500">{ABSENT}</span>
+            const nature = row.original.natureProjet;
+            if (!type && !nature) {
+              return <span className="text-neutral-500">{ABSENT}</span>;
+            }
+            return (
+              <span className="flex flex-wrap items-center gap-1.5">
+                {nature && (
+                  <Badge variante={nature === "PUBLIC" ? "secondaire" : "primaire"}>
+                    {t(`natureProjet.${nature}`)}
+                  </Badge>
+                )}
+                {type && (
+                  <Badge variante="neutre">
+                    {libelleType(type)}
+                  </Badge>
+                )}
+              </span>
             );
           },
         }),

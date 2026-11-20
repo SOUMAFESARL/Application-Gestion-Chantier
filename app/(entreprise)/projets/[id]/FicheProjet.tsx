@@ -148,6 +148,7 @@ const FILET = "mt-auto border-0 border-t border-solid border-neutral-900/10 pt-3
 
 export function FicheProjet({ projetId }: { projetId: string }) {
   const t = useTranslations("ficheProjet");
+  const tProjets = useTranslations("projets");
   const { libelle: libelleType } = useReferentiel(REFERENTIEL_TYPES_PROJET);
 
   const requete = useQuery({
@@ -238,6 +239,11 @@ export function FicheProjet({ projetId }: { projetId: string }) {
             <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
               <Information libelle={t("informations.reference")}>
                 <span className="font-mono">{projet.reference}</span>
+              </Information>
+              <Information libelle={t("informations.natureProjet")}>
+                {projet.natureProjet
+                  ? tProjets(`natureProjet.${projet.natureProjet}`)
+                  : t("informations.nonRenseigne")}
               </Information>
               <Information libelle={t("informations.type")}>
                 {projet.typeProjet

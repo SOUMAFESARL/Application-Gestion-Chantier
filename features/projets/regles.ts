@@ -31,6 +31,7 @@ import type {
   MembreEquipe,
   ModeExecutionBase,
   NatureEquipe,
+  NatureProjet,
   Projet,
   SanteProjet,
   StatutActivite,
@@ -595,6 +596,9 @@ export const INDICE_SANTE_INITIAL = 100;
 /* ------------------------------------------------------------------ *
  * La création d'un projet.
  * ------------------------------------------------------------------ */
+
+/** Les deux natures de projet (T1 : public ou privé). */
+export const NATURES_PROJET: readonly NatureProjet[] = ["PUBLIC", "PRIVE"];
 
 /**
  * Les natures de projet proposées, dans l'ordre du combobox. Pas d'« Autre » :
@@ -2257,7 +2261,14 @@ export function libellePerimetre(cases: { chemin: string[] }[]): string {
   return cases.map((une) => une.chemin.join(" › ")).join(" ; ");
 }
 
-export const ONGLETS_PROJET = ["synthese", "decoupage", "avancement", "equipes", "avenants"] as const;
+export const ONGLETS_PROJET = [
+  "synthese",
+  "decoupage",
+  "avancement",
+  "equipes",
+  "avenants",
+  "configuration",
+] as const;
 export type OngletProjet = (typeof ONGLETS_PROJET)[number];
 
 /**

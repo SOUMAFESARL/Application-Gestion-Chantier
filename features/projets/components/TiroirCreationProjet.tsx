@@ -42,6 +42,7 @@ import {
 } from "@/features/projets/adaptateur";
 import {
   FORMAT_CONTRAT,
+  NATURES_PROJET,
   NOMBRE_MAX_CONTRATS,
   TAILLE_MAX_CONTRAT,
   datesVerrouillees,
@@ -279,6 +280,53 @@ export function TiroirCreationProjet({
             )}
           >
             <TitreSection>{t("sectionIdentification")}</TitreSection>
+
+            <FormField
+              control={form.control}
+              name="natureProjet"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {t("champNatureProjet")} <Requis />
+                  </FormLabel>
+                  <FormControl>
+                    <div
+                      role="radiogroup"
+                      aria-label={t("champNatureProjet")}
+                      className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1"
+                    >
+                      {NATURES_PROJET.map((nature) => {
+                        const actif = field.value === nature;
+                        return (
+                          <button
+                            key={nature}
+                            type="button"
+                            role="radio"
+                            aria-checked={actif}
+                            disabled={enCours}
+                            onClick={() => field.onChange(nature)}
+                            className={cn(
+                              "flex cursor-pointer flex-col items-start gap-0.5 rounded-md border px-3.5 py-2.5 text-left transition-colors",
+                              actif
+                                ? "border-primary bg-primary-50/70 text-neutral-900"
+                                : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50",
+                            )}
+                          >
+                            <span className="text-sm font-semibold">
+                              {t(`natureProjet.${nature}`)}
+                            </span>
+                            <span className="text-xs text-neutral-500">
+                              {t(`natureProjetDescription.${nature}`)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className={RANGEE}>
               <FormField

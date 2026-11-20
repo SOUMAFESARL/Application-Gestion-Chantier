@@ -1590,7 +1590,8 @@
     "informations": {
       "titre": "Informations générales",
       "reference": "Référence",
-      "type": "Type de projet",
+      "natureProjet": "Type de projet",
+      "type": "Type d'ouvrage",
       "localisation": "Localisation",
       "maitreOuvrage": "Maître d'ouvrage",
       "maitreOeuvre": "Maître d'œuvre",
@@ -1634,6 +1635,9 @@
         "reessayer": "Réessayer",
         "apercu": "Vérifiez la fiche avant de la télécharger ou de l'imprimer.",
         "titreApercu": "Aperçu de la fiche projet",
+        "champNote": "Note du chef de projet (imprimée au bas de la fiche)",
+        "champNotePlaceholder": "Ajoutez ou modifiez un commentaire de synthèse pour cette édition PDF…",
+        "actualiserApercu": "Actualiser l'aperçu",
         "telecharger": "Télécharger",
         "imprimer": "Imprimer"
       },
@@ -1649,35 +1653,70 @@
         "inconnu": "Non calculé"
       },
       "sections": {
-        "identification": "1. Identification",
-        "calendrierBudget": "2. Calendrier & budget",
-        "avancement": "3. Avancement global",
-        "indicateurs": "4. Indicateurs clés",
-        "risques": "5. Risques et vigilance",
-        "equipe": "6. Équipe d'encadrement et de gestion",
-        "prochainesEtapes": "7. Prochaines étapes",
-        "note": "8. Note du chef de projet",
+        "identification": "1. Identification du projet",
+        "programme": "2. Programme et caractéristiques",
+        "calendrierBudget": "3. Calendrier & budget",
+        "financement": "4. Financement",
+        "foncierEtudes": "5. Foncier, autorisations et études",
+        "avancement": "6. Avancement global",
+        "indicateurs": "7. Indicateurs clés",
+        "risques": "8. Risques, blocages et recommandations",
+        "equipe": "9. Équipe d'encadrement et intervenants",
+        "prochainesEtapes": "10. Prochaines étapes (J+14)",
+        "note": "11. Note du chef de projet",
         "signatures": "Validation et signatures"
       },
       "identification": {
+        "natureProjet": "Type de projet",
         "client": "Client (maître d'ouvrage)",
+        "maitreOuvrage": "Maître d'ouvrage (MOA)",
         "contactClient": "Contact client",
         "maitreOeuvre": "Maître d'œuvre",
+        "delegue": "Maître d'ouvrage délégué (MOD)",
+        "tutelle": "Ministère / Tutelle technique",
+        "agence": "Agence d'exécution",
+        "operateur": "Opérateur / Entreprise titulaire",
+        "numeroFiche": "N° de fiche / Réf. marché",
+        "secteur": "Secteur d'activité",
+        "phase": "Phase du projet",
+        "region": "Région / District",
         "localisation": "Localisation",
         "type": "Type d'ouvrage",
         "reference": "Référence",
-        "description": "Description",
+        "description": "Objet et description",
+        "interet": "Justification et intérêt du projet",
+        "objectifs": "Objectifs spécifiques",
+        "ordreService": "Ordre de service de démarrage",
+        "contrats": "Contrat(s) du marché",
         "nonRenseigne": "Non renseigné"
       },
+      "programme": {
+        "capaciteProjet": "Capacité prévue (phase actuelle)",
+        "capaciteTerme": "Capacité à terme",
+        "uniteCapacite": "Unité / nature de capacité",
+        "lits": "Capacité d'hébergement / lits",
+        "superficieHa": "Superficie du site (ha)",
+        "terrainM2": "Superficie du terrain (m²)",
+        "surfaceBatie": "Surface bâtie / linéaire",
+        "niveaux": "Nombre de niveaux / gabarit",
+        "usage": "Destination / usage de l'ouvrage",
+        "perimetre": "Périmètre & consistance technique",
+        "offreFormation": "Programme fonctionnel / filières / composantes",
+        "impacts": "Impacts et résultats attendus"
+      },
       "calendrier": {
+        "dateSituation": "Date de situation",
         "debutPrevu": "Début prévu",
         "finPrevue": "Fin prévue",
         "duree": "Durée contractuelle",
+        "dureeContrat": "Durée marché déclarée",
         "debutReel": "Démarrage réel",
+        "finReelle": "Fin réelle",
         "nonDemarre": "Pas encore démarré",
         "delaiEcoule": "Délai écoulé",
         "delaiEcouleValeur": "{valeur} %",
         "echeance": "Échéance",
+        "reprogrammation": "Historique de reprogrammation",
         "joursRestants": "{jours, plural, =0 {Aujourd'hui} one {Dans # jour} other {Dans # jours}}",
         "echeanceDepassee": "{jours, plural, one {Dépassée de # jour} other {Dépassée de # jours}}",
         "termineLe": "Terminé le {date}",
@@ -1685,15 +1724,62 @@
       },
       "budget": {
         "initial": "Budget prévisionnel",
-        "consomme": "Réalisé",
+        "contractuel": "Budget contractuel en vigueur",
+        "coutDeclare": "Coût global estimé",
+        "devise": "Devise",
+        "tauxChange": "Taux de change (1 {devise} en FCFA)",
+        "regime": "Régime fiscal et douanier",
+        "consomme": "Réalisé valorisé",
         "restant": "Reste à réaliser",
         "depasse": "Dépassement",
         "part": "{valeur} % du budget",
         "nonDefini": "Non défini"
       },
+      "financement": {
+        "modeFin": "Mode de financement",
+        "sourceFin": "Source de financement",
+        "statutFin": "Statut du financement",
+        "etablissement": "Établissement financier / Banque",
+        "contractualisation": "Mode de contractualisation",
+        "etatImputation": "État d'imputation budgétaire",
+        "etatEffectif": "Montant mobilisé / mis en vigueur",
+        "etatDecaissement": "Décaissements cumulés",
+        "procedure": "Procédure de passation",
+        "texteApplicable": "Texte réglementaire applicable",
+        "historique": "Historique et observations financières",
+        "bailleurs": {
+          "org": "Bailleur / Source",
+          "type": "Nature (Prêt / Don / État)",
+          "signature": "Signature",
+          "limite": "Date limite",
+          "effectif": "Montant engagé",
+          "decaisse": "Décaissé",
+          "vide": "Aucune convention de financement renseignée."
+        }
+      },
+      "foncierEtudes": {
+        "disponibilite": "Disponibilité du site / emprise",
+        "delimitation": "Délimitation et bornage",
+        "titreFoncier": "Titre foncier / ACD",
+        "permisStatut": "Statut du permis de construire",
+        "permisNum": "N° du permis / arrêté",
+        "purgeTotal": "Purge / indemnisations — coût total",
+        "purgeEngage": "Purge — montant engagé",
+        "purgePaye": "Purge — montant payé",
+        "etudes": {
+          "nom": "Étude",
+          "statut": "Statut",
+          "avancement": "Avancement",
+          "prestataire": "Cabinet / Prestataire",
+          "montant": "Montant",
+          "vide": "Aucune étude préalable renseignée."
+        }
+      },
       "avancement": {
         "reel": "Avancement réel",
         "theorique": "Avancement temporel",
+        "tauxDeclare": "Taux physique consolidé déclaré",
+        "etatNarratif": "Constat d'avancement détaillé",
         "ecart": "Écart au temporel : {valeur} pts"
       },
       "delta": {
@@ -1702,15 +1788,15 @@
         "dansLesDelais": "Dans les délais"
       },
       "lots": {
-        "numero": "N°",
-        "lot": "Lot",
-        "mode": "Mode d'exécution",
+        "numero": "Code",
+        "lot": "Composante / Lot",
+        "mode": "Mode / Prestataire",
         "bordereau": "Bordereau",
         "avancement": "Avancement",
-        "budget": "Budget lot (FCFA)",
+        "budget": "Montant (FCFA)",
         "statut": "Statut",
         "sansActivite": "Aucune activité",
-        "vide": "Aucun lot n'est encore structuré sur ce projet."
+        "vide": "Aucun lot ou composante n'est encore structuré sur ce projet."
       },
       "indicateurs": {
         "respectDelais": "Respect des délais",
@@ -1732,29 +1818,46 @@
         "LOT_EN_RETARD": "Lot {code} — {nom} : en retard.",
         "ACTIVITE_EN_RETARD": "{code} {libelle} : {reel} réalisés pour {theorique} attendus, fin prévue le {fin}.",
         "BLOCAGES": "{nombre, plural, one {# blocage signalé} other {# blocages signalés}} au journal de chantier sur les neuf dernières semaines.",
-        "vide": "Aucun point de vigilance à la date de génération."
+        "vide": "Aucun point de vigilance à la date de génération.",
+        "difficultes": {
+          "desc": "Difficulté / Blocage",
+          "gravite": "Gravité",
+          "date": "Date",
+          "statut": "Statut"
+        },
+        "recos": {
+          "texte": "Recommandation / Action corrective",
+          "dest": "Responsable / Destinataire",
+          "echeance": "Échéance"
+        }
       },
       "equipe": {
         "role": "Rôle",
         "nom": "Nom & prénom",
         "telephone": "Téléphone",
         "email": "Email",
+        "coordonnateur": "Coordonnateur du projet",
         "nonDesigne": "Non désigné",
         "equipesChantier": "Sur le chantier : {equipes, plural, =0 {aucune équipe constituée} one {# équipe} other {# équipes}}, {personnes, plural, =0 {aucune personne} one {# personne} other {# personnes}}.",
         "chefProjet": "Chef de projet",
         "conducteurTravaux": "Conducteur de travaux",
         "chefChantier": "Chef de chantier",
-        "chefChantierZone": "Chef de chantier — {zone}"
+        "chefChantierZone": "Chef de chantier — {zone}",
+        "intervenants": {
+          "role": "Rôle / Mission",
+          "org": "Entreprise / Organisme",
+          "lot": "Périmètre / Lot"
+        }
       },
       "etapes": {
         "code": "Code",
-        "activite": "Activité",
-        "lot": "Lot",
+        "activite": "Activité / Étape",
+        "lot": "Lot / Périmètre",
         "debut": "Début prévu",
-        "fin": "Fin prévue",
-        "equipe": "Équipe",
+        "fin": "Échéance / Fin",
+        "equipe": "Responsable / Équipe",
         "aAffecter": "À affecter",
-        "vide": "Aucune activité ne démarre dans les 14 prochains jours."
+        "vide": "Aucune activité ou étape ne démarre dans les 14 prochains jours."
       },
       "note": {
         "auteur": "{nom} — Chef de projet · {date}",
@@ -1776,7 +1879,330 @@
       "decoupage": "Découpage",
       "avancement": "Avancement",
       "equipes": "Équipes",
-      "avenants": "Avenants"
+      "avenants": "Avenants",
+      "configuration": "Configuration"
+    },
+    "configuration": {
+      "titre": "Configuration et informations complémentaires",
+      "sousTitre": "Renseignez les rubriques de la fiche projet selon sa nature (Projet public ou Projet privé). Ces informations alimentent automatiquement la fiche projet imprimable (PDF).",
+      "completion": "Complétion : {pct} %",
+      "compteurRubrique": "{remplis}/{total}",
+      "enregistrer": "Enregistrer la configuration",
+      "enregistrementEnCours": "Enregistrement…",
+      "apercuPdf": "Aperçu & Impression PDF",
+      "succesEnregistrement": "La configuration du projet a été enregistrée.",
+      "erreurEnregistrement": "Impossible d'enregistrer la configuration du projet.",
+      "rubriquesTitre": "Rubriques de la fiche",
+      "badgePublic": "Marché public",
+      "badgePrive": "Marché privé",
+      "legendeTitre": "Adaptation selon le type de projet",
+      "legendePublic": "Projet public : affiche la tutelle, le MOD, l'agence d'exécution, les conventions bailleurs, la purge foncière et la passation de marché.",
+      "legendePrive": "Projet privé : affiche le promoteur/client, le titre foncier, le permis de construire et le financement bancaire ou fonds propres.",
+      "ajouterLigne": "Ajouter une ligne",
+      "supprimerLigne": "Supprimer la ligne",
+      "aucuneLigne": "Aucune ligne renseignée.",
+      "importerDecoupage": "Importer les lots depuis le découpage",
+      "importDecoupageSucces": "{nombre, plural, =0 {Aucun lot trouvé dans le découpage.} one {# lot importé depuis le découpage.} other {# lots importés depuis le découpage.}}",
+      "selectionner": "— Sélectionner —",
+      "rubriques": {
+        "s1": {
+          "titre": "1. Identification du projet",
+          "sousTitre": "Identité juridique, localisation, maîtrise d'ouvrage, tutelle et objectifs"
+        },
+        "s2": {
+          "titre": "2. Programme et caractéristiques",
+          "sousTitre": "Capacités d'accueil ou de l'ouvrage, surfaces, gabarit, consistance technique et impacts"
+        },
+        "s3": {
+          "titre": "3. Calendrier, budget et pièces",
+          "sousTitre": "Dates clés, coût global, devise, régime fiscal, contrat et ordre de service de démarrage"
+        },
+        "s4": {
+          "titre": "4. Financement",
+          "sousTitre": "Sources de financement, conventions bailleurs, état des décaissements et passation"
+        },
+        "s5": {
+          "titre": "5. Foncier, autorisations et études",
+          "sousTitre": "Disponibilité du site, titre foncier ou purge des droits, permis de construire et études"
+        },
+        "s6": {
+          "titre": "6. Avancement global",
+          "sousTitre": "Constat physique narratif et avancement détaillé par composante ou lot"
+        },
+        "s7": {
+          "titre": "7. Risques, blocages et recommandations",
+          "sousTitre": "Points de vigilance, difficultés rencontrées et actions correctives"
+        },
+        "s8": {
+          "titre": "8. Équipe et intervenants",
+          "sousTitre": "Coordonnateur, encadrement chantier et entreprises intervenantes (MOE, BCT, OPC, lots)"
+        },
+        "s9": {
+          "titre": "9. Prochaines étapes et note du CP",
+          "sousTitre": "Feuille de route à 14 jours et note de synthèse du chef de projet pour l'édition PDF"
+        }
+      },
+      "champs": {
+        "natureProjet": "Type de projet (public ou privé)",
+        "nom": "Intitulé du projet",
+        "reference": "Référence système",
+        "numeroFiche": "N° de fiche / Réf. marché public",
+        "numeroFichePlaceholder": "Ex : FP-2026-001 ou N° Marché",
+        "typeProjet": "Type d'ouvrage",
+        "secteur": "Secteur d'activité",
+        "phase": "Phase actuelle du projet",
+        "region": "Région / District",
+        "regionPlaceholder": "Ex : District Autonome d'Abidjan, Gbêkê…",
+        "ville": "Ville / Localité",
+        "quartier": "Commune / Quartier / Site",
+        "quartierPlaceholder": "Ex : Cocody Riviera, Zone Industrielle…",
+        "maitreOuvrage": "Maître d'ouvrage (MOA) / Client",
+        "contact": "Contact MOA / Client (téléphone, email)",
+        "contactPlaceholder": "Ex : +225 07 00 00 00 00 · contact@moa.ci",
+        "maitreOeuvre": "Maître d'œuvre (MOE) / Bureau d'études",
+        "delegue": "Maître d'ouvrage délégué (MOD)",
+        "deleguePlaceholder": "Ex : AGEROUTE, BNETD, AGETUR…",
+        "tutelle": "Ministère / Tutelle technique",
+        "tutellePlaceholder": "Ex : Ministère de l'Équipement et de l'Entretien Routier",
+        "agence": "Agence d'exécution / Unité de gestion",
+        "agencePlaceholder": "Ex : Cellule de Coordination du Projet",
+        "operateur": "Opérateur / Entreprise titulaire principale",
+        "operateurPlaceholder": "Ex : Groupement d'entreprises titulaire",
+        "description": "Objet et description générale des travaux",
+        "interet": "Justification et intérêt socio-économique du projet",
+        "interetPlaceholder": "Contexte stratégique, besoins couverts, bénéficiaires…",
+        "objectifs": "Objectifs spécifiques (1 objectif par ligne)",
+        "objectifsPlaceholder": "Saisissez un objectif par ligne…",
+        "uniteCapacite": "Unité / nature de capacité (pour projet public)",
+        "uniteCapacitePlaceholder": "Ex : étudiants, lits, usagers/jour, ml, km, logements…",
+        "capaciteProjet": "Capacité prévue (phase actuelle)",
+        "capaciteProjetPlaceholder": "Ex : 5 000 étudiants ou 12,5 km",
+        "capaciteTerme": "Capacité à terme (horizon final)",
+        "capaciteTermePlaceholder": "Ex : 15 000 étudiants ou 25 km",
+        "lits": "Capacité d'hébergement / lits / unités",
+        "litsPlaceholder": "Ex : 2 500 lits (laisser vide si non applicable)",
+        "superficieHa": "Superficie du site / emprise (ha)",
+        "superficieHaPlaceholder": "Ex : 152 ha",
+        "terrainM2": "Superficie du terrain (m²)",
+        "terrainM2Placeholder": "Ex : 4 500 m²",
+        "surfaceBatie": "Surface bâtie totale ou linéaire (m² / ml)",
+        "surfaceBatiePlaceholder": "Ex : 18 400 m² SHON ou 850 ml",
+        "niveaux": "Nombre de niveaux / Gabarit de l'ouvrage",
+        "niveauxPlaceholder": "Ex : R+8 + 2 sous-sols, ou Pont 2x2 voies",
+        "usage": "Destination / Usage principal",
+        "usagePlaceholder": "Ex : Résidentiel haut standing, Bureaux, Ouvrage routier…",
+        "perimetre": "Périmètre et consistance technique des travaux",
+        "perimetrePlaceholder": "Détail des ouvrages, bâtiments, voiries, réseaux…",
+        "offreFormation": "Programme fonctionnel / Filières / Composantes",
+        "offreFormationPlaceholder": "Composantes fonctionnelles ou offre de service de l'ouvrage…",
+        "impacts": "Impacts et résultats attendus (1 par ligne)",
+        "impactsPlaceholder": "Saisissez un impact ou résultat attendu par ligne…",
+        "dateSituation": "Date de situation / d'arrêté de la fiche",
+        "dateDebutPrevue": "Date de début prévue",
+        "dateFinPrevue": "Date de fin prévue",
+        "dateDebutReelle": "Date de démarrage réel",
+        "dateFinReelle": "Date de fin réelle",
+        "dureeContrat": "Durée contractuelle déclarée",
+        "dureeContratPlaceholder": "Ex : 24 mois (hors saison des pluies)",
+        "reprogrammation": "Synthèse des avenants de délai / reprogrammations",
+        "reprogrammationPlaceholder": "Ex : Prorogation de 3 mois par OS n°2…",
+        "cout": "Coût global estimé du projet",
+        "coutPlaceholder": "Ex : 44 630 000 000",
+        "devise": "Devise de référence",
+        "tauxChange": "Taux de change (1 devise en FCFA)",
+        "tauxChangePlaceholder": "Ex : 655,957",
+        "budgetContractuel": "Montant du marché / Budget contractuel (FCFA)",
+        "budgetContractuelPlaceholder": "Ex : 12 500 000 000 FCFA",
+        "regime": "Régime fiscal et douanier",
+        "modeFin": "Mode de financement",
+        "sourceFin": "Source de financement",
+        "statutFin": "Statut de mobilisation du financement",
+        "etablissement": "Établissement bancaire / Partenaire financier",
+        "etablissementPlaceholder": "Ex : BOAD, BNI, SGBCI, Fonds d'investissement…",
+        "contractualisation": "Mode de contractualisation",
+        "etatImputation": "État d'imputation budgétaire (PIP / Budget État)",
+        "etatImputationPlaceholder": "Ex : Inscrit au PIP 2025-2027, ligne budgétaire…",
+        "etatEffectif": "Montant mobilisé / mis en vigueur",
+        "etatEffectifPlaceholder": "Ex : 100 % en vigueur (32,5 Mds FCFA)",
+        "etatDecaissement": "État des décaissements cumulés",
+        "etatDecaissementPlaceholder": "Ex : 14,2 Mds FCFA décaissés (43,7 %)",
+        "procedure": "Procédure de passation des marchés",
+        "procedurePlaceholder": "Ex : Appel d'offres international ouvert (AOIO)",
+        "texteApplicable": "Texte réglementaire / Directives applicables",
+        "texteApplicablePlaceholder": "Ex : Code des marchés publics / Directives BADEA-BID",
+        "historique": "Historique et observations sur le financement",
+        "historiquePlaceholder": "Dates de ratification, conditions suspensives, contrepartie nationale…",
+        "disponibilite": "Disponibilité du terrain / de l'emprise",
+        "delimitation": "Délimitation et bornage",
+        "titreFoncier": "Référence Titre Foncier / ACD",
+        "titreFoncierPlaceholder": "Ex : TF n° 104 822 de Bingerville / ACD signé",
+        "permisStatut": "Statut du permis de construire",
+        "permisNum": "N° du permis de construire / arrêté",
+        "permisNumPlaceholder": "Ex : PC n° 2025-0412/MCLU",
+        "purgeTotal": "Coût total de purge / indemnisations (PAR)",
+        "purgeTotalPlaceholder": "Ex : 1 250 000 000 FCFA",
+        "purgeEngage": "Montant engagé pour la purge",
+        "purgeEngagePlaceholder": "Ex : 1 250 000 000 FCFA",
+        "purgePaye": "Montant effectivement payé aux impactés",
+        "purgePayePlaceholder": "Ex : 980 000 000 FCFA (78 %)",
+        "tauxSaisi": "Taux d'avancement physique consolidé déclaré (%)",
+        "tauxSaisiAide": "Avancement calculé sur l'arbre de découpage : {valeur} %",
+        "etatNarratif": "État d'avancement détaillé / Constat terrain",
+        "etatNarratifPlaceholder": "Synthèse narrative des travaux exécutés et en cours par zone ou ouvrage…",
+        "coordNom": "Nom et prénom du coordonnateur",
+        "coordNomPlaceholder": "Ex : M. Kouassi Jean-Marc",
+        "coordTel": "Téléphone du coordonnateur",
+        "coordTelPlaceholder": "Ex : +225 07 07 00 00 00",
+        "coordEmail": "Email du coordonnateur",
+        "coordEmailPlaceholder": "Ex : coordonnateur@projet.gouv.ci",
+        "noteCp": "Note de synthèse du chef de projet (imprimée sur la fiche PDF)",
+        "noteCpPlaceholder": "Points d'attention pour la direction, arbitrages attendus, synthèse mensuelle…"
+      },
+      "tableaux": {
+        "bailleurs": {
+          "titre": "Conventions de financement et bailleurs",
+          "org": "Bailleur / Source",
+          "type": "Nature (Prêt, Don, État)",
+          "signature": "Date signature",
+          "limite": "Date limite",
+          "effectif": "Montant engagé",
+          "decaisse": "Montant décaissé"
+        },
+        "etudes": {
+          "titre": "Études techniques, architecturales et environnementales (APS, APD, EIES, Géotechnique…)",
+          "nom": "Intitulé de l'étude",
+          "statut": "Statut",
+          "avancement": "Avancement (%)",
+          "prestataire": "Cabinet / Bureau",
+          "montant": "Montant"
+        },
+        "lots": {
+          "titre": "Avancement par composante ou lot de travaux",
+          "code": "Code / N°",
+          "nom": "Composante / Lot",
+          "montant": "Montant (FCFA)",
+          "avancement": "Avancement (%)",
+          "statut": "Statut",
+          "prestataire": "Entreprise / Titulaire"
+        },
+        "difficultes": {
+          "titre": "Difficultés, risques et blocages identifiés",
+          "desc": "Description du problème ou blocage",
+          "gravite": "Gravité",
+          "date": "Date",
+          "statut": "Statut"
+        },
+        "recos": {
+          "titre": "Recommandations et décisions attendues",
+          "texte": "Recommandation / Mesure corrective",
+          "dest": "Responsable / Destinataire",
+          "echeance": "Échéance"
+        },
+        "intervenants": {
+          "titre": "Entreprises et intervenants externes (MOE, BCT, OPC, titulaires des lots)",
+          "role": "Rôle / Mission",
+          "org": "Entreprise / Organisme",
+          "lot": "Périmètre / Lot"
+        },
+        "etapes": {
+          "titre": "Prochaines étapes et jalons à venir (horizon J+14)",
+          "etape": "Étape / Action à mener",
+          "echeance": "Date / Échéance",
+          "resp": "Responsable"
+        }
+      },
+      "options": {
+        "secteurs": {
+          "batiment": "Bâtiment & Immobilier",
+          "infrastructures": "Infrastructures routières & Ouvrages d'art",
+          "education": "Éducation & Enseignement supérieur",
+          "sante": "Santé & Infrastructures hospitalières",
+          "hydraulique": "Hydraulique, Eau & Assainissement",
+          "energie": "Énergie & Électrification",
+          "industrie": "Industrie & Logistique",
+          "autre": "Autre secteur BTP"
+        },
+        "phases": {
+          "identification": "Identification / Études préalables",
+          "passation": "Passation des marchés / Mobilisation",
+          "execution": "En cours d'exécution (Travaux)",
+          "reception": "Réception provisoire / Levée de réserves",
+          "cloture": "Réception définitive / Clôturé"
+        },
+        "devises": {
+          "fcfa": "FCFA",
+          "eur": "EUR",
+          "usd": "USD"
+        },
+        "regimes": {
+          "ttc": "TTC (Droit commun)",
+          "ht_exonere": "HT-HD (Exonéré droits et taxes / Marché financé extérieur)",
+          "tva_suspendue": "TVA suspendue / Régime conventionnel"
+        },
+        "modesFin": {
+          "budget_etat": "Budget de l'État (Trésor / PIP)",
+          "conjoint": "Co-financement (État + Bailleurs de fonds)",
+          "ext_pret": "Financement extérieur — Prêt souverain",
+          "ext_don": "Financement extérieur — Don / Subvention",
+          "ppp": "Partenariat Public-Privé (PPP / Concession)"
+        },
+        "sourcesFin": {
+          "fonds_propres": "Fonds propres",
+          "credit_bancaire": "Crédit bancaire / Financement projet",
+          "mixte": "Mixte (Fonds propres + Crédit bancaire)",
+          "vefa": "Pré-commercialisation (VEFA / Apports acquéreurs)"
+        },
+        "statutsFin": {
+          "acquis": "Bouclé / En vigueur",
+          "partiel": "Partiellement mobilisé",
+          "en_negociation": "En cours de négociation / instruction"
+        },
+        "contractualisations": {
+          "entreprise_generale": "Entreprise générale (Marché unique)",
+          "lots_separes": "Lots séparés (Corps d'état)",
+          "conception_realisation": "Conception-Réalisation / Clé en main",
+          "regie": "Régie directe"
+        },
+        "disponibilites": {
+          "disponible": "Disponible et libre de toute occupation",
+          "partielle": "Partiellement disponible (libération d'emprise en cours)",
+          "en_acquisition": "En cours d'acquisition / DUP",
+          "litige": "Occupé / Contentieux foncier"
+        },
+        "delimitations": {
+          "borne": "Borné avec plan topographique approuvé",
+          "en_cours": "Délimitation / bornage en cours",
+          "non_borne": "Non borné"
+        },
+        "permisStatuts": {
+          "obtenu": "Délivré / Obtenu",
+          "instruction": "Déposé — en cours d'instruction",
+          "non_depose": "En préparation / Non déposé",
+          "non_applicable": "Non applicable"
+        },
+        "statutsEtude": {
+          "validee": "Validée / Approuvée",
+          "en_cours": "En cours",
+          "a_lancer": "À lancer"
+        },
+        "statutsLot": {
+          "en_cours": "En cours",
+          "non_demarre": "Non démarré",
+          "en_retard": "En retard",
+          "termine": "Terminé",
+          "bloque": "Bloqué"
+        },
+        "gravites": {
+          "critique": "Critique / Bloquant",
+          "majeure": "Majeure",
+          "moderee": "Modérée"
+        },
+        "statutsDifficulte": {
+          "ouvert": "Ouvert",
+          "en_traitement": "En cours de résolution",
+          "resolu": "Résolu"
+        }
+      }
     },
     "affectations": {
       "titre": "Collaborateurs affectés",
@@ -2274,10 +2700,24 @@
       "DESACTIVE": "Désactivé",
       "RESILIE": "Résilié"
     },
+    "natureProjet": {
+      "PUBLIC": "Projet public",
+      "PRIVE": "Projet privé"
+    },
     "tiroirCreation": {
       "annuler": "Annuler",
       "badgeAuto": "Auto",
       "champDateChoisir": "jj/mm/aaaa",
+      "champNatureProjet": "Type de projet",
+      "erreurNatureRequise": "Choisissez le type de projet (public ou privé).",
+      "natureProjet": {
+        "PUBLIC": "Projet public",
+        "PRIVE": "Projet privé"
+      },
+      "natureProjetDescription": {
+        "PUBLIC": "Marché public, maîtrise d'ouvrage étatique ou bailleurs de fonds",
+        "PRIVE": "Promoteur, entreprise privée ou particulier"
+      },
       "champMaitreOeuvre": "Maître d'œuvre",
       "champMaitreOeuvrePlaceholder": "Cabinet ou bureau d'études (optionnel)",
       "champMaitreOuvrage": "Maître d'ouvrage",
@@ -2287,7 +2727,7 @@
       "champNomPlaceholder": "Ex : Immeuble Les Palmiers R+5",
       "champReference": "Référence",
       "champReferencePlaceholder": "Générée à la création",
-      "champType": "Type de projet",
+      "champType": "Type d'ouvrage",
       "champVille": "Localisation (ville)",
       "colonneDateDebut": "Date début",
       "colonneDateFin": "Date fin",

@@ -167,6 +167,11 @@ export function CadreFicheProjet({ projetId, children }: { projetId: string; chi
           titre={projet.nom}
           description={
             <span className="mt-1 flex flex-wrap items-center gap-2">
+              {projet.natureProjet && (
+                <Badge variante={projet.natureProjet === "PUBLIC" ? "secondaire" : "primaire"}>
+                  {tProjets(`natureProjet.${projet.natureProjet}`)}
+                </Badge>
+              )}
               {projet.typeProjet && <Badge variante="neutre">{libelleType(projet.typeProjet)}</Badge>}
               <Badge variante={TON_STATUT[projet.statut]}>{tProjets(`statut.${projet.statut}`)}</Badge>
               {/* « +45 j sur l'origine, dont 30 accordés » (décision P9). */}

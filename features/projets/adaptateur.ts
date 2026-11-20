@@ -40,6 +40,7 @@ import type {
   EvenementDate,
   FonctionAutreMembre,
   EquipeChantier,
+  InformationsComplementairesProjet,
   InstantaneSante,
   Intervenant,
   Lot,
@@ -48,6 +49,7 @@ import type {
   ModificationProjet,
   MotifReport,
   NatureEquipe,
+  NatureProjet,
   PlanningProjet,
   Projet,
   Reprogrammation,
@@ -103,7 +105,9 @@ interface ChargeProjet {
   nom: string;
   peut_renommer?: boolean;
   description?: string;
+  nature_projet?: NatureProjet | "" | null;
   type_projet?: TypeProjet | null;
+  informations_complementaires?: InformationsComplementairesProjet | null;
   /** Le maître d'ouvrage, en clair — la forme de la route livrée. */
   maitre_ouvrage?: string;
   /** Une fiche tiers complète, si le serveur la joint un jour. */
@@ -234,14 +238,17 @@ interface ChargeAlerteIntemperies {
 interface ChargeCreationProjet {
   nom: string;
   reference?: string;
+  nature_projet?: NatureProjet;
   type_projet: string;
   ville: string;
+  quartier?: string;
   maitre_ouvrage: string;
   maitre_oeuvre?: string;
   date_debut_prevue?: string;
   date_fin_prevue?: string;
   budget_initial_montant?: number;
   description?: string;
+  informations_complementaires?: InformationsComplementairesProjet;
 }
 
 /* ------------------------------------------------------------------ *
@@ -387,7 +394,12 @@ export function versProjet(charge: ChargeProjet, affectations: ChargeAffectation
     nom: charge.nom,
     peutRenommer: charge.peut_renommer ?? false,
     description: charge.description ?? "",
+    natureProjet:
+      charge.nature_projet === "PUBLIC" || charge.nature_projet === "PRIVE"
+        ? charge.nature_projet
+        : null,
     typeProjet: charge.type_projet ?? null,
+    informationsComplementaires: charge.informations_complementaires ?? {},
     client: versClient(charge),
     ville: charge.ville,
     quartier: charge.quartier ?? "",
@@ -483,30 +495,43 @@ function versChargeCreation(creation: CreationProjet): ChargeCreationProjet {
   return {
     nom: creation.nom,
     reference: creation.reference,
+    nature_projet: creation.natureProjet,
     type_projet: creation.typeProjet,
     ville: creation.ville,
+    quartier: creation.quartier,
     maitre_ouvrage: creation.maitreOuvrage,
     maitre_oeuvre: creation.maitreOeuvre,
     date_debut_prevue: creation.dateDebutPrevue,
     date_fin_prevue: creation.dateFinPrevue,
     budget_initial_montant: creation.budgetInitial,
     description: creation.description,
+    informations_complementaires: creation.informationsComplementaires,
   };
 }
 
 /** La charge de `PATCH /projets/{id}/` — l'identification, sans la référence. */
 function versChargeModification(modification: ModificationProjet) {
-  const charge: Record<string, unknown> = {
-    type_projet: modification.typeProjet,
-    ville: modification.ville,
-    maitre_ouvrage: modification.maitreOuvrage,
-    maitre_oeuvre: modification.maitreOeuvre,
-    date_debut_prevue: modification.dateDebutPrevue,
-    date_fin_prevue: modification.dateFinPrevue,
-  };
-  if (modification.nom !== undefined) {
-    charge.nom = modification.nom;
-  }
+  const charge: Record<string, unknown> = {};
+  if (modification.nom !== undefined) charge.nom = modification.nom;
+  if (modification.natureProjet !== undefined) charge.nature_projet = modification.natureProjet;
+  if (modification.typeProjet !== undefined) charge.type_projet = modification.typeProjet;
+  if (modification.ville !== undefined) charge.ville = modification.ville;
+  if (modification.quartier !== undefined) charge.quartier = modification.quartier;
+  if (modification.maitreOuvrage !== undefined) charge.maitre_ouvrage = modification.maitreOuvrage;
+  if (modification.maitreOeuvre !== undefined) charge.maitre_oeuvre = modification.maitreOeuvre;
+  if (modification.description !== undefined) charge.description = modification.description;
+  if (modification.dateDebutPrevue !== undefined)
+    charge.date_debut_prevue = modification.dateDebutPrevue;
+  if (modification.dateFinPrevue !== undefined)
+    charge.date_fin_prevue = modification.dateFinPrevue;
+  if (modification.dateDebutReelle !== undefined)
+    charge.date_debut_reelle = modification.dateDebutReelle;
+  if (modification.dateFinReelle !== undefined)
+    charge.date_fin_reelle = modification.dateFinReelle;
+  if (modification.budgetInitial !== undefined)
+    charge.budget_initial_montant = modification.budgetInitial;
+  if (modification.informationsComplementaires !== undefined)
+    charge.informations_complementaires = modification.informationsComplementaires;
   return charge;
 }
 
@@ -558,7 +583,12 @@ function versCorpsCreation(creation: CreationProjet): ChargeCreationProjet | For
 
   const corps = new FormData();
   for (const [cle, valeur] of Object.entries(charge)) {
-    if (valeur !== undefined && valeur !== "") corps.append(cle, String(valeur));
+    if (valeur === undefined || valeur === "") continue;
+    if (typeof valeur === "object" && valeur !== null) {
+      corps.append(cle, JSON.stringify(valeur));
+    } else {
+      corps.append(cle, String(valeur));
+    }
   }
   for (const contrat of creation.contrats ?? []) {
     corps.append("contrat", contrat, contrat.name);
@@ -577,13 +607,25 @@ function versCorpsModification(
   modification: ModificationProjet,
 ): Record<string, unknown> | FormData {
   const charge = versChargeModification(modification);
-  if (!modification.ordreService) return charge;
+  if (!modification.contrats?.length && !modification.ordreService) return charge;
 
   const corps = new FormData();
   for (const [cle, valeur] of Object.entries(charge)) {
-    if (valeur !== undefined && valeur !== "") corps.append(cle, String(valeur));
+    if (valeur === undefined) continue;
+    if (valeur === null) {
+      corps.append(cle, "");
+    } else if (typeof valeur === "object") {
+      corps.append(cle, JSON.stringify(valeur));
+    } else if (valeur !== "") {
+      corps.append(cle, String(valeur));
+    }
   }
-  corps.append("ordre_service", modification.ordreService, modification.ordreService.name);
+  for (const contrat of modification.contrats ?? []) {
+    corps.append("contrat", contrat, contrat.name);
+  }
+  if (modification.ordreService) {
+    corps.append("ordre_service", modification.ordreService, modification.ordreService.name);
+  }
   return corps;
 }
 
