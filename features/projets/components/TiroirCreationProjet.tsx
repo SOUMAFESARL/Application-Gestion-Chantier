@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowUpRight, LoaderCircle, Pencil } from "lucide-react";
+import { ArrowUpRight, FileDown, LoaderCircle, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
@@ -35,7 +35,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { ZoneDepotFichiers } from "@/components/ui/zone-depot-fichiers";
 import { paysEntreprise } from "@/features/configuration/api";
 import { useDroits } from "@/features/habilitations";
-import { creerProjet, modifierProjet } from "@/features/projets/adaptateur";
+import {
+  creerProjet,
+  modifierProjet,
+  telechargerOrdreServiceProjet,
+} from "@/features/projets/adaptateur";
 import {
   FORMAT_CONTRAT,
   NOMBRE_MAX_CONTRATS,
@@ -204,6 +208,21 @@ export function TiroirCreationProjet({
         return t("refusContratTaille", { taille: formaterTailleFichier(TAILLE_MAX_CONTRAT) });
       default:
         return null;
+    }
+  }
+
+  async function telechargerOsActuel() {
+    if (!projet?.ordreService) return;
+    try {
+      const blob = await telechargerOrdreServiceProjet(projet.id);
+      const lien = document.createElement("a");
+      lien.href = URL.createObjectURL(blob);
+      lien.download = projet.ordreService.nom || `ordre-service-${projet.reference}`;
+      lien.click();
+      URL.revokeObjectURL(lien.href);
+    } catch (err) {
+      const cause = err as ErreurApi;
+      toast.error(cause.message || t("erreurGenerique"));
     }
   }
 
@@ -564,7 +583,7 @@ export function TiroirCreationProjet({
                             field.onBlur();
                           }}
                           name={field.name}
-                          accept={`${FORMAT_CONTRAT},.pdf`}
+                          accept={FORMAT_CONTRAT}
                           multiple
                           maximum={NOMBRE_MAX_CONTRATS}
                           refuser={motifRefusContrat}
@@ -581,6 +600,60 @@ export function TiroirCreationProjet({
                 />
               </>
             )}
+
+            <TitreSection>{t("sectionOrdreService")}</TitreSection>
+
+            {modification && projet?.ordreService && (
+              <div className="flex items-center justify-between gap-3 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2.5">
+                <div className="flex min-w-0 flex-col">
+                  <span className="text-xs text-neutral-500">{t("ordreServiceActuel")}</span>
+                  <span className="truncate text-sm font-medium text-neutral-900">
+                    {projet.ordreService.nom}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void telechargerOsActuel()}
+                >
+                  <FileDown className="size-4" aria-hidden="true" />
+                  {t("telechargerOrdreService")}
+                </Button>
+              </div>
+            )}
+
+            <FormField
+              control={form.control}
+              name="ordreService"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {modification && projet?.ordreService
+                      ? t("champOrdreServiceRemplacer")
+                      : t("champOrdreService")}
+                  </FormLabel>
+                  <FormControl>
+                    <ZoneDepotFichiers
+                      fichiers={field.value}
+                      onChange={(fichiers) => {
+                        field.onChange(fichiers);
+                        field.onBlur();
+                      }}
+                      name={field.name}
+                      accept={FORMAT_CONTRAT}
+                      maximum={1}
+                      refuser={motifRefusContrat}
+                      consigne={t("consigneOrdreService", {
+                        taille: formaterTailleFichier(TAILLE_MAX_CONTRAT),
+                      })}
+                      disabled={enCours}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </form>
         </Form>
 

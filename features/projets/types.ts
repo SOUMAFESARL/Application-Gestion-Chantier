@@ -141,6 +141,8 @@ export interface Projet {
   autresMembres: AutreMembreProjet[];
   /** Le contrat du marché et ses avenants, joints à la création. */
   contrats: ContratProjet[];
+  /** L'ordre de service de démarrage du chantier, joint à la création ou en configuration. */
+  ordreService: OrdreServiceProjet | null;
   /** La structure du chantier, comptée par le serveur, quand la réponse la joint. */
   statistiques: StatistiquesProjet | null;
   /**
@@ -177,6 +179,15 @@ export interface StatistiquesProjet {
 /** Un document de contrat joint au projet, servi par le serveur. */
 export interface ContratProjet {
   id: string;
+  nom: string;
+  /** En octets. */
+  taille: number;
+  typeContenu: string;
+  url: string;
+}
+
+/** L'ordre de service de démarrage joint au projet, servi par le serveur. */
+export interface OrdreServiceProjet {
   nom: string;
   /** En octets. */
   taille: number;
@@ -313,8 +324,10 @@ export interface CreationProjet {
   /** En centimes. */
   budgetInitial?: number;
   description?: string;
-  /** Le contrat du marché et ses avenants, en PDF. */
+  /** Le contrat du marché et ses avenants, en PDF ou image. */
   contrats?: File[];
+  /** L'ordre de service de démarrage (facultatif). */
+  ordreService?: File;
 }
 
 /**
@@ -334,6 +347,8 @@ export interface ModificationProjet {
   /** Absentes : le planning déjà enregistré ne change pas. */
   dateDebutPrevue?: string;
   dateFinPrevue?: string;
+  /** Nouvel ordre de service de démarrage déposé ou remplacé en configuration. */
+  ordreService?: File;
 }
 
 /** La portée d'un relevé météo : l'entreprise, ou un chantier précis. */

@@ -6,6 +6,7 @@ import {
   ArrowRight,
   CalendarDays,
   ChevronRight,
+  FileDown,
   Mail,
   Pencil,
   Phone,
@@ -16,6 +17,7 @@ import {
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import type { ReactNode } from "react";
 
 import { Badge, EtatChargement, EtatErreur } from "@/components/ui";
@@ -34,6 +36,8 @@ import {
   lireStatistiques,
   listerAffectationsCollaborateurs,
   listerEquipes,
+  telechargerContratProjet,
+  telechargerOrdreServiceProjet,
 } from "@/features/projets/adaptateur";
 import {
   cleAffectationsCollaborateurs,
@@ -274,6 +278,62 @@ export function FicheProjet({ projetId }: { projetId: string }) {
               <Information libelle={t("informations.localisation")}>
                 {lieu || ABSENT}
               </Information>
+              <Information libelle={t("informations.ordreService")}>
+                {projet.ordreService ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const blob = await telechargerOrdreServiceProjet(projet.id);
+                        const lien = document.createElement("a");
+                        lien.href = URL.createObjectURL(blob);
+                        lien.download =
+                          projet.ordreService?.nom || `ordre-service-${projet.reference}`;
+                        lien.click();
+                        URL.revokeObjectURL(lien.href);
+                      } catch {
+                        toast.error(t("informations.erreurTelechargement"));
+                      }
+                    }}
+                    className="inline-flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-left text-sm font-medium text-primary-600 hover:underline"
+                  >
+                    <FileDown size={14} aria-hidden="true" />
+                    <span className="truncate">{projet.ordreService.nom}</span>
+                  </button>
+                ) : (
+                  <span className="text-neutral-500">
+                    {t("informations.nonRenseigne")}
+                  </span>
+                )}
+              </Information>
+              {projet.contrats.length > 0 && (
+                <Information libelle={t("informations.contrats")} large>
+                  <div className="flex flex-wrap gap-3">
+                    {projet.contrats.map((contrat) => (
+                      <button
+                        key={contrat.id}
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const blob = await telechargerContratProjet(projet.id, contrat.id);
+                            const lien = document.createElement("a");
+                            lien.href = URL.createObjectURL(blob);
+                            lien.download = contrat.nom;
+                            lien.click();
+                            URL.revokeObjectURL(lien.href);
+                          } catch {
+                            toast.error(t("informations.erreurTelechargement"));
+                          }
+                        }}
+                        className="inline-flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-left text-sm font-medium text-primary-600 hover:underline"
+                      >
+                        <FileDown size={14} aria-hidden="true" />
+                        <span>{contrat.nom}</span>
+                      </button>
+                    ))}
+                  </div>
+                </Information>
+              )}
               {projet.description && (
                 <Information libelle={t("informations.description")} large>
                   <span className="text-neutral-700">{projet.description}</span>

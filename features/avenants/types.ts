@@ -16,6 +16,7 @@ export interface Avenant {
   porteSur: "PROJET" | "CASES";
   cases: { id: string; libelle: string }[];
   document: { nom: string; type: string } | null;
+  ordreService: { nom: string; type: string } | null;
   creeLe: string;
 }
 
@@ -28,4 +29,6 @@ export interface SaisieAvenant {
   /** Vide : l'avenant porte sur le projet entier. */
   casesIds: string[];
   document: File | null;
+  /** Obligatoire pour enregistrer un avenant. */
+  ordreService: File;
 }

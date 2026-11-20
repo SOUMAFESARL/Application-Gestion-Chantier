@@ -630,32 +630,33 @@ export function libelleTypeProjet(
 }
 
 /* ------------------------------------------------------------------ *
- * Les contrats joints à la création.
+ * Les contrats et l'ordre de service joints au projet.
  * ------------------------------------------------------------------ */
 
-/** Le seul format accepté : un contrat signé circule en PDF, pas en Word. */
-export const FORMAT_CONTRAT = "application/pdf";
+/** Formats acceptés par le serveur (`apps/projets/services/contrats.py`). */
+export const FORMAT_CONTRAT = "application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg";
 
-/**
- * Le plafond d'un contrat, en octets. Un marché scanné avec ses annexes
- * dépasse rarement 10 Mo ; 20 Mo laissent de la marge sans laisser passer
- * un dossier entier qu'on aurait dû découper.
- */
-export const TAILLE_MAX_CONTRAT = 20 * 1024 * 1024;
+/** Plafond par fichier aligné sur `MAX_FICHIER` du serveur (10 Mo). */
+export const TAILLE_MAX_CONTRAT = 10 * 1024 * 1024;
 
 /** Contrat, avenants, annexes : au-delà, ce sont les documents du projet. */
 export const NOMBRE_MAX_CONTRATS = 10;
 
 export type RefusContrat = "FORMAT" | "TAILLE";
 
+const TYPES_MIME_CONTRAT = new Set(["application/pdf", "image/png", "image/jpeg"]);
+const EXTENSIONS_CONTRAT = [".pdf", ".png", ".jpg", ".jpeg", ".jepg"];
+
 /**
- * Pourquoi un fichier ne peut pas être joint comme contrat — `null` s'il
- * convient. Certains navigateurs laissent `type` vide : l'extension tranche
- * alors.
+ * Pourquoi un fichier ne peut pas être joint comme contrat ou ordre de service — `null` s'il
+ * convient. Certains navigateurs laissent `type` vide : l'extension tranche alors.
  */
 export function refusContrat(fichier: { name: string; type: string; size: number }): RefusContrat | null {
-  const estPdf = fichier.type ? fichier.type === FORMAT_CONTRAT : fichier.name.toLowerCase().endsWith(".pdf");
-  if (!estPdf) return "FORMAT";
+  const nom = fichier.name.toLowerCase();
+  const formatValide = fichier.type
+    ? TYPES_MIME_CONTRAT.has(fichier.type) || EXTENSIONS_CONTRAT.some((ext) => nom.endsWith(ext))
+    : EXTENSIONS_CONTRAT.some((ext) => nom.endsWith(ext));
+  if (!formatValide) return "FORMAT";
   if (fichier.size > TAILLE_MAX_CONTRAT) return "TAILLE";
   return null;
 }

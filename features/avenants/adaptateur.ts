@@ -23,6 +23,7 @@ interface ChargeAvenant {
   porte_sur: "PROJET" | "CASES";
   cases?: { id: string; libelle: string }[];
   document: { nom: string; type: string } | null;
+  ordre_service?: { nom: string; type: string } | null;
   cree_le: string;
 }
 
@@ -37,11 +38,12 @@ function versAvenant(charge: ChargeAvenant): Avenant {
     porteSur: charge.porte_sur,
     cases: charge.cases ?? [],
     document: charge.document,
+    ordreService: charge.ordre_service ?? null,
     creeLe: charge.cree_le,
   };
 }
 
-/** La charge d'un avenant : toujours en `multipart`, le document signé l'accompagne. */
+/** La charge d'un avenant : toujours en `multipart`, l'ordre de service obligatoire et le document signé l'accompagnent. */
 function versChargeAvenant(saisie: SaisieAvenant): FormData {
   const corps = new FormData();
   corps.append("numero", saisie.numero.trim());
@@ -50,6 +52,7 @@ function versChargeAvenant(saisie: SaisieAvenant): FormData {
   corps.append("jours_accordes", String(saisie.joursAccordes));
   if (saisie.montant !== null) corps.append("montant", String(Math.round(saisie.montant)));
   for (const id of saisie.casesIds) corps.append("elements_ids", id);
+  corps.append("ordre_service", saisie.ordreService, saisie.ordreService.name);
   if (saisie.document) corps.append("document", saisie.document, saisie.document.name);
   return corps;
 }
@@ -70,4 +73,8 @@ export async function retirerAvenant(avenantId: string): Promise<void> {
 
 export async function telechargerDocumentAvenant(avenantId: string): Promise<Blob> {
   return api.telecharger(`/avenants/${avenantId}/document/`);
+}
+
+export async function telechargerOrdreServiceAvenant(avenantId: string): Promise<Blob> {
+  return api.telecharger(`/avenants/${avenantId}/ordre-service/`);
 }

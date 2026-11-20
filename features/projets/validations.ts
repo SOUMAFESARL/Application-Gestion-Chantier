@@ -107,6 +107,12 @@ export const schemaProjet = z
       .refine((fichiers) => fichiers.every((fichier) => refusContrat(fichier) === null), {
         message: texte("projets.tiroirCreation.erreurContratFormat"),
       }),
+    ordreService: z
+      .array(z.custom<File>())
+      .max(1)
+      .refine((fichiers) => fichiers.every((fichier) => refusContrat(fichier) === null), {
+        message: texte("projets.tiroirCreation.erreurContratFormat"),
+      }),
   })
   .superRefine((saisie, ctx) => {
     if (!datesChantierCoherentes(saisie.dateDebut, saisie.dateFin)) {
@@ -131,6 +137,7 @@ export function saisieProjetVide(reference = ""): SaisieProjet {
     budget: "",
     description: "",
     contrats: [],
+    ordreService: [],
   };
 }
 
@@ -149,6 +156,7 @@ export function versCreationProjet(valeurs: ValeursProjet): CreationProjet {
     budgetInitial: valeurs.budget ? (saisieEnCentimes(valeurs.budget) ?? undefined) : undefined,
     description: valeurs.description || undefined,
     contrats: valeurs.contrats.length > 0 ? valeurs.contrats : undefined,
+    ordreService: valeurs.ordreService[0] ?? undefined,
   };
 }
 
@@ -168,6 +176,7 @@ export function saisieDepuisProjet(projet: Projet): SaisieProjet {
     budget: "",
     description: "",
     contrats: [],
+    ordreService: [],
   };
 }
 
@@ -185,6 +194,7 @@ export function versModificationProjet(
     // Vides, elles ne sont pas envoyées : le planning enregistré reste.
     dateDebutPrevue: valeurs.dateDebut || undefined,
     dateFinPrevue: valeurs.dateFin || undefined,
+    ordreService: valeurs.ordreService[0] ?? undefined,
   };
 }
 
