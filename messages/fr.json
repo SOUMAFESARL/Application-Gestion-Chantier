@@ -5943,6 +5943,8 @@
       "vide": "Aucune case dans l’arbre",
       "deplier": "Déplier",
       "replier": "Replier",
+      "toutDeplier": "Tout déplier",
+      "toutReplier": "Tout replier",
       "indisponible": "indisponible",
       "partiel": "partiel",
       "depassement": "+{valeur} %",

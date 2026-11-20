@@ -229,8 +229,7 @@ export function TiroirCreationProjet({
       onProjetCree?.(projetCree);
       toast.success(t("succesCreation", { nom: projetCree.nom }));
       onFermer();
-      // Le projet créé se découpe aussitôt : le tableau de démarrage l'attend (décision P4).
-      router.push(`/projets/${projetCree.id}/decoupage`);
+      router.push("/projets");
     } catch (err) {
       const cause = err as ErreurApi;
       toast.error(cause.message || t("erreurGenerique"));
