@@ -1306,15 +1306,23 @@
       "exception": "Exception de l’entreprise : {motif}"
     },
     "semaineType": {
-      "titre": "Semaine type",
-      "aide": "Cochez les jours de la semaine que l’entreprise travaille. Les jours fériés nationaux et les exceptions l’emportent sur cette semaine.",
-      "aideLecture": "Les jours de la semaine que l’entreprise travaille.",
+      "titre": "Semaine type & horaires de travail",
+      "aide": "Cochez les jours de la semaine que l’entreprise travaille et définissez leurs horaires. Les jours fériés nationaux et les exceptions l’emportent sur cette semaine.",
+      "aideLecture": "Les jours de la semaine que l’entreprise travaille et leurs horaires de référence.",
       "jourEtat": "{jour} : {etat}",
+      "jourEtatHoraire": "{jour} : {etat} ({debut} – {fin})",
+      "horairesTitre": "Horaires de travail des jours ouvrés",
+      "horairesAide": "Ces horaires servent de référence par défaut pour le journal de chantier de chaque jour ouvré.",
+      "heureDebut": "Début",
+      "heureFin": "Fin",
+      "jourNonTravaille": "Jour non travaillé",
+      "appliquerATous": "Appliquer les horaires du {jour} à tous les jours ouvrés",
       "enregistrer": "Enregistrer la semaine type",
       "enCours": "Enregistrement…",
       "annuler": "Annuler les modifications",
-      "succes": "La semaine type a été enregistrée.",
-      "erreurVide": "Cochez au moins un jour travaillé."
+      "succes": "La semaine type et les horaires ont été enregistrés.",
+      "erreurVide": "Cochez au moins un jour travaillé.",
+      "erreurHoraire": "L’heure de fin doit être postérieure à l’heure de début ({jour})."
     },
     "mois": {
       "precedent": "Mois précédent",

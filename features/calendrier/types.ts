@@ -22,6 +22,15 @@ export type JourSemaine = (typeof JOURS_SEMAINE)[number];
 /** Les jours de la semaine qui sont travaillés. */
 export type SemaineType = Record<JourSemaine, boolean>;
 
+/** Plage horaire de travail d'un jour ouvré (`HH:MM`). */
+export interface PlageHoraire {
+  debut: string;
+  fin: string;
+}
+
+/** Les horaires de travail pour chacun des sept jours de la semaine. */
+export type HorairesSemaine = Record<JourSemaine, PlageHoraire>;
+
 /** Un jour férié national, posé par la plateforme : l'entreprise ne le modifie pas. */
 export interface JourFerie {
   /** `AAAA-MM-JJ` */
@@ -42,6 +51,7 @@ export interface ExceptionCalendrier {
 /** Ce que le serveur rend pour une période. */
 export interface Calendrier {
   semaineType: SemaineType;
+  horairesTravail: HorairesSemaine;
   feriesNationaux: JourFerie[];
   exceptions: ExceptionCalendrier[];
 }

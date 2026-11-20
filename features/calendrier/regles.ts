@@ -16,10 +16,33 @@
  */
 
 import { JOURS_SEMAINE } from "./types";
-import type { Calendrier, JourSemaine, SemaineType, StatutJour } from "./types";
+import type {
+  Calendrier,
+  HorairesSemaine,
+  JourSemaine,
+  PlageHoraire,
+  SemaineType,
+  StatutJour,
+} from "./types";
 
 /** Longueur maximale du motif d'une exception (`ExceptionCalendrier.motif`). */
 export const MOTIF_EXCEPTION_MAX = 150;
+
+/** Horaires de travail par défaut d'un jour ouvré (`HH:MM`). */
+export const HEURE_DEBUT_CALENDRIER_DEFAUT = "07:30";
+export const HEURE_FIN_CALENDRIER_DEFAUT = "17:00";
+
+export function horairesParDefaut(): HorairesSemaine {
+  return {
+    lundi: { debut: HEURE_DEBUT_CALENDRIER_DEFAUT, fin: HEURE_FIN_CALENDRIER_DEFAUT },
+    mardi: { debut: HEURE_DEBUT_CALENDRIER_DEFAUT, fin: HEURE_FIN_CALENDRIER_DEFAUT },
+    mercredi: { debut: HEURE_DEBUT_CALENDRIER_DEFAUT, fin: HEURE_FIN_CALENDRIER_DEFAUT },
+    jeudi: { debut: HEURE_DEBUT_CALENDRIER_DEFAUT, fin: HEURE_FIN_CALENDRIER_DEFAUT },
+    vendredi: { debut: HEURE_DEBUT_CALENDRIER_DEFAUT, fin: HEURE_FIN_CALENDRIER_DEFAUT },
+    samedi: { debut: HEURE_DEBUT_CALENDRIER_DEFAUT, fin: HEURE_FIN_CALENDRIER_DEFAUT },
+    dimanche: { debut: HEURE_DEBUT_CALENDRIER_DEFAUT, fin: HEURE_FIN_CALENDRIER_DEFAUT },
+  };
+}
 
 /** Le droit qui ouvre l'écriture : DG et AD (erratum E-4, point 5). */
 export const PERMISSION_GERER_CALENDRIER = "administration.calendrier_gerer";
@@ -79,6 +102,50 @@ export function semaineValide(semaine: SemaineType): boolean {
 
 export function semainesIdentiques(a: SemaineType, b: SemaineType): boolean {
   return JOURS_SEMAINE.every((jour) => a[jour] === b[jour]);
+}
+
+export function horairesIdentiques(a: HorairesSemaine, b: HorairesSemaine): boolean {
+  return JOURS_SEMAINE.every(
+    (jour) => a[jour].debut === b[jour].debut && a[jour].fin === b[jour].fin,
+  );
+}
+
+const FORMAT_HEURE_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Vrai si la plage horaire est au format `HH:MM` et que la fin est strictement postérieure au début. */
+export function plageHoraireValide(plage: PlageHoraire): boolean {
+  if (!FORMAT_HEURE_RE.test(plage.debut) || !FORMAT_HEURE_RE.test(plage.fin)) {
+    return false;
+  }
+  return plage.fin > plage.debut;
+}
+
+/** Retourne le premier jour ouvré dont les horaires sont invalides, ou `null` si tout est valide. */
+export function premierJourHoraireInvalide(
+  semaine: SemaineType,
+  horaires: HorairesSemaine,
+): JourSemaine | null {
+  for (const jour of JOURS_SEMAINE) {
+    if (semaine[jour] && !plageHoraireValide(horaires[jour])) {
+      return jour;
+    }
+  }
+  return null;
+}
+
+/** Applique la plage horaire source à tous les jours cochés comme ouvrés. */
+export function appliquerHoraireAuxJoursOuvres(
+  semaine: SemaineType,
+  horaires: HorairesSemaine,
+  plage: PlageHoraire,
+): HorairesSemaine {
+  const copie: HorairesSemaine = { ...horaires };
+  for (const jour of JOURS_SEMAINE) {
+    if (semaine[jour]) {
+      copie[jour] = { debut: plage.debut, fin: plage.fin };
+    }
+  }
+  return copie;
 }
 
 /** Le mois affiché : `mois` va de 1 à 12. */

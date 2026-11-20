@@ -687,6 +687,10 @@ export interface ProjetSaisie {
 export interface PreparationSaisie {
   aujourdhui: string;
   estJourOuvre: boolean;
+  horairesDefaut?: {
+    heureDebut: string;
+    heureFin: string;
+  } | null;
   joursSaisissables: string[];
   /** Le premier jour qui attend un rapport sur ce chantier (début du chantier ou enregistrement). */
   premierJour: string | null;

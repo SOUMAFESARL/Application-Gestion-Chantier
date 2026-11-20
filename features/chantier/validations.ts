@@ -559,8 +559,12 @@ export function valeursDepuis(preparation: PreparationSaisie, date: string): Val
 
   return {
     date: existant?.date ?? date,
-    heureDebut: existant ? existant.heureDebut : HEURE_DEBUT_DEFAUT,
-    heureFin: existant ? existant.heureFin : HEURE_FIN_DEFAUT,
+    heureDebut: existant
+      ? existant.heureDebut
+      : (preparation.horairesDefaut?.heureDebut || HEURE_DEBUT_DEFAUT),
+    heureFin: existant
+      ? existant.heureFin
+      : (preparation.horairesDefaut?.heureFin || HEURE_FIN_DEFAUT),
     arret: existant?.arret != null,
     motifArret: existant?.arret?.motif ?? "",
     precisionArret: existant?.arret?.precision ?? "",
