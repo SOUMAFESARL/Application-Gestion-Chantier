@@ -11,11 +11,19 @@
 
 import { api } from "@/lib/api";
 
+import {
+  HEURE_DEBUT_CALENDRIER_DEFAUT,
+  HEURE_FIN_CALENDRIER_DEFAUT,
+  horairesParDefaut,
+} from "./regles";
+import { JOURS_SEMAINE } from "./types";
 import type {
   Calendrier,
   CreationException,
   ExceptionCalendrier,
+  HorairesSemaine,
   JourFerie,
+  PlageHoraire,
   SemaineType,
 } from "./types";
 
@@ -23,8 +31,10 @@ import type {
  * Les charges utiles du serveur — la seule zone en `snake_case`.
  * ------------------------------------------------------------------ */
 
-/** Les sept jours en clair, comme le serveur les nomme. */
-type ChargeSemaineType = SemaineType;
+/** Les sept jours en clair et leurs horaires de travail, comme le serveur les nomme. */
+type ChargeSemaineType = SemaineType & {
+  horaires_travail?: Partial<Record<keyof SemaineType, Partial<PlageHoraire>>> | null;
+};
 
 interface ChargeJourFerie {
   date: string;
@@ -60,6 +70,22 @@ function versSemaineType(charge: ChargeSemaineType): SemaineType {
   };
 }
 
+function versHorairesTravail(charge: ChargeSemaineType): HorairesSemaine {
+  const base = horairesParDefaut();
+  const brut = charge.horaires_travail;
+  if (!brut) return base;
+  for (const jour of JOURS_SEMAINE) {
+    const plage = brut[jour];
+    if (plage) {
+      base[jour] = {
+        debut: plage.debut || HEURE_DEBUT_CALENDRIER_DEFAUT,
+        fin: plage.fin || HEURE_FIN_CALENDRIER_DEFAUT,
+      };
+    }
+  }
+  return base;
+}
+
 function versJourFerie(charge: ChargeJourFerie): JourFerie {
   return { date: charge.date, libelle: charge.libelle };
 }
@@ -71,6 +97,7 @@ function versException(charge: ChargeException): ExceptionCalendrier {
 function versCalendrier(charge: ChargeCalendrier): Calendrier {
   return {
     semaineType: versSemaineType(charge.semaine_type),
+    horairesTravail: versHorairesTravail(charge.semaine_type),
     feriesNationaux: (charge.feries_nationaux ?? []).map(versJourFerie),
     exceptions: (charge.exceptions ?? []).map(versException),
   };
@@ -93,10 +120,18 @@ export async function lireCalendrier(
 }
 
 /** `PATCH /calendrier/semaine-type/` — DG et AD ; une semaine sans jour est refusée (422). */
-export async function modifierSemaineType(semaine: SemaineType): Promise<SemaineType> {
-  return versSemaineType(
-    await api.modifier<ChargeSemaineType>("/calendrier/semaine-type/", semaine),
-  );
+export async function modifierSemaineType(
+  semaine: SemaineType,
+  horairesTravail?: HorairesSemaine,
+): Promise<{ semaineType: SemaineType; horairesTravail: HorairesSemaine }> {
+  const charge = await api.modifier<ChargeSemaineType>("/calendrier/semaine-type/", {
+    ...semaine,
+    ...(horairesTravail ? { horaires_travail: horairesTravail } : {}),
+  });
+  return {
+    semaineType: versSemaineType(charge),
+    horairesTravail: versHorairesTravail(charge),
+  };
 }
 
 /** `POST /calendrier/exceptions/` — une seule exception active par date (409 sinon). */

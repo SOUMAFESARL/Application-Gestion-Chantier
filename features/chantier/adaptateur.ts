@@ -1014,6 +1014,10 @@ interface ChargeRapportExistant {
 interface ChargePreparation {
   aujourdhui: string;
   est_jour_ouvre: boolean;
+  horaires_defaut?: {
+    heure_debut?: string;
+    heure_fin?: string;
+  } | null;
   jours_saisissables: string[];
   /** Le premier jour qui attend un rapport (début du chantier ou enregistrement). */
   premier_jour?: string;
@@ -1350,6 +1354,13 @@ function versPreparation(charge: ChargePreparation): PreparationSaisie {
   return {
     aujourdhui: charge.aujourdhui,
     estJourOuvre: charge.est_jour_ouvre ?? true,
+    horairesDefaut:
+      charge.horaires_defaut?.heure_debut && charge.horaires_defaut?.heure_fin
+        ? {
+            heureDebut: charge.horaires_defaut.heure_debut,
+            heureFin: charge.horaires_defaut.heure_fin,
+          }
+        : null,
     joursSaisissables: charge.jours_saisissables ?? [],
     premierJour: charge.premier_jour ?? null,
     meteoSuggeree,

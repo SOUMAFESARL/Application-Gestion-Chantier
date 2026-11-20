@@ -75,7 +75,11 @@ export function CalendrierEntreprise() {
 
       {donnees && (
         <div className="flex flex-col gap-5">
-          <SemaineTypeCarte semaine={donnees.semaineType} peutGerer={peutGerer} />
+          <SemaineTypeCarte
+            semaine={donnees.semaineType}
+            horaires={donnees.horairesTravail}
+            peutGerer={peutGerer}
+          />
 
           <Carte
             titre={libelleDuMois(affiche)}
