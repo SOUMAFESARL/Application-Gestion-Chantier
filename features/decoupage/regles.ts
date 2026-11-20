@@ -175,6 +175,26 @@ export function trouverCase(cases: CaseArbre[], id: string | null): CaseArbre | 
   return aplatirCases(cases).find((une) => une.id === id) ?? null;
 }
 
+/** Vrai dès qu'au moins un élément de l'arbre a des sous-éléments à replier ou déplier. */
+export function arbreDepliable(cases: CaseArbre[]): boolean {
+  return aplatirCases(cases).some((une) => une.enfants.length > 0);
+}
+
+/**
+ * Vrai lorsque tous les éléments parents de l'arbre sont actuellement dépliés.
+ * Dès que tous les parents sont ouverts, le bouton d'action propose de tout replier ;
+ * dès qu'au moins un parent est replié, il propose de tout déplier.
+ */
+export function arbreToutDeplie(
+  cases: CaseArbre[],
+  deplie: true | Record<string, boolean>,
+): boolean {
+  if (deplie === true) return true;
+  const parents = aplatirCases(cases).filter((une) => une.enfants.length > 0);
+  if (parents.length === 0) return false;
+  return parents.every((parent) => Boolean(deplie[parent.id]));
+}
+
 /** La liste de valeurs associée à un niveau, désignée par son origine et son identifiant. */
 export function trouverListeDuNiveau(
   listes: ListeValeurs[],

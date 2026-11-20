@@ -8,8 +8,16 @@ import {
   tableFeatures,
   useTable,
 } from "@tanstack/react-table";
-import type { ColumnDef, ExpandedState } from "@tanstack/react-table";
-import { ChevronDown, ChevronRight, Download, Plus, Settings2 } from "lucide-react";
+import type { ColumnDef, ExpandedState, OnChangeFn } from "@tanstack/react-table";
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Download,
+  Plus,
+  Settings2,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -32,7 +40,7 @@ import { cn } from "@/lib/utils";
 
 import { exporterArbre, lireArbre } from "../adaptateur";
 import { cleArbre } from "../cles";
-import { trouverCase } from "../regles";
+import { arbreDepliable, arbreToutDeplie, trouverCase } from "../regles";
 import type { CaseArbre } from "../types";
 import { Ecart, Montant, Periode, Physique, Statut } from "./CellulesCase";
 import { FenetreGeste, type GesteOuvert } from "./FenetreGeste";
@@ -60,6 +68,7 @@ export function VueArbre({ projet }: { projet: Projet }) {
   const [caseOuverte, setCaseOuverte] = useState<string | null>(null);
   const [geste, setGeste] = useState<GesteOuvert | null>(null);
   const [reglages, setReglages] = useState(false);
+  const [deplie, setDeplie] = useState<ExpandedState>(true);
 
   const requete = useQuery({
     queryKey: cleArbre(projet.id),
@@ -85,6 +94,8 @@ export function VueArbre({ projet }: { projet: Projet }) {
   const arbre = requete.data;
   const ouverte = trouverCase(arbre.cases, caseOuverte);
   const peutDecouper = peutSurProjet(PERMISSIONS.DECOUPER, projet);
+  const depliable = arbreDepliable(arbre.cases);
+  const toutDeplie = arbreToutDeplie(arbre.cases, deplie);
 
   return (
     <div className="flex flex-col gap-4">
@@ -97,6 +108,16 @@ export function VueArbre({ projet }: { projet: Projet }) {
             : t("avancementIndisponible")}
         </p>
         <div className="flex flex-wrap gap-2">
+          {depliable && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeplie(toutDeplie ? {} : true)}
+            >
+              {toutDeplie ? <ChevronsDownUp /> : <ChevronsUpDown />}
+              {toutDeplie ? t("toutReplier") : t("toutDeplier")}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setReglages((v) => !v)} aria-expanded={reglages}>
             <Settings2 />
             {t("reglagesNiveaux")}
@@ -136,7 +157,12 @@ export function VueArbre({ projet }: { projet: Projet }) {
       {arbre.cases.length === 0 ? (
         <EtatVide titre={t("vide")} />
       ) : (
-        <TableauArbre cases={arbre.cases} onOuvrir={setCaseOuverte} />
+        <TableauArbre
+          cases={arbre.cases}
+          deplie={deplie}
+          onDeplieChange={setDeplie}
+          onOuvrir={setCaseOuverte}
+        />
       )}
 
       <TiroirCase
@@ -150,10 +176,19 @@ export function VueArbre({ projet }: { projet: Projet }) {
   );
 }
 
-function TableauArbre({ cases, onOuvrir }: { cases: CaseArbre[]; onOuvrir: (id: string) => void }) {
+function TableauArbre({
+  cases,
+  deplie,
+  onDeplieChange,
+  onOuvrir,
+}: {
+  cases: CaseArbre[];
+  deplie: ExpandedState;
+  onDeplieChange: OnChangeFn<ExpandedState>;
+  onOuvrir: (id: string) => void;
+}) {
   const t = useTranslations("decoupage.arbre");
   const { voitMontants } = useDroits();
-  const [deplie, setDeplie] = useState<ExpandedState>(true);
 
   const colonnes = useMemo(
     () =>
@@ -254,7 +289,7 @@ function TableauArbre({ cases, onOuvrir }: { cases: CaseArbre[]; onOuvrir: (id: 
       getRowId: (une) => une.id,
       getSubRows: (une) => une.enfants,
       state: { expanded: deplie },
-      onExpandedChange: setDeplie,
+      onExpandedChange: onDeplieChange,
     },
     (state) => ({ expanded: state.expanded }),
   );
