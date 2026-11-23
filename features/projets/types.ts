@@ -245,18 +245,35 @@ export interface Projet {
   deltaRetard: number | null;
   /** L'indice de santé calculé par le serveur, de 0 à 100. `null` : pas encore calculé. */
   indiceSante: number | null;
-  /** En centimes. `null` tant que le budget n'est pas défini. */
+  /** En centimes. `null` tant que le budget prévisionnel n'est pas défini. */
   budgetInitial: number | null;
+  /** En centimes. Budget contractuel initial (lié au contrat du marché, immuable après pose). */
+  budgetContractuelInitial: number | null;
   /**
-   * En centimes. Le budget en vigueur : l'initial plus les avenants. `null` : pas d'avenant, ou
-   * budget non défini. Il sert de base au reste à réaliser.
+   * En centimes. Le budget contractuel en vigueur : `budgetContractuelInitial + montantAvenants`.
+   * `null` tant qu'aucun budget contractuel n'a été posé avec un contrat.
    */
   budgetCourant: number | null;
+  /** En centimes. Cumul des montants des avenants. */
+  montantAvenants: number;
   /** En centimes. La valeur de ce qui est réalisé (Σ montant × avancement), pas un dépensé. */
   budgetConsomme: number;
   /** En centimes. Ce que le découpage chiffre au total. `null` sans le droit de voir les montants. */
   budgetDecoupage: number | null;
-  /** `null` tant que le planning contractuel n'est pas fixé : il ne se demande plus à la création. */
+  /** Durée contractuelle initiale (3 composantes liées au contrat, immuables après pose). */
+  dureeContractuelleAnnees: number | null;
+  dureeContractuelleMois: number | null;
+  dureeContractuelleJours: number | null;
+  dureeContractuelle: { annees: number; mois: number; jours: number } | null;
+  /** Cumul des prolongations accordées par avenant sur le projet entier. */
+  prolongationAnnees: number;
+  prolongationMois: number;
+  prolongationJours: number;
+  /** Date d'effet de l'OS de démarrage (modifiable uniquement en déposant un nouvel OS). */
+  dateDebutContractuelle: string | null;
+  /** Début contractuel + durée contractuelle initiale, sans avenants. */
+  dateFinContractuelleInitiale: string | null;
+  /** `null` tant que le planning prévisionnel n'est pas fixé. */
   dateDebutPrevue: string | null;
   dateFinPrevue: string | null;
   dateDebutReelle: string | null;
@@ -466,11 +483,19 @@ export interface CreationProjet {
   /** Facultatifs à la création : absents, le chef de projet les fixe ensuite. */
   dateDebutPrevue?: string;
   dateFinPrevue?: string;
-  /** En centimes. */
+  /** En centimes (budget prévisionnel interne, facultatif). */
   budgetInitial?: number;
+  /** En centimes (budget contractuel initial, exige un fichier contrat). */
+  budgetContractuelInitial?: number;
+  /** Durée contractuelle d'exécution (3 composantes, exige un fichier contrat). */
+  dureeContractuelleAnnees?: number;
+  dureeContractuelleMois?: number;
+  dureeContractuelleJours?: number;
+  /** Date d'effet de l'OS de démarrage (exige un fichier OS). */
+  dateDebutContractuelle?: string;
   description?: string;
   informationsComplementaires?: InformationsComplementairesProjet;
-  /** Le contrat du marché et ses avenants, en PDF ou image. */
+  /** Le contrat du marché, en PDF ou image (optionnel). */
   contrats?: File[];
   /** L'ordre de service de démarrage (facultatif). */
   ordreService?: File;
@@ -499,10 +524,17 @@ export interface ModificationProjet {
   dateDebutReelle?: string | null;
   dateFinReelle?: string | null;
   budgetInitial?: number | null;
+  /** Posés une seule fois avec le contrat du marché, verrouillés ensuite. */
+  budgetContractuelInitial?: number;
+  dureeContractuelleAnnees?: number;
+  dureeContractuelleMois?: number;
+  dureeContractuelleJours?: number;
+  /** Modifiable uniquement en joignant un nouvel ordre de service de démarrage. */
+  dateDebutContractuelle?: string;
   informationsComplementaires?: InformationsComplementairesProjet;
   /** Nouveaux contrats joints au projet. */
   contrats?: File[];
-  /** Nouvel ordre de service de démarrage déposé ou remplacé en configuration. */
+  /** Nouvel ordre de service de démarrage déposé ou remplacé. */
   ordreService?: File;
 }
 

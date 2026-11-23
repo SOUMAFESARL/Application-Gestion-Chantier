@@ -9,9 +9,11 @@ export interface Avenant {
   numero: string;
   dateSignature: string;
   objet: string;
-  /** Jours calendaires ; négatifs, ils raccourcissent le délai contractuel. */
+  /** Prolongation accordée (3 composantes >= 0, jamais négatives). */
+  anneesAccordees: number;
+  moisAccordes: number;
   joursAccordes: number;
-  /** En centimes, en plus ou en moins du budget ; `null` sans `projets.voir_montants`. */
+  /** En centimes (>= 0) ; `null` si aucun impact financier ou sans `projets.voir_montants`. */
   montant: number | null;
   porteSur: "PROJET" | "CASES";
   cases: { id: string; libelle: string }[];
@@ -24,11 +26,14 @@ export interface SaisieAvenant {
   numero: string;
   dateSignature: string;
   objet: string;
+  anneesAccordees: number;
+  moisAccordes: number;
   joursAccordes: number;
   montant: number | null;
   /** Vide : l'avenant porte sur le projet entier. */
   casesIds: string[];
-  document: File | null;
-  /** Obligatoire pour enregistrer un avenant. */
+  /** Obligatoire : l'avenant signé. */
+  document: File;
+  /** Obligatoire : l'ordre de service lié à l'avenant. */
   ordreService: File;
 }

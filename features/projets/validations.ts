@@ -67,64 +67,197 @@ export const LONGUEUR_MAX_DESCRIPTION = 1000;
 /** Des chiffres, éventuellement groupés par des espaces (« 850 000 000 »). */
 const MOTIF_MONTANT = /^[\d\s]+$/;
 
+/** Un entier positif ou nul (durée contractuelle en années, mois ou jours). */
+const MOTIF_ENTIER_POSITIF = /^\d+$/;
+
+function entierOptionnel(valeur: string): number | undefined {
+  const propre = valeur.trim();
+  if (propre === "") return undefined;
+  return Number.parseInt(propre, 10);
+}
+
 /** Une valeur prise dans une liste fermée — vide tant que rien n'est choisi. */
 function choixParmi(valeurs: readonly string[], message: string) {
   return z.string().refine((valeur) => valeurs.includes(valeur), { message });
 }
 
 /* ------------------------------------------------------------------ *
- * Le projet — informations générales.
+ * Le projet — informations générales et cadre contractuel.
  * ------------------------------------------------------------------ */
 
-export const schemaProjet = z
-  .object({
-    nom: chaineNonVide(texte("projets.tiroirCreation.erreurNomRequis")).max(LONGUEUR_MAX_NOM, {
-      message: texte("projets.tiroirCreation.erreurNomTropLong"),
+export interface ContexteValidationProjet {
+  modification?: boolean;
+  aContratExistant?: boolean;
+  aOsExistant?: boolean;
+  budgetContractuelVerrouille?: boolean;
+  dureeContractuelleVerrouillee?: boolean;
+  dateDebutContractuelleInitiale?: string | null;
+}
+
+const schemaProjetBase = z.object({
+  nom: chaineNonVide(texte("projets.tiroirCreation.erreurNomRequis")).max(LONGUEUR_MAX_NOM, {
+    message: texte("projets.tiroirCreation.erreurNomTropLong"),
+  }),
+  reference: z.string().trim(),
+  natureProjet: choixParmi(NATURES_PROJET, texte("projets.tiroirCreation.erreurNatureRequise")),
+  // Un type d'ouvrage prédéfini (son code) ou un libellé saisi librement.
+  typeProjet: chaineNonVide(texte("projets.tiroirCreation.erreurTypeRequis")),
+  ville: chaineNonVide(texte("projets.tiroirCreation.erreurVilleRequise")),
+  maitreOuvrage: chaineNonVide(texte("projets.tiroirCreation.erreurMaitreOuvrageRequis")),
+  maitreOeuvre: z.string().trim(),
+  // Facultatifs : vides, ils restent à fixer par le chef de projet.
+  dateDebut: z.string(),
+  dateFin: z.string(),
+  budget: z
+    .string()
+    .trim()
+    .refine(
+      (valeur) => valeur === "" || (MOTIF_MONTANT.test(valeur) && budgetRecevable(saisieEnCentimes(valeur))),
+      { message: texte("projets.tiroirCreation.erreurBudgetInvalide") },
+    ),
+  // Cadre contractuel (exige un fichier contrat / OS selon la règle d'or).
+  budgetContractuel: z
+    .string()
+    .trim()
+    .refine(
+      (valeur) => valeur === "" || (MOTIF_MONTANT.test(valeur) && budgetRecevable(saisieEnCentimes(valeur))),
+      { message: texte("projets.tiroirCreation.erreurBudgetInvalide") },
+    ),
+  dureeAnnees: z
+    .string()
+    .trim()
+    .refine((valeur) => valeur === "" || MOTIF_ENTIER_POSITIF.test(valeur), {
+      message: texte("projets.tiroirCreation.erreurDureeContractuelleInvalide"),
     }),
-    reference: z.string().trim(),
-    natureProjet: choixParmi(NATURES_PROJET, texte("projets.tiroirCreation.erreurNatureRequise")),
-    // Un type d'ouvrage prédéfini (son code) ou un libellé saisi librement.
-    typeProjet: chaineNonVide(texte("projets.tiroirCreation.erreurTypeRequis")),
-    ville: chaineNonVide(texte("projets.tiroirCreation.erreurVilleRequise")),
-    maitreOuvrage: chaineNonVide(texte("projets.tiroirCreation.erreurMaitreOuvrageRequis")),
-    maitreOeuvre: z.string().trim(),
-    // Facultatifs : vides, ils restent à fixer par le chef de projet.
-    dateDebut: z.string(),
-    dateFin: z.string(),
-    budget: z
-      .string()
-      .trim()
-      .refine((valeur) => valeur === "" || (MOTIF_MONTANT.test(valeur) && budgetRecevable(saisieEnCentimes(valeur))), {
-        message: texte("projets.tiroirCreation.erreurBudgetInvalide"),
-      }),
-    description: z.string().trim().max(LONGUEUR_MAX_DESCRIPTION, {
-      message: texte("projets.tiroirCreation.erreurDescriptionTropLongue"),
+  dureeMois: z
+    .string()
+    .trim()
+    .refine((valeur) => valeur === "" || MOTIF_ENTIER_POSITIF.test(valeur), {
+      message: texte("projets.tiroirCreation.erreurDureeContractuelleInvalide"),
     }),
-    // Facultatifs : la zone de dépôt refuse déjà un fichier non conforme, le
-    // schéma le revérifie pour ne pas dépendre d'elle.
-    contrats: z
-      .array(z.custom<File>())
-      .max(NOMBRE_MAX_CONTRATS, {
-        message: texte("projets.tiroirCreation.erreurContratsTropNombreux", { max: NOMBRE_MAX_CONTRATS }),
-      })
-      .refine((fichiers) => fichiers.every((fichier) => refusContrat(fichier) === null), {
-        message: texte("projets.tiroirCreation.erreurContratFormat"),
-      }),
-    ordreService: z
-      .array(z.custom<File>())
-      .max(1)
-      .refine((fichiers) => fichiers.every((fichier) => refusContrat(fichier) === null), {
-        message: texte("projets.tiroirCreation.erreurContratFormat"),
-      }),
-  })
-  .superRefine((saisie, ctx) => {
+  dureeJours: z
+    .string()
+    .trim()
+    .refine((valeur) => valeur === "" || MOTIF_ENTIER_POSITIF.test(valeur), {
+      message: texte("projets.tiroirCreation.erreurDureeContractuelleInvalide"),
+    }),
+  dateDebutContractuelle: z.string(),
+  description: z.string().trim().max(LONGUEUR_MAX_DESCRIPTION, {
+    message: texte("projets.tiroirCreation.erreurDescriptionTropLongue"),
+  }),
+  // Facultatifs : la zone de dépôt refuse déjà un fichier non conforme, le
+  // schéma le revérifie pour ne pas dépendre d'elle.
+  contrats: z
+    .array(z.custom<File>())
+    .max(NOMBRE_MAX_CONTRATS, {
+      message: texte("projets.tiroirCreation.erreurContratsTropNombreux", { max: NOMBRE_MAX_CONTRATS }),
+    })
+    .refine((fichiers) => fichiers.every((fichier) => refusContrat(fichier) === null), {
+      message: texte("projets.tiroirCreation.erreurContratFormat"),
+    }),
+  ordreService: z
+    .array(z.custom<File>())
+    .max(1)
+    .refine((fichiers) => fichiers.every((fichier) => refusContrat(fichier) === null), {
+      message: texte("projets.tiroirCreation.erreurContratFormat"),
+    }),
+});
+
+export function schemaProjetPour(contexte: ContexteValidationProjet = {}) {
+  const {
+    modification = false,
+    aContratExistant = false,
+    aOsExistant = false,
+    budgetContractuelVerrouille = false,
+    dureeContractuelleVerrouillee = false,
+    dateDebutContractuelleInitiale = null,
+  } = contexte;
+
+  return schemaProjetBase.superRefine((saisie, ctx) => {
     if (!datesChantierCoherentes(saisie.dateDebut, saisie.dateFin)) {
-      ctx.addIssue({ code: "custom", path: ["dateFin"], message: texte("projets.tiroirCreation.erreurDatesIncoherentes") });
+      ctx.addIssue({
+        code: "custom",
+        path: ["dateFin"],
+        message: texte("projets.tiroirCreation.erreurDatesIncoherentes"),
+      });
+    }
+
+    const aContrat = saisie.contrats.length > 0 || aContratExistant;
+
+    // I1 : budget contractuel initial exige un contrat du marché.
+    if (!budgetContractuelVerrouille && saisie.budgetContractuel !== "" && !aContrat) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["budgetContractuel"],
+        message: texte("projets.tiroirCreation.erreurBudgetContractuelSansContrat"),
+      });
+    }
+
+    // I1 & I2 : durée contractuelle (3 champs) > 0 et exige un contrat du marché.
+    const saisieDuree =
+      saisie.dureeAnnees !== "" || saisie.dureeMois !== "" || saisie.dureeJours !== "";
+    if (!dureeContractuelleVerrouillee && saisieDuree) {
+      const a = entierOptionnel(saisie.dureeAnnees) ?? 0;
+      const m = entierOptionnel(saisie.dureeMois) ?? 0;
+      const j = entierOptionnel(saisie.dureeJours) ?? 0;
+      if (a + m + j === 0) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["dureeJours"],
+          message: texte("projets.tiroirCreation.erreurDureeContractuelleNulle"),
+        });
+      } else if (!aContrat) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["dureeAnnees"],
+          message: texte("projets.tiroirCreation.erreurDureeContractuelleSansContrat"),
+        });
+      }
+    }
+
+    // I3 & I4 : date de début contractuelle ↔ ordre de service de démarrage.
+    const nouvelOs = saisie.ordreService.length > 0;
+    if (!modification) {
+      if (saisie.dateDebutContractuelle !== "" && !nouvelOs) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["dateDebutContractuelle"],
+          message: texte("projets.tiroirCreation.erreurDateDebutContractuelleSansOs"),
+        });
+      }
+    } else {
+      const initiale = dateDebutContractuelleInitiale ?? "";
+      if (saisie.dateDebutContractuelle !== initiale) {
+        if (saisie.dateDebutContractuelle === "" && initiale !== "") {
+          ctx.addIssue({
+            code: "custom",
+            path: ["dateDebutContractuelle"],
+            message: texte("projets.tiroirCreation.erreurDateDebutContractuelleEffacement"),
+          });
+        } else if (initiale === "") {
+          if (!nouvelOs && !aOsExistant) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["dateDebutContractuelle"],
+              message: texte("projets.tiroirCreation.erreurDateDebutContractuelleSansOs"),
+            });
+          }
+        } else if (!nouvelOs) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["dateDebutContractuelle"],
+            message: texte("projets.tiroirCreation.erreurDateDebutContractuelleNouvelOsRequis"),
+          });
+        }
+      }
     }
   });
+}
 
-export type SaisieProjet = z.input<typeof schemaProjet>;
-export type ValeursProjet = z.output<typeof schemaProjet>;
+export const schemaProjet = schemaProjetPour();
+
+export type SaisieProjet = z.input<typeof schemaProjetBase>;
+export type ValeursProjet = z.output<typeof schemaProjetBase>;
 
 /** Le formulaire vierge. `reference` est la proposition du serveur, modifiable. */
 export function saisieProjetVide(reference = ""): SaisieProjet {
@@ -139,6 +272,11 @@ export function saisieProjetVide(reference = ""): SaisieProjet {
     dateDebut: "",
     dateFin: "",
     budget: "",
+    budgetContractuel: "",
+    dureeAnnees: "",
+    dureeMois: "",
+    dureeJours: "",
+    dateDebutContractuelle: "",
     description: "",
     contrats: [],
     ordreService: [],
@@ -147,6 +285,8 @@ export function saisieProjetVide(reference = ""): SaisieProjet {
 
 /** La saisie validée, traduite en objet du domaine. */
 export function versCreationProjet(valeurs: ValeursProjet): CreationProjet {
+  const aDuree =
+    valeurs.dureeAnnees !== "" || valeurs.dureeMois !== "" || valeurs.dureeJours !== "";
   return {
     nom: valeurs.nom,
     reference: valeurs.reference || undefined,
@@ -159,6 +299,13 @@ export function versCreationProjet(valeurs: ValeursProjet): CreationProjet {
     dateFinPrevue: valeurs.dateFin || undefined,
     // Même conversion que partout ailleurs dans le produit (`lib/format`).
     budgetInitial: valeurs.budget ? (saisieEnCentimes(valeurs.budget) ?? undefined) : undefined,
+    budgetContractuelInitial: valeurs.budgetContractuel
+      ? (saisieEnCentimes(valeurs.budgetContractuel) ?? undefined)
+      : undefined,
+    dureeContractuelleAnnees: aDuree ? (entierOptionnel(valeurs.dureeAnnees) ?? 0) : undefined,
+    dureeContractuelleMois: aDuree ? (entierOptionnel(valeurs.dureeMois) ?? 0) : undefined,
+    dureeContractuelleJours: aDuree ? (entierOptionnel(valeurs.dureeJours) ?? 0) : undefined,
+    dateDebutContractuelle: valeurs.dateDebutContractuelle || undefined,
     description: valeurs.description || undefined,
     contrats: valeurs.contrats.length > 0 ? valeurs.contrats : undefined,
     ordreService: valeurs.ordreService[0] ?? undefined,
@@ -177,9 +324,18 @@ export function saisieDepuisProjet(projet: Projet): SaisieProjet {
     maitreOeuvre: projet.maitreOeuvre ?? "",
     dateDebut: projet.dateDebutPrevue ?? "",
     dateFin: projet.dateFinPrevue ?? "",
-    // Le budget ne se modifie pas ici : `versModificationProjet` l'ignore, le
-    // chef de projet le fixe depuis le projet.
+    // Le budget prévisionnel se fixe depuis la fiche projet.
     budget: "",
+    budgetContractuel:
+      projet.budgetContractuelInitial !== null
+        ? formaterSaisieMontant(String(Math.round(projet.budgetContractuelInitial / 100)))
+        : "",
+    dureeAnnees:
+      projet.dureeContractuelleAnnees !== null ? String(projet.dureeContractuelleAnnees) : "",
+    dureeMois: projet.dureeContractuelleMois !== null ? String(projet.dureeContractuelleMois) : "",
+    dureeJours:
+      projet.dureeContractuelleJours !== null ? String(projet.dureeContractuelleJours) : "",
+    dateDebutContractuelle: projet.dateDebutContractuelle ?? "",
     description: "",
     contrats: [],
     ordreService: [],
@@ -190,7 +346,25 @@ export function saisieDepuisProjet(projet: Projet): SaisieProjet {
 export function versModificationProjet(
   valeurs: ValeursProjet,
   peutRenommer = true,
+  options: {
+    budgetContractuelVerrouille?: boolean;
+    dureeContractuelleVerrouillee?: boolean;
+    dateDebutContractuelleInitiale?: string | null;
+    voitMontants?: boolean;
+  } = {},
 ): ModificationProjet {
+  const {
+    budgetContractuelVerrouille = false,
+    dureeContractuelleVerrouillee = false,
+    dateDebutContractuelleInitiale = null,
+    voitMontants = true,
+  } = options;
+  const aDuree =
+    valeurs.dureeAnnees !== "" || valeurs.dureeMois !== "" || valeurs.dureeJours !== "";
+  const dateDebutChangee =
+    valeurs.dateDebutContractuelle !== "" &&
+    valeurs.dateDebutContractuelle !== (dateDebutContractuelleInitiale ?? "");
+
   return {
     ...(peutRenommer ? { nom: valeurs.nom } : {}),
     natureProjet: valeurs.natureProjet as NatureProjet,
@@ -201,6 +375,18 @@ export function versModificationProjet(
     // Vides, elles ne sont pas envoyées : le planning enregistré reste.
     dateDebutPrevue: valeurs.dateDebut || undefined,
     dateFinPrevue: valeurs.dateFin || undefined,
+    ...(!budgetContractuelVerrouille && voitMontants && valeurs.budgetContractuel
+      ? { budgetContractuelInitial: saisieEnCentimes(valeurs.budgetContractuel) ?? undefined }
+      : {}),
+    ...(!dureeContractuelleVerrouillee && aDuree
+      ? {
+          dureeContractuelleAnnees: entierOptionnel(valeurs.dureeAnnees) ?? 0,
+          dureeContractuelleMois: entierOptionnel(valeurs.dureeMois) ?? 0,
+          dureeContractuelleJours: entierOptionnel(valeurs.dureeJours) ?? 0,
+        }
+      : {}),
+    ...(dateDebutChangee ? { dateDebutContractuelle: valeurs.dateDebutContractuelle } : {}),
+    contrats: valeurs.contrats.length > 0 ? valeurs.contrats : undefined,
     ordreService: valeurs.ordreService[0] ?? undefined,
   };
 }

@@ -371,7 +371,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
         ? t("budget.nonDefini")
         : francs(projet.budgetInitial, true),
   });
-  if (projet.budgetCourant !== null && projet.budgetCourant !== projet.budgetInitial) {
+  if (projet.budgetCourant !== null) {
     clesCalendrierBudget.push({
       libelle: t("budget.contractuel"),
       valeur: francs(projet.budgetCourant, true),

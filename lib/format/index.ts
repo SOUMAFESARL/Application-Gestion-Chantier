@@ -240,6 +240,22 @@ export function formaterDuree(
   });
 }
 
+/**
+ * Formate une durée calendaire composée (années, mois, jours) sans jours ouvrés.
+ * Renvoie `ABSENT` si la durée est nulle ou absente.
+ */
+export function formaterDureeCalendaire(
+  duree: { annees: number; mois: number; jours: number } | null | undefined,
+): string {
+  if (!duree) return ABSENT;
+  const parties = [
+    duree.annees > 0 && texte("format.duree.annees", { n: duree.annees }),
+    duree.mois > 0 && texte("format.duree.mois", { n: duree.mois }),
+    duree.jours > 0 && texte("format.duree.jours", { n: duree.jours }),
+  ].filter((partie): partie is string => Boolean(partie));
+  return parties.length > 0 ? enumeration.format(parties) : ABSENT;
+}
+
 // ---------------------------------------------------------------------------
 // Pourcentages
 // ---------------------------------------------------------------------------

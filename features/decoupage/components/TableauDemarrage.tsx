@@ -49,9 +49,11 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BoutonPermis, PERMISSIONS, useDroits } from "@/features/habilitations";
+import { budgetEnVigueur, sourcePlafondBudget } from "@/features/projets/regles";
 import type { Projet } from "@/features/projets/types";
 import { ErreurApi } from "@/lib/api";
 import { telechargerCsv, versCsv } from "@/lib/export/csv";
+import { formaterMontant } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import {
@@ -398,6 +400,16 @@ function EditeurTableau({
       ),
     [initial.modele, tousLesModeles],
   );
+  const totalMontantSaisi = useMemo(
+    () => tableau.lignes.reduce((somme, ligne) => somme + (ligne.montant ?? 0), 0),
+    [tableau.lignes],
+  );
+  const plafondBudget = budgetEnVigueur(projet);
+  const sourcePlafond = sourcePlafondBudget(projet);
+  const ecartBudget =
+    plafondBudget !== null && plafondBudget > 0 && totalMontantSaisi > plafondBudget
+      ? totalMontantSaisi - plafondBudget
+      : 0;
 
   return (
     <Grille.Provider value={contexte}>
@@ -527,6 +539,24 @@ function EditeurTableau({
             {t("ajouterLigne")}
           </Button>
         </div>
+
+        {voitMontants && ecartBudget > 0 && plafondBudget !== null && sourcePlafond !== null && (
+          <Alert variant="avertissement">
+            <TriangleAlert />
+            <AlertDescription>
+              {t(
+                sourcePlafond === "CONTRACTUEL"
+                  ? "alerteDepassementContractuel"
+                  : "alerteDepassementPrevisionnel",
+                {
+                  decoupage: formaterMontant(totalMontantSaisi),
+                  plafond: formaterMontant(plafondBudget),
+                  ecart: formaterMontant(ecartBudget),
+                },
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {verdict && <Verdict verdict={verdict} />}
 
