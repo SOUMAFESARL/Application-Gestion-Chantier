@@ -1,17 +1,26 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowUpRight, FileDown, LoaderCircle, Pencil } from "lucide-react";
+import { ArrowUpRight, FileDown, LoaderCircle, Lock, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import type { ReactNode } from "react";
 
 import { ComboboxVille } from "@/components/metier/ComboboxVille";
 import { Badge } from "@/components/ui";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -38,6 +47,7 @@ import { useDroits } from "@/features/habilitations";
 import {
   creerProjet,
   modifierProjet,
+  telechargerContratProjet,
   telechargerOrdreServiceProjet,
 } from "@/features/projets/adaptateur";
 import {
@@ -45,17 +55,18 @@ import {
   NATURES_PROJET,
   NOMBRE_MAX_CONTRATS,
   TAILLE_MAX_CONTRAT,
+  aDureeContractuelle,
   datesVerrouillees,
   dureeProjet,
   refusContrat,
 } from "@/features/projets/regles";
-import type { Projet } from "@/features/projets/types";
+import type { ContratProjet, Projet } from "@/features/projets/types";
 import {
   LONGUEUR_MAX_DESCRIPTION,
   LONGUEUR_MAX_NOM,
   saisieDepuisProjet,
   saisieProjetVide,
-  schemaProjet,
+  schemaProjetPour,
   versCreationProjet,
   versModificationProjet,
   type SaisieProjet,
@@ -66,8 +77,11 @@ import type { ErreurApi } from "@/lib/api";
 import {
   formaterDate,
   formaterDuree,
+  formaterDureeCalendaire,
+  formaterMontant,
   formaterSaisieMontant,
   formaterTailleFichier,
+  saisieEnCentimes,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -161,20 +175,47 @@ export function TiroirCreationProjet({
   });
   const verrou = datesVerrouillees(datesFixees);
   const [reprogrammationOuverte, setReprogrammationOuverte] = useState(false);
+  const [saisieAConfirmer, setSaisieAConfirmer] = useState<ValeursProjet | null>(null);
+  const [envoiEnCours, setEnvoiEnCours] = useState(false);
+
+  const aContratExistant = Boolean(projet && projet.contrats.length > 0);
+  const aOsExistant = Boolean(projet?.ordreService);
+  const budgetContractuelVerrouille = Boolean(projet && projet.budgetContractuelInitial !== null);
+  const dureeContractuelleVerrouillee = Boolean(projet && aDureeContractuelle(projet));
+  const dateDebutContractuelleInitiale = projet?.dateDebutContractuelle ?? null;
+
+  const schema = useMemo(
+    () =>
+      schemaProjetPour({
+        modification,
+        aContratExistant,
+        aOsExistant,
+        budgetContractuelVerrouille,
+        dureeContractuelleVerrouillee,
+        dateDebutContractuelleInitiale,
+      }),
+    [
+      modification,
+      aContratExistant,
+      aOsExistant,
+      budgetContractuelVerrouille,
+      dureeContractuelleVerrouillee,
+      dateDebutContractuelleInitiale,
+    ],
+  );
 
   // Vide tant que le serveur ne l'a pas dit : la liste des villes en dépend,
   // et un pays deviné serait faux hors de Côte d'Ivoire.
   const [pays, setPays] = useState("");
 
   const form = useForm<SaisieProjet, unknown, ValeursProjet>({
-    resolver: zodResolver(schemaProjet),
+    resolver: zodResolver(schema),
     defaultValues: projet ? saisieDepuisProjet(projet) : saisieProjetVide(),
     mode: "onTouched",
   });
 
   const valeurs = useWatch({ control: form.control }) as SaisieProjet;
-  const enCours = form.formState.isSubmitting;
-  const saisieValide = schemaProjet.safeParse(valeurs).success;
+  const enCours = form.formState.isSubmitting || envoiEnCours;
   const duree = dureeProjet(valeurs.dateDebut ?? null, valeurs.dateFin ?? null);
 
   useEffect(() => {
@@ -212,6 +253,21 @@ export function TiroirCreationProjet({
     }
   }
 
+  async function telechargerContratActuel(contrat: ContratProjet) {
+    if (!projet) return;
+    try {
+      const blob = await telechargerContratProjet(projet.id, contrat.id);
+      const lien = document.createElement("a");
+      lien.href = URL.createObjectURL(blob);
+      lien.download = contrat.nom;
+      lien.click();
+      URL.revokeObjectURL(lien.href);
+    } catch (err) {
+      const cause = err as ErreurApi;
+      toast.error(cause.message || t("erreurGenerique"));
+    }
+  }
+
   async function telechargerOsActuel() {
     if (!projet?.ordreService) return;
     try {
@@ -227,15 +283,33 @@ export function TiroirCreationProjet({
     }
   }
 
-  async function soumettre(saisie: ValeursProjet) {
+  function doitConfirmerImmuabilite(saisie: ValeursProjet): boolean {
+    const poseBudgetContractuel =
+      !budgetContractuelVerrouille && voitMontants && saisie.budgetContractuel.trim() !== "";
+    const poseDureeContractuelle =
+      !dureeContractuelleVerrouillee &&
+      (saisie.dureeAnnees.trim() !== "" ||
+        saisie.dureeMois.trim() !== "" ||
+        saisie.dureeJours.trim() !== "");
+    return poseBudgetContractuel || poseDureeContractuelle;
+  }
+
+  async function executerSoumission(saisie: ValeursProjet) {
+    setEnvoiEnCours(true);
     try {
       if (projet) {
-        const modifications = versModificationProjet(saisie, projet.peutRenommer);
+        const modifications = versModificationProjet(saisie, projet.peutRenommer, {
+          budgetContractuelVerrouille,
+          dureeContractuelleVerrouillee,
+          dateDebutContractuelleInitiale,
+          voitMontants,
+        });
         if (verrou.debut) delete modifications.dateDebutPrevue;
         if (verrou.fin) delete modifications.dateFinPrevue;
         const projetModifie = await modifierProjet(projet.id, modifications);
         onProjetModifie?.(projetModifie);
         toast.success(t("succesModification", { nom: projetModifie.nom }));
+        setSaisieAConfirmer(null);
         onFermer();
         return;
       }
@@ -243,17 +317,45 @@ export function TiroirCreationProjet({
         versCreationProjet({
           ...saisie,
           budget: voitMontants ? saisie.budget : "",
+          budgetContractuel: voitMontants ? saisie.budgetContractuel : "",
         }),
       );
       reinitialiser();
       onProjetCree?.(projetCree);
       toast.success(t("succesCreation", { nom: projetCree.nom }));
+      setSaisieAConfirmer(null);
       onFermer();
       router.push("/projets");
     } catch (err) {
       const cause = err as ErreurApi;
-      toast.error(cause.message || t("erreurGenerique"));
+      setSaisieAConfirmer(null);
+      const champsApi = cause.erreursParChamp ?? {};
+      const correspondance: Record<string, keyof SaisieProjet> = {
+        budget_contractuel_initial: "budgetContractuel",
+        duree_contractuelle_annees: "dureeAnnees",
+        duree_contractuelle_mois: "dureeMois",
+        duree_contractuelle_jours: "dureeJours",
+        date_debut_contractuelle: "dateDebutContractuelle",
+      };
+      let messageSpecifique: string | null = null;
+      for (const [cleServeur, champForm] of Object.entries(correspondance)) {
+        if (champsApi[cleServeur]) {
+          form.setError(champForm, { message: champsApi[cleServeur] });
+          messageSpecifique = messageSpecifique ?? champsApi[cleServeur];
+        }
+      }
+      toast.error(messageSpecifique || cause.message || t("erreurGenerique"));
+    } finally {
+      setEnvoiEnCours(false);
     }
+  }
+
+  async function soumettre(saisie: ValeursProjet) {
+    if (doitConfirmerImmuabilite(saisie)) {
+      setSaisieAConfirmer(saisie);
+      return;
+    }
+    await executerSoumission(saisie);
   }
 
   return (
@@ -566,46 +668,25 @@ export function TiroirCreationProjet({
             </div>
 
             {!modification && (
-              <>
-                <div className={RANGEE}>
-                  {voitMontants && (
-                    <FormField
-                      control={form.control}
-                      name="budget"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t("champBudget")}</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              onChange={(evenement) =>
-                                field.onChange(
-                                  formaterSaisieMontant(evenement.target.value),
-                                )
-                              }
-                              className={cn(CHAMP, "tabular-nums")}
-                              inputMode="numeric"
-                              placeholder={t("champBudgetPlaceholder")}
-                              disabled={enCours}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
+              <div className={RANGEE}>
+                {voitMontants && (
                   <FormField
                     control={form.control}
-                    name="description"
+                    name="budget"
                     render={({ field }) => (
-                      <FormItem className="col-span-full">
-                        <FormLabel>{t("champDescription")}</FormLabel>
+                      <FormItem>
+                        <FormLabel>{t("champBudget")}</FormLabel>
                         <FormControl>
-                          <Textarea
+                          <Input
                             {...field}
-                            rows={2}
-                            maxLength={LONGUEUR_MAX_DESCRIPTION}
-                            placeholder={t("champDescriptionPlaceholder")}
+                            onChange={(evenement) =>
+                              field.onChange(
+                                formaterSaisieMontant(evenement.target.value),
+                              )
+                            }
+                            className={cn(CHAMP, "tabular-nums")}
+                            inputMode="numeric"
+                            placeholder={t("champBudgetPlaceholder")}
                             disabled={enCours}
                           />
                         </FormControl>
@@ -613,32 +694,19 @@ export function TiroirCreationProjet({
                       </FormItem>
                     )}
                   />
-                </div>
-
-                <TitreSection>{t("sectionContrat")}</TitreSection>
-
+                )}
                 <FormField
                   control={form.control}
-                  name="contrats"
+                  name="description"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("champContrats")}</FormLabel>
+                    <FormItem className="col-span-full">
+                      <FormLabel>{t("champDescription")}</FormLabel>
                       <FormControl>
-                        <ZoneDepotFichiers
-                          fichiers={field.value}
-                          onChange={(fichiers) => {
-                            field.onChange(fichiers);
-                            field.onBlur();
-                          }}
-                          name={field.name}
-                          accept={FORMAT_CONTRAT}
-                          multiple
-                          maximum={NOMBRE_MAX_CONTRATS}
-                          refuser={motifRefusContrat}
-                          consigne={t("consigneContrats", {
-                            taille: formaterTailleFichier(TAILLE_MAX_CONTRAT),
-                            max: NOMBRE_MAX_CONTRATS,
-                          })}
+                        <Textarea
+                          {...field}
+                          rows={2}
+                          maxLength={LONGUEUR_MAX_DESCRIPTION}
+                          placeholder={t("champDescriptionPlaceholder")}
                           disabled={enCours}
                         />
                       </FormControl>
@@ -646,8 +714,213 @@ export function TiroirCreationProjet({
                     </FormItem>
                   )}
                 />
-              </>
+              </div>
             )}
+
+            <TitreSection>{t("sectionContrat")}</TitreSection>
+
+            {modification && projet && projet.contrats.length > 0 && (
+              <div className="flex flex-col gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2.5">
+                <span className="text-xs font-medium text-neutral-500">
+                  {t("contratsExistants")}
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {projet.contrats.map((contrat) => (
+                    <Button
+                      key={contrat.id}
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void telechargerContratActuel(contrat)}
+                    >
+                      <FileDown className="size-4" aria-hidden="true" />
+                      <span className="max-w-56 truncate">{contrat.nom}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <FormField
+              control={form.control}
+              name="contrats"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("champContrats")}</FormLabel>
+                  <FormControl>
+                    <ZoneDepotFichiers
+                      fichiers={field.value}
+                      onChange={(fichiers) => {
+                        field.onChange(fichiers);
+                        field.onBlur();
+                        void form.trigger([
+                          "budgetContractuel",
+                          "dureeAnnees",
+                          "dureeMois",
+                          "dureeJours",
+                        ]);
+                      }}
+                      name={field.name}
+                      accept={FORMAT_CONTRAT}
+                      multiple
+                      maximum={NOMBRE_MAX_CONTRATS}
+                      refuser={motifRefusContrat}
+                      consigne={t("consigneContrats", {
+                        taille: formaterTailleFichier(TAILLE_MAX_CONTRAT),
+                        max: NOMBRE_MAX_CONTRATS,
+                      })}
+                      disabled={enCours}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {(budgetContractuelVerrouille || dureeContractuelleVerrouillee) && (
+              <Alert variant="information">
+                <Lock className="size-4" aria-hidden="true" />
+                <AlertDescription>{t("verrouContratAide")}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className={RANGEE}>
+              {voitMontants && (
+                <FormField
+                  control={form.control}
+                  name="budgetContractuel"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2">
+                        <span>{t("champBudgetContractuel")}</span>
+                        {budgetContractuelVerrouille && (
+                          <Badge variante="neutre">{t("verrouContratBadge")}</Badge>
+                        )}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          onChange={(evenement) =>
+                            field.onChange(formaterSaisieMontant(evenement.target.value))
+                          }
+                          className={cn(
+                            CHAMP,
+                            "tabular-nums",
+                            budgetContractuelVerrouille && CHAMP_CALCULE,
+                          )}
+                          inputMode="numeric"
+                          placeholder={t("champBudgetContractuelPlaceholder")}
+                          disabled={enCours || budgetContractuelVerrouille}
+                          readOnly={budgetContractuelVerrouille}
+                        />
+                      </FormControl>
+                      {!budgetContractuelVerrouille && (
+                        <FormDescription>{t("aideBudgetContractuel")}</FormDescription>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              <div className="flex flex-col gap-2">
+                <span className="flex items-center gap-2 text-sm leading-none font-medium">
+                  <span>{t("champDureeContractuelle")}</span>
+                  {dureeContractuelleVerrouillee && (
+                    <Badge variante="neutre">{t("verrouContratBadge")}</Badge>
+                  )}
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  <FormField
+                    control={form.control}
+                    name="dureeAnnees"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs text-neutral-500">
+                          {t("champDureeAnnees")}
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min={0}
+                            step={1}
+                            inputMode="numeric"
+                            className={cn(
+                              CHAMP,
+                              "tabular-nums",
+                              dureeContractuelleVerrouillee && CHAMP_CALCULE,
+                            )}
+                            disabled={enCours || dureeContractuelleVerrouillee}
+                            readOnly={dureeContractuelleVerrouillee}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="dureeMois"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs text-neutral-500">
+                          {t("champDureeMois")}
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min={0}
+                            step={1}
+                            inputMode="numeric"
+                            className={cn(
+                              CHAMP,
+                              "tabular-nums",
+                              dureeContractuelleVerrouillee && CHAMP_CALCULE,
+                            )}
+                            disabled={enCours || dureeContractuelleVerrouillee}
+                            readOnly={dureeContractuelleVerrouillee}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="dureeJours"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs text-neutral-500">
+                          {t("champDureeJours")}
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min={0}
+                            step={1}
+                            inputMode="numeric"
+                            className={cn(
+                              CHAMP,
+                              "tabular-nums",
+                              dureeContractuelleVerrouillee && CHAMP_CALCULE,
+                            )}
+                            disabled={enCours || dureeContractuelleVerrouillee}
+                            readOnly={dureeContractuelleVerrouillee}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                {!dureeContractuelleVerrouillee && (
+                  <p className="m-0 text-xs text-neutral-500">{t("aideDureeContractuelle")}</p>
+                )}
+              </div>
+            </div>
 
             <TitreSection>{t("sectionOrdreService")}</TitreSection>
 
@@ -687,6 +960,7 @@ export function TiroirCreationProjet({
                       onChange={(fichiers) => {
                         field.onChange(fichiers);
                         field.onBlur();
+                        void form.trigger("dateDebutContractuelle");
                       }}
                       name={field.name}
                       accept={FORMAT_CONTRAT}
@@ -698,6 +972,32 @@ export function TiroirCreationProjet({
                       disabled={enCours}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="dateDebutContractuelle"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("champDateDebutContractuelle")}</FormLabel>
+                  <FormControl>
+                    <SelecteurDate
+                      valeur={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      className={CHAMP}
+                      placeholder={t("champDateChoisir")}
+                      disabled={enCours}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {dateDebutContractuelleInitiale
+                      ? t("aideDateDebutContractuelleRemplacement")
+                      : t("aideDateDebutContractuelle")}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -717,7 +1017,7 @@ export function TiroirCreationProjet({
           <Button
             type="submit"
             form={FORM_ID}
-            disabled={enCours || !saisieValide}
+            disabled={enCours}
             aria-busy={enCours}
           >
             {enCours ? <LoaderCircle className="animate-spin" /> : null}
@@ -730,6 +1030,80 @@ export function TiroirCreationProjet({
           </Button>
         </SheetFooter>
       </SheetContent>
+
+      {saisieAConfirmer && (
+        <Dialog
+          open
+          onOpenChange={(ouvert) => !ouvert && !envoiEnCours && setSaisieAConfirmer(null)}
+        >
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>{t("confirmationImmuabilite.titre")}</DialogTitle>
+              <DialogDescription>{t("confirmationImmuabilite.description")}</DialogDescription>
+            </DialogHeader>
+            <dl className="m-0 flex flex-col gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3.5 text-sm">
+              {!budgetContractuelVerrouille &&
+                voitMontants &&
+                saisieAConfirmer.budgetContractuel.trim() !== "" && (
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-neutral-600">
+                      {t("confirmationImmuabilite.budgetContractuel")}
+                    </dt>
+                    <dd className="m-0 font-semibold tabular-nums text-neutral-900">
+                      {formaterMontant(saisieEnCentimes(saisieAConfirmer.budgetContractuel))}
+                    </dd>
+                  </div>
+                )}
+              {!dureeContractuelleVerrouillee &&
+                (saisieAConfirmer.dureeAnnees.trim() !== "" ||
+                  saisieAConfirmer.dureeMois.trim() !== "" ||
+                  saisieAConfirmer.dureeJours.trim() !== "") && (
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-neutral-600">
+                      {t("confirmationImmuabilite.dureeContractuelle")}
+                    </dt>
+                    <dd className="m-0 font-semibold text-neutral-900">
+                      {formaterDureeCalendaire({
+                        annees: Number.parseInt(saisieAConfirmer.dureeAnnees || "0", 10) || 0,
+                        mois: Number.parseInt(saisieAConfirmer.dureeMois || "0", 10) || 0,
+                        jours: Number.parseInt(saisieAConfirmer.dureeJours || "0", 10) || 0,
+                      })}
+                    </dd>
+                  </div>
+                )}
+              {saisieAConfirmer.dateDebutContractuelle.trim() !== "" && (
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="text-neutral-600">
+                    {t("confirmationImmuabilite.dateDebutContractuelle")}
+                  </dt>
+                  <dd className="m-0 font-semibold tabular-nums text-neutral-900">
+                    {formaterDate(saisieAConfirmer.dateDebutContractuelle)}
+                  </dd>
+                </div>
+              )}
+            </dl>
+            <DialogFooter className="gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setSaisieAConfirmer(null)}
+                disabled={envoiEnCours}
+              >
+                {t("confirmationImmuabilite.annuler")}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void executerSoumission(saisieAConfirmer)}
+                disabled={envoiEnCours}
+                aria-busy={envoiEnCours}
+              >
+                {envoiEnCours && <LoaderCircle className="animate-spin" />}
+                {t("confirmationImmuabilite.confirmer")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {projet && verrou.reprogrammable && (
         <ModaleReprogrammation

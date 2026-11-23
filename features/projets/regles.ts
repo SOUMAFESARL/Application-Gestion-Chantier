@@ -308,13 +308,44 @@ export function projetModifiable(projet: Pick<Projet, "statut">): boolean {
 }
 
 /**
- * Le budget sur lequel tout se mesure : celui **en vigueur** — l'initial plus les avenants —, et à
- * défaut l'initial. `null` tant que le budget n'est pas défini.
+ * Le budget sur lequel tout se mesure : le **budget contractuel** dès qu'il est disponible,
+ * sinon le **budget prévisionnel**. `null` tant qu'aucun des deux n'est défini.
  */
 export function budgetEnVigueur(
   projet: Pick<Projet, "budgetInitial" | "budgetCourant">,
 ): number | null {
   return projet.budgetCourant ?? projet.budgetInitial;
+}
+
+/** Indique quelle enveloppe sert actuellement de plafond d'alerte au découpage. */
+export function sourcePlafondBudget(
+  projet: Pick<Projet, "budgetInitial" | "budgetCourant">,
+): "CONTRACTUEL" | "PREVISIONNEL" | null {
+  if (projet.budgetCourant !== null) return "CONTRACTUEL";
+  if (projet.budgetInitial !== null) return "PREVISIONNEL";
+  return null;
+}
+
+/** Vrai dès que la durée contractuelle initiale du projet est posée (> 0). */
+export function aDureeContractuelle(
+  projet: Pick<
+    Projet,
+    "dureeContractuelleAnnees" | "dureeContractuelleMois" | "dureeContractuelleJours"
+  >,
+): boolean {
+  return (
+    (projet.dureeContractuelleAnnees ?? 0) +
+      (projet.dureeContractuelleMois ?? 0) +
+      (projet.dureeContractuelleJours ?? 0) >
+    0
+  );
+}
+
+/** Vrai si au moins une prolongation de délai par avenant s'applique au projet. */
+export function aProlongationContractuelle(
+  projet: Pick<Projet, "prolongationAnnees" | "prolongationMois" | "prolongationJours">,
+): boolean {
+  return projet.prolongationAnnees + projet.prolongationMois + projet.prolongationJours > 0;
 }
 
 /** Le budget en vigueur, moins ce qui en est déjà réalisé. Négatif : budget dépassé. */

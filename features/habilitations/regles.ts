@@ -77,7 +77,7 @@ const DIRECTION: ConditionAcces = { type: "DIRECTION" };
 function permission(code: string): ConditionAcces {
   return { type: "PERMISSION", code };
 }
-function module(code: string): ConditionAcces {
+function accesModule(code: string): ConditionAcces {
   return { type: "MODULE", module: code };
 }
 
@@ -87,32 +87,32 @@ function module(code: string): ConditionAcces {
  * qu'à la direction : un écran nouveau reste fermé tant qu'on n'a pas dit quel
  * droit l'ouvre.
  *
- * **L'écran d'un module s'ouvre dès une permission sur ce module** (`module`),
+ * **L'écran d'un module s'ouvre dès une permission sur ce module** (`accesModule`),
  * comme son entrée de menu : le tableau de bord appartient au module
  * `pilotage`, il disparaît pour qui n'y a aucune permission. Les modules que le
  * catalogue du serveur n'a pas encore (finance, achats, stocks…) ne portent
  * aucune permission : ils restent fermés à tous, direction comprise.
  */
 export const CONDITIONS_ROUTES: readonly (readonly [string, ConditionAcces])[] = [
-  ["/tableau-de-bord", module("pilotage")],
+  ["/tableau-de-bord", accesModule("pilotage")],
   ["/notifications", TOUS],
   ["/profil", TOUS],
-  ["/projets", module("projets")],
+  ["/projets", accesModule("projets")],
   // Le registre de main-d'œuvre se lit avec `projets.lire` ; l'écriture se grise dans l'écran.
   ["/projets/main-oeuvre", permission("projets.lire")],
-  ["/planning", module("projets")],
-  ["/rapports", module("chantier")],
+  ["/planning", accesModule("projets")],
+  ["/rapports", accesModule("chantier")],
   // Rédiger le rapport journalier : le chef de chantier (SFD F2 §3.2).
   ["/rapports/saisie", permission("chantier.rediger")],
-  ["/finance", module("finance")],
-  ["/achats", module("achats")],
-  ["/stocks", module("stocks")],
-  ["/rh", module("rh")],
-  ["/equipements", module("equipements")],
-  ["/qhse", module("qhse")],
-  ["/contrats", module("contrats")],
-  ["/tiers", module("tiers")],
-  ["/documents", module("ged")],
+  ["/finance", accesModule("finance")],
+  ["/achats", accesModule("achats")],
+  ["/stocks", accesModule("stocks")],
+  ["/rh", accesModule("rh")],
+  ["/equipements", accesModule("equipements")],
+  ["/qhse", accesModule("qhse")],
+  ["/contrats", accesModule("contrats")],
+  ["/tiers", accesModule("tiers")],
+  ["/documents", accesModule("ged")],
   ["/parametres/collaborateurs", permission("administration.collaborateurs_voir")],
   ["/parametres/roles", permission("administration.roles_gerer")],
   ["/parametres/listes", permission("projets.creer")],

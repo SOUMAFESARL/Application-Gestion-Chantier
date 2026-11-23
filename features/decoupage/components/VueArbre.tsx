@@ -17,6 +17,7 @@ import {
   Download,
   Plus,
   Settings2,
+  TriangleAlert,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
@@ -33,9 +34,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BoutonPermis, PERMISSIONS, useDroits } from "@/features/habilitations";
+import {
+  budgetEnVigueur,
+  depassementDecoupage,
+  sourcePlafondBudget,
+} from "@/features/projets/regles";
 import type { Projet } from "@/features/projets/types";
 import { ErreurApi } from "@/lib/api";
-import { ABSENT, formaterPourcentage } from "@/lib/format";
+import { ABSENT, formaterMontant, formaterPourcentage } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { exporterArbre, lireArbre } from "../adaptateur";
@@ -64,7 +70,7 @@ const colonne = createColumnHelper<typeof FONCTIONNALITES, CaseArbre>();
  */
 export function VueArbre({ projet }: { projet: Projet }) {
   const t = useTranslations("decoupage.arbre");
-  const { peutSurProjet } = useDroits();
+  const { peutSurProjet, voitMontants } = useDroits();
   const [caseOuverte, setCaseOuverte] = useState<string | null>(null);
   const [geste, setGeste] = useState<GesteOuvert | null>(null);
   const [reglages, setReglages] = useState(false);
@@ -96,6 +102,9 @@ export function VueArbre({ projet }: { projet: Projet }) {
   const peutDecouper = peutSurProjet(PERMISSIONS.DECOUPER, projet);
   const depliable = arbreDepliable(arbre.cases);
   const toutDeplie = arbreToutDeplie(arbre.cases, deplie);
+  const plafondBudget = budgetEnVigueur(projet);
+  const sourcePlafond = sourcePlafondBudget(projet);
+  const depassement = depassementDecoupage(projet);
 
   return (
     <div className="flex flex-col gap-4">
@@ -151,6 +160,29 @@ export function VueArbre({ projet }: { projet: Projet }) {
           <AlertDescription>{t("perimetreReduit")}</AlertDescription>
         </Alert>
       )}
+
+      {voitMontants &&
+        depassement !== null &&
+        depassement > 0 &&
+        plafondBudget !== null &&
+        projet.budgetDecoupage !== null &&
+        sourcePlafond !== null && (
+          <Alert variant="avertissement">
+            <TriangleAlert />
+            <AlertDescription>
+              {t(
+                sourcePlafond === "CONTRACTUEL"
+                  ? "alerteDepassementContractuel"
+                  : "alerteDepassementPrevisionnel",
+                {
+                  decoupage: formaterMontant(projet.budgetDecoupage),
+                  plafond: formaterMontant(plafondBudget),
+                  ecart: formaterMontant(depassement),
+                },
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
 
       {reglages && <ReglagesNiveaux projet={projet} niveaux={arbre.niveaux} />}
 

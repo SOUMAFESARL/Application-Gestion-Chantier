@@ -50,6 +50,8 @@ import {
 import { useGestionProjet } from "@/features/projets/components/GestionProjet";
 import { HistoriqueDatesProjet } from "@/features/projets/components/HistoriqueDatesProjet";
 import {
+  aDureeContractuelle,
+  aProlongationContractuelle,
   budgetEnVigueur,
   budgetRestant,
   depassementDecoupage,
@@ -63,6 +65,7 @@ import {
   principalePenalite,
   ratioConsommationBudget,
   ROLE_PROJET_PAR_FONCTION,
+  sourcePlafondBudget,
   tonSante,
 } from "@/features/projets/regles";
 import { REFERENTIEL_TYPES_PROJET, useReferentiel } from "@/features/projets/referentiels";
@@ -74,6 +77,7 @@ import {
   couleurIndiceSante,
   formaterDate,
   formaterDuree,
+  formaterDureeCalendaire,
   formaterMontant,
   formaterMontantCourt,
   formaterPourcentage,
@@ -623,20 +627,10 @@ function CarteCalendrier({ projet, onDefinir }: { projet: Projet; onDefinir?: ()
   const echeancier = echeancierProjet(projet);
   const depasse =
     echeancier.joursRestants !== null && echeancier.joursRestants < 0;
-
-  // Le planning ne se demande plus à la création : le chef de projet le fixe ensuite.
-  if (!projet.dateDebutPrevue || !projet.dateFinPrevue) {
-    return (
-      <CarteCle
-        icone={<CalendarDays size={18} />}
-        titre={t("titre")}
-        pastille="primaire"
-        mention={onDefinir && <BoutonCadrage defini={false} onClick={onDefinir} />}
-      >
-        <NonDefini onDefinir={onDefinir} />
-      </CarteCle>
-    );
-  }
+  const aDebutContractuel = Boolean(projet.dateDebutContractuelle);
+  const aDuree = aDureeContractuelle(projet);
+  const aProlongation = aProlongationContractuelle(projet);
+  const aPrevisionnel = Boolean(projet.dateDebutPrevue && projet.dateFinPrevue);
 
   let mention: ReactNode;
   if (projet.dateFinReelle) {
@@ -645,6 +639,8 @@ function CarteCalendrier({ projet, onDefinir }: { projet: Projet; onDefinir?: ()
         {t("termineLe", { date: formaterDate(projet.dateFinReelle) })}
       </Badge>
     );
+  } else if (!aPrevisionnel) {
+    mention = onDefinir ? <BoutonCadrage defini={false} onClick={onDefinir} /> : undefined;
   } else if (echeancier.joursRestants === null) {
     mention = <Badge variante="neutre">{t("clos")}</Badge>;
   } else if (depasse) {
@@ -668,76 +664,175 @@ function CarteCalendrier({ projet, onDefinir }: { projet: Projet; onDefinir?: ()
       pastille={depasse ? "erreur" : "primaire"}
       mention={mention}
     >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xs text-neutral-500">{t("debutPrevu")}</span>
-          <span className="whitespace-nowrap text-xl font-bold @[17rem]:text-2xl tabular-nums text-neutral-900">
-            {formaterDate(projet.dateDebutPrevue)}
+      <div className="grid grid-cols-1 gap-3 @[15rem]:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-solid border-neutral-900/10 bg-neutral-0/70 p-3">
+          <span className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
+            {t("blocContractuel")}
           </span>
+          {aDebutContractuel && projet.dateFinContractuelle ? (
+            <>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs text-neutral-500">{t("debutContractuel")}</span>
+                  <span className="whitespace-nowrap text-sm font-bold tabular-nums text-neutral-900 @[28rem]:text-base">
+                    {formaterDate(projet.dateDebutContractuelle)}
+                  </span>
+                </div>
+                <ArrowRight
+                  size={14}
+                  className="mt-3.5 shrink-0 text-neutral-400"
+                  aria-hidden="true"
+                />
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs text-neutral-500">{t("finContractuelle")}</span>
+                  <span className="whitespace-nowrap text-sm font-bold tabular-nums text-neutral-900 @[28rem]:text-base">
+                    {formaterDate(projet.dateFinContractuelle)}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-auto flex flex-col gap-0.5 text-xs text-neutral-600">
+                {aDuree && (
+                  <span>
+                    {t("dureeContractuelle", {
+                      duree: formaterDureeCalendaire(projet.dureeContractuelle),
+                    })}
+                  </span>
+                )}
+                {aProlongation && (
+                  <span className="font-medium text-primary-700">
+                    {t("prolongations", {
+                      duree: formaterDureeCalendaire({
+                        annees: projet.prolongationAnnees,
+                        mois: projet.prolongationMois,
+                        jours: projet.prolongationJours,
+                      }),
+                    })}
+                  </span>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col gap-1.5 text-xs text-neutral-600">
+              {aDebutContractuel && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-neutral-500">{t("debutContractuel")}</span>
+                  <span className="text-sm font-semibold tabular-nums text-neutral-900">
+                    {formaterDate(projet.dateDebutContractuelle)}
+                  </span>
+                </div>
+              )}
+              {aDuree && (
+                <span>
+                  {t("dureeContractuelle", {
+                    duree: formaterDureeCalendaire(projet.dureeContractuelle),
+                  })}
+                </span>
+              )}
+              {aProlongation && (
+                <span className="font-medium text-primary-700">
+                  {t("prolongations", {
+                    duree: formaterDureeCalendaire({
+                      annees: projet.prolongationAnnees,
+                      mois: projet.prolongationMois,
+                      jours: projet.prolongationJours,
+                    }),
+                  })}
+                </span>
+              )}
+              <span className="text-neutral-500">
+                {!aDebutContractuel && !aDuree
+                  ? t("attenteCadreContractuel")
+                  : !aDebutContractuel
+                    ? t("attenteOs")
+                    : t("attenteDuree")}
+              </span>
+            </div>
+          )}
         </div>
-        <ArrowRight
-          size={18}
-          className="mt-4 shrink-0 text-neutral-400"
-          aria-hidden="true"
-        />
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xs text-neutral-500">{t("finPrevue")}</span>
-          <span
-            className={cn(
-              "whitespace-nowrap text-xl font-bold @[17rem]:text-2xl tabular-nums",
-              depasse ? "text-erreur" : "text-neutral-900",
-            )}
-          >
-            {formaterDate(projet.dateFinPrevue)}
+
+        <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-solid border-neutral-900/10 bg-neutral-0/70 p-3">
+          <span className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
+            {t("blocPrevisionnel")}
           </span>
+          {aPrevisionnel ? (
+            <>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs text-neutral-500">{t("debutPrevu")}</span>
+                  <span className="whitespace-nowrap text-sm font-bold tabular-nums text-neutral-900 @[28rem]:text-base">
+                    {formaterDate(projet.dateDebutPrevue)}
+                  </span>
+                </div>
+                <ArrowRight
+                  size={14}
+                  className="mt-3.5 shrink-0 text-neutral-400"
+                  aria-hidden="true"
+                />
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs text-neutral-500">{t("finPrevue")}</span>
+                  <span
+                    className={cn(
+                      "whitespace-nowrap text-sm font-bold tabular-nums @[28rem]:text-base",
+                      depasse ? "text-erreur" : "text-neutral-900",
+                    )}
+                  >
+                    {formaterDate(projet.dateFinPrevue)}
+                  </span>
+                </div>
+              </div>
+
+              {echeancier.tempsEcoule !== null && (
+                <div className="mt-auto flex flex-col gap-1">
+                  <Jauge
+                    valeur={echeancier.tempsEcoule}
+                    className={depasse ? "bg-erreur" : "bg-primary-500"}
+                  />
+                  <span className="text-xs text-neutral-600">
+                    {t("tempsEcoule", { valeur: echeancier.tempsEcoule })}
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            <NonDefini onDefinir={onDefinir} />
+          )}
         </div>
       </div>
 
-      {echeancier.tempsEcoule !== null && (
-        <div className="flex flex-col gap-1.5">
-          <Jauge
-            valeur={echeancier.tempsEcoule}
-            className={depasse ? "bg-erreur" : "bg-primary-500"}
-          />
-          <span className="text-xs text-neutral-600">
-            {t("tempsEcoule", { valeur: echeancier.tempsEcoule })}
+      {aPrevisionnel && (
+        <div className={cn(FILET, "flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-600")}>
+          <span>
+            {t("duree", { duree: formaterDuree(projet.duree ?? echeancier.duree) })}
           </span>
+          <span>
+            {projet.dateDebutReelle
+              ? t("debutReel", { date: formaterDate(projet.dateDebutReelle) })
+              : t("nonDemarre")}
+          </span>
+          {onDefinir && (
+            <BoutonCadrage
+              defini
+              onClick={onDefinir}
+              libelle={tReprog("modifierDates")}
+            />
+          )}
         </div>
       )}
-
-      <div className={cn(FILET, "flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-600")}>
-        <span>
-          {t("duree", { duree: formaterDuree(projet.duree ?? echeancier.duree) })}
-        </span>
-        <span>
-          {projet.dateDebutReelle
-            ? t("debutReel", { date: formaterDate(projet.dateDebutReelle) })
-            : t("nonDemarre")}
-        </span>
-        {onDefinir && (
-          <BoutonCadrage
-            defini
-            onClick={onDefinir}
-            libelle={tReprog("modifierDates")}
-          />
-        )}
-      </div>
     </CarteCle>
   );
 }
 
 function CarteBudget({ projet, onDefinir }: { projet: Projet; onDefinir?: () => void }) {
   const t = useTranslations("ficheProjet.budget");
-  // Tout se mesure sur le budget **en vigueur** (l'initial plus les avenants). Le « consommé » est
-  // la valeur de ce qui est réalisé : pas de module financier, donc pas de dépensé réel.
+  // Tout se mesure sur le budget en vigueur : contractuel dès qu'un contrat le fixe, prévisionnel
+  // sinon. Le « consommé » est la valeur de ce qui est réalisé (Σ montant × avancement).
   const ratio = ratioConsommationBudget(budgetEnVigueur(projet), projet.budgetConsomme);
   const niveau = niveauBudget(ratio);
   const restant = budgetRestant(projet);
   const depasseDecoupage = depassementDecoupage(projet);
-  const avenants =
-    projet.budgetCourant !== null && projet.budgetInitial !== null
-      ? projet.budgetCourant - projet.budgetInitial
-      : 0;
+  const sourcePlafond = sourcePlafondBudget(projet);
+  const aBudgetContractuel = projet.budgetCourant !== null;
+  const boutonEnTete = !ratio && onDefinir && !aBudgetContractuel && projet.budgetInitial === null;
 
   return (
     <CarteCle
@@ -755,18 +850,32 @@ function CarteBudget({ projet, onDefinir }: { projet: Projet; onDefinir?: () => 
             {t("ratio", { valeur: ratio })}
           </span>
         ) : (
-          onDefinir && projet.budgetInitial === null && <BoutonCadrage defini={false} onClick={onDefinir} />
+          boutonEnTete && <BoutonCadrage defini={false} onClick={onDefinir} />
         )
       }
     >
-      <div className="flex flex-col gap-0.5">
-        <span className="text-xs text-neutral-500">{t("initial")}</span>
-        {projet.budgetInitial !== null ? (
-          <span className="whitespace-nowrap text-xl font-bold @[17rem]:text-2xl tabular-nums text-neutral-900">
-            {formaterMontant(projet.budgetInitial)}
-          </span>
+      <div className="flex flex-col gap-1">
+        {aBudgetContractuel ? (
+          <>
+            <span className="text-xs text-neutral-500">{t("contractuel")}</span>
+            <span className="whitespace-nowrap text-xl font-bold @[17rem]:text-2xl tabular-nums text-neutral-900">
+              {formaterMontant(projet.budgetCourant)}
+            </span>
+          </>
         ) : (
-          <NonDefini onDefinir={onDefinir} />
+          <>
+            <span className="text-xs text-neutral-500">{t("initial")}</span>
+            {projet.budgetInitial !== null ? (
+              <span className="whitespace-nowrap text-xl font-bold @[17rem]:text-2xl tabular-nums text-neutral-900">
+                {formaterMontant(projet.budgetInitial)}
+              </span>
+            ) : (
+              <NonDefini onDefinir={onDefinir} />
+            )}
+            <span className="text-xs text-neutral-500">
+              {t("contractuel")} : {t("sansContrat")}
+            </span>
+          </>
         )}
       </div>
 
@@ -775,6 +884,31 @@ function CarteBudget({ projet, onDefinir }: { projet: Projet; onDefinir?: () => 
       )}
 
       <div className={cn(FILET, "grid grid-cols-2 gap-3")}>
+        {aBudgetContractuel && (
+          <Detail
+            libelle={t("initial")}
+            valeur={
+              projet.budgetInitial !== null
+                ? formaterMontantCourt(projet.budgetInitial)
+                : ABSENT
+            }
+          />
+        )}
+        {aBudgetContractuel && projet.montantAvenants > 0 && projet.budgetContractuelInitial !== null && (
+          <Detail
+            libelle={t("contractuelInitial")}
+            valeur={formaterMontantCourt(projet.budgetContractuelInitial)}
+          />
+        )}
+        {projet.montantAvenants > 0 && (
+          <Detail
+            libelle={t("avenants")}
+            valeur={t("avenantsValeur", {
+              sens: "plus",
+              montant: formaterMontantCourt(projet.montantAvenants),
+            })}
+          />
+        )}
         <Detail
           libelle={t("consomme")}
           valeur={formaterMontantCourt(projet.budgetConsomme)}
@@ -795,23 +929,19 @@ function CarteBudget({ projet, onDefinir }: { projet: Projet; onDefinir?: () => 
             className={cn((depasseDecoupage ?? 0) > 0 && "text-erreur")}
           />
         )}
-        {avenants !== 0 && (
-          <Detail
-            libelle={t("avenants")}
-            valeur={t("avenantsValeur", {
-              sens: avenants > 0 ? "plus" : "moins",
-              montant: formaterMontantCourt(Math.abs(avenants)),
-            })}
-          />
-        )}
         {(depasseDecoupage ?? 0) > 0 && (
           <p className="col-span-2 m-0 text-xs text-erreur">
-            {t("decoupageDepasse", { montant: formaterMontantCourt(depasseDecoupage ?? 0) })}
+            {t(
+              sourcePlafond === "CONTRACTUEL"
+                ? "decoupageDepasseContractuel"
+                : "decoupageDepassePrevisionnel",
+              { montant: formaterMontantCourt(depasseDecoupage ?? 0) },
+            )}
           </p>
         )}
-        {onDefinir && projet.budgetInitial !== null && (
+        {onDefinir && !boutonEnTete && (
           <div className="col-span-2 flex justify-end">
-            <BoutonCadrage defini onClick={onDefinir} />
+            <BoutonCadrage defini={projet.budgetInitial !== null} onClick={onDefinir} />
           </div>
         )}
       </div>

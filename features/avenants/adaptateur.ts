@@ -18,6 +18,8 @@ interface ChargeAvenant {
   numero: string;
   date_signature: string;
   objet: string;
+  annees_accordees?: number;
+  mois_accordes?: number;
   jours_accordes: number;
   montant: number | null;
   porte_sur: "PROJET" | "CASES";
@@ -33,6 +35,8 @@ function versAvenant(charge: ChargeAvenant): Avenant {
     numero: charge.numero,
     dateSignature: charge.date_signature,
     objet: charge.objet,
+    anneesAccordees: charge.annees_accordees ?? 0,
+    moisAccordes: charge.mois_accordes ?? 0,
     joursAccordes: charge.jours_accordes ?? 0,
     montant: charge.montant ?? null,
     porteSur: charge.porte_sur,
@@ -43,17 +47,19 @@ function versAvenant(charge: ChargeAvenant): Avenant {
   };
 }
 
-/** La charge d'un avenant : toujours en `multipart`, l'ordre de service obligatoire et le document signé l'accompagnent. */
+/** La charge d'un avenant : toujours en `multipart`, l'avenant signé et l'ordre de service sont obligatoires. */
 function versChargeAvenant(saisie: SaisieAvenant): FormData {
   const corps = new FormData();
   corps.append("numero", saisie.numero.trim());
   corps.append("date_signature", saisie.dateSignature);
   corps.append("objet", saisie.objet.trim());
-  corps.append("jours_accordes", String(saisie.joursAccordes));
-  if (saisie.montant !== null) corps.append("montant", String(Math.round(saisie.montant)));
+  corps.append("annees_accordees", String(Math.max(0, saisie.anneesAccordees)));
+  corps.append("mois_accordes", String(Math.max(0, saisie.moisAccordes)));
+  corps.append("jours_accordes", String(Math.max(0, saisie.joursAccordes)));
+  if (saisie.montant !== null) corps.append("montant", String(Math.max(0, Math.round(saisie.montant))));
   for (const id of saisie.casesIds) corps.append("elements_ids", id);
+  corps.append("document", saisie.document, saisie.document.name);
   corps.append("ordre_service", saisie.ordreService, saisie.ordreService.name);
-  if (saisie.document) corps.append("document", saisie.document, saisie.document.name);
   return corps;
 }
 

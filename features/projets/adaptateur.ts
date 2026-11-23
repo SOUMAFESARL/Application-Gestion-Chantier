@@ -121,12 +121,25 @@ interface ChargeProjet {
   indice_sante?: number | null;
   /** Un `DecimalField` : Django peut l'envoyer en chaîne. */
   budget_initial_montant: number | string | null;
-  /** Le budget en vigueur : l'initial plus les avenants. */
+  /** Le budget contractuel initial (centimes), lié au contrat du marché. */
+  budget_contractuel_initial?: number | string | null;
+  /** Le budget contractuel en vigueur : initial plus avenants (`null` sans contrat). */
   budget_contractuel?: number | string | null;
+  /** Cumul des montants des avenants (centimes). */
+  montant_avenants?: number | string | null;
   /** La valeur de ce qui est réalisé (centimes) : le serveur le calcule sur l'arbre. */
   budget_consomme_montant?: number;
   /** Ce que le découpage chiffre au total (centimes). */
   budget_decoupage_montant?: number;
+  duree_contractuelle_annees?: number | null;
+  duree_contractuelle_mois?: number | null;
+  duree_contractuelle_jours?: number | null;
+  duree_contractuelle?: { annees: number; mois: number; jours: number } | null;
+  prolongation_annees?: number;
+  prolongation_mois?: number;
+  prolongation_jours?: number;
+  date_debut_contractuelle?: string | null;
+  date_fin_contractuelle_initiale?: string | null;
   date_debut_prevue?: string | null;
   date_fin_prevue?: string | null;
   date_debut_reelle?: string | null;
@@ -247,6 +260,11 @@ interface ChargeCreationProjet {
   date_debut_prevue?: string;
   date_fin_prevue?: string;
   budget_initial_montant?: number;
+  budget_contractuel_initial?: number;
+  duree_contractuelle_annees?: number;
+  duree_contractuelle_mois?: number;
+  duree_contractuelle_jours?: number;
+  date_debut_contractuelle?: string;
   description?: string;
   informations_complementaires?: InformationsComplementairesProjet;
 }
@@ -410,9 +428,26 @@ export function versProjet(charge: ChargeProjet, affectations: ChargeAffectation
     deltaRetard: versNombre(charge.delta_retard),
     indiceSante: charge.indice_sante ?? null,
     budgetInitial: versMontant(charge.budget_initial_montant),
+    budgetContractuelInitial: versMontant(charge.budget_contractuel_initial),
     budgetCourant: versMontant(charge.budget_contractuel),
+    montantAvenants: versMontant(charge.montant_avenants) ?? 0,
     budgetConsomme: charge.budget_consomme_montant ?? 0,
     budgetDecoupage: charge.budget_decoupage_montant ?? null,
+    dureeContractuelleAnnees: charge.duree_contractuelle_annees ?? null,
+    dureeContractuelleMois: charge.duree_contractuelle_mois ?? null,
+    dureeContractuelleJours: charge.duree_contractuelle_jours ?? null,
+    dureeContractuelle: charge.duree_contractuelle
+      ? {
+          annees: charge.duree_contractuelle.annees,
+          mois: charge.duree_contractuelle.mois,
+          jours: charge.duree_contractuelle.jours,
+        }
+      : null,
+    prolongationAnnees: charge.prolongation_annees ?? 0,
+    prolongationMois: charge.prolongation_mois ?? 0,
+    prolongationJours: charge.prolongation_jours ?? 0,
+    dateDebutContractuelle: charge.date_debut_contractuelle ?? null,
+    dateFinContractuelleInitiale: charge.date_fin_contractuelle_initiale ?? null,
     dateDebutPrevue: charge.date_debut_prevue ?? null,
     dateFinPrevue: charge.date_fin_prevue ?? null,
     dateDebutReelle: charge.date_debut_reelle ?? null,
@@ -504,6 +539,11 @@ function versChargeCreation(creation: CreationProjet): ChargeCreationProjet {
     date_debut_prevue: creation.dateDebutPrevue,
     date_fin_prevue: creation.dateFinPrevue,
     budget_initial_montant: creation.budgetInitial,
+    budget_contractuel_initial: creation.budgetContractuelInitial,
+    duree_contractuelle_annees: creation.dureeContractuelleAnnees,
+    duree_contractuelle_mois: creation.dureeContractuelleMois,
+    duree_contractuelle_jours: creation.dureeContractuelleJours,
+    date_debut_contractuelle: creation.dateDebutContractuelle,
     description: creation.description,
     informations_complementaires: creation.informationsComplementaires,
   };
@@ -530,6 +570,16 @@ function versChargeModification(modification: ModificationProjet) {
     charge.date_fin_reelle = modification.dateFinReelle;
   if (modification.budgetInitial !== undefined)
     charge.budget_initial_montant = modification.budgetInitial;
+  if (modification.budgetContractuelInitial !== undefined)
+    charge.budget_contractuel_initial = modification.budgetContractuelInitial;
+  if (modification.dureeContractuelleAnnees !== undefined)
+    charge.duree_contractuelle_annees = modification.dureeContractuelleAnnees;
+  if (modification.dureeContractuelleMois !== undefined)
+    charge.duree_contractuelle_mois = modification.dureeContractuelleMois;
+  if (modification.dureeContractuelleJours !== undefined)
+    charge.duree_contractuelle_jours = modification.dureeContractuelleJours;
+  if (modification.dateDebutContractuelle !== undefined)
+    charge.date_debut_contractuelle = modification.dateDebutContractuelle;
   if (modification.informationsComplementaires !== undefined)
     charge.informations_complementaires = modification.informationsComplementaires;
   return charge;
