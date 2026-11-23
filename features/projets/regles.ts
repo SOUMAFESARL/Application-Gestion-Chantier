@@ -348,6 +348,42 @@ export function aProlongationContractuelle(
   return projet.prolongationAnnees + projet.prolongationMois + projet.prolongationJours > 0;
 }
 
+/**
+ * Durée contractuelle totale en vigueur (durée initiale + prolongations d'avenants).
+ * Quand les deux bornes contractuelles sont connues, la durée calendaire exacte entre elles
+ * normalise automatiquement les reports (ex. 8 mois + 6 mois → 1 an et 2 mois).
+ */
+export function dureeContractuelleTotale(
+  projet: Pick<
+    Projet,
+    | "dateDebutContractuelle"
+    | "dateFinContractuelle"
+    | "dureeContractuelleAnnees"
+    | "dureeContractuelleMois"
+    | "dureeContractuelleJours"
+    | "prolongationAnnees"
+    | "prolongationMois"
+    | "prolongationJours"
+  >,
+): { annees: number; mois: number; jours: number } | null {
+  if (!aDureeContractuelle(projet)) return null;
+  if (projet.dateDebutContractuelle && projet.dateFinContractuelle) {
+    const exacte = dureeProjet(projet.dateDebutContractuelle, projet.dateFinContractuelle);
+    if (exacte) {
+      return { annees: exacte.annees, mois: exacte.mois, jours: exacte.jours };
+    }
+  }
+  const totalMois = (projet.dureeContractuelleMois ?? 0) + projet.prolongationMois;
+  return {
+    annees:
+      (projet.dureeContractuelleAnnees ?? 0) +
+      projet.prolongationAnnees +
+      Math.floor(totalMois / 12),
+    mois: totalMois % 12,
+    jours: (projet.dureeContractuelleJours ?? 0) + projet.prolongationJours,
+  };
+}
+
 /** Le budget en vigueur, moins ce qui en est déjà réalisé. Négatif : budget dépassé. */
 export function budgetRestant(
   projet: Pick<Projet, "budgetInitial" | "budgetCourant" | "budgetConsomme">,
