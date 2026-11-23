@@ -55,6 +55,7 @@ import {
   budgetEnVigueur,
   budgetRestant,
   depassementDecoupage,
+  dureeContractuelleTotale,
   ecartAvancement,
   echeancierProjet,
   effectifProjet,
@@ -630,6 +631,7 @@ function CarteCalendrier({ projet, onDefinir }: { projet: Projet; onDefinir?: ()
   const aDebutContractuel = Boolean(projet.dateDebutContractuelle);
   const aDuree = aDureeContractuelle(projet);
   const aProlongation = aProlongationContractuelle(projet);
+  const dureeTotale = dureeContractuelleTotale(projet);
   const aPrevisionnel = Boolean(projet.dateDebutPrevue && projet.dateFinPrevue);
 
   let mention: ReactNode;
@@ -664,73 +666,49 @@ function CarteCalendrier({ projet, onDefinir }: { projet: Projet; onDefinir?: ()
       pastille={depasse ? "erreur" : "primaire"}
       mention={mention}
     >
-      <div className="grid grid-cols-1 gap-3 @[15rem]:grid-cols-2">
-        <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-solid border-neutral-900/10 bg-neutral-0/70 p-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
-            {t("blocContractuel")}
-          </span>
-          {aDebutContractuel && projet.dateFinContractuelle ? (
-            <>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs text-neutral-500">{t("debutContractuel")}</span>
-                  <span className="whitespace-nowrap text-sm font-bold tabular-nums text-neutral-900 @[28rem]:text-base">
-                    {formaterDate(projet.dateDebutContractuelle)}
-                  </span>
-                </div>
-                <ArrowRight
-                  size={14}
-                  className="mt-3.5 shrink-0 text-neutral-400"
-                  aria-hidden="true"
-                />
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs text-neutral-500">{t("finContractuelle")}</span>
-                  <span className="whitespace-nowrap text-sm font-bold tabular-nums text-neutral-900 @[28rem]:text-base">
-                    {formaterDate(projet.dateFinContractuelle)}
-                  </span>
-                </div>
+      <div className="flex min-w-0 flex-col gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
+          {t("blocContractuel")}
+        </span>
+        {aDebutContractuel && projet.dateFinContractuelle ? (
+          <>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs text-neutral-500">{t("debutContractuel")}</span>
+                <span className="whitespace-nowrap text-lg font-bold tabular-nums text-neutral-900 @[20rem]:text-xl">
+                  {formaterDate(projet.dateDebutContractuelle)}
+                </span>
               </div>
-              <div className="mt-auto flex flex-col gap-0.5 text-xs text-neutral-600">
-                {aDuree && (
-                  <span>
-                    {t("dureeContractuelle", {
-                      duree: formaterDureeCalendaire(projet.dureeContractuelle),
-                    })}
-                  </span>
-                )}
-                {aProlongation && (
-                  <span className="font-medium text-primary-700">
-                    {t("prolongations", {
-                      duree: formaterDureeCalendaire({
-                        annees: projet.prolongationAnnees,
-                        mois: projet.prolongationMois,
-                        jours: projet.prolongationJours,
-                      }),
-                    })}
-                  </span>
-                )}
+              <ArrowRight
+                size={16}
+                className="mt-4 shrink-0 text-neutral-400"
+                aria-hidden="true"
+              />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs text-neutral-500">{t("finContractuelle")}</span>
+                <span className="whitespace-nowrap text-lg font-bold tabular-nums text-neutral-900 @[20rem]:text-xl">
+                  {formaterDate(projet.dateFinContractuelle)}
+                </span>
               </div>
-            </>
-          ) : (
-            <div className="flex flex-col gap-1.5 text-xs text-neutral-600">
-              {aDebutContractuel && (
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-neutral-500">{t("debutContractuel")}</span>
-                  <span className="text-sm font-semibold tabular-nums text-neutral-900">
-                    {formaterDate(projet.dateDebutContractuelle)}
-                  </span>
-                </div>
-              )}
-              {aDuree && (
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-600">
+              {dureeTotale && (
                 <span>
-                  {t("dureeContractuelle", {
-                    duree: formaterDureeCalendaire(projet.dureeContractuelle),
+                  {t(aProlongation ? "dureeContractuelleTotale" : "dureeContractuelle", {
+                    duree: formaterDureeCalendaire(dureeTotale),
+                  })}
+                </span>
+              )}
+              {aProlongation && projet.dateFinContractuelleInitiale && (
+                <span className="text-neutral-500">
+                  {t("finContractuelleInitiale", {
+                    date: formaterDate(projet.dateFinContractuelleInitiale),
                   })}
                 </span>
               )}
               {aProlongation && (
                 <span className="font-medium text-primary-700">
-                  {t("prolongations", {
+                  {t("avenantsDelai", {
                     duree: formaterDureeCalendaire({
                       annees: projet.prolongationAnnees,
                       mois: projet.prolongationMois,
@@ -739,85 +717,112 @@ function CarteCalendrier({ projet, onDefinir }: { projet: Projet; onDefinir?: ()
                   })}
                 </span>
               )}
-              <span className="text-neutral-500">
-                {!aDebutContractuel && !aDuree
-                  ? t("attenteCadreContractuel")
-                  : !aDebutContractuel
-                    ? t("attenteOs")
-                    : t("attenteDuree")}
-              </span>
             </div>
-          )}
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-solid border-neutral-900/10 bg-neutral-0/70 p-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
-            {t("blocPrevisionnel")}
-          </span>
-          {aPrevisionnel ? (
-            <>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs text-neutral-500">{t("debutPrevu")}</span>
-                  <span className="whitespace-nowrap text-sm font-bold tabular-nums text-neutral-900 @[28rem]:text-base">
-                    {formaterDate(projet.dateDebutPrevue)}
-                  </span>
-                </div>
-                <ArrowRight
-                  size={14}
-                  className="mt-3.5 shrink-0 text-neutral-400"
-                  aria-hidden="true"
-                />
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs text-neutral-500">{t("finPrevue")}</span>
-                  <span
-                    className={cn(
-                      "whitespace-nowrap text-sm font-bold tabular-nums @[28rem]:text-base",
-                      depasse ? "text-erreur" : "text-neutral-900",
-                    )}
-                  >
-                    {formaterDate(projet.dateFinPrevue)}
-                  </span>
-                </div>
+          </>
+        ) : (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-600">
+            {aDebutContractuel && (
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-neutral-500">{t("debutContractuel")}</span>
+                <span className="text-sm font-semibold tabular-nums text-neutral-900">
+                  {formaterDate(projet.dateDebutContractuelle)}
+                </span>
               </div>
-
-              {echeancier.tempsEcoule !== null && (
-                <div className="mt-auto flex flex-col gap-1">
-                  <Jauge
-                    valeur={echeancier.tempsEcoule}
-                    className={depasse ? "bg-erreur" : "bg-primary-500"}
-                  />
-                  <span className="text-xs text-neutral-600">
-                    {t("tempsEcoule", { valeur: echeancier.tempsEcoule })}
-                  </span>
-                </div>
-              )}
-            </>
-          ) : (
-            <NonDefini onDefinir={onDefinir} />
-          )}
-        </div>
+            )}
+            {dureeTotale && (
+              <span>
+                {t(aProlongation ? "dureeContractuelleTotale" : "dureeContractuelle", {
+                  duree: formaterDureeCalendaire(dureeTotale),
+                })}
+              </span>
+            )}
+            {aProlongation && (
+              <span className="font-medium text-primary-700">
+                {t("avenantsDelai", {
+                  duree: formaterDureeCalendaire({
+                    annees: projet.prolongationAnnees,
+                    mois: projet.prolongationMois,
+                    jours: projet.prolongationJours,
+                  }),
+                })}
+              </span>
+            )}
+            <span className="text-neutral-500">
+              {!aDebutContractuel && !aDuree
+                ? t("attenteCadreContractuel")
+                : !aDebutContractuel
+                  ? t("attenteOs")
+                  : t("attenteDuree")}
+            </span>
+          </div>
+        )}
       </div>
 
-      {aPrevisionnel && (
-        <div className={cn(FILET, "flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-600")}>
-          <span>
-            {t("duree", { duree: formaterDuree(projet.duree ?? echeancier.duree) })}
-          </span>
-          <span>
-            {projet.dateDebutReelle
-              ? t("debutReel", { date: formaterDate(projet.dateDebutReelle) })
-              : t("nonDemarre")}
-          </span>
-          {onDefinir && (
-            <BoutonCadrage
-              defini
-              onClick={onDefinir}
-              libelle={tReprog("modifierDates")}
-            />
-          )}
-        </div>
-      )}
+      <div className={cn(FILET, "flex min-w-0 flex-col gap-2")}>
+        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
+          {t("blocPrevisionnel")}
+        </span>
+        {aPrevisionnel ? (
+          <>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs text-neutral-500">{t("debutPrevu")}</span>
+                <span className="whitespace-nowrap text-lg font-bold tabular-nums text-neutral-900 @[20rem]:text-xl">
+                  {formaterDate(projet.dateDebutPrevue)}
+                </span>
+              </div>
+              <ArrowRight
+                size={16}
+                className="mt-4 shrink-0 text-neutral-400"
+                aria-hidden="true"
+              />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs text-neutral-500">{t("finPrevue")}</span>
+                <span
+                  className={cn(
+                    "whitespace-nowrap text-lg font-bold tabular-nums @[20rem]:text-xl",
+                    depasse ? "text-erreur" : "text-neutral-900",
+                  )}
+                >
+                  {formaterDate(projet.dateFinPrevue)}
+                </span>
+              </div>
+            </div>
+
+            {echeancier.tempsEcoule !== null && (
+              <div className="flex flex-col gap-1">
+                <Jauge
+                  valeur={echeancier.tempsEcoule}
+                  className={depasse ? "bg-erreur" : "bg-primary-500"}
+                />
+                <span className="text-xs text-neutral-600">
+                  {t("tempsEcoule", { valeur: echeancier.tempsEcoule })}
+                </span>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs text-neutral-600">
+              <span>
+                {t("duree", { duree: formaterDuree(projet.duree ?? echeancier.duree) })}
+              </span>
+              <span>
+                {projet.dateDebutReelle
+                  ? t("debutReel", { date: formaterDate(projet.dateDebutReelle) })
+                  : t("nonDemarre")}
+              </span>
+              {onDefinir && (
+                <BoutonCadrage
+                  defini
+                  onClick={onDefinir}
+                  libelle={tReprog("modifierDates")}
+                />
+              )}
+            </div>
+          </>
+        ) : (
+          <NonDefini onDefinir={onDefinir} />
+        )}
+      </div>
     </CarteCle>
   );
 }
