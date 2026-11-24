@@ -1,5 +1,7 @@
+import type { Avenant } from "@/features/avenants/types";
 import type { IndicateursJournalProjet } from "@/features/chantier";
 import type { DonneesEntreprise } from "@/features/configuration/api";
+import type { CaseArbre } from "@/features/decoupage/types";
 import { appliquerDocumentsAuPdf } from "@/features/documents";
 import type { DocumentsResolus } from "@/features/documents";
 import {
@@ -25,12 +27,14 @@ import {
 } from "@/features/projets/regles";
 import type { NiveauConformite, PointVigilance, StatutLot } from "@/features/projets/regles";
 import type {
+  Activite,
   Equipe,
   FonctionAutreMembre,
   Intervenant,
   Lot,
   NatureProjet,
   Projet,
+  StatutDeclare,
 } from "@/features/projets/types";
 import { afficherTelephone } from "@/features/referentiels/telephone";
 import {
@@ -62,6 +66,8 @@ type Traduire = (cle: string, valeurs?: Record<string, string | number>) => stri
 export interface DonneesFiche {
   projet: Projet;
   lots: Lot[];
+  /** `null` ou omis : les avenants n'ont pas été chargés. */
+  avenants?: Avenant[] | null;
   /** `null` : la liste des équipes n'a pas pu être lue. */
   equipes: Equipe[] | null;
   /** `null` : le journal n'a pas pu être lu — les indicateurs le disent. */
@@ -84,6 +90,68 @@ export interface DonneesFiche {
     fonctionAutreMembre: (fonction: FonctionAutreMembre) => string;
   };
   maintenant: Date;
+}
+
+function collecterFeuilles(noeud: CaseArbre): CaseArbre[] {
+  if (noeud.estFeuille || noeud.enfants.length === 0) {
+    return [noeud];
+  }
+  return noeud.enfants.flatMap(collecterFeuilles);
+}
+
+function statutDeclareDeCase(noeud: CaseArbre): StatutDeclare {
+  if (noeud.cloture || (noeud.avancement !== null && noeud.avancement >= 100)) return "TERMINE";
+  if (noeud.suspendu) return "BLOQUE";
+  if (noeud.commence || (noeud.avancement !== null && noeud.avancement > 0)) return "EN_COURS";
+  return "NON_DEMARRE";
+}
+
+/** Convertit l'arbre du découpage en lots synthétiques quand l'endpoint `lots` est vide. */
+export function lotsDepuisArbre(projetId: string, cases: CaseArbre[]): Lot[] {
+  return cases.map((racine, idx) => {
+    const codeLot = racine.code || racine.numero || `L-${String(idx + 1).padStart(2, "0")}`;
+    const feuilles = collecterFeuilles(racine);
+    const activites: Activite[] = feuilles.map((f, fIdx) => ({
+      id: f.id,
+      lotId: racine.id,
+      code: f.code || f.numero || `${codeLot}.${String(fIdx + 1).padStart(2, "0")}`,
+      libelle: f.libelle,
+      quantitePrevue: f.quantitePrevue,
+      unite: null,
+      budget: f.montant,
+      dateDebutPrevue: f.dateDebutPrevue,
+      dateFinPrevue: f.dateFinPrevue,
+      avancement: f.avancement ?? 0,
+      quantiteRealisee: f.quantiteRealisee,
+      surCheminCritique: false,
+      dependanceId: null,
+      responsableId: null,
+      equipe:
+        f.equipes.length > 0
+          ? { id: f.equipes[0].equipeId, nom: f.equipes[0].nom, effectif: 0 }
+          : null,
+      statut: statutDeclareDeCase(f),
+    }));
+
+    return {
+      id: racine.id,
+      projetId,
+      code: codeLot,
+      nom: racine.libelle,
+      modeExecution: racine.modeExecutionEffectif || racine.modeExecution || "REGIE",
+      modeExecutionLibelle: racine.modeExecutionEffectif || racine.modeExecution || ABSENT,
+      typeBordereau:
+        racine.typeBordereauEffectif === "PRIX_UNITAIRE" ? "PRIX_UNITAIRE" : "FORFAIT_GLOBAL",
+      budget: racine.montant,
+      dateDebut: racine.dateDebutPrevue,
+      dateFin: racine.dateFinPrevue,
+      statut: statutDeclareDeCase(racine),
+      avancement: racine.avancement,
+      avancementTemporel: racine.avancementTemporel,
+      deltaRetard: racine.ecart,
+      activites,
+    };
+  });
 }
 
 const TON_SANTE_PDF: Record<ReturnType<typeof couleurIndiceSante>, TonPdf> = {
@@ -146,6 +214,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
   const {
     projet,
     lots,
+    avenants = null,
     equipes,
     journal,
     entreprise,
@@ -409,6 +478,23 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
         ? t("budget.nonDefini")
         : francs(projet.budgetInitial, true),
   });
+  const montantMarcheInitial =
+    projet.syntheseAvenantsDelai?.montantMarcheInitial ?? projet.budgetContractuelInitial;
+  if (montantMarcheInitial !== null) {
+    clesCalendrierBudget.push({
+      libelle: t("budget.contractuelInitial"),
+      valeur: francs(montantMarcheInitial, true),
+    });
+  }
+  const cumulAvenantsBudget =
+    projet.syntheseAvenantsDelai?.montantAvenants ?? projet.montantAvenants;
+  if (cumulAvenantsBudget > 0) {
+    clesCalendrierBudget.push({
+      libelle: t("budget.avenants"),
+      valeur: `+${francs(cumulAvenantsBudget, true)}`,
+      ton: "primaire",
+    });
+  }
   const budgetContractuelEffectif =
     projet.syntheseAvenantsDelai?.budgetContractuel ?? projet.budgetCourant;
   if (budgetContractuelEffectif !== null) {
@@ -463,6 +549,83 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
     titre: t("sections.calendrierBudget"),
     blocs: [{ type: "cles", elements: clesCalendrierBudget }],
   };
+
+  /* --- 3 bis. Avenants et ordres de service (affichée si des avenants existent) --- */
+
+  const listeAvenants = avenants ?? [];
+  const sectionAvenants: SectionPdf[] =
+    listeAvenants.length > 0
+      ? [
+          {
+            titre: t("sections.avenants"),
+            blocs: [
+              {
+                type: "cles",
+                elements: [
+                  {
+                    libelle: t("avenants.osDemarrage"),
+                    valeur: projet.ordreService?.nom ?? t("identification.nonRenseigne"),
+                  },
+                  {
+                    libelle: t("budget.avenants"),
+                    valeur: t("avenants.resume", { nombre: listeAvenants.length }),
+                  },
+                ],
+              },
+              {
+                type: "tableau",
+                vide: t("avenants.vide"),
+                tableau: {
+                  entetes: [
+                    t("avenants.numero"),
+                    t("avenants.date"),
+                    t("avenants.objet"),
+                    t("avenants.impactBudget"),
+                    t("avenants.impactDelai"),
+                    t("avenants.statut"),
+                    t("avenants.ordreService"),
+                  ],
+                  largeurs: [0.09, 0.11, 0.25, 0.14, 0.13, 0.13, 0.15],
+                  lignes: listeAvenants.map((av) => {
+                    const prolongation = formaterDureeCalendaire({
+                      annees: av.anneesAccordees,
+                      mois: av.moisAccordes,
+                      jours: av.joursAccordes,
+                    });
+                    const portee =
+                      av.porteSur === "PROJET"
+                        ? t("avenants.projetEntier")
+                        : av.cases.map((c) => c.libelle).join(", ");
+                    const statutTexte = `${av.document ? t("avenants.signe") : t("avenants.enregistre")} · ${portee}`;
+                    return [
+                      { texte: av.numero, gras: true },
+                      { texte: formaterDate(av.dateSignature) },
+                      { texte: av.objet || ABSENT },
+                      {
+                        texte: av.montant !== null ? `+${francs(av.montant, false)}` : ABSENT,
+                        gras: av.montant !== null && av.montant > 0,
+                        ton: av.montant !== null && av.montant > 0 ? "primaire" : "neutre",
+                      },
+                      {
+                        texte: prolongation !== ABSENT ? `+${prolongation}` : ABSENT,
+                        ton: prolongation !== ABSENT ? "information" : "neutre",
+                      },
+                      {
+                        texte: statutTexte,
+                        ton: av.document && av.ordreService ? "succes" : "avertissement",
+                      },
+                      {
+                        texte: av.ordreService?.nom ?? ABSENT,
+                        ton: av.ordreService ? "neutre" : "avertissement",
+                      },
+                    ];
+                  }),
+                },
+              },
+            ],
+          },
+        ]
+      : [];
 
   /* --- 4. Financement (affichée si renseignée) --- */
 
@@ -1029,6 +1192,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
       identification,
       ...sectionProgramme,
       calendrierBudget,
+      ...sectionAvenants,
       ...sectionFinancement,
       ...sectionFoncierEtudes,
       avancement,
@@ -1048,7 +1212,11 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
   return appliquerDocumentsAuPdf(document, documents);
 }
 
-function libelleEcheance(t: Traduire, projet: Projet, joursRestants: number | null): string {
+export function libelleEcheance(
+  t: Traduire,
+  projet: Projet,
+  joursRestants: number | null,
+): string {
   if (projet.dateFinReelle) {
     return t("calendrier.termineLe", { date: formaterDate(projet.dateFinReelle) });
   }
@@ -1058,7 +1226,7 @@ function libelleEcheance(t: Traduire, projet: Projet, joursRestants: number | nu
   return t("calendrier.joursRestants", { jours: joursRestants });
 }
 
-function pointVigilance(t: Traduire, point: PointVigilance): PastillePdf {
+export function pointVigilance(t: Traduire, point: PointVigilance): PastillePdf {
   switch (point.code) {
     case "ECHEANCE_DEPASSEE":
       return { texte: t("vigilance.ECHEANCE_DEPASSEE", { jours: point.jours }), ton: "erreur" };

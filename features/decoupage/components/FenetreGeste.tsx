@@ -54,6 +54,7 @@ import {
   supprimerCase,
 } from "../adaptateur";
 import { CLE_LISTES, cleDecoupage } from "../cles";
+import { clePlanningGantt } from "@/features/planning/cles";
 import { compterDescendants, niveauCibleAjout, trouverListeDuNiveau, type GesteCase } from "../regles";
 import type { CaseArbre, ModeMesure, ModificationCase, NiveauProjet, Prolongation, UniteMesure } from "../types";
 import { MODES_MESURE, UNITES_MESURE } from "../types";
@@ -143,6 +144,7 @@ function useEcriture<T>(projet: Projet, ecrire: (saisie: T) => Promise<unknown>,
       onFermer();
       // L'arbre, et le projet (son avancement, ses dates) : tout est sous `["projets", id]`.
       await client.invalidateQueries({ queryKey: cleDecoupage(projet.id) });
+      await client.invalidateQueries({ queryKey: clePlanningGantt(projet.id) });
       await client.invalidateQueries({ queryKey: ["projets", projet.id] });
     },
   });

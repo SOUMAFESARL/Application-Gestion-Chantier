@@ -75,6 +75,7 @@ import {
   type NoeudArbreSaisie,
 } from "../arbreSaisie";
 import { CLE_LISTES, cleDecoupage, cleModeles, cleTableauDemarrage } from "../cles";
+import { clePlanningGantt } from "@/features/planning/cles";
 import { MAX_NIVEAUX, nettoyerLignesModele } from "../editeurModele";
 import {
   COLONNES_FICHIER,
@@ -258,6 +259,7 @@ function EditeurTableau({
       // Le projet porte `decoupageCree` : le relire fait basculer l'onglet sur l'arbre.
       await client.invalidateQueries({ queryKey: ["projets", projet.id] });
       await client.invalidateQueries({ queryKey: cleDecoupage(projet.id) });
+      await client.invalidateQueries({ queryKey: clePlanningGantt(projet.id) });
     },
     onError: (erreur) => {
       const refusServeur = refusTableau(erreur);
