@@ -68,6 +68,7 @@ import {
   verifierTableau,
 } from "../adaptateur";
 import { CLE_LISTES, cleDecoupage, cleModeles, cleTableauDemarrage } from "../cles";
+import { MAX_NIVEAUX } from "../editeurModele";
 import {
   ajouterNiveau,
   COLONNES_FICHIER,
@@ -515,7 +516,11 @@ function EditeurTableau({
               niveaux: courant.niveaux.map((n, rang) => (rang === index ? { ...n, ...niveau } : n)),
             }))
           }
-          onAjouter={() => changer(ajouterNiveau)}
+          onAjouter={() =>
+            changer((courant) =>
+              courant.niveaux.length >= MAX_NIVEAUX ? courant : ajouterNiveau(courant),
+            )
+          }
           onRetirer={(index) => changer((courant) => retirerNiveau(courant, index))}
           onDeplacer={(index, sens) => changer((courant) => deplacerNiveau(courant, index, sens))}
           constats={constatsGeneraux(verdict?.bloquants ?? [])}
@@ -734,7 +739,12 @@ function ReglageNiveaux({
           <h3 className="m-0 text-base font-semibold text-neutral-900">{t("niveaux")}</h3>
           <p className="m-0 text-sm text-neutral-600">{t("niveauxAide")}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={onAjouter} disabled={desactive}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onAjouter}
+          disabled={desactive || niveaux.length >= MAX_NIVEAUX}
+        >
           <Plus />
           {t("ajouterNiveau")}
         </Button>

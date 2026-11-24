@@ -67,6 +67,8 @@ export function satisfait(droits: Droits | null, condition: ConditionAcces): boo
       return droits?.estDirection ?? false;
     case "PERMISSION":
       return peutCode(droits, condition.code);
+    case "PERMISSIONS":
+      return condition.codes.some((code) => peutCode(droits, code));
     case "MODULE":
       return voitModule(droits, condition.module);
   }
@@ -76,6 +78,9 @@ const TOUS: ConditionAcces = { type: "TOUS" };
 const DIRECTION: ConditionAcces = { type: "DIRECTION" };
 function permission(code: string): ConditionAcces {
   return { type: "PERMISSION", code };
+}
+function permissions(...codes: string[]): ConditionAcces {
+  return { type: "PERMISSIONS", codes };
 }
 function accesModule(code: string): ConditionAcces {
   return { type: "MODULE", module: code };
@@ -115,7 +120,7 @@ export const CONDITIONS_ROUTES: readonly (readonly [string, ConditionAcces])[] =
   ["/documents", accesModule("ged")],
   ["/parametres/collaborateurs", permission("administration.collaborateurs_voir")],
   ["/parametres/roles", permission("administration.roles_gerer")],
-  ["/parametres/listes", permission("projets.creer")],
+  ["/parametres/listes", permissions("projets.modeles_gerer", "projets.lire")],
   // Tout le monde consulte le calendrier de l'entreprise ; l'écriture, elle, exige
   // `administration.calendrier_gerer` (erratum E-4) et se masque dans l'écran.
   ["/parametres/calendrier", TOUS],

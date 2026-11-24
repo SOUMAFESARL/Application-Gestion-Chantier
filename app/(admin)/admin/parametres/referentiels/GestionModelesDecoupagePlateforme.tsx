@@ -1,42 +1,33 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Download,
-  FileUp,
-  Layers,
-  Plus,
-  Save,
-  Trash2,
-  X,
-} from "lucide-react";
+import { ArrowRight, Copy, Plus, Power, PowerOff, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { Alerte, Badge, Bouton, Champ, EtatChargement, EtatErreur, EtatVide, Modale } from "@/components/ui";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Combobox, type OptionCombobox } from "@/components/ui/combobox";
-import { Input } from "@/components/ui/input";
+import { EditeurModeleDecoupage } from "@/components/metier/EditeurModeleDecoupage";
+import { Alerte, Badge, Bouton, EtatChargement, EtatErreur, EtatVide, Modale } from "@/components/ui";
+import { MenuExport, type ExportTableau } from "@/components/ui/export-tableau";
+import { FiltreTableau, RechercheTableau } from "@/components/ui/tableau-liste";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
+  CRITERES_MODELES_DECOUPAGE_VIDES,
+  criteresModelesDecoupageActifs,
+  filtrerModelesDecoupagePlateforme,
+  listesActivesPlateforme,
   peutParametrerPlateforme,
+  type CriteresModelesDecoupagePlateforme,
   type DetailModeleDecoupagePlateforme,
   type EntreeReferentielPlateforme,
+  type FiltreStatutDecoupagePlateforme,
   type ListeDecoupagePlateforme,
-  type NiveauModelePlateforme,
   type ResumeModeleDecoupagePlateforme,
 } from "@/features/administration";
 import {
+  activerModeleDecoupagePlateforme,
   creerModeleDecoupagePlateforme,
+  desactiverModeleDecoupagePlateforme,
+  dupliquerModeleDecoupagePlateforme,
   importerFichierModelePlateforme,
   lireModeleDecoupagePlateforme,
   listerListesDecoupagePlateforme,
@@ -46,45 +37,20 @@ import {
   supprimerModeleDecoupagePlateforme,
   telechargerModeleExcelDecoupagePlateforme,
 } from "@/features/administration/adaptateur";
+import {
+  creerDonneesInitialesModele,
+  telechargerBlob,
+  type DonneesFormulaireModele,
+  type LibellesEditeurModele,
+} from "@/features/decoupage/editeurModele";
 import { ErreurApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 import { useAdministrateur } from "../../ContexteAdministrateur";
 import { CLES_ADMINISTRATION } from "../../cles";
 
-const SANS_LISTE = "aucune";
-const MAX_NIVEAUX = 10;
-
-function telechargerBlob(blob: Blob, nomFichier: string): void {
-  const url = URL.createObjectURL(blob);
-  const lien = document.createElement("a");
-  lien.href = url;
-  lien.download = nomFichier;
-  lien.click();
-  URL.revokeObjectURL(url);
-}
-
-function niveauxInitiaux(libelles: [string, string, string]): NiveauModelePlateforme[] {
-  return [
-    { libelle: libelles[0], liste: null, alerter: false },
-    { libelle: libelles[1], liste: null, alerter: true },
-    { libelle: libelles[2], liste: null, alerter: false },
-  ];
-}
-
-function normaliserLignesModele(lignesBrutes: string[][], nbNiveaux: number): string[][] {
-  if (lignesBrutes.length === 0) {
-    return [Array.from({ length: nbNiveaux }, () => "")];
-  }
-  return lignesBrutes.map((l) => {
-    const copie = l.slice(0, nbNiveaux);
-    while (copie.length < nbNiveaux) copie.push("");
-    return copie;
-  });
-}
-
 /**
- * Gestion des modèles de découpage de la plateforme (`/admin/parametres/referentiels`).
+ * Gestion des modèles de découpage de la plateforme (`/admin/parametres/referentiels/modeles`).
  *
  * Les modèles actifs créés ou mis à jour ici sont immédiatement proposés à toutes les entreprises
  * clientes (sans copie). Lorsqu'un modèle est mis à jour, sa version augmente et les entreprises
@@ -112,17 +78,33 @@ export function GestionModelesDecoupagePlateforme() {
   const listes = useMemo(() => requeteListes.data ?? [], [requeteListes.data]);
   const typesProjet = useMemo(() => requeteTypesProjet.data ?? [], [requeteTypesProjet.data]);
 
+  const [criteres, setCriteres] = useState<CriteresModelesDecoupagePlateforme>(
+    CRITERES_MODELES_DECOUPAGE_VIDES,
+  );
+  const filtresActifs = criteresModelesDecoupageActifs(criteres);
+
+  const modelesFiltres = useMemo(
+    () => filtrerModelesDecoupagePlateforme(modeles, criteres),
+    [modeles, criteres],
+  );
+
   const [idSelectionne, setIdSelectionne] = useState<string | null>(null);
   const [enCreation, setEnCreation] = useState(false);
   const [compteurCreation, setCompteurCreation] = useState(0);
 
   const idEffectif = useMemo(() => {
     if (enCreation) return null;
+    if (idSelectionne && modelesFiltres.some((m) => m.id === idSelectionne)) {
+      return idSelectionne;
+    }
+    if (modelesFiltres[0]) {
+      return modelesFiltres[0].id;
+    }
     if (idSelectionne && modeles.some((m) => m.id === idSelectionne)) {
       return idSelectionne;
     }
     return modeles[0]?.id ?? null;
-  }, [enCreation, idSelectionne, modeles]);
+  }, [enCreation, idSelectionne, modelesFiltres, modeles]);
 
   const requeteDetail = useQuery({
     queryKey: CLES_ADMINISTRATION.modeleDecoupage(idEffectif ?? ""),
@@ -152,11 +134,31 @@ export function GestionModelesDecoupagePlateforme() {
     setIdSelectionne(m.id);
   }
 
+  const exporter = useMemo<ExportTableau<ResumeModeleDecoupagePlateforme>>(
+    () => ({
+      titre: t("export.titre"),
+      nomFichier: t("export.nomFichier"),
+      colonnes: [
+        { entete: t("export.colonneNom"), valeur: (m) => m.nom },
+        { entete: t("export.colonneDescription"), valeur: (m) => m.description },
+        { entete: t("export.colonneVersion"), valeur: (m) => m.version },
+        {
+          entete: t("export.colonneStatut"),
+          valeur: (m) => (m.estActif ? t("badgeActif") : t("badgeInactif")),
+        },
+        { entete: t("export.colonneNiveaux"), valeur: (m) => m.niveaux.join(" / ") },
+        { entete: t("export.colonneLignes"), valeur: (m) => m.nombreLignes },
+        { entete: t("export.colonneCopies"), valeur: (m) => m.nombreCopiesEntreprises },
+      ],
+    }),
+    [t],
+  );
+
   const detailActif = enCreation ? null : requeteDetail.data ?? null;
   const cleFormulaire = enCreation
     ? `nouveau-${compteurCreation}`
     : detailActif
-      ? `${detailActif.id}:v${detailActif.version}:${detailActif.estActif}:${detailActif.nombreLignes}`
+      ? `${detailActif.id}:v${detailActif.version}:${detailActif.estActif}:${detailActif.niveaux.length}:${detailActif.lignes.length}`
       : "vide";
 
   return (
@@ -166,24 +168,55 @@ export function GestionModelesDecoupagePlateforme() {
           <h2 className="text-base font-semibold text-neutral-900">{t("titre")}</h2>
           <p className="text-sm text-neutral-600">{t("description")}</p>
         </div>
-        {peutAgir && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Bouton
-              variante="secondaire"
-              taille="sm"
-              iconeGauche={<Download size={16} />}
-              enCours={telechargementExemple.isPending}
-              disabled={telechargementExemple.isPending}
-              onClick={() => telechargementExemple.mutate()}
-            >
-              {t("telechargerModeleExcel")}
-            </Bouton>
+        <div className="flex flex-wrap items-center gap-2">
+          <MenuExport exporter={exporter} lignes={modelesFiltres} />
+          {peutAgir && (
             <Bouton taille="sm" iconeGauche={<Plus size={16} />} onClick={demarrerCreation}>
               {t("nouveauModele")}
             </Bouton>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
+      {/* Barre de recherche et filtres */}
+      {modeles.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
+          <RechercheTableau
+            valeur={criteres.recherche}
+            onChangement={(recherche) => setCriteres((courant) => ({ ...courant, recherche }))}
+            libelle={t("rechercher")}
+            placeholder={t("rechercherPlaceholder")}
+          />
+          {typesProjet.length > 0 && (
+            <FiltreTableau<string>
+              valeur={criteres.typeProjet}
+              onChangement={(typeProjet) => setCriteres((courant) => ({ ...courant, typeProjet }))}
+              libelle={t("filtreTypeProjet")}
+              libelleTous={t("filtreTypeProjetTous")}
+              options={typesProjet.map((tp) => ({ valeur: tp.code, libelle: tp.libelle }))}
+            />
+          )}
+          <FiltreTableau<Exclude<FiltreStatutDecoupagePlateforme, "">>
+            valeur={criteres.statut}
+            onChangement={(statut) => setCriteres((courant) => ({ ...courant, statut }))}
+            libelle={t("filtreStatut")}
+            libelleTous={t("filtreStatutTous")}
+            options={[
+              { valeur: "ACTIF", libelle: t("filtreStatutActifs") },
+              { valeur: "INACTIF", libelle: t("filtreStatutInactifs") },
+            ]}
+          />
+          {filtresActifs && (
+            <Bouton
+              variante="ghost"
+              taille="sm"
+              onClick={() => setCriteres(CRITERES_MODELES_DECOUPAGE_VIDES)}
+            >
+              {t("reinitialiserFiltres")}
+            </Bouton>
+          )}
+        </div>
+      )}
 
       {requeteModeles.isPending ? (
         <EtatChargement />
@@ -196,57 +229,64 @@ export function GestionModelesDecoupagePlateforme() {
           {/* Colonne gauche : catalogue des modèles plateforme */}
           <div className="flex flex-col gap-2 lg:col-span-4">
             <span className="text-xs font-semibold tracking-wider text-neutral-500 uppercase">
-              {t("catalogueModeles", { n: modeles.length })}
+              {t("catalogueModeles", { n: modelesFiltres.length })}
             </span>
-            <ul className="flex max-h-[36rem] flex-col gap-1.5 overflow-y-auto pr-1">
-              {modeles.map((m) => {
-                const actif = !enCreation && idEffectif === m.id;
-                return (
-                  <li key={m.id}>
-                    <button
-                      type="button"
-                      onClick={() => choisirModeleCatalogue(m)}
-                      className={cn(
-                        "flex w-full flex-col gap-1.5 rounded-lg border p-3 text-left transition-colors",
-                        actif
-                          ? "border-primary-600 bg-primary-50/50"
-                          : "border-neutral-200 bg-neutral-0 hover:bg-neutral-50",
-                      )}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="truncate text-sm font-semibold text-neutral-900">
-                          {m.nom}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <Badge variante="neutre">{t("badgeVersion", { v: m.version })}</Badge>
-                          <Badge variante={m.estActif ? "succes" : "neutre"}>
-                            {m.estActif ? t("badgeActif") : t("badgeInactif")}
-                          </Badge>
+            {modelesFiltres.length === 0 ? (
+              <p className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-center text-xs text-neutral-500">
+                {t("aucunModeleFiltre")}
+              </p>
+            ) : (
+              <ul className="flex max-h-[36rem] flex-col gap-1.5 overflow-y-auto pr-1">
+                {modelesFiltres.map((m) => {
+                  const actif = !enCreation && idEffectif === m.id;
+                  return (
+                    <li key={m.id}>
+                      <button
+                        type="button"
+                        onClick={() => choisirModeleCatalogue(m)}
+                        className={cn(
+                          "flex w-full flex-col gap-1.5 rounded-lg border p-3 text-left transition-colors",
+                          actif
+                            ? "border-primary-600 bg-primary-50/50"
+                            : "border-neutral-200 bg-neutral-0 hover:bg-neutral-50",
+                        )}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="truncate text-sm font-semibold text-neutral-900">
+                            {m.nom}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <Badge variante="neutre">{t("badgeVersion", { v: m.version })}</Badge>
+                            <Badge variante={m.estActif ? "succes" : "neutre"}>
+                              {m.estActif ? t("badgeActif") : t("badgeInactif")}
+                            </Badge>
+                          </div>
                         </div>
-                      </div>
-                      {m.niveaux.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1 text-xs font-medium text-neutral-700">
-                          {m.niveaux.map((niv, idx) => (
-                            <span key={idx} className="inline-flex items-center gap-1">
-                              {idx > 0 && (
-                                <ArrowRight
-                                  className="size-3 shrink-0 text-neutral-400"
-                                  aria-hidden="true"
-                                />
-                              )}
-                              <span>{niv}</span>
-                            </span>
-                          ))}
+                        {m.niveaux.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1 text-xs font-medium text-neutral-700">
+                            {m.niveaux.map((niv, idx) => (
+                              <span key={idx} className="inline-flex items-center gap-1">
+                                {idx > 0 && (
+                                  <ArrowRight
+                                    className="size-3 shrink-0 text-neutral-400"
+                                    aria-hidden="true"
+                                  />
+                                )}
+                                <span>{niv}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
+                          <span>{t("resumeLignes", { n: m.nombreLignes })}</span>
+                          <span>{t("badgeCopiesEntreprises", { n: m.nombreCopiesEntreprises })}</span>
                         </div>
-                      )}
-                      <span className="text-xs text-neutral-500">
-                        {t("resumeLignes", { n: m.nombreLignes })}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
 
           {/* Colonne droite : détail / éditeur du modèle plateforme */}
@@ -265,6 +305,8 @@ export function GestionModelesDecoupagePlateforme() {
                 peutAgir={peutAgir}
                 peutAnnulerCreation={modeles.length > 0}
                 onAnnulerCreation={() => setEnCreation(false)}
+                onTelechargerExemple={() => telechargementExemple.mutate()}
+                telechargementEnCours={telechargementExemple.isPending}
                 onSelectionnerModele={(id) => {
                   setEnCreation(false);
                   setIdSelectionne(id);
@@ -286,6 +328,8 @@ function FormulaireModelePlateforme({
   peutAgir,
   peutAnnulerCreation,
   onAnnulerCreation,
+  onTelechargerExemple,
+  telechargementEnCours,
   onSelectionnerModele,
 }: {
   enCreation: boolean;
@@ -295,53 +339,54 @@ function FormulaireModelePlateforme({
   peutAgir: boolean;
   peutAnnulerCreation: boolean;
   onAnnulerCreation: () => void;
+  onTelechargerExemple: () => void;
+  telechargementEnCours: boolean;
   onSelectionnerModele: (id: string | null) => void;
 }) {
   const t = useTranslations("administration.parametres.modelesDecoupage");
   const cache = useQueryClient();
-  const champFichierRef = useRef<HTMLInputElement | null>(null);
+
+  const [aSupprimer, setASupprimer] = useState<DetailModeleDecoupagePlateforme | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
 
   const libellesDefaut = useMemo<[string, string, string]>(
     () => [t("niveauDefaut1"), t("niveauDefaut2"), t("niveauDefaut3")],
     [t],
   );
 
-  const [nom, setNom] = useState(() => (detail ? detail.nom : ""));
-  const [description, setDescription] = useState(() => (detail ? detail.description : ""));
-  const [estActif, setEstActif] = useState(() => (detail ? detail.estActif : true));
-  const [typesChoisis, setTypesChoisis] = useState<string[]>(() =>
-    detail ? detail.typesProjet : [],
+  const valeursInitiales = useMemo(
+    () => creerDonneesInitialesModele(detail, libellesDefaut),
+    [detail, libellesDefaut],
   );
-  const [parDefautPour, setParDefautPour] = useState<string[]>(() =>
-    detail ? detail.parDefautPour : [],
-  );
-  const [niveaux, setNiveaux] = useState<NiveauModelePlateforme[]>(() =>
-    detail && detail.niveaux.length > 0 ? detail.niveaux : niveauxInitiaux(libellesDefaut),
-  );
-  const [lignes, setLignes] = useState<string[][]>(() => {
-    const nb = detail && detail.niveaux.length > 0 ? detail.niveaux.length : 3;
-    return normaliserLignesModele(detail ? detail.lignes : [], nb);
-  });
-  const [aSupprimer, setASupprimer] = useState<DetailModeleDecoupagePlateforme | null>(null);
-  const [erreur, setErreur] = useState<string | null>(null);
+
+  const listesActives = useMemo(() => listesActivesPlateforme(listes), [listes]);
 
   function messageErreur(cause: unknown): string {
     return cause instanceof ErreurApi && cause.message ? cause.message : t("erreur");
   }
 
+  function invaliderCaches(idModele?: string) {
+    void cache.invalidateQueries({ queryKey: CLES_ADMINISTRATION.modelesDecoupage() });
+    if (idModele) {
+      void cache.invalidateQueries({ queryKey: CLES_ADMINISTRATION.modeleDecoupage(idModele) });
+    }
+    void cache.invalidateQueries({ queryKey: CLES_ADMINISTRATION.listesDecoupage() });
+  }
+
   const enregistrement = useMutation({
-    mutationFn: async () => {
-      const lignesPropres = lignes
-        .map((l) => l.map((c) => c.trim()))
-        .filter((l) => l.some((c) => c !== ""));
+    mutationFn: async (donnees: DonneesFormulaireModele) => {
       const charge = {
-        nom,
-        description,
-        estActif,
-        typesProjet: typesChoisis,
-        parDefautPour: parDefautPour.filter((code) => typesChoisis.includes(code)),
-        niveaux,
-        lignes: lignesPropres,
+        nom: donnees.nom,
+        description: donnees.description,
+        estActif: donnees.estActif,
+        typesProjet: donnees.typesProjet,
+        parDefautPour: donnees.parDefautPour,
+        niveaux: donnees.niveaux.map((niv) => ({
+          libelle: niv.libelle,
+          alerter: niv.alerter,
+          liste: niv.liste ? { id: niv.liste.id, libelle: niv.liste.libelle } : null,
+        })),
+        lignes: donnees.lignes,
       };
       if (enCreation) {
         return creerModeleDecoupagePlateforme(charge);
@@ -354,14 +399,34 @@ function FormulaireModelePlateforme({
       toast.success(
         enCreation ? t("succesCreation") : t("succesModification", { v: enregistre.version }),
       );
-      void cache.invalidateQueries({ queryKey: CLES_ADMINISTRATION.modelesDecoupage() });
-      void cache.invalidateQueries({
-        queryKey: CLES_ADMINISTRATION.modeleDecoupage(enregistre.id),
-      });
-      void cache.invalidateQueries({ queryKey: CLES_ADMINISTRATION.listesDecoupage() });
+      invaliderCaches(enregistre.id);
       onSelectionnerModele(enregistre.id);
     },
     onError: (cause) => setErreur(messageErreur(cause)),
+  });
+
+  const basculeStatut = useMutation({
+    mutationFn: (cible: DetailModeleDecoupagePlateforme) =>
+      cible.estActif
+        ? desactiverModeleDecoupagePlateforme(cible.id)
+        : activerModeleDecoupagePlateforme(cible.id),
+    onSuccess: (misAJour) => {
+      setErreur(null);
+      toast.success(misAJour.estActif ? t("succesActivation") : t("succesDesactivation"));
+      invaliderCaches(misAJour.id);
+    },
+    onError: (cause) => toast.error(messageErreur(cause)),
+  });
+
+  const duplication = useMutation({
+    mutationFn: (id: string) => dupliquerModeleDecoupagePlateforme(id),
+    onSuccess: (copie) => {
+      setErreur(null);
+      toast.success(t("succesDuplication"));
+      invaliderCaches(copie.id);
+      onSelectionnerModele(copie.id);
+    },
+    onError: (cause) => toast.error(messageErreur(cause)),
   });
 
   const suppression = useMutation({
@@ -370,8 +435,7 @@ function FormulaireModelePlateforme({
     onSuccess: () => {
       setASupprimer(null);
       toast.success(t("succesSuppression"));
-      void cache.invalidateQueries({ queryKey: CLES_ADMINISTRATION.modelesDecoupage() });
-      void cache.invalidateQueries({ queryKey: CLES_ADMINISTRATION.listesDecoupage() });
+      invaliderCaches();
       onSelectionnerModele(null);
     },
     onError: (cause) => {
@@ -383,420 +447,120 @@ function FormulaireModelePlateforme({
   const importExcel = useMutation({
     mutationFn: (fichier: File) => importerFichierModelePlateforme(fichier),
     onSuccess: (importe) => {
-      const niv = importe.niveaux.length > 0 ? importe.niveaux : niveaux;
-      setNiveaux(niv);
-      setLignes(normaliserLignesModele(importe.lignes, niv.length));
       setErreur(null);
       toast.success(t("succesImportExcel", { lignes: importe.lignes.length }));
     },
     onError: (cause) => setErreur(messageErreur(cause)),
   });
 
-  function basculerTypeProjet(code: string, coche: boolean) {
-    setTypesChoisis((courant) => (coche ? [...courant, code] : courant.filter((c) => c !== code)));
-    if (!coche) {
-      setParDefautPour((courant) => courant.filter((c) => c !== code));
-    }
-  }
-
-  function basculerDefautType(code: string, coche: boolean) {
-    if (coche && !typesChoisis.includes(code)) {
-      setTypesChoisis((courant) => [...courant, code]);
-    }
-    setParDefautPour((courant) => (coche ? [...courant, code] : courant.filter((c) => c !== code)));
-  }
-
-  function modifierNiveau(index: number, partiel: Partial<NiveauModelePlateforme>) {
-    setNiveaux((courant) =>
-      courant.map((n, i) => {
-        if (i === index) return { ...n, ...partiel };
-        if (partiel.alerter) return { ...n, alerter: false };
-        return n;
-      }),
-    );
-  }
-
-  function ajouterColonneNiveau() {
-    if (niveaux.length >= MAX_NIVEAUX) return;
-    setNiveaux((courant) => [...courant, { libelle: "", liste: null, alerter: false }]);
-    setLignes((courant) => courant.map((l) => [...l, ""]));
-  }
-
-  function retirerColonneNiveau(index: number) {
-    if (niveaux.length <= 1) return;
-    setNiveaux((courant) => courant.filter((_, i) => i !== index));
-    setLignes((courant) => courant.map((l) => l.filter((_, i) => i !== index)));
-  }
-
-  function deplacerColonneNiveau(index: number, direction: -1 | 1) {
-    const cible = index + direction;
-    if (cible < 0 || cible >= niveaux.length) return;
-    setNiveaux((courant) => {
-      const copie = [...courant];
-      [copie[index], copie[cible]] = [copie[cible], copie[index]];
-      return copie;
-    });
-    setLignes((courant) =>
-      courant.map((l) => {
-        const copie = [...l];
-        [copie[index], copie[cible]] = [copie[cible], copie[index]];
-        return copie;
-      }),
-    );
-  }
-
-  function modifierCelluleLigne(indexLigne: number, indexCol: number, valeur: string) {
-    setLignes((courant) =>
-      courant.map((l, r) => (r === indexLigne ? l.map((c, col) => (col === indexCol ? valeur : c)) : l)),
-    );
-  }
-
-  function ajouterLigneVide() {
-    setLignes((courant) => [...courant, Array.from({ length: niveaux.length }, () => "")]);
-  }
-
-  function retirerLigneIndex(indexLigne: number) {
-    setLignes((courant) => {
-      const reste = courant.filter((_, r) => r !== indexLigne);
-      return reste.length > 0 ? reste : [Array.from({ length: niveaux.length }, () => "")];
-    });
-  }
+  const libellesEditeur = useMemo<LibellesEditeurModele>(
+    () => ({
+      champNom: t("champNom"),
+      placeholderNom: t("placeholderNom"),
+      champDescription: t("champDescription"),
+      placeholderDescription: t("placeholderDescription"),
+      champEstActif: t("champEstActif"),
+      typesProjetTitre: t("typesProjetTitre"),
+      typesProjetAide: t("typesProjetAide"),
+      parDefautCourt: t("parDefautCourt"),
+      niveauxTitre: t("niveauxTitre"),
+      niveauxAide: t("niveauxAide"),
+      ajouterNiveau: t("ajouterNiveau"),
+      niveauRang: (rang) => t("niveauRang", { rang }),
+      deplacerGauche: t("deplacerGauche"),
+      deplacerDroite: t("deplacerDroite"),
+      retirerNiveau: t("retirerNiveau"),
+      placeholderNiveau: t("placeholderNiveau"),
+      sansListe: t("sansListe"),
+      alerterNiveau: t("alerterNiveau"),
+      lignesTitre: (n) => t("lignesTitre", { n }),
+      lignesAide: t("lignesAide"),
+      telechargerModeleExcel: t("telechargerModeleExcel"),
+      importerExcel: t("importerExcel"),
+      ajouterLigne: t("ajouterLigne"),
+      retirerLigne: t("retirerLigne"),
+      viderCellule: t("viderCellule"),
+      sansValeur: t("sansValeur"),
+      rechercherValeur: t("rechercherValeur"),
+      aucuneValeur: t("aucuneValeur"),
+      utiliserValeurLibre: (saisie) => t("utiliserValeurLibre", { saisie }),
+      annuler: t("annuler"),
+      enregistrer: enCreation ? t("creerModele") : t("enregistrerModele"),
+    }),
+    [t, enCreation],
+  );
 
   return (
     <>
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-200 pb-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Layers className="size-4 text-primary-700" aria-hidden="true" />
-            <h3 className="text-base font-semibold text-neutral-900">
-              {enCreation ? t("titreCreation") : detail?.nom}
-            </h3>
-            {!enCreation && detail && (
-              <>
-                <Badge variante="neutre">{t("badgeVersion", { v: detail.version })}</Badge>
-                <Badge variante={detail.estActif ? "succes" : "neutre"}>
-                  {detail.estActif ? t("badgeActif") : t("badgeInactif")}
-                </Badge>
-              </>
-            )}
-          </div>
-          <p className="mt-1 text-xs text-neutral-600">
-            {enCreation ? t("aideCreation") : t("aideModification")}
-          </p>
-        </div>
-
-        {!enCreation && detail && peutAgir && (
-          <Bouton
-            variante="ghost"
-            taille="sm"
-            className="text-erreur"
-            iconeGauche={<Trash2 size={15} />}
-            onClick={() => setASupprimer(detail)}
-          >
-            {t("supprimer")}
-          </Bouton>
-        )}
-      </div>
-
-      {erreur && <Alerte type="erreur">{erreur}</Alerte>}
-
-      {/* Identité et disponibilité du modèle */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Champ
-          libelle={t("champNom")}
-          placeholder={t("placeholderNom")}
-          value={nom}
-          maxLength={150}
-          disabled={!peutAgir || enregistrement.isPending}
-          onChange={(e) => setNom(e.target.value)}
-        />
-        <Champ
-          libelle={t("champDescription")}
-          placeholder={t("placeholderDescription")}
-          value={description}
-          maxLength={300}
-          disabled={!peutAgir || enregistrement.isPending}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </div>
-
-      <label className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-0 px-3 py-2 text-xs font-medium text-neutral-800">
-        <Checkbox
-          checked={estActif}
-          disabled={!peutAgir || enregistrement.isPending}
-          onCheckedChange={(v) => setEstActif(v === true)}
-        />
-        <span>{t("champEstActif")}</span>
-      </label>
-
-      {/* Types de projet associés et par défaut */}
-      {typesProjet.length > 0 && (
-        <div className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-neutral-0 p-3">
-          <span className="text-xs font-semibold text-neutral-800">{t("typesProjetTitre")}</span>
-          <p className="text-xs text-neutral-500">{t("typesProjetAide")}</p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {typesProjet.map((tp) => {
-              const associe = typesChoisis.includes(tp.code);
-              const defaut = parDefautPour.includes(tp.code);
-              return (
-                <div
-                  key={tp.code}
-                  className="flex items-center justify-between gap-2 rounded-md border border-neutral-100 px-2.5 py-1.5 text-xs"
-                >
-                  <label className="flex items-center gap-2 font-medium text-neutral-800">
-                    <Checkbox
-                      checked={associe}
-                      disabled={!peutAgir || enregistrement.isPending}
-                      onCheckedChange={(v) => basculerTypeProjet(tp.code, v === true)}
-                    />
-                    <span className="truncate">{tp.libelle}</span>
-                  </label>
-                  {associe && (
-                    <label className="flex items-center gap-1.5 text-neutral-600">
-                      <Checkbox
-                        checked={defaut}
-                        disabled={!peutAgir || enregistrement.isPending}
-                        onCheckedChange={(v) => basculerDefautType(tp.code, v === true)}
-                      />
-                      <span>{t("parDefautCourt")}</span>
-                    </label>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Niveaux du modèle */}
-      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-neutral-0 p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h4 className="text-xs font-semibold text-neutral-900">{t("niveauxTitre")}</h4>
-            <p className="text-xs text-neutral-500">{t("niveauxAide")}</p>
-          </div>
-          {peutAgir && (
-            <Bouton
-              variante="secondaire"
-              taille="sm"
-              iconeGauche={<Plus size={15} />}
-              disabled={niveaux.length >= MAX_NIVEAUX || enregistrement.isPending}
-              onClick={ajouterColonneNiveau}
-            >
-              {t("ajouterNiveau")}
-            </Bouton>
-          )}
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {niveaux.map((niv, index) => {
-            const valeurSelect = niv.liste ? niv.liste.id : SANS_LISTE;
-            return (
-              <div
-                key={index}
-                className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2.5"
-              >
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs font-semibold text-neutral-600">
-                    {t("niveauRang", { rang: index + 1 })}
-                  </span>
-                  {peutAgir && (
-                    <div className="flex items-center gap-0.5">
-                      <button
-                        type="button"
-                        disabled={index === 0}
-                        onClick={() => deplacerColonneNiveau(index, -1)}
-                        className="rounded p-1 text-neutral-500 hover:bg-neutral-200 disabled:opacity-30"
-                        aria-label={t("deplacerGauche")}
-                      >
-                        <ArrowLeft size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={index === niveaux.length - 1}
-                        onClick={() => deplacerColonneNiveau(index, 1)}
-                        className="rounded p-1 text-neutral-500 hover:bg-neutral-200 disabled:opacity-30"
-                        aria-label={t("deplacerDroite")}
-                      >
-                        <ArrowRight size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={niveaux.length <= 1}
-                        onClick={() => retirerColonneNiveau(index)}
-                        className="rounded p-1 text-neutral-500 hover:bg-erreur/10 hover:text-erreur disabled:opacity-30"
-                        aria-label={t("retirerNiveau")}
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <Input
-                  value={niv.libelle}
-                  maxLength={60}
-                  placeholder={t("placeholderNiveau")}
-                  disabled={!peutAgir || enregistrement.isPending}
-                  onChange={(e) => modifierNiveau(index, { libelle: e.target.value })}
-                />
-
-                <Select
-                  value={valeurSelect}
-                  disabled={!peutAgir || enregistrement.isPending}
-                  onValueChange={(val) => {
-                    if (val === SANS_LISTE) {
-                      modifierNiveau(index, { liste: null });
-                      return;
-                    }
-                    const trouvee = listes.find((l) => l.id === val);
-                    modifierNiveau(index, {
-                      liste: trouvee ? { id: trouvee.id, libelle: trouvee.libelle } : null,
-                    });
-                  }}
-                >
-                  <SelectTrigger className="w-full bg-neutral-0 text-xs">
-                    <SelectValue placeholder={t("sansListe")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={SANS_LISTE}>{t("sansListe")}</SelectItem>
-                    {listes.map((l) => (
-                      <SelectItem key={l.id} value={l.id}>
-                        {l.libelle}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <label className="flex items-center gap-2 text-xs text-neutral-700">
-                  <Checkbox
-                    checked={niv.alerter}
-                    disabled={!peutAgir || enregistrement.isPending}
-                    onCheckedChange={(v) => modifierNiveau(index, { alerter: v === true })}
-                  />
-                  <span>{t("alerterNiveau")}</span>
-                </label>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Lignes types du modèle */}
-      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-neutral-0 p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h4 className="text-xs font-semibold text-neutral-900">
-              {t("lignesTitre", { n: lignes.length })}
-            </h4>
-            <p className="text-xs text-neutral-500">{t("lignesAide")}</p>
-          </div>
-          {peutAgir && (
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                ref={champFichierRef}
-                type="file"
-                accept=".xlsx,.csv"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  e.target.value = "";
-                  if (f) importExcel.mutate(f);
-                }}
-              />
+      <EditeurModeleDecoupage
+        titre={enCreation ? t("titreCreation") : (detail?.nom ?? "")}
+        sousTitre={enCreation ? t("aideCreation") : t("aideModification")}
+        badges={
+          !enCreation && detail ? (
+            <>
+              <Badge variante="neutre">{t("badgeVersion", { v: detail.version })}</Badge>
+              <Badge variante={detail.estActif ? "succes" : "neutre"}>
+                {detail.estActif ? t("badgeActif") : t("badgeInactif")}
+              </Badge>
+              <Badge variante="information">
+                {t("badgeCopiesEntreprises", { n: detail.nombreCopiesEntreprises })}
+              </Badge>
+            </>
+          ) : undefined
+        }
+        actionsEnTete={
+          !enCreation && detail && peutAgir ? (
+            <>
               <Bouton
                 variante="secondaire"
                 taille="sm"
-                iconeGauche={<FileUp size={15} />}
-                enCours={importExcel.isPending}
-                disabled={importExcel.isPending || enregistrement.isPending}
-                onClick={() => champFichierRef.current?.click()}
+                iconeGauche={detail.estActif ? <PowerOff size={15} /> : <Power size={15} />}
+                enCours={basculeStatut.isPending}
+                disabled={basculeStatut.isPending || duplication.isPending}
+                onClick={() => basculeStatut.mutate(detail)}
               >
-                {t("importerExcel")}
+                {detail.estActif ? t("desactiver") : t("activer")}
               </Bouton>
               <Bouton
                 variante="secondaire"
                 taille="sm"
-                iconeGauche={<Plus size={15} />}
-                disabled={enregistrement.isPending}
-                onClick={ajouterLigneVide}
+                iconeGauche={<Copy size={15} />}
+                enCours={duplication.isPending}
+                disabled={duplication.isPending || basculeStatut.isPending}
+                onClick={() => duplication.mutate(detail.id)}
               >
-                {t("ajouterLigne")}
+                {t("dupliquer")}
               </Bouton>
-            </div>
-          )}
-        </div>
+              <Bouton
+                variante="ghost"
+                taille="sm"
+                className="text-erreur"
+                iconeGauche={<Trash2 size={15} />}
+                onClick={() => setASupprimer(detail)}
+              >
+                {t("supprimer")}
+              </Bouton>
+            </>
+          ) : undefined
+        }
+        erreur={erreur}
+        valeursInitiales={valeursInitiales}
+        listes={listesActives}
+        typesProjet={typesProjet}
+        afficherEstActif
+        peutEcrire={peutAgir}
+        enregistrementEnCours={enregistrement.isPending}
+        onEnregistrer={(donnees) => enregistrement.mutate(donnees)}
+        peutAnnuler={enCreation && peutAnnulerCreation}
+        onAnnuler={onAnnulerCreation}
+        onTelechargerExemple={onTelechargerExemple}
+        telechargementEnCours={telechargementEnCours}
+        onImporterFichier={(fichier) => importExcel.mutateAsync(fichier)}
+        importEnCours={importExcel.isPending}
+        libelles={libellesEditeur}
+      />
 
-        <div className="max-h-80 overflow-auto rounded-lg border border-neutral-200">
-          <table className="w-full border-collapse text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-neutral-100 text-neutral-700">
-              <tr>
-                <th className="w-10 px-2 py-2 text-center font-semibold" />
-                {niveaux.map((niv, idx) => (
-                  <th key={idx} className="min-w-44 px-2 py-2 font-semibold">
-                    {niv.libelle || t("niveauRang", { rang: idx + 1 })}
-                  </th>
-                ))}
-                {peutAgir && <th className="w-10 px-2 py-2" />}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {lignes.map((ligne, r) => (
-                <tr key={r} className="hover:bg-neutral-50/60">
-                  <td className="px-2 py-1.5 text-center text-neutral-500">{r + 1}</td>
-                  {niveaux.map((niv, col) => (
-                    <td key={col} className="px-1.5 py-1">
-                      <CelluleModelePlateforme
-                        valeur={ligne[col] ?? ""}
-                        niveau={niv}
-                        listes={listes}
-                        desactive={!peutAgir || enregistrement.isPending}
-                        onChange={(val) => modifierCelluleLigne(r, col, val)}
-                      />
-                    </td>
-                  ))}
-                  {peutAgir && (
-                    <td className="px-1.5 py-1 text-center">
-                      <button
-                        type="button"
-                        onClick={() => retirerLigneIndex(r)}
-                        className="rounded p-1 text-neutral-400 hover:bg-erreur/10 hover:text-erreur"
-                        aria-label={t("retirerLigne")}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {peutAgir && (
-        <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
-          {enCreation && peutAnnulerCreation && (
-            <Bouton
-              variante="ghost"
-              disabled={enregistrement.isPending}
-              onClick={onAnnulerCreation}
-            >
-              {t("annuler")}
-            </Bouton>
-          )}
-          <Bouton
-            iconeGauche={<Save size={16} />}
-            enCours={enregistrement.isPending}
-            disabled={!nom.trim() || niveaux.length === 0 || enregistrement.isPending}
-            onClick={() => enregistrement.mutate()}
-          >
-            {enCreation ? t("creerModele") : t("enregistrerModele")}
-          </Bouton>
-        </div>
-      )}
-
-      {/* Modale de suppression d'un modèle plateforme */}
+      {/* Modale de suppression informée d'un modèle plateforme */}
       <Modale
         ouverte={aSupprimer !== null}
         titre={t("titreSuppression")}
@@ -821,70 +585,15 @@ function FormulaireModelePlateforme({
           </>
         }
       >
-        <p>{t("confirmationSuppression", { nom: aSupprimer?.nom ?? "" })}</p>
+        <div className="flex flex-col gap-3">
+          <p>{t("confirmationSuppression", { nom: aSupprimer?.nom ?? "" })}</p>
+          {aSupprimer && (
+            <Alerte type="information">
+              {t("impactSuppressionCopies", { n: aSupprimer.nombreCopiesEntreprises })}
+            </Alerte>
+          )}
+        </div>
       </Modale>
     </>
-  );
-}
-
-function CelluleModelePlateforme({
-  valeur,
-  niveau,
-  listes,
-  desactive,
-  onChange,
-}: {
-  valeur: string;
-  niveau: NiveauModelePlateforme;
-  listes: ListeDecoupagePlateforme[];
-  desactive: boolean;
-  onChange: (valeur: string) => void;
-}) {
-  const t = useTranslations("administration.parametres.modelesDecoupage");
-  const liste = useMemo(
-    () => (niveau.liste ? listes.find((l) => l.id === niveau.liste?.id) ?? null : null),
-    [listes, niveau.liste],
-  );
-
-  const options = useMemo<OptionCombobox[]>(() => {
-    if (!liste) return [];
-    const opts: OptionCombobox[] = [];
-    if (valeur.trim()) {
-      opts.push({ valeur: "", libelle: t("viderCellule") });
-    }
-    for (const v of liste.valeurs) {
-      opts.push({
-        valeur: v.libelle,
-        libelle: v.libelle,
-        groupe: v.groupe || undefined,
-      });
-    }
-    return opts;
-  }, [liste, valeur, t]);
-
-  if (liste && !desactive) {
-    return (
-      <Combobox
-        options={options}
-        valeur={valeur}
-        onChange={onChange}
-        placeholder={niveau.libelle || t("sansValeur")}
-        placeholderRecherche={t("rechercherValeur")}
-        aucunResultat={t("aucuneValeur")}
-        libelleSaisieLibre={(saisie) => t("utiliserValeurLibre", { saisie })}
-        disabled={desactive}
-        className="h-8 min-w-40 px-2 text-xs font-normal"
-      />
-    );
-  }
-
-  return (
-    <Input
-      value={valeur}
-      maxLength={200}
-      disabled={desactive}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-8 min-w-40 text-xs"
-    />
   );
 }

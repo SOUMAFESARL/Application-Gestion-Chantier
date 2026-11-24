@@ -551,7 +551,10 @@ export interface ListeDecoupagePlateforme {
   libelle: string;
   description: string;
   ordre: number;
+  estActif: boolean;
   nombreValeurs: number;
+  nombreUtilisationsPlateforme: number;
+  nombreUtilisationsEntreprises: number;
   modeles: { id: string; nom: string }[];
   valeurs: ValeurListeDecoupagePlateforme[];
 }
@@ -577,6 +580,7 @@ export interface ResumeModeleDecoupagePlateforme {
   estActif: boolean;
   niveaux: string[];
   nombreLignes: number;
+  nombreCopiesEntreprises: number;
   modifieLe: string;
 }
 
@@ -591,6 +595,7 @@ export interface DetailModeleDecoupagePlateforme {
   niveaux: NiveauModelePlateforme[];
   lignes: string[][];
   nombreLignes: number;
+  nombreCopiesEntreprises: number;
   modifieLe: string;
 }
 
@@ -602,4 +607,29 @@ export interface SaisieModeleDecoupagePlateforme {
   estActif?: boolean;
   niveaux: NiveauModelePlateforme[];
   lignes?: string[][];
+}
+
+export type FiltreStatutDecoupagePlateforme = "" | "ACTIF" | "INACTIF";
+
+export interface CriteresModelesDecoupagePlateforme {
+  recherche: string;
+  typeProjet: string;
+  statut: FiltreStatutDecoupagePlateforme;
+}
+
+export interface CriteresListesDecoupagePlateforme {
+  recherche: string;
+  statut: FiltreStatutDecoupagePlateforme;
+}
+
+export interface FiltresRequeteModelesDecoupagePlateforme {
+  recherche?: string;
+  typeProjet?: string;
+  estActif?: boolean;
+}
+
+export interface FiltresRequeteListesDecoupagePlateforme {
+  recherche?: string;
+  estActif?: boolean;
+  valeurs?: boolean;
 }

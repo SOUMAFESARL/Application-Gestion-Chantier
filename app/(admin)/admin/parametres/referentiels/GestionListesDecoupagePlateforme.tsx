@@ -1,23 +1,44 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, FileUp, ListChecks, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import {
+  Download,
+  FileUp,
+  ListChecks,
+  Pencil,
+  Plus,
+  Power,
+  PowerOff,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Alerte, Badge, Bouton, Champ, EtatChargement, EtatErreur, EtatVide, Modale } from "@/components/ui";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Combobox, type OptionCombobox } from "@/components/ui/combobox";
+import { MenuExport, type ExportTableau } from "@/components/ui/export-tableau";
 import { Input } from "@/components/ui/input";
+import { FiltreTableau, RechercheTableau } from "@/components/ui/tableau-liste";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  CRITERES_LISTES_DECOUPAGE_VIDES,
+  criteresListesDecoupageActifs,
+  filtrerListesDecoupagePlateforme,
   peutParametrerPlateforme,
+  totalUtilisationsListePlateforme,
+  type CriteresListesDecoupagePlateforme,
+  type FiltreStatutDecoupagePlateforme,
   type ListeDecoupagePlateforme,
   type ValeurListeDecoupagePlateforme,
 } from "@/features/administration";
 import {
+  activerListeDecoupagePlateforme,
   ajouterValeursListePlateforme,
   creerListeDecoupagePlateforme,
+  desactiverListeDecoupagePlateforme,
   importerValeursListePlateforme,
   listerListesDecoupagePlateforme,
   modifierListeDecoupagePlateforme,
@@ -26,6 +47,7 @@ import {
   supprimerValeurListePlateforme,
   telechargerModeleExcelListePlateforme,
 } from "@/features/administration/adaptateur";
+import { telechargerBlob } from "@/features/decoupage/editeurModele";
 import { ErreurApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -34,17 +56,8 @@ import { CLES_ADMINISTRATION } from "../../cles";
 
 const LONGUEUR_MAX_GROUPE = 100;
 
-function telechargerFichierBlob(blob: Blob, nomFichier: string): void {
-  const url = URL.createObjectURL(blob);
-  const lien = document.createElement("a");
-  lien.href = url;
-  lien.download = nomFichier;
-  lien.click();
-  URL.revokeObjectURL(url);
-}
-
 /**
- * Gestion des listes de valeurs de découpage de la plateforme (Super Admin).
+ * Gestion des listes de valeurs de découpage de la plateforme (`/admin/parametres/referentiels/listes`).
  *
  * Ces listes et leurs valeurs sont proposées à toutes les entreprises clientes pour
  * garnir n'importe quel niveau d'un modèle ou d'un projet.
@@ -62,6 +75,17 @@ export function GestionListesDecoupagePlateforme() {
   });
 
   const listes = useMemo(() => requete.data ?? [], [requete.data]);
+
+  const [criteres, setCriteres] = useState<CriteresListesDecoupagePlateforme>(
+    CRITERES_LISTES_DECOUPAGE_VIDES,
+  );
+  const filtresActifs = criteresListesDecoupageActifs(criteres);
+
+  const listesFiltrees = useMemo(
+    () => filtrerListesDecoupagePlateforme(listes, criteres),
+    [listes, criteres],
+  );
+
   const [idChoisi, setIdChoisi] = useState<string | null>(null);
   const [rechercheValeur, setRechercheValeur] = useState("");
   const [saisieValeur, setSaisieValeur] = useState("");
@@ -75,6 +99,7 @@ export function GestionListesDecoupagePlateforme() {
   >(null);
   const [libelleListe, setLibelleListe] = useState("");
   const [descriptionListe, setDescriptionListe] = useState("");
+  const [estActifListe, setEstActifListe] = useState(true);
   const [valeursInitiales, setValeursInitiales] = useState("");
   const [erreurModaleListe, setErreurModaleListe] = useState<string | null>(null);
 
@@ -84,6 +109,7 @@ export function GestionListesDecoupagePlateforme() {
   const [erreurModaleValeur, setErreurModaleValeur] = useState<string | null>(null);
 
   const [listeASupprimer, setListeASupprimer] = useState<ListeDecoupagePlateforme | null>(null);
+  const [erreurSuppressionListe, setErreurSuppressionListe] = useState<string | null>(null);
   const [valeurASupprimer, setValeurASupprimer] = useState<ValeurListeDecoupagePlateforme | null>(null);
 
   const champFichierRef = useRef<HTMLInputElement | null>(null);
@@ -91,11 +117,16 @@ export function GestionListesDecoupagePlateforme() {
   const listeActive = useMemo<ListeDecoupagePlateforme | null>(() => {
     if (listes.length === 0) return null;
     if (idChoisi) {
+      const dansFiltre = listesFiltrees.find((l) => l.id === idChoisi);
+      if (dansFiltre) return dansFiltre;
+    }
+    if (listesFiltrees[0]) return listesFiltrees[0];
+    if (idChoisi) {
       const trouvee = listes.find((l) => l.id === idChoisi);
       if (trouvee) return trouvee;
     }
     return listes[0] ?? null;
-  }, [listes, idChoisi]);
+  }, [listes, listesFiltrees, idChoisi]);
 
   const groupesPresents = useMemo<OptionCombobox[]>(() => {
     if (!listeActive) return [{ valeur: "", libelle: t("groupeAucun") }];
@@ -115,6 +146,31 @@ export function GestionListesDecoupagePlateforme() {
     );
   }, [listeActive, rechercheValeur]);
 
+  const exporter = useMemo<ExportTableau<ListeDecoupagePlateforme>>(
+    () => ({
+      titre: t("export.titre"),
+      nomFichier: t("export.nomFichier"),
+      colonnes: [
+        { entete: t("export.colonneLibelle"), valeur: (l) => l.libelle },
+        { entete: t("export.colonneDescription"), valeur: (l) => l.description },
+        {
+          entete: t("export.colonneStatut"),
+          valeur: (l) => (l.estActif ? t("badgeActif") : t("badgeInactif")),
+        },
+        { entete: t("export.colonneValeurs"), valeur: (l) => l.nombreValeurs },
+        {
+          entete: t("export.colonneUtilisationsPlateforme"),
+          valeur: (l) => l.nombreUtilisationsPlateforme,
+        },
+        {
+          entete: t("export.colonneUtilisationsEntreprises"),
+          valeur: (l) => l.nombreUtilisationsEntreprises,
+        },
+      ],
+    }),
+    [t],
+  );
+
   function messageErreur(cause: unknown): string {
     return cause instanceof ErreurApi && cause.message ? cause.message : t("erreur");
   }
@@ -122,6 +178,7 @@ export function GestionListesDecoupagePlateforme() {
   function ouvrirCreationListe() {
     setLibelleListe("");
     setDescriptionListe("");
+    setEstActifListe(true);
     setValeursInitiales("");
     setErreurModaleListe(null);
     setModaleListe({ mode: "creer" });
@@ -130,9 +187,15 @@ export function GestionListesDecoupagePlateforme() {
   function ouvrirModificationListe(liste: ListeDecoupagePlateforme) {
     setLibelleListe(liste.libelle);
     setDescriptionListe(liste.description);
+    setEstActifListe(liste.estActif);
     setValeursInitiales("");
     setErreurModaleListe(null);
     setModaleListe({ mode: "modifier", liste });
+  }
+
+  function ouvrirSuppressionListe(liste: ListeDecoupagePlateforme) {
+    setErreurSuppressionListe(null);
+    setListeASupprimer(liste);
   }
 
   function ouvrirModificationValeur(valeur: ValeurListeDecoupagePlateforme) {
@@ -159,6 +222,7 @@ export function GestionListesDecoupagePlateforme() {
       return modifierListeDecoupagePlateforme(modaleListe.liste.id, {
         libelle: libelleListe.trim(),
         description: descriptionListe.trim(),
+        estActif: estActifListe,
       });
     },
     onSuccess: (creeeOuModifiee) => {
@@ -174,17 +238,33 @@ export function GestionListesDecoupagePlateforme() {
     onError: (cause) => setErreurModaleListe(messageErreur(cause)),
   });
 
+  const basculeStatutListe = useMutation({
+    mutationFn: (cible: ListeDecoupagePlateforme) =>
+      cible.estActif
+        ? desactiverListeDecoupagePlateforme(cible.id)
+        : activerListeDecoupagePlateforme(cible.id),
+    onSuccess: (miseAJour) => {
+      toast.success(
+        miseAJour.estActif ? t("succesActivationListe") : t("succesDesactivationListe"),
+      );
+      setListeASupprimer(null);
+      setErreurSuppressionListe(null);
+      void cache.invalidateQueries({ queryKey: cle });
+    },
+    onError: (cause) => toast.error(messageErreur(cause)),
+  });
+
   const suppressionListe = useMutation({
     mutationFn: (liste: ListeDecoupagePlateforme) => supprimerListeDecoupagePlateforme(liste.id),
     onSuccess: () => {
       setListeASupprimer(null);
+      setErreurSuppressionListe(null);
       setIdChoisi(null);
       toast.success(t("succesSuppressionListe"));
       void cache.invalidateQueries({ queryKey: cle });
     },
     onError: (cause) => {
-      setListeASupprimer(null);
-      toast.error(messageErreur(cause));
+      setErreurSuppressionListe(messageErreur(cause));
     },
   });
 
@@ -234,7 +314,7 @@ export function GestionListesDecoupagePlateforme() {
   const telechargementModele = useMutation({
     mutationFn: async () => {
       const blob = await telechargerModeleExcelListePlateforme();
-      telechargerFichierBlob(blob, "modele-import-liste-valeurs.xlsx");
+      telechargerBlob(blob, "modele-import-liste-valeurs.xlsx");
     },
     onError: (cause) => toast.error(messageErreur(cause)),
   });
@@ -269,6 +349,10 @@ export function GestionListesDecoupagePlateforme() {
     },
   });
 
+  const nbUtilisationsListeASupprimer = listeASupprimer
+    ? totalUtilisationsListePlateforme(listeASupprimer)
+    : 0;
+
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-neutral-200 bg-neutral-0 p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -276,18 +360,9 @@ export function GestionListesDecoupagePlateforme() {
           <h2 className="text-base font-semibold text-neutral-900">{t("titre")}</h2>
           <p className="text-sm text-neutral-600">{t("description")}</p>
         </div>
-        {peutAgir && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Bouton
-              variante="secondaire"
-              taille="sm"
-              iconeGauche={<Download size={16} />}
-              enCours={telechargementModele.isPending}
-              disabled={telechargementModele.isPending}
-              onClick={() => telechargementModele.mutate()}
-            >
-              {t("telechargerModeleExcel")}
-            </Bouton>
+        <div className="flex flex-wrap items-center gap-2">
+          <MenuExport exporter={exporter} lignes={listesFiltrees} />
+          {peutAgir && (
             <Bouton
               taille="sm"
               iconeGauche={<Plus size={16} />}
@@ -295,9 +370,40 @@ export function GestionListesDecoupagePlateforme() {
             >
               {t("nouvelleListe")}
             </Bouton>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
+      {/* Barre de recherche et filtre statut */}
+      {listes.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
+          <RechercheTableau
+            valeur={criteres.recherche}
+            onChangement={(recherche) => setCriteres((courant) => ({ ...courant, recherche }))}
+            libelle={t("rechercherListe")}
+            placeholder={t("rechercherListePlaceholder")}
+          />
+          <FiltreTableau<Exclude<FiltreStatutDecoupagePlateforme, "">>
+            valeur={criteres.statut}
+            onChangement={(statut) => setCriteres((courant) => ({ ...courant, statut }))}
+            libelle={t("filtreStatut")}
+            libelleTous={t("filtreStatutToutes")}
+            options={[
+              { valeur: "ACTIF", libelle: t("filtreStatutActives") },
+              { valeur: "INACTIF", libelle: t("filtreStatutInactives") },
+            ]}
+          />
+          {filtresActifs && (
+            <Bouton
+              variante="ghost"
+              taille="sm"
+              onClick={() => setCriteres(CRITERES_LISTES_DECOUPAGE_VIDES)}
+            >
+              {t("reinitialiserFiltres")}
+            </Bouton>
+          )}
+        </div>
+      )}
 
       {requete.isPending ? (
         <EtatChargement />
@@ -310,47 +416,70 @@ export function GestionListesDecoupagePlateforme() {
           {/* Colonne gauche : catalogue des listes plateforme */}
           <div className="flex flex-col gap-2 lg:col-span-4">
             <span className="text-xs font-semibold tracking-wider text-neutral-500 uppercase">
-              {t("catalogueListes", { n: listes.length })}
+              {t("catalogueListes", { n: listesFiltrees.length })}
             </span>
-            <ul className="flex max-h-[28rem] flex-col gap-1.5 overflow-y-auto pr-1">
-              {listes.map((liste) => {
-                const estActive = listeActive?.id === liste.id;
-                return (
-                  <li key={liste.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIdChoisi(liste.id);
-                        setErreurValeur(null);
-                      }}
-                      className={cn(
-                        "flex w-full flex-col gap-1 rounded-lg border p-3 text-left transition-colors",
-                        estActive
-                          ? "border-primary-600 bg-primary-50/50"
-                          : "border-neutral-200 bg-neutral-0 hover:bg-neutral-50",
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-sm font-semibold text-neutral-900">
-                          {liste.libelle}
-                        </span>
-                        <Badge variante="neutre">{t("nbValeursCourt", { n: liste.nombreValeurs })}</Badge>
-                      </div>
-                      {liste.description && (
-                        <p className="line-clamp-2 text-xs text-neutral-600">{liste.description}</p>
-                      )}
-                      {liste.modeles.length > 0 && (
-                        <p className="truncate text-xs text-primary-700">
-                          {t("utiliseeParModeles", {
-                            modeles: liste.modeles.map((m) => m.nom).join(", "),
-                          })}
-                        </p>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            {listesFiltrees.length === 0 ? (
+              <p className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-center text-xs text-neutral-500">
+                {t("aucuneListeFiltre")}
+              </p>
+            ) : (
+              <ul className="flex max-h-[28rem] flex-col gap-1.5 overflow-y-auto pr-1">
+                {listesFiltrees.map((liste) => {
+                  const estSelectionnee = listeActive?.id === liste.id;
+                  return (
+                    <li key={liste.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIdChoisi(liste.id);
+                          setErreurValeur(null);
+                        }}
+                        className={cn(
+                          "flex w-full flex-col gap-1.5 rounded-lg border p-3 text-left transition-colors",
+                          estSelectionnee
+                            ? "border-primary-600 bg-primary-50/50"
+                            : "border-neutral-200 bg-neutral-0 hover:bg-neutral-50",
+                        )}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="truncate text-sm font-semibold text-neutral-900">
+                            {liste.libelle}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <Badge variante={liste.estActif ? "succes" : "neutre"}>
+                              {liste.estActif ? t("badgeActif") : t("badgeInactif")}
+                            </Badge>
+                            <Badge variante="neutre">
+                              {t("nbValeursCourt", { n: liste.nombreValeurs })}
+                            </Badge>
+                          </div>
+                        </div>
+                        {liste.description && (
+                          <p className="line-clamp-2 text-xs text-neutral-600">
+                            {liste.description}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
+                          <span>
+                            {t("compteurUtilisations", {
+                              plateforme: liste.nombreUtilisationsPlateforme,
+                              entreprises: liste.nombreUtilisationsEntreprises,
+                            })}
+                          </span>
+                        </div>
+                        {liste.modeles.length > 0 && (
+                          <p className="truncate text-xs text-primary-700">
+                            {t("utiliseeParModeles", {
+                              modeles: liste.modeles.map((m) => m.nom).join(", "),
+                            })}
+                          </p>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
 
           {/* Colonne droite : valeurs de la liste sélectionnée */}
@@ -364,8 +493,17 @@ export function GestionListesDecoupagePlateforme() {
                       <h3 className="text-base font-semibold text-neutral-900">
                         {listeActive.libelle}
                       </h3>
+                      <Badge variante={listeActive.estActif ? "succes" : "neutre"}>
+                        {listeActive.estActif ? t("badgeActif") : t("badgeInactif")}
+                      </Badge>
                       <Badge variante="neutre">
                         {t("nbValeursCourt", { n: listeActive.nombreValeurs })}
+                      </Badge>
+                      <Badge variante="information">
+                        {t("compteurUtilisations", {
+                          plateforme: listeActive.nombreUtilisationsPlateforme,
+                          entreprises: listeActive.nombreUtilisationsEntreprises,
+                        })}
                       </Badge>
                     </div>
                     <p className="mt-1 text-xs text-neutral-600">
@@ -380,7 +518,19 @@ export function GestionListesDecoupagePlateforme() {
                     )}
                   </div>
                   {peutAgir && (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Bouton
+                        variante="secondaire"
+                        taille="sm"
+                        iconeGauche={
+                          listeActive.estActif ? <PowerOff size={15} /> : <Power size={15} />
+                        }
+                        enCours={basculeStatutListe.isPending}
+                        disabled={basculeStatutListe.isPending}
+                        onClick={() => basculeStatutListe.mutate(listeActive)}
+                      >
+                        {listeActive.estActif ? t("desactiverListe") : t("activerListe")}
+                      </Bouton>
                       <Bouton
                         variante="ghost"
                         taille="sm"
@@ -394,7 +544,7 @@ export function GestionListesDecoupagePlateforme() {
                         taille="sm"
                         className="text-erreur"
                         iconeGauche={<Trash2 size={15} />}
-                        onClick={() => setListeASupprimer(listeActive)}
+                        onClick={() => ouvrirSuppressionListe(listeActive)}
                       >
                         {t("supprimerListe")}
                       </Bouton>
@@ -454,6 +604,17 @@ export function GestionListesDecoupagePlateforme() {
                       </Bouton>
 
                       <div className="flex flex-wrap items-center gap-2">
+                        <Bouton
+                          type="button"
+                          variante="secondaire"
+                          taille="sm"
+                          iconeGauche={<Download size={15} />}
+                          enCours={telechargementModele.isPending}
+                          disabled={telechargementModele.isPending}
+                          onClick={() => telechargementModele.mutate()}
+                        >
+                          {t("telechargerModeleExcel")}
+                        </Bouton>
                         <input
                           ref={champFichierRef}
                           type="file"
@@ -574,7 +735,7 @@ export function GestionListesDecoupagePlateforme() {
             libelle={t("champLibelleListe")}
             placeholder={t("placeholderLibelleListe")}
             value={libelleListe}
-            maxLength={150}
+            maxLength={100}
             disabled={enregistrementListe.isPending}
             onChange={(e) => setLibelleListe(e.target.value)}
           />
@@ -586,6 +747,16 @@ export function GestionListesDecoupagePlateforme() {
             disabled={enregistrementListe.isPending}
             onChange={(e) => setDescriptionListe(e.target.value)}
           />
+          {modaleListe?.mode === "modifier" && (
+            <label className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-800">
+              <Checkbox
+                checked={estActifListe}
+                disabled={enregistrementListe.isPending}
+                onCheckedChange={(v) => setEstActifListe(v === true)}
+              />
+              <span>{t("champEstActifListe")}</span>
+            </label>
+          )}
           {modaleListe?.mode === "creer" && (
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-neutral-800">
@@ -652,20 +823,41 @@ export function GestionListesDecoupagePlateforme() {
       <Modale
         ouverte={listeASupprimer !== null}
         titre={t("titreSupprimerListe")}
-        onFermer={suppressionListe.isPending ? undefined : () => setListeASupprimer(null)}
+        onFermer={
+          suppressionListe.isPending || basculeStatutListe.isPending
+            ? undefined
+            : () => {
+                setListeASupprimer(null);
+                setErreurSuppressionListe(null);
+              }
+        }
         actions={
           <>
             <Bouton
               variante="ghost"
-              onClick={() => setListeASupprimer(null)}
-              disabled={suppressionListe.isPending}
+              onClick={() => {
+                setListeASupprimer(null);
+                setErreurSuppressionListe(null);
+              }}
+              disabled={suppressionListe.isPending || basculeStatutListe.isPending}
             >
               {t("annuler")}
             </Bouton>
+            {listeASupprimer && nbUtilisationsListeASupprimer > 0 && listeASupprimer.estActif && (
+              <Bouton
+                variante="secondaire"
+                iconeGauche={<PowerOff size={15} />}
+                enCours={basculeStatutListe.isPending}
+                disabled={basculeStatutListe.isPending || suppressionListe.isPending}
+                onClick={() => basculeStatutListe.mutate(listeASupprimer)}
+              >
+                {t("desactiverListe")}
+              </Bouton>
+            )}
             <Bouton
               variante="danger"
               enCours={suppressionListe.isPending}
-              disabled={suppressionListe.isPending}
+              disabled={suppressionListe.isPending || basculeStatutListe.isPending}
               onClick={() => listeASupprimer && suppressionListe.mutate(listeASupprimer)}
             >
               {t("supprimerListe")}
@@ -673,7 +865,18 @@ export function GestionListesDecoupagePlateforme() {
           </>
         }
       >
-        <p>{t("confirmationSupprimerListe", { libelle: listeASupprimer?.libelle ?? "" })}</p>
+        <div className="flex flex-col gap-3">
+          <p>{t("confirmationSupprimerListe", { libelle: listeASupprimer?.libelle ?? "" })}</p>
+          {listeASupprimer && nbUtilisationsListeASupprimer > 0 && (
+            <Alerte type="avertissement">
+              {t("avertissementListeUtilisee", {
+                plateforme: listeASupprimer.nombreUtilisationsPlateforme,
+                entreprises: listeASupprimer.nombreUtilisationsEntreprises,
+              })}
+            </Alerte>
+          )}
+          {erreurSuppressionListe && <Alerte type="erreur">{erreurSuppressionListe}</Alerte>}
+        </div>
       </Modale>
 
       {/* Modale de suppression d'une valeur */}

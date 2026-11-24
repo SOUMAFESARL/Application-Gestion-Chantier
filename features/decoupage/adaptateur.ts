@@ -99,7 +99,9 @@ interface ChargeResumeModele {
   pour_ce_type?: boolean;
   par_defaut?: boolean;
   origine_plateforme_id?: string | null;
+  est_personnalise?: boolean;
   original_modifie?: boolean;
+  original_supprime?: boolean;
 }
 
 interface ChargeDetailModele extends Omit<ChargeResumeModele, "niveaux"> {
@@ -196,6 +198,7 @@ function versListe(charge: ChargeListeValeurs): ListeValeurs {
 }
 
 function versResumeModele(charge: ChargeResumeModele): ResumeModele {
+  const originePlateformeId = charge.origine_plateforme_id ?? null;
   return {
     origine: charge.origine,
     id: charge.id,
@@ -209,13 +212,16 @@ function versResumeModele(charge: ChargeResumeModele): ResumeModele {
     modifiable: charge.modifiable ?? charge.origine === "ENTREPRISE",
     pourCeType: charge.pour_ce_type ?? false,
     parDefaut: charge.par_defaut ?? false,
-    originePlateformeId: charge.origine_plateforme_id ?? null,
+    originePlateformeId,
+    estPersonnalise: charge.est_personnalise ?? originePlateformeId !== null,
     originalModifie: charge.original_modifie ?? false,
+    originalSupprime: charge.original_supprime ?? false,
   };
 }
 
 function versDetailModele(charge: ChargeDetailModele): DetailModele {
   const niveaux = (charge.niveaux ?? []).map(versNiveauGabarit);
+  const originePlateformeId = charge.origine_plateforme_id ?? null;
   return {
     origine: charge.origine,
     id: charge.id,
@@ -230,8 +236,10 @@ function versDetailModele(charge: ChargeDetailModele): DetailModele {
     modifiable: charge.modifiable ?? charge.origine === "ENTREPRISE",
     pourCeType: charge.pour_ce_type ?? false,
     parDefaut: charge.par_defaut ?? false,
-    originePlateformeId: charge.origine_plateforme_id ?? null,
+    originePlateformeId,
+    estPersonnalise: charge.est_personnalise ?? originePlateformeId !== null,
     originalModifie: charge.original_modifie ?? false,
+    originalSupprime: charge.original_supprime ?? false,
   };
 }
 

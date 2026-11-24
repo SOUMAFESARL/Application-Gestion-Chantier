@@ -5,6 +5,8 @@
  * projet entier (`["projets", projetId]`) périme aussi son arbre et son tableau.
  */
 
+import type { OrigineReference } from "./types";
+
 /** Le tableau de démarrage pré-rempli d'un projet, pour un modèle donné (ou celui par défaut). */
 export function cleTableauDemarrage(projetId: string, modele?: { origine: string; id: string } | null) {
   return ["projets", projetId, "decoupage", "tableau", modele?.origine ?? "", modele?.id ?? ""] as const;
@@ -23,6 +25,11 @@ export function cleDecoupage(projetId: string) {
 /** Les modèles de découpage, ceux du type de projet en tête. */
 export function cleModeles(typeProjet: string | null) {
   return ["decoupage", "modeles", typeProjet ?? ""] as const;
+}
+
+/** Le détail d'un modèle de découpage (niveaux et lignes types), désigné par son origine et son identifiant. */
+export function cleDetailModele(origine: OrigineReference | "", id: string) {
+  return ["decoupage", "modele", origine, id] as const;
 }
 
 /** Les listes de valeurs (plateforme et entreprise), avec leurs valeurs. */

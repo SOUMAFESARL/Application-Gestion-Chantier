@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-
-import { EcranReferentielsPlateforme } from "./EcranReferentielsPlateforme";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("administration.meta");
@@ -9,5 +8,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function PageReferentiels() {
-  return <EcranReferentielsPlateforme />;
+  redirect("/admin/parametres/referentiels/modeles");
 }

@@ -12,11 +12,13 @@ import type {
   CaseArbre,
   CourbeAvancement,
   ConstatTableau,
+  CriteresModelesEntreprise,
   LigneTableau,
   ListeValeurs,
   NiveauGabarit,
   NiveauProjet,
   ReferenceListe,
+  ResumeModele,
   TableauDemarrage,
   UniteMesure,
 } from "./types";
@@ -389,4 +391,42 @@ export function tachesIndisponibles(cases: CaseArbre[]): CaseArbre[] {
 /** Les cases dont on peut demander la courbe : les parents visibles et actifs. */
 export function casesAvecCourbe(cases: CaseArbre[]): CaseArbre[] {
   return aplatirCases(cases).filter((une) => une.acces === "COMPLET" && une.estActif && !une.estFeuille);
+}
+
+/* ------------------------------------------------------------------ *
+ * Filtrage du catalogue de modèles côté Entreprise.
+ * ------------------------------------------------------------------ */
+
+export const CRITERES_MODELES_ENTREPRISE_VIDES: CriteresModelesEntreprise = {
+  recherche: "",
+  origine: "",
+};
+
+export function criteresModelesEntrepriseActifs(criteres: CriteresModelesEntreprise): boolean {
+  return criteres.recherche.trim() !== "" || criteres.origine !== "";
+}
+
+function normaliserTexteModele(valeur: string): string {
+  return valeur
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
+export function filtrerModelesEntreprise(
+  modeles: ResumeModele[],
+  criteres: CriteresModelesEntreprise,
+): ResumeModele[] {
+  const recherche = normaliserTexteModele(criteres.recherche);
+  return modeles.filter((modele) => {
+    if (criteres.origine && modele.origine !== criteres.origine) return false;
+    if (!recherche) return true;
+    return (
+      normaliserTexteModele(modele.nomAffiche).includes(recherche) ||
+      normaliserTexteModele(modele.nom).includes(recherche) ||
+      normaliserTexteModele(modele.description).includes(recherche) ||
+      modele.niveaux.some((niv) => normaliserTexteModele(niv).includes(recherche))
+    );
+  });
 }

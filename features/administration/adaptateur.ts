@@ -67,6 +67,8 @@ import type {
   CategorieReferentielPlateforme,
   DetailModeleDecoupagePlateforme,
   EntreeReferentielPlateforme,
+  FiltresRequeteListesDecoupagePlateforme,
+  FiltresRequeteModelesDecoupagePlateforme,
   ListeDecoupagePlateforme,
   NiveauModelePlateforme,
   ResultatAjoutValeursPlateforme,
@@ -1437,7 +1439,10 @@ interface ChargeListeDecoupagePlateforme {
   libelle: string;
   description?: string;
   ordre?: number;
+  est_actif?: boolean;
   nombre_valeurs?: number;
+  nombre_utilisations_plateforme?: number;
+  nombre_utilisations_entreprises?: number;
   modeles?: { id: string; nom: string }[];
   valeurs?: ChargeValeurListePlateforme[];
 }
@@ -1458,13 +1463,17 @@ function versValeurListePlateforme(charge: ChargeValeurListePlateforme): ValeurL
 
 function versListeDecoupagePlateforme(charge: ChargeListeDecoupagePlateforme): ListeDecoupagePlateforme {
   const valeurs = (charge.valeurs ?? []).map(versValeurListePlateforme);
+  const modeles = charge.modeles ?? [];
   return {
     id: charge.id,
     libelle: charge.libelle,
     description: charge.description ?? "",
     ordre: charge.ordre ?? 0,
+    estActif: charge.est_actif ?? true,
     nombreValeurs: charge.nombre_valeurs ?? valeurs.length,
-    modeles: charge.modeles ?? [],
+    nombreUtilisationsPlateforme: charge.nombre_utilisations_plateforme ?? modeles.length,
+    nombreUtilisationsEntreprises: charge.nombre_utilisations_entreprises ?? 0,
+    modeles,
     valeurs,
   };
 }
@@ -1484,12 +1493,28 @@ function versResultatAjoutPlateforme(
 
 /** `GET /admins/decoupage/listes/`. */
 export async function listerListesDecoupagePlateforme(
+  signalOuFiltres?: AbortSignal | FiltresRequeteListesDecoupagePlateforme,
   signal?: AbortSignal,
 ): Promise<ListeDecoupagePlateforme[]> {
+  const estSignal =
+    signalOuFiltres instanceof AbortSignal ||
+    (typeof signalOuFiltres === "object" &&
+      signalOuFiltres !== null &&
+      "aborted" in signalOuFiltres);
+  const filtres = estSignal
+    ? undefined
+    : (signalOuFiltres as FiltresRequeteListesDecoupagePlateforme | undefined);
+  const signalEffectif = estSignal ? (signalOuFiltres as AbortSignal) : signal;
+
+  const parametres: Record<string, string> = {};
+  if (filtres?.recherche?.trim()) parametres.recherche = filtres.recherche.trim();
+  if (filtres?.estActif !== undefined) parametres.est_actif = String(filtres.estActif);
+  if (filtres?.valeurs !== undefined) parametres.valeurs = String(filtres.valeurs);
+
   const charges = await apiAdministration.lire<ChargeListeDecoupagePlateforme[]>(
     "/admins/decoupage/listes/",
-    undefined,
-    signal,
+    Object.keys(parametres).length > 0 ? parametres : undefined,
+    signalEffectif,
   );
   return (Array.isArray(charges) ? charges : []).map(versListeDecoupagePlateforme);
 }
@@ -1514,11 +1539,38 @@ export async function creerListeDecoupagePlateforme(saisie: {
 /** `PATCH /admins/decoupage/listes/{id}/`. */
 export async function modifierListeDecoupagePlateforme(
   id: string,
-  saisie: { libelle?: string; description?: string; ordre?: number },
+  saisie: { libelle?: string; description?: string; ordre?: number; estActif?: boolean },
 ): Promise<ListeDecoupagePlateforme> {
+  const corps: Record<string, unknown> = {};
+  if (saisie.libelle !== undefined) corps.libelle = saisie.libelle;
+  if (saisie.description !== undefined) corps.description = saisie.description;
+  if (saisie.ordre !== undefined) corps.ordre = saisie.ordre;
+  if (saisie.estActif !== undefined) corps.est_actif = saisie.estActif;
   const charge = await apiAdministration.modifier<ChargeListeDecoupagePlateforme>(
     `/admins/decoupage/listes/${id}/`,
-    saisie,
+    corps,
+  );
+  return versListeDecoupagePlateforme(charge);
+}
+
+/** `POST /admins/decoupage/listes/{id}/activer/`. */
+export async function activerListeDecoupagePlateforme(
+  id: string,
+): Promise<ListeDecoupagePlateforme> {
+  const charge = await apiAdministration.creer<ChargeListeDecoupagePlateforme>(
+    `/admins/decoupage/listes/${id}/activer/`,
+    {},
+  );
+  return versListeDecoupagePlateforme(charge);
+}
+
+/** `POST /admins/decoupage/listes/{id}/desactiver/`. */
+export async function desactiverListeDecoupagePlateforme(
+  id: string,
+): Promise<ListeDecoupagePlateforme> {
+  const charge = await apiAdministration.creer<ChargeListeDecoupagePlateforme>(
+    `/admins/decoupage/listes/${id}/desactiver/`,
+    {},
   );
   return versListeDecoupagePlateforme(charge);
 }
@@ -1602,6 +1654,7 @@ interface ChargeModeleDecoupagePlateforme {
   niveaux?: ChargeNiveauModelePlateforme[];
   lignes?: string[][];
   nombre_lignes?: number;
+  nombre_copies_entreprises?: number;
   modifie_le?: string;
 }
 
@@ -1633,6 +1686,7 @@ function versResumeModeleDecoupagePlateforme(
       charge.niveaux_libelles ??
       (charge.niveaux ? charge.niveaux.map((n) => n.libelle) : []),
     nombreLignes: charge.nombre_lignes ?? (charge.lignes ? charge.lignes.length : 0),
+    nombreCopiesEntreprises: charge.nombre_copies_entreprises ?? 0,
     modifieLe: charge.modifie_le ?? "",
   };
 }
@@ -1653,6 +1707,7 @@ function versDetailModeleDecoupagePlateforme(
     niveaux,
     lignes,
     nombreLignes: charge.nombre_lignes ?? lignes.length,
+    nombreCopiesEntreprises: charge.nombre_copies_entreprises ?? 0,
     modifieLe: charge.modifie_le ?? "",
   };
 }
@@ -1675,12 +1730,28 @@ function corpsModelePlateforme(saisie: SaisieModeleDecoupagePlateforme) {
 
 /** `GET /admins/decoupage/modeles/`. */
 export async function listerModelesDecoupagePlateforme(
+  signalOuFiltres?: AbortSignal | FiltresRequeteModelesDecoupagePlateforme,
   signal?: AbortSignal,
 ): Promise<ResumeModeleDecoupagePlateforme[]> {
+  const estSignal =
+    signalOuFiltres instanceof AbortSignal ||
+    (typeof signalOuFiltres === "object" &&
+      signalOuFiltres !== null &&
+      "aborted" in signalOuFiltres);
+  const filtres = estSignal
+    ? undefined
+    : (signalOuFiltres as FiltresRequeteModelesDecoupagePlateforme | undefined);
+  const signalEffectif = estSignal ? (signalOuFiltres as AbortSignal) : signal;
+
+  const parametres: Record<string, string> = {};
+  if (filtres?.recherche?.trim()) parametres.recherche = filtres.recherche.trim();
+  if (filtres?.typeProjet?.trim()) parametres.type_projet = filtres.typeProjet.trim();
+  if (filtres?.estActif !== undefined) parametres.est_actif = String(filtres.estActif);
+
   const charges = await apiAdministration.lire<ChargeModeleDecoupagePlateforme[]>(
     "/admins/decoupage/modeles/",
-    undefined,
-    signal,
+    Object.keys(parametres).length > 0 ? parametres : undefined,
+    signalEffectif,
   );
   return (Array.isArray(charges) ? charges : []).map(versResumeModeleDecoupagePlateforme);
 }
@@ -1717,6 +1788,39 @@ export async function modifierModeleDecoupagePlateforme(
   const charge = await apiAdministration.modifier<ChargeModeleDecoupagePlateforme>(
     `/admins/decoupage/modeles/${id}/`,
     corpsModelePlateforme(saisie),
+  );
+  return versDetailModeleDecoupagePlateforme(charge);
+}
+
+/** `POST /admins/decoupage/modeles/{id}/activer/`. */
+export async function activerModeleDecoupagePlateforme(
+  id: string,
+): Promise<DetailModeleDecoupagePlateforme> {
+  const charge = await apiAdministration.creer<ChargeModeleDecoupagePlateforme>(
+    `/admins/decoupage/modeles/${id}/activer/`,
+    {},
+  );
+  return versDetailModeleDecoupagePlateforme(charge);
+}
+
+/** `POST /admins/decoupage/modeles/{id}/desactiver/`. */
+export async function desactiverModeleDecoupagePlateforme(
+  id: string,
+): Promise<DetailModeleDecoupagePlateforme> {
+  const charge = await apiAdministration.creer<ChargeModeleDecoupagePlateforme>(
+    `/admins/decoupage/modeles/${id}/desactiver/`,
+    {},
+  );
+  return versDetailModeleDecoupagePlateforme(charge);
+}
+
+/** `POST /admins/decoupage/modeles/{id}/dupliquer/`. */
+export async function dupliquerModeleDecoupagePlateforme(
+  id: string,
+): Promise<DetailModeleDecoupagePlateforme> {
+  const charge = await apiAdministration.creer<ChargeModeleDecoupagePlateforme>(
+    `/admins/decoupage/modeles/${id}/dupliquer/`,
+    {},
   );
   return versDetailModeleDecoupagePlateforme(charge);
 }
