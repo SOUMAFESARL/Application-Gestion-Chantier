@@ -1,16 +1,23 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleAlert, LoaderCircle } from "lucide-react";
+import { CheckIcon, CircleAlert, ListFilter, LoaderCircle, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Combobox } from "@/components/ui/combobox";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +27,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SelecteurDate } from "@/components/ui/SelecteurDate";
 import { Textarea } from "@/components/ui/textarea";
 import { useDroits } from "@/features/habilitations";
 import { listerMotifsReport } from "@/features/projets/adaptateur";
@@ -30,22 +39,22 @@ import { ModaleReprogrammation } from "@/features/projets/components/ModaleRepro
 import { REFERENTIEL_MODES_EXECUTION, useReferentiel } from "@/features/projets/referentiels";
 import type { Projet } from "@/features/projets/types";
 import { ErreurApi } from "@/lib/api";
-import { formaterDate } from "@/lib/format";
+import { centimesEnFrancs, formaterDate, formaterSaisieMontant, saisieEnCentimes } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 import {
   cloturerCase,
   creerCase,
-  desactiverCase,
   listerListes,
   mesurerCase,
   modifierCase,
   planifierCase,
   prolongationsRequises,
-  reactiverCase,
   rouvrirCase,
+  supprimerCase,
 } from "../adaptateur";
 import { CLE_LISTES, cleDecoupage } from "../cles";
-import { niveauCibleAjout, trouverListeDuNiveau, type GesteCase } from "../regles";
+import { compterDescendants, niveauCibleAjout, trouverListeDuNiveau, type GesteCase } from "../regles";
 import type { CaseArbre, ModeMesure, ModificationCase, NiveauProjet, Prolongation, UniteMesure } from "../types";
 import { MODES_MESURE, UNITES_MESURE } from "../types";
 import { premierMessage, schemaDates, schemaJustification, schemaLibelle, schemaMotif } from "../validations";
@@ -60,7 +69,7 @@ export interface GesteOuvert {
 
 /**
  * Les fenêtres des gestes de la vue en arbre (lot 4) : ajouter, modifier (renommer, chiffrer,
- * métrer), planifier, mesurer, clôturer, désactiver, réactiver.
+ * métrer), planifier, mesurer, clôturer, rouvrir, supprimer.
  *
  * Chaque fenêtre garde la saisie quand le serveur refuse, et affiche son message tel quel : un
  * refus de périmètre (403) ou de règle (A-5, A-6…) se lit mieux dans ses mots que dans une
@@ -109,16 +118,15 @@ export function FenetreGeste({
     case "mesurer":
       return ouvert.cible && <FenetreMesure key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />;
     case "cloturer":
-    case "reactiver":
       return (
         ouvert.cible && (
-          <FenetreConfirmation key={cle} projet={projet} cible={ouvert.cible} geste={ouvert.geste} onFermer={onFermer} />
+          <FenetreCloture key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />
         )
       );
     case "rouvrir":
       return ouvert.cible && <FenetreReouverture key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />;
-    case "desactiver":
-      return ouvert.cible && <FenetreDesactivation key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />;
+    case "supprimer":
+      return ouvert.cible && <FenetreSuppression key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />;
   }
 }
 
@@ -201,11 +209,11 @@ function Cadre({
 
 function Champ({ libelle, aide, children }: { libelle: string; aide?: string; children: ReactNode }) {
   return (
-    <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
-      {libelle}
+    <div className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+      <span>{libelle}</span>
       {children}
       {aide && <span className="text-xs font-normal text-neutral-500">{aide}</span>}
-    </label>
+    </div>
   );
 }
 
@@ -236,6 +244,7 @@ function ChampIntituleCase({
   autoFocus?: boolean;
 }) {
   const t = useTranslations("decoupage.gestes.champs");
+  const [ouvert, setOuvert] = useState(false);
   const requeteListes = useQuery({
     queryKey: CLE_LISTES,
     queryFn: ({ signal }) => listerListes(signal),
@@ -243,26 +252,72 @@ function ChampIntituleCase({
   });
   const liste = trouverListeDuNiveau(requeteListes.data ?? [], niveau?.liste);
 
-  if (liste) {
-    const options = liste.valeurs.map((entree) => ({
-      valeur: entree.libelle,
-      libelle: entree.libelle,
-      groupe: entree.groupe || undefined,
-    }));
-    return (
-      <Combobox
-        options={options}
-        valeur={valeur}
-        onChange={(choix) => onChange(choix.slice(0, 200))}
-        placeholder={t("choisirOuSaisir")}
-        placeholderRecherche={t("rechercherOuSaisir")}
-        aucunResultat={t("aucuneValeur")}
-        libelleSaisieLibre={(saisie) => t("utiliserValeurLibre", { saisie })}
-      />
-    );
+  const groupes = useMemo(() => {
+    if (!liste) return [];
+    const ordre = new Map<string, typeof liste.valeurs>();
+    for (const entree of liste.valeurs) {
+      const cle = entree.groupe || "";
+      ordre.set(cle, [...(ordre.get(cle) ?? []), entree]);
+    }
+    return [...ordre.entries()];
+  }, [liste]);
+
+  if (!liste || liste.valeurs.length === 0) {
+    return <Input value={valeur} maxLength={200} onChange={(e) => onChange(e.target.value)} autoFocus={autoFocus} />;
   }
 
-  return <Input value={valeur} maxLength={200} onChange={(e) => onChange(e.target.value)} autoFocus={autoFocus} />;
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        value={valeur}
+        maxLength={200}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={t("saisirOuChoisir")}
+        autoFocus={autoFocus}
+        className="min-w-0 flex-1"
+      />
+      <Popover open={ouvert} onOpenChange={setOuvert} modal>
+        <PopoverTrigger asChild>
+          <Button type="button" variant="outline" size="sm" className="shrink-0">
+            <ListFilter />
+            {t("listeValeurs")}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-72 p-0" align="end">
+          <Command>
+            <CommandInput placeholder={t("rechercherDansListe")} />
+            <CommandList>
+              <CommandEmpty>{t("aucuneValeur")}</CommandEmpty>
+              {groupes.map(([groupe, entrees]) => (
+                <CommandGroup
+                  key={groupe}
+                  heading={groupe || undefined}
+                  className="[&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-primary"
+                >
+                  {entrees.map((entree) => {
+                    const selectionne = valeur.trim().toLowerCase() === entree.libelle.toLowerCase();
+                    return (
+                      <CommandItem
+                        key={entree.id}
+                        value={entree.libelle}
+                        onSelect={() => {
+                          onChange(entree.libelle.slice(0, 200));
+                          setOuvert(false);
+                        }}
+                      >
+                        <span className="truncate">{entree.libelle}</span>
+                        <CheckIcon className={cn("ml-auto", selectionne ? "opacity-100" : "opacity-0")} />
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              ))}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ *
@@ -363,7 +418,9 @@ function FenetreModification({
   const [unite, setUnite] = useState<UniteMesure | null>(cible.unite);
   const [quantite, setQuantite] = useState(cible.quantitePrevue === null ? "" : String(cible.quantitePrevue));
   const montantInitial = cible.estFeuille ? cible.montant : cible.enveloppe;
-  const [montant, setMontant] = useState(montantInitial === null ? "" : String(montantInitial / 100));
+  const [montant, setMontant] = useState(
+    montantInitial === null ? "" : formaterSaisieMontant(String(centimesEnFrancs(montantInitial))),
+  );
   const [modeExecution, setModeExecution] = useState(cible.modeExecution);
   const { libelle: libelleMode } = useReferentiel(REFERENTIEL_MODES_EXECUTION);
   const [motif, setMotif] = useState("");
@@ -385,8 +442,7 @@ function FenetreModification({
       if (nouvelleQuantite !== cible.quantitePrevue) resultat.quantitePrevue = nouvelleQuantite;
     }
     if (voitMontants) {
-      const francs = nombreOuNull(montant);
-      const centimes = francs === null ? null : Math.round(francs * 100);
+      const centimes = saisieEnCentimes(montant);
       if (centimes !== montantInitial) {
         if (cible.estFeuille) resultat.montant = centimes;
         else resultat.enveloppe = centimes;
@@ -510,7 +566,14 @@ function FenetreModification({
           libelle={cible.estFeuille ? t("champs.montant") : t("champs.enveloppe")}
           aide={cible.estFeuille ? undefined : t("champs.enveloppeAide")}
         >
-          <Input type="number" min={0} step={1} inputMode="numeric" value={montant} onChange={(e) => setMontant(e.target.value)} />
+          <Input
+            type="text"
+            inputMode="numeric"
+            value={montant}
+            placeholder={t("champs.montantPlaceholder")}
+            className="tabular-nums"
+            onChange={(e) => setMontant(formaterSaisieMontant(e.target.value))}
+          />
         </Champ>
       )}
       {motifRequis && (
@@ -594,10 +657,22 @@ function FenetrePlanification({ projet, cible, onFermer }: { projet: Projet; cib
     >
       <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
         <Champ libelle={t("champs.debut")}>
-          <Input type="date" value={debut} onChange={(e) => setDebut(e.target.value)} disabled={prolongations !== null} />
+          <SelecteurDate
+            valeur={debut}
+            onChange={setDebut}
+            auPlusTard={fin || undefined}
+            placeholder={t("champs.choisirDate")}
+            disabled={prolongations !== null}
+          />
         </Champ>
         <Champ libelle={t("champs.fin")}>
-          <Input type="date" value={fin} onChange={(e) => setFin(e.target.value)} disabled={prolongations !== null} />
+          <SelecteurDate
+            valeur={fin}
+            onChange={setFin}
+            auPlusTot={debut || undefined}
+            placeholder={t("champs.choisirDate")}
+            disabled={prolongations !== null}
+          />
         </Champ>
       </div>
       {prolongations && (
@@ -727,35 +802,33 @@ function FenetreMesure({ projet, cible, onFermer }: { projet: Projet; cible: Cas
 }
 
 /* ------------------------------------------------------------------ *
- * Clôturer, réactiver, désactiver.
+ * Clôturer, rouvrir, supprimer.
  * ------------------------------------------------------------------ */
 
-function FenetreConfirmation({
+function FenetreCloture({
   projet,
   cible,
-  geste,
   onFermer,
 }: {
   projet: Projet;
   cible: CaseArbre;
-  geste: "cloturer" | "reactiver";
   onFermer: () => void;
 }) {
   const t = useTranslations("decoupage.gestes");
   const [erreur, setErreur] = useState<string | null>(null);
   const ecriture = useEcriture(
     projet,
-    () => (geste === "cloturer" ? cloturerCase(cible.id) : reactiverCase(cible.id)),
-    t(`${geste}.succes`, { libelle: cible.libelle }),
+    () => cloturerCase(cible.id),
+    t("cloturer.succes", { libelle: cible.libelle }),
     onFermer,
   );
   return (
     <Cadre
-      titre={t(`${geste}.titre`, { libelle: cible.libelle })}
-      description={t(`${geste}.description`)}
+      titre={t("cloturer.titre", { libelle: cible.libelle })}
+      description={t("cloturer.description")}
       erreur={erreur}
       enCours={ecriture.isPending}
-      libelleAction={t(`${geste}.action`)}
+      libelleAction={t("cloturer.action")}
       onValider={() => ecriture.mutate(undefined, { onError: (e) => setErreur(messageServeur(e, t("erreur"))) })}
       onFermer={onFermer}
     />
@@ -801,41 +874,70 @@ function FenetreReouverture({ projet, cible, onFermer }: { projet: Projet; cible
   );
 }
 
-function FenetreDesactivation({ projet, cible, onFermer }: { projet: Projet; cible: CaseArbre; onFermer: () => void }) {
+/**
+ * Supprimer définitivement une case (et ses descendants en cascade).
+ * Le serveur refuse l'opération si la case ou un descendant porte des mesures,
+ * rapports journaliers, affectations d'équipes ou opérations de stock.
+ */
+function FenetreSuppression({ projet, cible, onFermer }: { projet: Projet; cible: CaseArbre; onFermer: () => void }) {
   const t = useTranslations("decoupage.gestes");
-  const [motif, setMotif] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
+  const [raisonsRefus, setRaisonsRefus] = useState<string[]>([]);
+  const nbDescendants = compterDescendants(cible);
+
   const ecriture = useEcriture(
     projet,
-    () => desactiverCase(cible.id, motif.trim()),
-    t("desactiver.succes", { libelle: cible.libelle }),
+    () => supprimerCase(cible.id),
+    t("supprimer.succes", { libelle: cible.libelle }),
     onFermer,
   );
 
-  function valider() {
-    const refus = premierMessage(schemaMotif.safeParse(motif));
-    if (refus) {
-      setErreur(refus);
+  function gererErreurSuppression(e: unknown) {
+    setErreur(messageServeur(e, t("erreur")));
+    if (e instanceof ErreurApi && Array.isArray(e.details.messages)) {
+      setRaisonsRefus(
+        e.details.messages
+          .map((m) => String(m).trim())
+          .filter((m) => m !== "" && m !== e.message),
+      );
       return;
     }
-    setErreur(null);
-    ecriture.mutate(undefined, { onError: (e) => setErreur(messageServeur(e, t("erreur"))) });
+    setRaisonsRefus([]);
   }
 
   return (
     <Cadre
-      titre={t("desactiver.titre", { libelle: cible.libelle })}
-      description={t("desactiver.description")}
+      titre={t("supprimer.titre", { libelle: cible.libelle })}
+      description={t("supprimer.description")}
       erreur={erreur}
       enCours={ecriture.isPending}
-      libelleAction={t("desactiver.action")}
+      libelleAction={t("supprimer.action")}
       actionDestructive
-      onValider={valider}
+      onValider={() => {
+        setErreur(null);
+        setRaisonsRefus([]);
+        ecriture.mutate(undefined, { onError: gererErreurSuppression });
+      }}
       onFermer={onFermer}
     >
-      <Champ libelle={t("champs.motif")}>
-        <Textarea value={motif} onChange={(e) => setMotif(e.target.value)} rows={3} />
-      </Champ>
+      <Alert variant="avertissement">
+        <TriangleAlert />
+        <AlertDescription>
+          <p className="m-0">
+            {nbDescendants > 0
+              ? t("supprimer.avertissementCascade", { nombre: nbDescendants })
+              : t("supprimer.avertissementFeuille")}
+          </p>
+          <p className="m-0 mt-1.5 text-xs">{t("supprimer.avertissementConditions")}</p>
+        </AlertDescription>
+      </Alert>
+      {raisonsRefus.length > 0 && (
+        <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-xs text-erreur">
+          {raisonsRefus.map((raison, idx) => (
+            <li key={idx}>{raison}</li>
+          ))}
+        </ul>
+      )}
     </Cadre>
   );
 }

@@ -6,10 +6,11 @@ import { Camera, Eye, EyeOff, KeyRound, ShieldCheck, Trash2, UserRound } from "l
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { EnTetePage } from "@/components/layout/EnTetePage";
+import { ChampTelephone } from "@/components/metier/ChampTelephone";
 import { ChampsMotDePasse } from "@/components/metier/ChampsMotDePasse";
 import { Alerte, Bouton, Champ, EtatChargement } from "@/components/ui";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -34,6 +35,7 @@ import type {
   ValeursProfilAdministrateur,
 } from "@/features/administration/validations";
 import { useReglesMotDePasse } from "@/features/auth/reglesMotDePasse";
+import { PAYS_TELEPHONE_DEFAUT } from "@/features/referentiels/telephone";
 import { ErreurApi } from "@/lib/api";
 
 import { useAdministrateur } from "../ContexteAdministrateur";
@@ -330,14 +332,20 @@ function BlocInformations({ profil }: { profil: ProfilAdministrateur }) {
             />
           </ZonePreRemplie>
           <ZonePreRemplie control={formulaire.control} nom="telephone">
-            <Champ
-              libelle={t("profil.telephone")}
-              type="tel"
-              autoComplete="tel"
-              placeholder={t("profil.telephonePlaceholder")}
-              erreur={errors.telephone?.message}
-              disabled={enregistrement.isPending}
-              {...formulaire.register("telephone")}
+            <Controller
+              control={formulaire.control}
+              name="telephone"
+              render={({ field, fieldState }) => (
+                <ChampTelephone
+                  libelle={t("profil.telephone")}
+                  paysDefaut={PAYS_TELEPHONE_DEFAUT}
+                  international
+                  valeur={field.value ?? ""}
+                  onChange={field.onChange}
+                  erreur={fieldState.error?.message}
+                  disabled={enregistrement.isPending}
+                />
+              )}
             />
           </ZonePreRemplie>
         </div>

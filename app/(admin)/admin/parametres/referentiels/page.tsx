@@ -8,5 +8,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function PageReferentiels() {
-  redirect("/admin/parametres/referentiels/modeles");
+  redirect("/admin/parametres/referentiels/listes");
 }

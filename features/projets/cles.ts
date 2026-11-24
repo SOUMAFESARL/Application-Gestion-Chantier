@@ -73,3 +73,8 @@ export function cleAffectationsCollaborateurs(projetId: string) {
 export function cleAffectables(projetId: string) {
   return ["projets", projetId, "affectations", "affectables"] as const;
 }
+
+/** Les versions du contrat du marché d'un projet (actif + historique). */
+export function cleContratsProjet(projetId: string) {
+  return ["projets", projetId, "contrats"] as const;
+}

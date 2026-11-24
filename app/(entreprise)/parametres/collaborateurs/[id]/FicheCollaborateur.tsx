@@ -275,6 +275,7 @@ export function FicheCollaborateur({
           <BlocInformations collaborateur={collaborateur} />
           <BlocProjets
             collaborateurId={collaborateur.id}
+            collaborateurRoleLibelle={libelleRole(collaborateur)}
             requete={requeteProjets}
           />
         </div>
@@ -419,9 +420,11 @@ function BlocInformations({ collaborateur }: { collaborateur: Collaborateur }) {
  */
 function BlocProjets({
   collaborateurId,
+  collaborateurRoleLibelle,
   requete,
 }: {
   collaborateurId: string;
+  collaborateurRoleLibelle: string;
   requete: UseQueryResult<Projet[]>;
 }) {
   const t = useTranslations("gestionCollaborateurs.fiche");
@@ -492,8 +495,9 @@ function BlocProjets({
               <ul className="m-0 flex list-none flex-col gap-2 p-0">
                 {affectations.map((affectation) => (
                   <LigneProjet
-                    key={affectation.projet.id}
+                    key={`${affectation.projet.id}-${affectation.fonction}`}
                     affectation={affectation}
+                    collaborateurRoleLibelle={collaborateurRoleLibelle}
                   />
                 ))}
               </ul>
@@ -505,10 +509,20 @@ function BlocProjets({
   );
 }
 
-function LigneProjet({ affectation }: { affectation: AffectationProjet }) {
+function LigneProjet({
+  affectation,
+  collaborateurRoleLibelle,
+}: {
+  affectation: AffectationProjet;
+  collaborateurRoleLibelle: string;
+}) {
   const t = useTranslations("gestionCollaborateurs.fiche");
-  const { projet, fonction } = affectation;
+  const { projet, fonction, roleLibelle } = affectation;
   const lieu = [projet.quartier, projet.ville].filter(Boolean).join(", ");
+  const libelleFonction =
+    fonction === "AUTRE_MEMBRE"
+      ? roleLibelle || collaborateurRoleLibelle || t(`fonction.${fonction}`)
+      : t(`fonction.${fonction}`);
 
   return (
     <li>
@@ -525,7 +539,7 @@ function LigneProjet({ affectation }: { affectation: AffectationProjet }) {
           </span>
           <span className="flex flex-wrap items-center gap-1.5">
             <Badge variante="secondaire">
-              {t(`fonction.${fonction}`)}
+              {libelleFonction}
             </Badge>
             {lieu && <span className="text-xs text-neutral-500">{lieu}</span>}
           </span>

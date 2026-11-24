@@ -42,6 +42,7 @@
     "stocks",
     "tableauDeBord",
     "telephone",
+    "tiers",
     "tiersAjoutRapide",
     "uiGenerique",
     "zoneDepot"
@@ -56,6 +57,7 @@
     "motDePasse",
     "pagination",
     "projets",
+    "telephone",
     "uiGenerique"
   ],
   "administrationConnexion": [

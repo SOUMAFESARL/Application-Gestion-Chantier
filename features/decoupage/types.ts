@@ -269,6 +269,8 @@ export interface CaseArbre {
   typeBordereauEffectif: string;
   titulaireId: string | null;
   titulaireEffectifId: string | null;
+  titulaireNom?: string | null;
+  titulaireEffectifNom?: string | null;
   equipes: EquipeCase[];
   /** La case d'où viennent les équipes, quand elles sont héritées. */
   equipesHeriteesDe: string | null;

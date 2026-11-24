@@ -9,15 +9,23 @@ import { ChampTelephone } from "@/components/metier/ChampTelephone";
 import { Alerte, Bouton, Modale } from "@/components/ui";
 import { Combobox, type OptionCombobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ErreurApi } from "@/lib/api";
 
 import { cleTiers, creerTiers, listerTiers } from "../adaptateur";
-import { erreurTelephoneTiers, telephoneTiersValide } from "@/features/tiers/regles";
-import type { RoleTiers } from "../types";
+import { CLES_TIERS } from "../cles";
+import { erreurTelephoneTiers, telephoneTiersValide } from "../regles";
+import { ROLES_TIERS, type RoleTiers } from "../types";
 
 interface Props extends Omit<ComponentProps<"button">, "value" | "onChange" | "children"> {
-  /** `CLIENT_MOA` (maître d'ouvrage) ou `MAITRE_OEUVRE` (maître d'œuvre). */
-  role: RoleTiers;
+  /** Rôle filtré (ex. `CLIENT_MOA`, `MAITRE_OEUVRE`). Omis : tous les tiers actifs. */
+  role?: RoleTiers;
   /** La raison sociale retenue — le projet garde le nom, pas l'identifiant. */
   valeur: string;
   onChange: (valeur: string) => void;
@@ -26,15 +34,16 @@ interface Props extends Omit<ComponentProps<"button">, "value" | "onChange" | "c
 }
 
 /**
- * Un maître d'ouvrage ou d'œuvre, choisi parmi les tiers de l'entreprise qui
- * ont ce rôle. Un nom absent de la liste s'ajoute sur place : le combobox
- * propose « Ajouter « … » », une modale demande le téléphone (obligatoire
- * pour un tiers), et le tiers créé est aussitôt proposé à tous.
+ * Sélecteur de tiers actif, filtré par rôle si précisé ou sur l'ensemble des
+ * tiers actifs de l'entreprise. Un nom absent se crée sur place via une
+ * modale avec `ChampTelephone`, puis devient immédiatement sélectionnable.
  */
 export function ComboboxTiers({ role, valeur, onChange, paysDefaut, ...props }: Props) {
   const t = useTranslations("tiersAjoutRapide");
+  const tRoles = useTranslations("tiers.roles");
   const cache = useQueryClient();
   const [aCreer, setACreer] = useState<string | null>(null);
+  const [roleChoisi, setRoleChoisi] = useState<RoleTiers>(role ?? "SOUS_TRAITANT");
   const [telephone, setTelephone] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -51,11 +60,17 @@ export function ComboboxTiers({ role, valeur, onChange, paysDefaut, ...props }: 
     libelle: tiers.raisonSociale,
   }));
 
+  const roleCreation = role ?? roleChoisi;
+
   const creation = useMutation({
     mutationFn: () =>
-      creerTiers({ raisonSociale: aCreer ?? "", telephone, role }),
+      creerTiers({
+        raisonSociale: aCreer ?? "",
+        telephone,
+        role: roleCreation,
+      }),
     onSuccess: (tiers) => {
-      void cache.invalidateQueries({ queryKey: ["tiers"] });
+      void cache.invalidateQueries({ queryKey: CLES_TIERS.tous });
       onChange(tiers.raisonSociale);
       fermer();
     },
@@ -65,6 +80,7 @@ export function ComboboxTiers({ role, valeur, onChange, paysDefaut, ...props }: 
 
   function fermer() {
     setACreer(null);
+    setRoleChoisi(role ?? "SOUS_TRAITANT");
     setTelephone("");
     setErreur(null);
   }
@@ -74,9 +90,12 @@ export function ComboboxTiers({ role, valeur, onChange, paysDefaut, ...props }: 
       onChange(choix);
     } else {
       setErreur(null);
+      setRoleChoisi(role ?? "SOUS_TRAITANT");
       setACreer(choix);
     }
   }
+
+  const titreModale = role && t.has(`titre.${role}`) ? t(`titre.${role}`) : t("titreDefaut");
 
   return (
     <>
@@ -93,7 +112,7 @@ export function ComboboxTiers({ role, valeur, onChange, paysDefaut, ...props }: 
 
       <Modale
         ouverte={aCreer !== null}
-        titre={t(`titre.${role}`)}
+        titre={titreModale}
         onFermer={creation.isPending ? undefined : fermer}
         actions={
           <>
@@ -123,6 +142,27 @@ export function ComboboxTiers({ role, valeur, onChange, paysDefaut, ...props }: 
               onChange={(e) => setACreer(e.target.value)}
             />
           </div>
+          {!role && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-neutral-800">{t("role")}</span>
+              <Select
+                value={roleChoisi}
+                onValueChange={(v) => setRoleChoisi(v as RoleTiers)}
+                disabled={creation.isPending}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLES_TIERS.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {tRoles(r)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <ChampTelephone
             libelle={t("telephone")}
             paysDefaut={paysDefaut}

@@ -281,8 +281,7 @@ export type GesteCase =
   | "mesurer"
   | "cloturer"
   | "rouvrir"
-  | "desactiver"
-  | "reactiver";
+  | "supprimer";
 
 /**
  * Les gestes qui ont un sens sur cette case, d'après sa position et son état — la permission se
@@ -291,7 +290,6 @@ export type GesteCase =
  */
 export function gestesPossibles(une: CaseArbre): GesteCase[] {
   if (une.acces !== "COMPLET") return [];
-  if (!une.estActif) return ["reactiver"];
   const gestes: GesteCase[] = ["modifier"];
   // Une tâche commencée ne se découpe plus par ajout : elle se « détaille » (A-5, lot 6).
   if (!(une.estFeuille && une.commence)) gestes.unshift("ajouter");
@@ -301,8 +299,13 @@ export function gestesPossibles(une: CaseArbre): GesteCase[] {
   // Une tâche clôturée se rouvre, avec un motif : c'est la voie de retour d'une clôture, et donc
   // d'un projet « Terminé » — il se déduit des tâches, il se rouvre par elles.
   if (une.estFeuille && une.cloture) gestes.push("rouvrir");
-  gestes.push("desactiver");
+  gestes.push("supprimer");
   return gestes;
+}
+
+/** Compte récursivement tous les descendants directs et indirects d'une case. */
+export function compterDescendants(une: CaseArbre): number {
+  return une.enfants.reduce((somme, enfant) => somme + 1 + compterDescendants(enfant), 0);
 }
 
 /** La permission qu'exige chaque geste (registre du serveur). */
@@ -315,8 +318,7 @@ export const PERMISSION_DU_GESTE: Record<GesteCase, CodePermission> = {
   cloturer: PERMISSIONS.MESURER,
   // Le serveur exige la même permission pour rouvrir que pour mesurer ou clôturer.
   rouvrir: PERMISSIONS.MESURER,
-  desactiver: PERMISSIONS.DECOUPER,
-  reactiver: PERMISSIONS.DECOUPER,
+  supprimer: PERMISSIONS.DECOUPER,
 };
 
 /** Le motif d'un geste tracé : 10 caractères au moins (`_exiger_motif` du serveur). */
@@ -388,9 +390,14 @@ export function tachesIndisponibles(cases: CaseArbre[]): CaseArbre[] {
   );
 }
 
-/** Les cases dont on peut demander la courbe : les parents visibles et actifs. */
+/**
+ * Les cases dont on peut demander la courbe : toutes les cases actives de niveau 1
+ * (même feuilles sans enfant) et les cases parentes actives des autres niveaux.
+ */
 export function casesAvecCourbe(cases: CaseArbre[]): CaseArbre[] {
-  return aplatirCases(cases).filter((une) => une.acces === "COMPLET" && une.estActif && !une.estFeuille);
+  return aplatirCases(cases).filter(
+    (une) => une.acces === "COMPLET" && une.estActif && (une.parentId === null || !une.estFeuille),
+  );
 }
 
 /* ------------------------------------------------------------------ *

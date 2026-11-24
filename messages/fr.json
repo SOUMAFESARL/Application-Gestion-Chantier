@@ -353,7 +353,7 @@
       "titreReferentielsModeles": "Modèles de découpage — Référentiels — Administration",
       "titreReferentielsListes": "Listes de valeurs — Référentiels — Administration",
       "titreReferentielsModesExecution": "Modes d’exécution — Référentiels — Administration",
-      "titreReferentielsTypesProjet": "Types de projet — Référentiels — Administration"
+      "titreReferentielsTypesProjet": "Catégories d’ouvrage — Référentiels — Administration"
     },
     "motDePasseOublie": {
       "accroche": "Indiquez votre adresse professionnelle : un lien de réinitialisation vous y sera envoyé.",
@@ -655,20 +655,22 @@
       },
       "referentiels": {
         "titre": "Référentiels",
-        "description": "Les listes de valeurs de découpage, les modèles de découpage, les types de projet et les modes d’exécution proposés à toutes les entreprises. Elles peuvent les compléter et les personnaliser, mais pas supprimer ceux d’ici.",
+        "description": "Les listes de valeurs de découpage, les modèles de découpage, les catégories d’ouvrage et les modes d’exécution proposés à toutes les entreprises. Elles peuvent les compléter et les personnaliser, mais pas supprimer ceux d’ici.",
         "ongletListes": "Listes de valeurs",
         "ongletModeles": "Modèles de découpage",
         "ongletModesExecution": "Modes d’exécution",
-        "ongletTypesProjet": "Types de projet",
+        "ongletTypesProjet": "Catégories d’ouvrage",
         "types-projet": {
-          "titre": "Types de projet",
-          "nomFichier": "types-projet",
-          "vide": "Aucun type de projet.",
-          "ajouter": "Ajouter un type de projet",
-          "aideGroupe": "Facultatif : un titre pour regrouper les types dans la liste."
+          "titre": "Catégories d’ouvrage",
+          "description": "Catégories d’ouvrage proposées à toutes les entreprises lors de la création d’un projet. Vos ajouts ne peuvent pas être retirés par les entreprises.",
+          "nomFichier": "categories-ouvrage",
+          "vide": "Aucune catégorie d’ouvrage.",
+          "ajouter": "Ajouter une catégorie d’ouvrage",
+          "aideGroupe": "Facultatif : un titre pour regrouper les catégories d’ouvrage dans la liste."
         },
         "modes-execution": {
           "titre": "Modes d’exécution",
+          "description": "Modes d’exécution proposés à toutes les entreprises, rattachés à l’un des trois modes de base du rapport journalier.",
           "nomFichier": "modes-execution",
           "vide": "Aucun mode d’exécution.",
           "ajouter": "Ajouter un mode d’exécution",
@@ -677,6 +679,14 @@
         "colonneLibelle": "Libellé",
         "colonneGroupe": "Groupe",
         "colonneCode": "Code",
+        "sansGroupe": "—",
+        "filtreGroupe": "Filtrer par groupe",
+        "filtreGroupeTous": "Tous les groupes",
+        "groupeAucun": "Sans groupe",
+        "groupePlaceholder": "Choisir ou saisir un groupe…",
+        "groupeRechercher": "Rechercher ou créer un groupe…",
+        "groupeAucunResultat": "Aucun groupe correspondant.",
+        "groupeCreer": "Créer le groupe « {saisie} »",
         "rechercher": "Rechercher",
         "modifier": "Modifier",
         "supprimer": "Supprimer",
@@ -771,13 +781,13 @@
       },
       "modelesDecoupage": {
         "titre": "Modèles de découpage de projet (Plateforme)",
-        "description": "Créez et mettez à jour les modèles de découpage proposés par défaut à toutes les entreprises clientes : niveaux, listes de valeurs associées, types de projet et lignes types.",
+        "description": "Créez et mettez à jour les modèles de découpage proposés par défaut à toutes les entreprises clientes : niveaux, listes de valeurs associées, catégories d’ouvrage et lignes types.",
         "telechargerModeleExcel": "Exemple Excel (.xlsx)",
         "nouveauModele": "Nouveau modèle",
         "rechercher": "Rechercher un modèle",
         "rechercherPlaceholder": "Nom, description ou niveau…",
-        "filtreTypeProjet": "Filtrer par type de projet",
-        "filtreTypeProjetTous": "Tous les types de projet",
+        "filtreTypeProjet": "Filtrer par catégorie d’ouvrage",
+        "filtreTypeProjetTous": "Toutes les catégories d’ouvrage",
         "filtreStatut": "Filtrer par statut",
         "filtreStatutTous": "Tous les statuts",
         "filtreStatutActifs": "Modèles actifs",
@@ -804,8 +814,8 @@
         "champDescription": "Description (optionnel)",
         "placeholderDescription": "Précisez à quels chantiers ce modèle s’adresse.",
         "champEstActif": "Modèle actif — proposé aux entreprises lors du découpage d’un projet",
-        "typesProjetTitre": "Types de projet associés",
-        "typesProjetAide": "Cochez les types de projet auxquels ce modèle s’adresse, et indiquez s’il doit les pré-remplir par défaut.",
+        "typesProjetTitre": "Catégories d’ouvrage associées",
+        "typesProjetAide": "Cochez les catégories d’ouvrage auxquelles ce modèle s’adresse, et indiquez s’il doit les pré-remplir par défaut.",
         "parDefautCourt": "Par défaut",
         "niveauxTitre": "Niveaux du découpage (1 à 10)",
         "niveauxAide": "Nommez chaque niveau dans l’ordre hiérarchique, associez-lui une liste de valeurs de la plateforme et choisissez le niveau d’alerte.",
@@ -821,7 +831,7 @@
         "deplacerDroite": "Déplacer à droite",
         "retirerNiveau": "Retirer ce niveau",
         "lignesTitre": "Lignes types du modèle ({n})",
-        "lignesAide": "Chaque ligne représente une tâche pré-remplie. Vous pouvez aussi les charger depuis un fichier Excel (.xlsx) ou CSV.",
+        "lignesAide": "Construisez la structure arborescente type du modèle, ou importez-la depuis un fichier Excel (.xlsx) ou CSV.",
         "importerExcel": "Importer Excel / CSV",
         "ajouterLigne": "Ajouter une ligne",
         "retirerLigne": "Retirer la ligne",
@@ -830,6 +840,17 @@
         "rechercherValeur": "Rechercher ou saisir librement…",
         "aucuneValeur": "Aucune valeur dans la liste.",
         "utiliserValeurLibre": "Utiliser « {saisie} »",
+        "ajouterRacine": "Ajouter : {niveau}",
+        "ajouterEnfant": "Ajouter : {niveau}",
+        "deplier": "Déplier",
+        "replier": "Replier",
+        "toutDeplier": "Tout déplier",
+        "toutReplier": "Tout replier",
+        "arbreVideTitre": "Aucune branche dans ce modèle",
+        "arbreVideAide": "Ajoutez un premier élément de niveau 1 ou importez un fichier Excel / CSV.",
+        "saisirOuChoisir": "Saisir un intitulé ou choisir dans la liste…",
+        "listeValeurs": "Liste",
+        "resumeFeuilles": "{n, plural, =0 {Aucune tâche} one {# tâche} other {# tâches}}",
         "annuler": "Annuler",
         "creerModele": "Créer le modèle",
         "enregistrerModele": "Enregistrer (nouvelle version)",
@@ -1668,15 +1689,18 @@
       "titre": "Informations générales",
       "reference": "Référence",
       "natureProjet": "Type de projet",
-      "type": "Type d'ouvrage",
+      "type": "Catégorie d'ouvrage",
       "localisation": "Localisation",
       "maitreOuvrage": "Maître d'ouvrage",
       "maitreOeuvre": "Maître d'œuvre",
       "ordreService": "Ordre de service de démarrage",
-      "contrats": "Contrat(s) du marché",
+      "contrats": "Contrat du marché",
       "erreurTelechargement": "Le téléchargement du document a échoué.",
       "description": "Description",
-      "nonRenseigne": "Non renseigné"
+      "nonRenseigne": "Non renseigné",
+      "versionContrat": "v{version}",
+      "historiqueContrats": "{nombre, plural, one {Historique (# ancienne version)} other {Historique (# anciennes versions)}}",
+      "telechargerVersion": "Télécharger"
     },
     "structure": {
       "titre": "Structure du projet",
@@ -1758,13 +1782,13 @@
         "phase": "Phase du projet",
         "region": "Région / District",
         "localisation": "Localisation",
-        "type": "Type d'ouvrage",
+        "type": "Catégorie d'ouvrage",
         "reference": "Référence",
         "description": "Objet et description",
         "interet": "Justification et intérêt du projet",
         "objectifs": "Objectifs spécifiques",
         "ordreService": "Ordre de service de démarrage",
-        "contrats": "Contrat(s) du marché",
+        "contrats": "Contrat du marché",
         "nonRenseigne": "Non renseigné"
       },
       "programme": {
@@ -1797,7 +1821,10 @@
         "joursRestants": "{jours, plural, =0 {Aujourd'hui} one {Dans # jour} other {Dans # jours}}",
         "echeanceDepassee": "{jours, plural, one {Dépassée de # jour} other {Dépassée de # jours}}",
         "termineLe": "Terminé le {date}",
-        "clos": "Projet clos"
+        "clos": "Projet clos",
+        "syntheseAvenantsDuree": "{nombre, plural, one {# avenant} other {# avenants}} (+{duree})",
+        "syntheseAvenantsJours": "{nombre, plural, one {# avenant} other {# avenants}} (+{jours} j)",
+        "syntheseReprogrammations": "{nombre, plural, one {# reprogrammation} other {# reprogrammations}} ({jours} j)"
       },
       "budget": {
         "initial": "Budget prévisionnel",
@@ -1866,14 +1893,14 @@
       },
       "lots": {
         "numero": "Code",
-        "lot": "Composante / Lot",
+        "lot": "Composante",
         "mode": "Mode / Prestataire",
         "bordereau": "Bordereau",
         "avancement": "Avancement",
         "budget": "Montant (FCFA)",
         "statut": "Statut",
         "sansActivite": "Aucune activité",
-        "vide": "Aucun lot ou composante n'est encore structuré sur ce projet."
+        "vide": "Aucune composante n'est encore structurée sur ce projet."
       },
       "indicateurs": {
         "respectDelais": "Respect des délais",
@@ -1923,8 +1950,9 @@
         "intervenants": {
           "role": "Rôle / Mission",
           "org": "Entreprise / Organisme",
-          "lot": "Périmètre / Lot"
-        }
+          "lot": "Périmètre"
+        },
+        "membreEncadrement": "Membre de l'encadrement"
       },
       "etapes": {
         "code": "Code",
@@ -1961,7 +1989,7 @@
     },
     "configuration": {
       "titre": "Configuration et informations complémentaires",
-      "sousTitre": "Renseignez les rubriques de la fiche projet selon sa nature (Projet public ou Projet privé). Ces informations alimentent automatiquement la fiche projet imprimable (PDF).",
+      "sousTitre": "Renseignez les rubriques complémentaires de la fiche projet. Ces informations alimentent automatiquement la fiche projet imprimable (PDF).",
       "completion": "Complétion : {pct} %",
       "compteurRubrique": "{remplis}/{total}",
       "enregistrer": "Enregistrer la configuration",
@@ -1978,8 +2006,8 @@
       "ajouterLigne": "Ajouter une ligne",
       "supprimerLigne": "Supprimer la ligne",
       "aucuneLigne": "Aucune ligne renseignée.",
-      "importerDecoupage": "Importer les lots depuis le découpage",
-      "importDecoupageSucces": "{nombre, plural, =0 {Aucun lot trouvé dans le découpage.} one {# lot importé depuis le découpage.} other {# lots importés depuis le découpage.}}",
+      "importerDecoupage": "Importer depuis le découpage",
+      "importDecoupageSucces": "{nombre, plural, =0 {Aucune composante trouvée dans le découpage.} one {# composante importée depuis le découpage.} other {# composantes importées depuis le découpage.}}",
       "selectionner": "— Sélectionner —",
       "rubriques": {
         "s1": {
@@ -2004,7 +2032,7 @@
         },
         "s6": {
           "titre": "6. Avancement global",
-          "sousTitre": "Constat physique narratif et avancement détaillé par composante ou lot"
+          "sousTitre": "Constat physique narratif et avancement détaillé par composante"
         },
         "s7": {
           "titre": "7. Risques, blocages et recommandations",
@@ -2012,7 +2040,7 @@
         },
         "s8": {
           "titre": "8. Équipe et intervenants",
-          "sousTitre": "Coordonnateur, encadrement chantier et entreprises intervenantes (MOE, BCT, OPC, lots)"
+          "sousTitre": "Coordonnateur, encadrement chantier et entreprises intervenantes (MOE, BCT, OPC, titulaires)"
         },
         "s9": {
           "titre": "9. Prochaines étapes et note du CP",
@@ -2025,7 +2053,7 @@
         "reference": "Référence système",
         "numeroFiche": "N° de fiche / Réf. marché public",
         "numeroFichePlaceholder": "Ex : FP-2026-001 ou N° Marché",
-        "typeProjet": "Type d'ouvrage",
+        "typeProjet": "Catégorie d'ouvrage",
         "secteur": "Secteur d'activité",
         "phase": "Phase actuelle du projet",
         "region": "Région / District",
@@ -2100,9 +2128,9 @@
         "etatImputation": "État d'imputation budgétaire (PIP / Budget État)",
         "etatImputationPlaceholder": "Ex : Inscrit au PIP 2025-2027, ligne budgétaire…",
         "etatEffectif": "Montant mobilisé / mis en vigueur",
-        "etatEffectifPlaceholder": "Ex : 100 % en vigueur (32,5 Mds FCFA)",
+        "etatEffectifPlaceholder": "Ex : 32 500 000 000",
         "etatDecaissement": "État des décaissements cumulés",
-        "etatDecaissementPlaceholder": "Ex : 14,2 Mds FCFA décaissés (43,7 %)",
+        "etatDecaissementPlaceholder": "Ex : 14 200 000 000",
         "procedure": "Procédure de passation des marchés",
         "procedurePlaceholder": "Ex : Appel d'offres international ouvert (AOIO)",
         "texteApplicable": "Texte réglementaire / Directives applicables",
@@ -2117,11 +2145,11 @@
         "permisNum": "N° du permis de construire / arrêté",
         "permisNumPlaceholder": "Ex : PC n° 2025-0412/MCLU",
         "purgeTotal": "Coût total de purge / indemnisations (PAR)",
-        "purgeTotalPlaceholder": "Ex : 1 250 000 000 FCFA",
+        "purgeTotalPlaceholder": "Ex : 1 250 000 000",
         "purgeEngage": "Montant engagé pour la purge",
-        "purgeEngagePlaceholder": "Ex : 1 250 000 000 FCFA",
+        "purgeEngagePlaceholder": "Ex : 1 250 000 000",
         "purgePaye": "Montant effectivement payé aux impactés",
-        "purgePayePlaceholder": "Ex : 980 000 000 FCFA (78 %)",
+        "purgePayePlaceholder": "Ex : 980 000 000",
         "tauxSaisi": "Taux d'avancement physique consolidé déclaré (%)",
         "tauxSaisiAide": "Avancement calculé sur l'arbre de découpage : {valeur} %",
         "etatNarratif": "État d'avancement détaillé / Constat terrain",
@@ -2133,7 +2161,20 @@
         "coordEmail": "Email du coordonnateur",
         "coordEmailPlaceholder": "Ex : coordonnateur@projet.gouv.ci",
         "noteCp": "Note de synthèse du chef de projet (imprimée sur la fiche PDF)",
-        "noteCpPlaceholder": "Points d'attention pour la direction, arbitrages attendus, synthèse mensuelle…"
+        "noteCpPlaceholder": "Points d'attention pour la direction, arbitrages attendus, synthèse mensuelle…",
+        "aucunePhaseDecoupage": "Aucune phase définie dans le découpage",
+        "contactMoaAuto": "Renseigné automatiquement depuis la fiche Tiers du MOA",
+        "nonDemarreAuto": "Non démarré (1er rapport validé)",
+        "nonClotureAuto": "Non clôturé (100 % requis)",
+        "dateDebutReelleAide": "Calculée automatiquement depuis le 1er rapport journalier validé.",
+        "dateFinReelleAide": "Calculée automatiquement à la clôture complète (100 %) du projet.",
+        "syntheseAvenantsDuree": "{nombre, plural, one {# avenant} other {# avenants}} (+{duree})",
+        "syntheseAvenantsJours": "{nombre, plural, one {# avenant} other {# avenants}} (+{jours} j)",
+        "syntheseReprogrammations": "{nombre, plural, one {# reprogrammation} other {# reprogrammations}} ({jours} j)",
+        "syntheseReprogrammationsAvecDate": "{nombre, plural, one {# reprogrammation} other {# reprogrammations}} ({jours} j, dernière le {date})",
+        "aucunAvenantReprog": "Aucun avenant de délai ni reprogrammation",
+        "budgetContractuelNonDefini": "Non défini (déposez le contrat du marché)",
+        "budgetContractuelDecomposition": "Initial : {initial} + Avenants : {avenants}"
       },
       "tableaux": {
         "bailleurs": {
@@ -2154,13 +2195,14 @@
           "montant": "Montant"
         },
         "lots": {
-          "titre": "Avancement par composante ou lot de travaux",
+          "titre": "Avancement par composante",
           "code": "Code / N°",
-          "nom": "Composante / Lot",
+          "nom": "Composante",
           "montant": "Montant (FCFA)",
           "avancement": "Avancement (%)",
           "statut": "Statut",
-          "prestataire": "Entreprise / Titulaire"
+          "prestataire": "Entreprise / Titulaire",
+          "nomPlaceholder": "Choisir ou saisir une composante…"
         },
         "difficultes": {
           "titre": "Difficultés, risques et blocages identifiés",
@@ -2173,19 +2215,22 @@
           "titre": "Recommandations et décisions attendues",
           "texte": "Recommandation / Mesure corrective",
           "dest": "Responsable / Destinataire",
-          "echeance": "Échéance"
+          "echeance": "Échéance",
+          "destPlaceholder": "Membre du projet ou saisie libre…"
         },
         "intervenants": {
-          "titre": "Entreprises et intervenants externes (MOE, BCT, OPC, titulaires des lots)",
+          "titre": "Entreprises et intervenants externes (MOE, BCT, OPC, titulaires)",
           "role": "Rôle / Mission",
           "org": "Entreprise / Organisme",
-          "lot": "Périmètre / Lot"
+          "lot": "Périmètre",
+          "perimetrePlaceholder": "Choisir un élément du découpage…"
         },
         "etapes": {
           "titre": "Prochaines étapes et jalons à venir (horizon J+14)",
           "etape": "Étape / Action à mener",
           "echeance": "Date / Échéance",
-          "resp": "Responsable"
+          "resp": "Responsable",
+          "respPlaceholder": "Membre du projet ou saisie libre…"
         }
       },
       "options": {
@@ -2278,8 +2323,25 @@
           "ouvert": "Ouvert",
           "en_traitement": "En cours de résolution",
           "resolu": "Résolu"
+        },
+        "statutsComposante": {
+          "PLANIFIE": "Planifié",
+          "EN_COURS": "En cours",
+          "EN_RETARD": "En retard",
+          "SUSPENDU": "Suspendu",
+          "CLOTURE": "Clôturé"
         }
-      }
+      },
+      "contratActifBadge": "Actif",
+      "synchroniserIntervenants": "Synchroniser depuis le projet",
+      "syncIntervenantsSucces": "{nombre, plural, =0 {Aucun intervenant externe détecté sur le projet.} one {# intervenant synchronisé.} other {# intervenants synchronisés.}}",
+      "utiliserValeurLibre": "Utiliser « {saisie} »",
+      "rechercherOuSaisir": "Rechercher dans la liste ou saisir…",
+      "aucunResultat": "Aucun résultat.",
+      "rechercherMembreOuSaisir": "Rechercher un membre du projet ou saisir…",
+      "aucunMembreProjet": "Aucun membre affecté au projet.",
+      "rechercherPerimetre": "Rechercher un élément du découpage…",
+      "aucunPerimetre": "Aucun élément actif dans le découpage."
     },
     "affectations": {
       "titre": "Collaborateurs affectés",
@@ -2517,7 +2579,7 @@
         "CHEF_PROJET": "Chef de projet",
         "CONDUCTEUR_TRAVAUX": "Conducteur de travaux",
         "CHEF_CHANTIER": "Chef de chantier",
-        "AUTRE_MEMBRE": "Autre membre de l’encadrement"
+        "AUTRE_MEMBRE": "Membre de l'encadrement"
       }
     }
   },
@@ -2650,7 +2712,7 @@
     "descriptions": {
       "collaborateurs": "Inviter les membres de l’équipe, suivre leurs comptes et leurs affectations.",
       "roles": "Créer les rôles et régler ce que chacun peut voir et faire.",
-      "listes": "Les types de projet, les modes d’exécution, les listes de valeurs et les modèles de découpage proposés à toute l’entreprise.",
+      "listes": "Les catégories d’ouvrage, les modes d’exécution, les listes de valeurs et les modèles de découpage proposés à toute l’entreprise.",
       "calendrier": "Les jours ouvrés de l’entreprise : semaine type, jours fériés et exceptions.",
       "configuration": "Les informations de l’entreprise qui figurent sur vos documents officiels.",
       "documentsPdf": "Le logo et les mentions imprimés en haut et en bas de vos PDF."
@@ -2690,7 +2752,7 @@
         "nom": "Nom du projet",
         "client": "Client",
         "ville": "Ville",
-        "typeProjet": "Type",
+        "typeProjet": "Catégorie d'ouvrage",
         "chefProjet": "Chef de projet",
         "avancementReel": "Avancement réel (%)",
         "avancementTemporel": "Avancement temporel (%)",
@@ -2804,7 +2866,7 @@
       "champNomPlaceholder": "Ex : Immeuble Les Palmiers R+5",
       "champReference": "Référence",
       "champReferencePlaceholder": "Générée à la création",
-      "champType": "Type d'ouvrage",
+      "champType": "Catégorie d'ouvrage",
       "champVille": "Localisation (ville)",
       "colonneDateDebut": "Date début",
       "colonneDateFin": "Date fin",
@@ -2822,9 +2884,9 @@
       "erreurMaitreOuvrageRequis": "Le maître d'ouvrage est requis.",
       "erreurNomRequis": "Le nom du projet est requis.",
       "erreurNomTropLong": "Le nom du projet ne doit pas dépasser 150 caractères.",
-      "erreurTypeRequis": "Choisissez ou saisissez le type de projet.",
-      "rechercherType": "Rechercher ou saisir un type…",
-      "aucunTypeTrouve": "Aucun type ne correspond.",
+      "erreurTypeRequis": "Choisissez ou saisissez la catégorie d'ouvrage.",
+      "rechercherType": "Rechercher ou saisir une catégorie d'ouvrage…",
+      "aucunTypeTrouve": "Aucune catégorie d'ouvrage ne correspond.",
       "utiliserType": "Utiliser « {saisie} »",
       "erreurVilleRequise": "La localisation du projet est requise.",
       "modeExecution": {
@@ -2909,8 +2971,13 @@
       "refusContratFormat": "seuls les fichiers PDF, JPG et PNG sont acceptés",
       "refusContratTaille": "le fichier dépasse {taille}",
       "erreurContratFormat": "Chaque fichier doit être un PDF, JPG ou PNG de taille raisonnable.",
-      "erreurContratsTropNombreux": "Joignez au plus {max} fichiers.",
-      "nomReserve": "Seuls le Directeur Général et l’administrateur de l’entreprise peuvent renommer un projet."
+      "erreurContratsTropNombreux": "{max, plural, one {Joignez au plus # fichier.} other {Joignez au plus # fichiers.}}",
+      "nomReserve": "Seuls le Directeur Général et l’administrateur de l’entreprise peuvent renommer un projet.",
+      "versionContrat": "v{version}",
+      "historiqueVersions": "{nombre, plural, one {# ancienne version} other {# anciennes versions}}",
+      "champContratRemplacer": "Remplacer le contrat du marché",
+      "consigneContratUnique": "PDF, JPG ou PNG · {taille} max · 1 fichier actif",
+      "aideRemplacementContrat": "Importer un nouveau fichier remplace le contrat actif et conserve l'ancienne version dans l'historique."
     },
     "edition": {
       "nomReserve": "Seuls le Directeur Général et l’administrateur de l’entreprise peuvent renommer un projet."
@@ -3486,13 +3553,13 @@
         "CHEF_PROJET": "Chef de projet responsable",
         "CONDUCTEUR_TRAVAUX": "Conducteur(s) de travaux",
         "CHEF_CHANTIER": "Chef(s) de chantier",
-        "AUTRE_MEMBRE": "Autres membres"
+        "AUTRE_MEMBRE": "Équipe complémentaire"
       },
       "fonctionUnitaire": {
         "CHEF_PROJET": "Chef de projet",
         "CONDUCTEUR_TRAVAUX": "Conducteur de travaux",
         "CHEF_CHANTIER": "Chef de chantier",
-        "AUTRE_MEMBRE": "Autre membre"
+        "AUTRE_MEMBRE": "Membre de l'encadrement"
       },
       "fonctionAutreMembre": {
         "FINANCIER": "Financier",
@@ -3526,7 +3593,8 @@
         "annuler": "Annuler",
         "retirer": "Retirer",
         "succes": "{nom} a été retiré de l'équipe d'encadrement."
-      }
+      },
+      "roleEtPerimetre": "{role} · {perimetre}"
     },
     "cadrage": {
       "definir": "Définir",
@@ -3581,13 +3649,13 @@
       },
       "gestion": {
         "titrePage": "Listes et modèles",
-        "descriptionPage": "Les types de projet, les modes d’exécution, les listes de valeurs et les modèles de découpage proposés dans les projets. Vos ajouts sont proposés à tous vos collaborateurs ; ceux de la plateforme ne se retirent pas.",
+        "descriptionPage": "Les catégories d’ouvrage, les modes d’exécution, les listes de valeurs et les modèles de découpage proposés dans les projets. Vos ajouts sont proposés à tous vos collaborateurs ; ceux de la plateforme ne se retirent pas.",
         "titre": {
-          "types-projet": "Types de projet",
+          "types-projet": "Catégories d’ouvrage",
           "modes-execution": "Modes d’exécution"
         },
         "placeholder": {
-          "types-projet": "Nouveau type de projet",
+          "types-projet": "Nouvelle catégorie d’ouvrage",
           "modes-execution": "Nouveau mode d’exécution"
         },
         "groupe": {
@@ -4875,7 +4943,7 @@
       "listesValeurs": "Listes",
       "listesModeles": "Modèles",
       "listesModesExecution": "Modes d’exécution",
-      "listesTypesProjet": "Types de projet",
+      "listesTypesProjet": "Catégories d’ouvrage",
       "contrats": "Contrats",
       "deconnexion": "Se déconnecter",
       "descContrats": "Sous-traitance & marchés",
@@ -6389,16 +6457,165 @@
     "rechercher": "Rechercher ou saisir un nom…",
     "aucun": "Aucun résultat.",
     "ajouter": "Ajouter « {saisie} »",
+    "titreDefaut": "Nouveau tiers",
     "titre": {
       "CLIENT_MOA": "Nouveau maître d’ouvrage",
-      "MAITRE_OEUVRE": "Nouveau maître d’œuvre"
+      "MAITRE_OEUVRE": "Nouveau maître d’œuvre",
+      "FOURNISSEUR": "Nouveau fournisseur",
+      "SOUS_TRAITANT": "Nouveau sous-traitant",
+      "TACHERON": "Nouveau tâcheron",
+      "BUREAU_CONTROLE": "Nouveau bureau de contrôle",
+      "ADMINISTRATION": "Nouvelle administration",
+      "PRESTATAIRE": "Nouveau prestataire"
     },
     "raisonSociale": "Raison sociale",
+    "role": "Rôle principal",
     "telephone": "Téléphone",
     "annuler": "Annuler",
     "creer": "Ajouter",
     "erreur": "Le tiers n’a pas pu être ajouté. Réessayez.",
     "erreurFormat": "Saisissez le numéro au format international : + suivi de l’indicatif du pays et du numéro."
+  },
+  "tiers": {
+    "meta": {
+      "titre": "Parties prenantes & Tiers"
+    },
+    "titre": "Parties prenantes & Tiers",
+    "sousTitre": "Répertoire de vos clients, maîtres d’œuvre, sous-traitants, fournisseurs, tâcherons et partenaires.",
+    "chargement": "Chargement des tiers…",
+    "aucunTiers": "Aucun tiers enregistré pour le moment.",
+    "aucunResultatFiltre": "Aucun tiers ne correspond à ces critères.",
+    "boutonAjouter": "Nouveau tiers",
+    "sansDonnee": "—",
+    "rolesSupplementaires": "+{n}",
+    "erreurAction": "L’opération a échoué. Réessayez.",
+    "types": {
+      "ENTREPRISE": "Entreprise",
+      "PERSONNE": "Personne physique"
+    },
+    "roles": {
+      "CLIENT_MOA": "Client / Maître d’ouvrage",
+      "MAITRE_OEUVRE": "Maître d’œuvre",
+      "FOURNISSEUR": "Fournisseur",
+      "SOUS_TRAITANT": "Sous-traitant",
+      "TACHERON": "Tâcheron",
+      "BUREAU_CONTROLE": "Bureau de contrôle",
+      "ADMINISTRATION": "Administration",
+      "PRESTATAIRE": "Prestataire"
+    },
+    "statuts": {
+      "ACTIF": "Actif",
+      "INACTIF": "Inactif"
+    },
+    "colonnes": {
+      "tiers": "Tiers",
+      "roles": "Rôles",
+      "contact": "Contact",
+      "ville": "Ville",
+      "note": "Évaluation",
+      "statut": "Statut",
+      "actions": "Actions"
+    },
+    "actions": {
+      "consulter": "Consulter {nom}",
+      "modifier": "Modifier {nom}",
+      "activer": "Activer {nom}",
+      "desactiver": "Désactiver {nom}",
+      "supprimer": "Supprimer {nom}"
+    },
+    "filtres": {
+      "rechercheLabel": "Rechercher un tiers",
+      "recherchePlaceholder": "Raison sociale, téléphone, email, ville, RCCM…",
+      "roleLabel": "Filtrer par rôle",
+      "roleTous": "Tous les rôles",
+      "typeLabel": "Filtrer par type",
+      "typeTous": "Tous les types",
+      "statutLabel": "Filtrer par statut",
+      "statutTous": "Tous les statuts"
+    },
+    "export": {
+      "titre": "Répertoire des tiers",
+      "nomFichier": "tiers",
+      "raisonSociale": "Raison sociale / Nom",
+      "type": "Type",
+      "roles": "Rôles",
+      "telephone": "Téléphone",
+      "email": "E-mail",
+      "ville": "Ville",
+      "adresse": "Adresse",
+      "rccm": "RCCM",
+      "nif": "NIF",
+      "note": "Note (/5)",
+      "statut": "Statut"
+    },
+    "formulaire": {
+      "titreCreation": "Nouveau tiers",
+      "titreModification": "Modifier {nom}",
+      "description": "Renseignez l’identité, les rôles, les coordonnées et les références administratives du tiers.",
+      "typeTiers": "Type de tiers",
+      "raisonSociale": "Raison sociale / Nom complet",
+      "raisonSocialePlaceholder": "Ex. : SOGEA SATOM Côte d’Ivoire, Koné Moussa…",
+      "roles": "Rôles sur les chantiers",
+      "telephone": "Téléphone",
+      "email": "E-mail",
+      "emailPlaceholder": "contact@entreprise.ci",
+      "ville": "Ville",
+      "adresse": "Adresse",
+      "adressePlaceholder": "Quartier, rue, lot…",
+      "rccm": "RCCM",
+      "rccmPlaceholder": "Ex. : CI-ABJ-2020-B-12345",
+      "nif": "NIF / NCC",
+      "nifPlaceholder": "Ex. : 1234567 A",
+      "noteEvaluation": "Note d’évaluation (sur 5)",
+      "notePlaceholder": "Ex. : 4.5",
+      "estActif": "Tiers actif (proposé dans les sélecteurs de projets)",
+      "annuler": "Annuler",
+      "creer": "Créer le tiers",
+      "enregistrer": "Enregistrer",
+      "enregistrement": "Enregistrement…",
+      "succesCreation": "Le tiers « {nom} » a été créé.",
+      "succesModification": "Le tiers « {nom} » a été modifié.",
+      "erreur": "L’enregistrement du tiers a échoué. Réessayez."
+    },
+    "validation": {
+      "typeRequis": "Choisissez le type de tiers.",
+      "raisonSocialeRequise": "La raison sociale ou le nom est requis.",
+      "raisonSocialeLongue": "La raison sociale ne doit pas dépasser {max} caractères.",
+      "rolesRequis": "Sélectionnez au moins un rôle.",
+      "telephoneRequis": "Le numéro de téléphone est requis.",
+      "emailInvalide": "Cette adresse e-mail n’est pas valide.",
+      "champTropLong": "Ce champ ne doit pas dépasser {max} caractères.",
+      "noteInvalide": "La note d’évaluation doit être comprise entre 0 et 5."
+    },
+    "detail": {
+      "modifier": "Modifier",
+      "activer": "Activer",
+      "desactiver": "Désactiver",
+      "supprimer": "Supprimer",
+      "sectionRoles": "Rôles attribués",
+      "aucunRole": "Aucun rôle attribué.",
+      "sectionCoordonnees": "Coordonnées",
+      "telephone": "Téléphone",
+      "email": "E-mail",
+      "localisation": "Adresse & ville",
+      "nonRenseigne": "Non renseigné",
+      "sectionAdministratif": "Informations administratives & évaluation",
+      "rccm": "RCCM",
+      "nif": "NIF / NCC",
+      "noteEvaluation": "Évaluation",
+      "sectionProjetsLies": "Projets liés ({n})",
+      "aucunProjetLie": "Ce tiers n’est encore rattaché à aucun projet.",
+      "ouvrirProjet": "Ouvrir",
+      "titreSuppression": "Supprimer ce tiers ?",
+      "messageSuppression": "Voulez-vous supprimer « {nom} » ? Un tiers déjà rattaché à un projet, une équipe ou un bon de commande doit être désactivé plutôt que supprimé.",
+      "annuler": "Annuler",
+      "desactiverPlutot": "Désactiver plutôt",
+      "confirmerSuppression": "Supprimer",
+      "succesActivation": "« {nom} » a été activé.",
+      "succesDesactivation": "« {nom} » a été désactivé.",
+      "succesSuppression": "« {nom} » a été supprimé.",
+      "erreur": "L’opération a échoué. Réessayez."
+    }
   },
   "decoupage": {
     "unites": {
@@ -6411,11 +6628,11 @@
     },
     "tableau": {
       "titre": "Tableau de démarrage",
-      "description": "Une ligne par tâche : ses cases suivent les niveaux, de gauche à droite. Les cases identiques se regroupent sous un même parent. Vérifiez, puis appliquez pour construire l’arbre du projet.",
+      "description": "Construisez l’arbre du découpage en ajoutant les éléments niveau par niveau, puis renseignez les tâches feuilles. Vérifiez la cohérence avec le serveur et appliquez pour créer le découpage du projet.",
       "modele": "Modèle de découpage",
       "modeleAucun": "Aucun modèle",
       "modeleParDefaut": "par défaut",
-      "modelePourCeType": "pour ce type de projet",
+      "modelePourCeType": "pour cette catégorie d’ouvrage",
       "groupeModelesEntreprise": "Modèles de l’entreprise",
       "groupeModelesPlateforme": "Modèles de la plateforme",
       "niveauxModele": " ({niveaux})",
@@ -6429,7 +6646,7 @@
       "placeholderNomModele": "Ex. : Villa duplex standard, Réhabilitation voirie…",
       "descriptionModele": "Description (optionnel)",
       "placeholderDescriptionModele": "Usage prévu pour ce modèle.",
-      "parDefautPourCeType": "Pré-remplir par défaut les nouveaux projets de ce type avec ce modèle",
+      "parDefautPourCeType": "Pré-remplir par défaut les nouveaux projets de cette catégorie d’ouvrage avec ce modèle",
       "confirmerEnregistrerModele": "Enregistrer le modèle",
       "modeleEnregistre": "Modèle « {nom} » enregistré.",
       "aideImport": "Le fichier reprend les colonnes du tableau : une colonne par niveau, puis, facultatives, Unité, Quantité, Montant (FCFA), Début et Fin. Formats acceptés : .xlsx et .csv.",
@@ -6467,6 +6684,22 @@
       "insererLigne": "Insérer une ligne en dessous",
       "retirerLigne": "Retirer cette ligne",
       "ajouterLigne": "Ajouter une ligne",
+      "ajouterRacine": "Ajouter : {niveau}",
+      "ajouterEnfant": "Ajouter : {niveau}",
+      "deplier": "Déplier",
+      "replier": "Replier",
+      "toutDeplier": "Tout déplier",
+      "toutReplier": "Tout replier",
+      "arbreVideTitre": "Aucun élément dans ce découpage",
+      "arbreVideAide": "Ajoutez un premier élément de niveau 1 ou importez un fichier Excel / CSV pour démarrer.",
+      "placeholderIntitule": "Intitulé ({niveau})…",
+      "saisirOuChoisir": "Saisir un intitulé ou choisir dans la liste…",
+      "listeValeurs": "Liste",
+      "resumeFeuilles": "{n, plural, =0 {Aucune tâche} one {# tâche} other {# tâches}}",
+      "montantPlaceholder": "Ex. : 2 500 000",
+      "choisirDate": "Choisir…",
+      "periode": "{debut} → {fin}",
+      "intituleNoeudRequis": "Renseignez l’intitulé de chaque élément avant de continuer.",
       "verifier": "Vérifier",
       "appliquer": "Appliquer le découpage",
       "apercu": "Aperçu : {cases, plural, one {# case} other {# cases}}, dont {feuilles, plural, one {# tâche} other {# tâches}}, sur {niveaux, plural, one {# niveau} other {# niveaux}}.",
@@ -6527,6 +6760,7 @@
       "exporterCsv": "CSV (.csv)",
       "erreurExport": "L’export n’a pas abouti. Réessayez.",
       "ajouterRacine": "Ajouter : {niveau}",
+      "composantProjetDefaut": "composant de projet",
       "perimetreReduit": "Vous voyez les branches de votre périmètre sur ce projet, et le chemin qui y mène.",
       "vide": "Aucune case dans l’arbre",
       "deplier": "Déplier",
@@ -6602,8 +6836,7 @@
         "mesurer": "Mesurer",
         "cloturer": "Clôturer",
         "rouvrir": "Rouvrir",
-        "desactiver": "Désactiver",
-        "reactiver": "Réactiver",
+        "supprimer": "Supprimer",
         "reprogrammer": "Reprogrammer"
       },
       "champs": {
@@ -6612,6 +6845,11 @@
         "rechercherOuSaisir": "Rechercher ou saisir un intitulé…",
         "aucuneValeur": "Aucune valeur correspondante.",
         "utiliserValeurLibre": "Utiliser « {saisie} »",
+        "saisirOuChoisir": "Saisir un intitulé ou choisir dans la liste…",
+        "listeValeurs": "Liste",
+        "rechercherDansListe": "Rechercher dans la liste…",
+        "montantPlaceholder": "Ex. : 2 500 000",
+        "choisirDate": "Choisir une date",
         "code": "Code libre",
         "codeAide": "Facultatif : la numérotation du bordereau du client.",
         "motif": "Motif",
@@ -6684,17 +6922,14 @@
         "action": "Rouvrir",
         "succes": "« {libelle} » rouverte."
       },
-      "reactiver": {
-        "titre": "Réactiver « {libelle} » ?",
-        "description": "La case revient dans les calculs du projet.",
-        "action": "Réactiver",
-        "succes": "« {libelle} » réactivée."
-      },
-      "desactiver": {
-        "titre": "Désactiver « {libelle} » ?",
-        "description": "La case et sa branche sortent des calculs ; leur historique est gardé. Le motif est obligatoire.",
-        "action": "Désactiver",
-        "succes": "« {libelle} » désactivée."
+      "supprimer": {
+        "titre": "Supprimer « {libelle} » ?",
+        "description": "Cette suppression est définitive et retire l’élément de l’arbre du projet.",
+        "action": "Supprimer définitivement",
+        "succes": "« {libelle} » supprimée.",
+        "avertissementCascade": "{nombre, plural, one {Attention : cet élément et # sous-élément seront supprimés définitivement en cascade.} other {Attention : cet élément et ses # sous-éléments seront supprimés définitivement en cascade.}}",
+        "avertissementFeuille": "Attention : cet élément sera supprimé définitivement.",
+        "avertissementConditions": "La suppression est refusée si l’élément ou l’un de ses descendants possède déjà des mesures, rapports journaliers, affectations d’équipes ou mouvements de stock."
       }
     },
     "niveaux": {
@@ -6742,6 +6977,9 @@
       "projetEntier": "Le projet entier",
       "caseNumerotee": "{numero} {libelle}",
       "pasDePoints": "Pas encore de points : il faut des dates et au moins un relevé.",
+      "pasDePointsSansDates": "Aucune date prévue ni aucun relevé disponible sur ce périmètre.",
+      "alerteDatesAbsentes": "Aucune date prévue n’est renseignée sur ce périmètre : seule la courbe du réalisé est affichée.",
+      "alerteDatesPartielles": "Les dates prévues sont partielles sur ce périmètre : la courbe du prévu reflète uniquement les tâches planifiées.",
       "prevu": "Prévu",
       "reel": "Réel",
       "repereFinPrevue": "Fin prévue",
@@ -6806,7 +7044,7 @@
     },
     "modeles": {
       "titre": "Modèles de découpage de projet",
-      "description": "Créez les modèles de découpage de votre entreprise ou personnalisez ceux de la plateforme : niveaux, listes de valeurs associées, types de projet et lignes types.",
+      "description": "Créez les modèles de découpage de votre entreprise ou personnalisez ceux de la plateforme : niveaux, listes de valeurs associées, catégories d’ouvrage et lignes types.",
       "telechargerModeleExcel": "Exemple Excel (.xlsx)",
       "nouveauModele": "Nouveau modèle",
       "rechercherModele": "Rechercher un modèle",
@@ -6839,8 +7077,8 @@
       "placeholderNom": "Ex. : Bâtiment R+2, Voirie urbaine, Forage hydraulique…",
       "champDescription": "Description (optionnel)",
       "placeholderDescription": "Précisez à quels chantiers ce modèle s’adresse.",
-      "typesProjetTitre": "Types de projet associés",
-      "typesProjetAide": "Cochez les types de projet auxquels ce modèle s’adresse, et indiquez s’il doit les pré-remplir par défaut.",
+      "typesProjetTitre": "Catégories d’ouvrage associées",
+      "typesProjetAide": "Cochez les catégories d’ouvrage auxquelles ce modèle s’adresse, et indiquez s’il doit les pré-remplir par défaut.",
       "parDefautCourt": "Par défaut",
       "niveauxTitre": "Niveaux du découpage (1 à 10)",
       "niveauxAide": "Nommez chaque niveau dans l’ordre hiérarchique, associez-lui une liste de valeurs facultative et choisissez le niveau d’alerte.",
@@ -6856,7 +7094,7 @@
       "deplacerDroite": "Déplacer à droite",
       "retirerNiveau": "Retirer ce niveau",
       "lignesTitre": "Lignes types du modèle ({n})",
-      "lignesAide": "Chaque ligne représente une tâche pré-remplie. Vous pouvez aussi les charger depuis un fichier Excel (.xlsx) ou CSV.",
+      "lignesAide": "Construisez la structure arborescente type du modèle, ou importez-la depuis un fichier Excel (.xlsx) ou CSV.",
       "importerExcel": "Importer Excel / CSV",
       "ajouterLigne": "Ajouter une ligne",
       "retirerLigne": "Retirer la ligne",
@@ -6865,6 +7103,17 @@
       "rechercherValeur": "Rechercher ou saisir librement…",
       "aucuneValeur": "Aucune valeur dans la liste.",
       "utiliserValeurLibre": "Utiliser « {saisie} »",
+      "ajouterRacine": "Ajouter : {niveau}",
+      "ajouterEnfant": "Ajouter : {niveau}",
+      "deplier": "Déplier",
+      "replier": "Replier",
+      "toutDeplier": "Tout déplier",
+      "toutReplier": "Tout replier",
+      "arbreVideTitre": "Aucune branche dans ce modèle",
+      "arbreVideAide": "Ajoutez un premier élément de niveau 1 ou importez un fichier Excel / CSV.",
+      "saisirOuChoisir": "Saisir un intitulé ou choisir dans la liste…",
+      "listeValeurs": "Liste",
+      "resumeFeuilles": "{n, plural, =0 {Aucune tâche} one {# tâche} other {# tâches}}",
       "annuler": "Annuler",
       "creerModele": "Créer le modèle",
       "enregistrerModele": "Enregistrer les modifications",

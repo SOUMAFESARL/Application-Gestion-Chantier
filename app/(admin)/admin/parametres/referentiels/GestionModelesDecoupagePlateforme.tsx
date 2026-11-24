@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Copy, Plus, Power, PowerOff, Trash2 } from "lucide-react";
+import { ArrowRight, Copy, Plus, Power, PowerOff, Search, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -9,7 +9,8 @@ import { toast } from "sonner";
 import { EditeurModeleDecoupage } from "@/components/metier/EditeurModeleDecoupage";
 import { Alerte, Badge, Bouton, EtatChargement, EtatErreur, EtatVide, Modale } from "@/components/ui";
 import { MenuExport, type ExportTableau } from "@/components/ui/export-tableau";
-import { FiltreTableau, RechercheTableau } from "@/components/ui/tableau-liste";
+import { Input } from "@/components/ui/input";
+import { FiltreTableau } from "@/components/ui/tableau-liste";
 import {
   CRITERES_MODELES_DECOUPAGE_VIDES,
   criteresModelesDecoupageActifs,
@@ -178,46 +179,6 @@ export function GestionModelesDecoupagePlateforme() {
         </div>
       </div>
 
-      {/* Barre de recherche et filtres */}
-      {modeles.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
-          <RechercheTableau
-            valeur={criteres.recherche}
-            onChangement={(recherche) => setCriteres((courant) => ({ ...courant, recherche }))}
-            libelle={t("rechercher")}
-            placeholder={t("rechercherPlaceholder")}
-          />
-          {typesProjet.length > 0 && (
-            <FiltreTableau<string>
-              valeur={criteres.typeProjet}
-              onChangement={(typeProjet) => setCriteres((courant) => ({ ...courant, typeProjet }))}
-              libelle={t("filtreTypeProjet")}
-              libelleTous={t("filtreTypeProjetTous")}
-              options={typesProjet.map((tp) => ({ valeur: tp.code, libelle: tp.libelle }))}
-            />
-          )}
-          <FiltreTableau<Exclude<FiltreStatutDecoupagePlateforme, "">>
-            valeur={criteres.statut}
-            onChangement={(statut) => setCriteres((courant) => ({ ...courant, statut }))}
-            libelle={t("filtreStatut")}
-            libelleTous={t("filtreStatutTous")}
-            options={[
-              { valeur: "ACTIF", libelle: t("filtreStatutActifs") },
-              { valeur: "INACTIF", libelle: t("filtreStatutInactifs") },
-            ]}
-          />
-          {filtresActifs && (
-            <Bouton
-              variante="ghost"
-              taille="sm"
-              onClick={() => setCriteres(CRITERES_MODELES_DECOUPAGE_VIDES)}
-            >
-              {t("reinitialiserFiltres")}
-            </Bouton>
-          )}
-        </div>
-      )}
-
       {requeteModeles.isPending ? (
         <EtatChargement />
       ) : requeteModeles.isError ? (
@@ -227,7 +188,55 @@ export function GestionModelesDecoupagePlateforme() {
       ) : (
         <div className="grid gap-5 lg:grid-cols-12">
           {/* Colonne gauche : catalogue des modèles plateforme */}
-          <div className="flex flex-col gap-2 lg:col-span-4">
+          <div className="flex flex-col gap-2.5 lg:col-span-4">
+            <div className="relative">
+              <Search
+                size={15}
+                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-neutral-400"
+                aria-hidden="true"
+              />
+              <Input
+                value={criteres.recherche}
+                placeholder={t("rechercherPlaceholder")}
+                aria-label={t("rechercher")}
+                className="pl-9 text-xs"
+                onChange={(e) =>
+                  setCriteres((courant) => ({ ...courant, recherche: e.target.value }))
+                }
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {typesProjet.length > 0 && (
+                <FiltreTableau<string>
+                  valeur={criteres.typeProjet}
+                  onChangement={(typeProjet) =>
+                    setCriteres((courant) => ({ ...courant, typeProjet }))
+                  }
+                  libelle={t("filtreTypeProjet")}
+                  libelleTous={t("filtreTypeProjetTous")}
+                  options={typesProjet.map((tp) => ({ valeur: tp.code, libelle: tp.libelle }))}
+                />
+              )}
+              <FiltreTableau<Exclude<FiltreStatutDecoupagePlateforme, "">>
+                valeur={criteres.statut}
+                onChangement={(statut) => setCriteres((courant) => ({ ...courant, statut }))}
+                libelle={t("filtreStatut")}
+                libelleTous={t("filtreStatutTous")}
+                options={[
+                  { valeur: "ACTIF", libelle: t("filtreStatutActifs") },
+                  { valeur: "INACTIF", libelle: t("filtreStatutInactifs") },
+                ]}
+              />
+              {filtresActifs && (
+                <Bouton
+                  variante="ghost"
+                  taille="sm"
+                  onClick={() => setCriteres(CRITERES_MODELES_DECOUPAGE_VIDES)}
+                >
+                  {t("reinitialiserFiltres")}
+                </Bouton>
+              )}
+            </div>
             <span className="text-xs font-semibold tracking-wider text-neutral-500 uppercase">
               {t("catalogueModeles", { n: modelesFiltres.length })}
             </span>
@@ -484,6 +493,17 @@ function FormulaireModelePlateforme({
       rechercherValeur: t("rechercherValeur"),
       aucuneValeur: t("aucuneValeur"),
       utiliserValeurLibre: (saisie) => t("utiliserValeurLibre", { saisie }),
+      ajouterRacine: (niveau) => t("ajouterRacine", { niveau }),
+      ajouterEnfant: (niveau) => t("ajouterEnfant", { niveau }),
+      deplier: t("deplier"),
+      replier: t("replier"),
+      toutDeplier: t("toutDeplier"),
+      toutReplier: t("toutReplier"),
+      arbreVideTitre: t("arbreVideTitre"),
+      arbreVideAide: t("arbreVideAide"),
+      saisirOuChoisir: t("saisirOuChoisir"),
+      listeValeurs: t("listeValeurs"),
+      resumeFeuilles: (n) => t("resumeFeuilles", { n }),
       annuler: t("annuler"),
       enregistrer: enCreation ? t("creerModele") : t("enregistrerModele"),
     }),

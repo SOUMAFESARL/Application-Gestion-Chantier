@@ -1,7 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowUpRight, FileDown, LoaderCircle, Lock, Pencil } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowUpRight, FileDown, History, LoaderCircle, Lock, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
@@ -58,6 +59,7 @@ import {
   aDureeContractuelle,
   datesVerrouillees,
   dureeProjet,
+  nomFichierSansExtension,
   refusContrat,
 } from "@/features/projets/regles";
 import type { ContratProjet, Projet } from "@/features/projets/types";
@@ -72,6 +74,7 @@ import {
   type SaisieProjet,
   type ValeursProjet,
 } from "@/features/projets/validations";
+import { cleTiers, listerTiers } from "@/features/tiers/adaptateur";
 import { ComboboxTiers } from "@/features/tiers/components/ComboboxTiers";
 import type { ErreurApi } from "@/lib/api";
 import {
@@ -178,7 +181,23 @@ export function TiroirCreationProjet({
   const [saisieAConfirmer, setSaisieAConfirmer] = useState<ValeursProjet | null>(null);
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
 
-  const aContratExistant = Boolean(projet && projet.contrats.length > 0);
+  const contratActif = projet?.contratActif ?? projet?.contrats[0] ?? null;
+  const anciennesVersionsContrat = useMemo(
+    () =>
+      (projet?.historiqueContrats ?? []).filter(
+        (c) => !c.estActif && c.id !== contratActif?.id,
+      ),
+    [projet?.historiqueContrats, contratActif?.id],
+  );
+  const [historiqueContratOuvert, setHistoriqueContratOuvert] = useState(false);
+
+  const requeteTiersMoa = useQuery({
+    queryKey: cleTiers("CLIENT_MOA"),
+    queryFn: ({ signal }) => listerTiers("CLIENT_MOA", signal),
+    enabled: ouverte,
+  });
+
+  const aContratExistant = Boolean(contratActif);
   const aOsExistant = Boolean(projet?.ordreService);
   const budgetContractuelVerrouille = Boolean(projet && projet.budgetContractuelInitial !== null);
   const dureeContractuelleVerrouillee = Boolean(projet && aDureeContractuelle(projet));
@@ -297,6 +316,9 @@ export function TiroirCreationProjet({
   async function executerSoumission(saisie: ValeursProjet) {
     setEnvoiEnCours(true);
     try {
+      const tiersMoa = (requeteTiersMoa.data ?? []).find(
+        (item) => item.raisonSociale.trim().toLowerCase() === saisie.maitreOuvrage.trim().toLowerCase(),
+      );
       if (projet) {
         const modifications = versModificationProjet(saisie, projet.peutRenommer, {
           budgetContractuelVerrouille,
@@ -304,6 +326,7 @@ export function TiroirCreationProjet({
           dateDebutContractuelleInitiale,
           voitMontants,
         });
+        if (tiersMoa) modifications.clientId = tiersMoa.id;
         if (verrou.debut) delete modifications.dateDebutPrevue;
         if (verrou.fin) delete modifications.dateFinPrevue;
         const projetModifie = await modifierProjet(projet.id, modifications);
@@ -313,13 +336,13 @@ export function TiroirCreationProjet({
         onFermer();
         return;
       }
-      const projetCree = await creerProjet(
-        versCreationProjet({
-          ...saisie,
-          budget: voitMontants ? saisie.budget : "",
-          budgetContractuel: voitMontants ? saisie.budgetContractuel : "",
-        }),
-      );
+      const creationPayload = versCreationProjet({
+        ...saisie,
+        budget: voitMontants ? saisie.budget : "",
+        budgetContractuel: voitMontants ? saisie.budgetContractuel : "",
+      });
+      if (tiersMoa) creationPayload.clientId = tiersMoa.id;
+      const projetCree = await creerProjet(creationPayload);
       reinitialiser();
       onProjetCree?.(projetCree);
       toast.success(t("succesCreation", { nom: projetCree.nom }));
@@ -719,25 +742,78 @@ export function TiroirCreationProjet({
 
             <TitreSection>{t("sectionContrat")}</TitreSection>
 
-            {modification && projet && projet.contrats.length > 0 && (
+            {modification && contratActif && (
               <div className="flex flex-col gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2.5">
-                <span className="text-xs font-medium text-neutral-500">
-                  {t("contratsExistants")}
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {projet.contrats.map((contrat) => (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium text-neutral-500">
+                      {t("contratsExistants")}
+                    </span>
+                    <Badge variante="primaire">
+                      {t("versionContrat", { version: contratActif.version })}
+                    </Badge>
+                    <span className="max-w-64 truncate text-sm font-medium text-neutral-900">
+                      {contratActif.nomSansExtension || nomFichierSansExtension(contratActif.nom)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {anciennesVersionsContrat.length > 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-neutral-600"
+                        onClick={() => setHistoriqueContratOuvert((o) => !o)}
+                      >
+                        <History className="size-3.5" aria-hidden="true" />
+                        {t("historiqueVersions", { nombre: anciennesVersionsContrat.length })}
+                      </Button>
+                    )}
                     <Button
-                      key={contrat.id}
                       type="button"
                       size="sm"
                       variant="outline"
-                      onClick={() => void telechargerContratActuel(contrat)}
+                      onClick={() => void telechargerContratActuel(contratActif)}
                     >
                       <FileDown className="size-4" aria-hidden="true" />
-                      <span className="max-w-56 truncate">{contrat.nom}</span>
+                      {t("telechargerContrat")}
                     </Button>
-                  ))}
+                  </div>
                 </div>
+                {historiqueContratOuvert && anciennesVersionsContrat.length > 0 && (
+                  <ul className="m-0 flex list-none flex-col gap-1.5 border-0 border-t border-solid border-neutral-200 p-0 pt-2">
+                    {anciennesVersionsContrat.map((version) => (
+                      <li
+                        key={version.id}
+                        className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-700"
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <Badge variante="neutre">
+                            {t("versionContrat", { version: version.version })}
+                          </Badge>
+                          <span className="max-w-56 truncate font-medium">
+                            {version.nomSansExtension || nomFichierSansExtension(version.nom)}
+                          </span>
+                          {version.creeLe && (
+                            <span className="text-neutral-500">
+                              {formaterDate(version.creeLe)}
+                            </span>
+                          )}
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs text-primary-600"
+                          onClick={() => void telechargerContratActuel(version)}
+                        >
+                          <FileDown className="size-3.5" aria-hidden="true" />
+                          {t("telechargerContrat")}
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
 
@@ -746,12 +822,16 @@ export function TiroirCreationProjet({
               name="contrats"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("champContrats")}</FormLabel>
+                  <FormLabel>
+                    {modification && contratActif
+                      ? t("champContratRemplacer")
+                      : t("champContrats")}
+                  </FormLabel>
                   <FormControl>
                     <ZoneDepotFichiers
                       fichiers={field.value}
                       onChange={(fichiers) => {
-                        field.onChange(fichiers);
+                        field.onChange(fichiers.slice(0, NOMBRE_MAX_CONTRATS));
                         field.onBlur();
                         void form.trigger([
                           "budgetContractuel",
@@ -762,16 +842,17 @@ export function TiroirCreationProjet({
                       }}
                       name={field.name}
                       accept={FORMAT_CONTRAT}
-                      multiple
                       maximum={NOMBRE_MAX_CONTRATS}
                       refuser={motifRefusContrat}
-                      consigne={t("consigneContrats", {
+                      consigne={t("consigneContratUnique", {
                         taille: formaterTailleFichier(TAILLE_MAX_CONTRAT),
-                        max: NOMBRE_MAX_CONTRATS,
                       })}
                       disabled={enCours}
                     />
                   </FormControl>
+                  {modification && contratActif && (
+                    <FormDescription>{t("aideRemplacementContrat")}</FormDescription>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}

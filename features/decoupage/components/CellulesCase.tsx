@@ -48,13 +48,13 @@ export function Physique({ une }: { une: CaseArbre }) {
   );
 }
 
-/** L'écart temporel − physique, en points : positif, la case est en retard. */
+/** L'écart temporel − physique, en pourcentage : positif, la case est en retard. */
 export function Ecart({ valeur }: { valeur: number | null }) {
-  const t = useTranslations("decoupage.arbre");
   if (valeur === null) return <>{ABSENT}</>;
+  const texte = formaterPourcentage(valeur);
   return (
     <span className={cn("whitespace-nowrap tabular-nums", valeur > 0 ? "text-erreur" : "text-succes")}>
-      {t("points", { valeur: valeur > 0 ? `+${valeur}` : String(valeur) })}
+      {valeur > 0 ? `+${texte}` : texte}
     </span>
   );
 }
@@ -62,7 +62,6 @@ export function Ecart({ valeur }: { valeur: number | null }) {
 export function Statut({ une }: { une: CaseArbre }) {
   const t = useTranslations("decoupage.arbre.etats");
   if (une.acces !== "COMPLET") return null;
-  if (!une.estActif) return <Badge variante="neutre">{t("desactivee")}</Badge>;
   // Une feuille se clôt (`cloture`) ; un parent est clôturé *parce que* tous ses enfants le sont,
   // et le serveur le dit par `statut` : `cloture` ne vaut que pour une feuille.
   if (une.cloture || une.statut === STATUT_CLOTURE) return <Badge variante="succes">{t("cloturee")}</Badge>;

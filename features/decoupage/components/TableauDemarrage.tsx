@@ -1,8 +1,6 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
-import type { ColumnDef } from "@tanstack/react-table";
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,21 +11,17 @@ import {
   LoaderCircle,
   Plus,
   Rows3,
-  Trash2,
   TriangleAlert,
   X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { createContext, useContext, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { EtatChargement, EtatErreur } from "@/components/ui";
+import { Badge, EtatChargement, EtatErreur } from "@/components/ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Combobox, type OptionCombobox } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -47,7 +41,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BoutonPermis, PERMISSIONS, useDroits } from "@/features/habilitations";
 import { budgetEnVigueur, sourcePlafondBudget } from "@/features/projets/regles";
 import type { Projet } from "@/features/projets/types";
@@ -67,51 +60,52 @@ import {
   telechargerModeleExcelProjet,
   verifierTableau,
 } from "../adaptateur";
-import { CLE_LISTES, cleDecoupage, cleModeles, cleTableauDemarrage } from "../cles";
-import { MAX_NIVEAUX } from "../editeurModele";
 import {
-  ajouterNiveau,
+  ajouterEnfantArbre,
+  ajouterRacineArbre,
+  aNoeudSansLibelle,
+  arbreVersCellules,
+  arbreVersLignes,
+  indicesFeuillesParCle,
+  lignesVersArbre,
+  modifierNoeudArbre,
+  retirerNoeudArbre,
+  totalMontantArbre,
+  type DonneesFeuilleSaisie,
+  type NoeudArbreSaisie,
+} from "../arbreSaisie";
+import { CLE_LISTES, cleDecoupage, cleModeles, cleTableauDemarrage } from "../cles";
+import { MAX_NIVEAUX, nettoyerLignesModele } from "../editeurModele";
+import {
   COLONNES_FICHIER,
   constatsGeneraux,
   constatsParLigne,
-  deplacerNiveau,
-  ligneVide,
-  recaler,
-  retirerNiveau,
-  tableauEstVide,
-  trouverListeDuNiveau,
-  valeursSaisiesColonne,
   lignesFichier,
+  niveauVide,
+  tableauEstVide,
 } from "../regles";
 import type {
   ConstatTableau,
-  LigneTableau,
   ListeValeurs,
   ModeleApplique,
   NiveauGabarit,
   RefusTableau,
   TableauDemarrage as Tableau,
-  UniteMesure,
   VerdictTableau,
 } from "../types";
-import { UNITES_MESURE } from "../types";
+import { ArbreSaisie, type LibellesArbreSaisie } from "./ArbreSaisie";
 
 const SANS_LISTE = "aucune";
-const SANS_UNITE = "aucune";
 const MODELE_DEFAUT = "defaut";
 
 /**
- * Le tableau de démarrage d'un projet (décisions v1.2, §5 et §6 ; décision P4).
+ * Le découpage initial d'un projet (décisions v1.2, §5 et §6 ; décision P4).
  *
- * Le projet est créé avec ses informations minimales ; son découpage se saisit ici, dans un
- * tableau **pré-rempli par le modèle de son type**. Une ligne est une tâche (une feuille) ; ses
- * cellules suivent les niveaux, dans l'ordre, et les cellules identiques se regroupent sous un
- * même parent. On peut changer de modèle, régler les niveaux, importer un fichier Excel ou CSV
- * (analysé par le serveur), exporter la saisie, faire vérifier le tableau (C-1 à C-7), puis
- * l'appliquer : l'arbre est construit et l'onglet bascule sur la vue en arbre.
- *
- * Rien n'est vérifié ici : c'est le serveur qui juge, et l'écran montre son verdict, ligne par
- * ligne. La grille est faite pour l'ordinateur et la tablette (P16).
+ * Le projet est pré-rempli par le modèle de sa catégorie d'ouvrage. L'utilisateur édite
+ * directement une **vue arborescente interactive** (ajout de racine et ajout d'enfant sous chaque
+ * élément, saisie des feuilles avec unité, quantité, montant et dates), puis vérifie et applique
+ * pour construire l'arbre du projet. L'import/export Excel/CSV et le réglage des niveaux restent
+ * disponibles à tout moment.
  */
 export function TableauDemarrage({ projet }: { projet: Projet }) {
   const [modele, setModele] = useState<Pick<ModeleApplique, "origine" | "id"> | null>(null);
@@ -119,7 +113,7 @@ export function TableauDemarrage({ projet }: { projet: Projet }) {
   const requete = useQuery({
     queryKey: cleTableauDemarrage(projet.id, modele),
     queryFn: ({ signal }) => lireTableauDemarrage(projet.id, modele, signal),
-    // Le tableau est une saisie : on ne la remplace pas sous les doigts de l'utilisateur.
+    // La saisie en cours ne doit pas être écrasée par un rafraîchissement automatique.
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
@@ -129,7 +123,6 @@ export function TableauDemarrage({ projet }: { projet: Projet }) {
 
   return (
     <EditeurTableau
-      // Un autre modèle : un autre tableau, la saisie repart de lui.
       key={`${requete.data.modele?.origine ?? ""}-${requete.data.modele?.id ?? ""}`}
       projet={projet}
       initial={requete.data}
@@ -139,33 +132,8 @@ export function TableauDemarrage({ projet }: { projet: Projet }) {
 }
 
 /* ------------------------------------------------------------------ *
- * L'éditeur : l'état de la saisie, la vérification, l'application.
+ * L'éditeur : l'état de l'arbre saisi, la vérification, l'application.
  * ------------------------------------------------------------------ */
-
-interface ContexteGrille {
-  tableau: Tableau;
-  listes: ListeValeurs[];
-  constats: Map<number, ConstatTableau[]>;
-  bloquantes: Set<number>;
-  desactive: boolean;
-  modifierLigne: (cle: string, modification: Partial<LigneTableau>) => void;
-  modifierCellule: (cle: string, index: number, valeur: string) => void;
-  insererApres: (cle: string) => void;
-  retirerLigne: (cle: string) => void;
-}
-
-/**
- * Les cellules lisent la saisie par ce contexte plutôt que par les définitions de colonnes :
- * TanStack rend chaque cellule comme un composant, et une définition recréée à chaque frappe
- * remonterait l'`<input>` — le curseur sortirait du champ à chaque lettre.
- */
-const Grille = createContext<ContexteGrille | null>(null);
-
-function useGrille(): ContexteGrille {
-  const contexte = useContext(Grille);
-  if (!contexte) throw new Error("useGrille");
-  return contexte;
-}
 
 function EditeurTableau({
   projet,
@@ -183,10 +151,12 @@ function EditeurTableau({
   const peutDecouper = peutSurProjet(PERMISSIONS.DECOUPER, projet);
   const peutGererModeles = peutCode(PERMISSIONS.MODELES_GERER);
 
-  const [tableau, setTableau] = useState<Tableau>(() =>
-    initial.lignes.length > 0 ? initial : { ...initial, lignes: [ligneVide(initial.niveaux.length)] },
+  const [niveaux, setNiveaux] = useState<NiveauGabarit[]>(() => initial.niveaux);
+  const [racines, setRacines] = useState<NoeudArbreSaisie[]>(() =>
+    lignesVersArbre(initial.lignes),
   );
   const [modifie, setModifie] = useState(false);
+  const [signalerVides, setSignalerVides] = useState(false);
   const [verdict, setVerdict] = useState<VerdictTableau | null>(null);
   const [refus, setRefus] = useState<RefusTableau | null>(null);
   const [modeleEnAttente, setModeleEnAttente] = useState<string | null>(null);
@@ -206,15 +176,22 @@ function EditeurTableau({
   });
   const listes = useMemo(() => requeteListes.data ?? [], [requeteListes.data]);
 
-  /** Toute modification périme le verdict : il décrivait un autre tableau. */
-  function changer(suivant: (courant: Tableau) => Tableau) {
-    setTableau(suivant);
+  const tableauCourant = useMemo<Tableau>(
+    () => ({
+      modele: initial.modele,
+      niveaux,
+      lignes: arbreVersLignes(racines, niveaux.length),
+    }),
+    [initial.modele, niveaux, racines],
+  );
+
+  function marquerModifie() {
     setModifie(true);
     setVerdict(null);
   }
 
   const verification = useMutation({
-    mutationFn: () => verifierTableau(projet.id, tableau),
+    mutationFn: () => verifierTableau(projet.id, tableauCourant),
     onSuccess: setVerdict,
     onError: (erreur) => toast.error(messageErreur(erreur, t("erreurVerification"))),
   });
@@ -222,12 +199,10 @@ function EditeurTableau({
   const importation = useMutation({
     mutationFn: (choisi: File) => importerFichier(projet.id, choisi),
     onSuccess: (importe) => {
-      setTableau((courant) => ({
-        ...courant,
-        niveaux: importe.niveaux,
-        lignes: importe.lignes.length > 0 ? importe.lignes : [ligneVide(importe.niveaux.length)],
-      }));
+      setNiveaux(importe.niveaux);
+      setRacines(lignesVersArbre(importe.lignes));
       setModifie(true);
+      setSignalerVides(false);
       setVerdict(importe.verification);
       toast.success(t("importReussi", { lignes: importe.lignes.length }));
     },
@@ -249,15 +224,16 @@ function EditeurTableau({
 
   const sauvegardeModele = useMutation({
     mutationFn: async () => {
-      const lignesPropres = tableau.lignes
-        .map((l) => l.cellules.map((c) => c.trim()))
-        .filter((l) => l.some((c) => c !== ""));
+      const lignesPropres = nettoyerLignesModele(
+        arbreVersCellules(racines, niveaux.length),
+        niveaux.length,
+      );
       return creerModele({
         nom: nomNouveauModele,
         description: descriptionNouveauModele,
         typesProjet: projet.typeProjet ? [projet.typeProjet] : [],
         parDefautPour: parDefautCeType && projet.typeProjet ? [projet.typeProjet] : [],
-        niveaux: tableau.niveaux,
+        niveaux,
         lignes: lignesPropres,
       });
     },
@@ -275,7 +251,7 @@ function EditeurTableau({
   });
 
   const application = useMutation({
-    mutationFn: (confirmer: boolean) => appliquerTableau(projet.id, tableau, confirmer),
+    mutationFn: (confirmer: boolean) => appliquerTableau(projet.id, tableauCourant, confirmer),
     onSuccess: async (resultat) => {
       setRefus(null);
       toast.success(t("applique", { cases: resultat.casesCreees }));
@@ -289,7 +265,7 @@ function EditeurTableau({
         setVerdict((courant) => ({
           bloquants: refusServeur.bloquants,
           avertissements: refusServeur.avertissements,
-          apercu: courant?.apercu ?? { cases: 0, feuilles: 0, niveaux: tableau.niveaux.length },
+          apercu: courant?.apercu ?? { cases: 0, feuilles: 0, niveaux: niveaux.length },
         }));
         if (refusServeur.confirmationRequise) setRefus(refusServeur);
         else toast.error(t("refusBloquants"));
@@ -322,13 +298,103 @@ function EditeurTableau({
   function exporter() {
     const colonnes = COLONNES_FICHIER.filter((colonne) => voitMontants || colonne !== "montant");
     const entetes = [
-      ...tableau.niveaux.map((niveau, rang) => niveau.libelle || t("niveauSansNom", { rang: rang + 1 })),
+      ...niveaux.map((niveau, rang) => niveau.libelle || t("niveauSansNom", { rang: rang + 1 })),
       ...colonnes.map((colonne) => t(`colonnesFichier.${colonne}`)),
     ];
     telechargerCsv(
-      versCsv([entetes, ...lignesFichier(tableau, colonnes, (unite) => tUnite(unite))]),
+      versCsv([entetes, ...lignesFichier(tableauCourant, colonnes, (unite) => tUnite(unite))]),
       `decoupage-${projet.reference || projet.id}`,
     );
+  }
+
+  function ajouterRacine(): string {
+    const { racines: suivantes, cleCreee } = ajouterRacineArbre(racines);
+    setRacines(suivantes);
+    marquerModifie();
+    return cleCreee;
+  }
+
+  function ajouterEnfant(parentCle: string): string {
+    const { racines: suivantes, cleCreee } = ajouterEnfantArbre(racines, parentCle);
+    setRacines(suivantes);
+    marquerModifie();
+    return cleCreee;
+  }
+
+  function modifierLibelleNoeud(cle: string, libelle: string) {
+    setRacines((courant) => modifierNoeudArbre(courant, cle, (n) => ({ ...n, libelle })));
+    marquerModifie();
+  }
+
+  function modifierFeuilleNoeud(cle: string, modification: Partial<DonneesFeuilleSaisie>) {
+    setRacines((courant) =>
+      modifierNoeudArbre(courant, cle, (n) => ({
+        ...n,
+        feuille: { ...n.feuille, ...modification },
+      })),
+    );
+    marquerModifie();
+  }
+
+  function retirerNoeud(cle: string) {
+    setRacines((courant) => retirerNoeudArbre(courant, cle));
+    marquerModifie();
+  }
+
+  function retirerNiveauIndex(index: number) {
+    if (niveaux.length <= 1) return;
+    const lignesAplaties = arbreVersLignes(racines, niveaux.length);
+    setNiveaux((courant) => courant.filter((_, rang) => rang !== index));
+    setRacines(
+      lignesVersArbre(
+        lignesAplaties.map((ligne) => ({
+          ...ligne,
+          cellules: ligne.cellules.filter((_, rang) => rang !== index),
+        })),
+      ),
+    );
+    marquerModifie();
+  }
+
+  function deplacerNiveauIndex(index: number, sens: -1 | 1) {
+    const cible = index + sens;
+    if (cible < 0 || cible >= niveaux.length) return;
+    const lignesAplaties = arbreVersLignes(racines, niveaux.length);
+    setNiveaux((courant) => {
+      const copie = [...courant];
+      [copie[index], copie[cible]] = [copie[cible], copie[index]];
+      return copie;
+    });
+    setRacines(
+      lignesVersArbre(
+        lignesAplaties.map((ligne) => {
+          const copie = [...ligne.cellules];
+          [copie[index], copie[cible]] = [copie[cible], copie[index]];
+          return { ...ligne, cellules: copie };
+        }),
+      ),
+    );
+    marquerModifie();
+  }
+
+  function lancerVerification() {
+    if (aNoeudSansLibelle(racines)) {
+      setSignalerVides(true);
+      toast.error(t("intituleNoeudRequis"));
+      return;
+    }
+    setSignalerVides(false);
+    verification.mutate();
+  }
+
+  function lancerApplication() {
+    if (aNoeudSansLibelle(racines)) {
+      setSignalerVides(true);
+      toast.error(t("intituleNoeudRequis"));
+      return;
+    }
+    setSignalerVides(false);
+    application.mutate(false);
   }
 
   const constats = useMemo(
@@ -339,51 +405,59 @@ function EditeurTableau({
     () => new Set((verdict?.bloquants ?? []).map((c) => c.ligne).filter((n): n is number => n !== null)),
     [verdict],
   );
+  const indicesParCle = useMemo(() => indicesFeuillesParCle(racines), [racines]);
 
-  const contexte: ContexteGrille = {
-    tableau,
-    listes,
-    constats,
-    bloquantes,
-    desactive: enCours,
-    modifierLigne: (cle, modification) =>
-      changer((courant) => ({
-        ...courant,
-        lignes: courant.lignes.map((ligne) => (ligne.cle === cle ? { ...ligne, ...modification } : ligne)),
-      })),
-    modifierCellule: (cle, index, valeur) =>
-      changer((courant) => ({
-        ...courant,
-        lignes: courant.lignes.map((ligne) =>
-          ligne.cle === cle
-            ? { ...ligne, cellules: ligne.cellules.map((c, rang) => (rang === index ? valeur : c)) }
-            : ligne,
-        ),
-      })),
-    insererApres: (cle) =>
-      changer((courant) => {
-        const rang = courant.lignes.findIndex((ligne) => ligne.cle === cle);
-        const nouvelle = ligneVide(courant.niveaux.length);
-        // La nouvelle ligne reprend le chemin de celle du dessus, sauf sa dernière case : on
-        // ajoute le plus souvent une tâche sœur.
-        const source = courant.lignes[rang];
-        if (source) {
-          const dernier = source.cellules.findLastIndex((cellule) => cellule.trim() !== "");
-          nouvelle.cellules = source.cellules.map((cellule, index) => (index < dernier ? cellule : ""));
-        }
-        const lignes = [...courant.lignes];
-        lignes.splice(rang + 1, 0, nouvelle);
-        return { ...courant, lignes };
-      }),
-    retirerLigne: (cle) =>
-      changer((courant) => {
-        const lignes = courant.lignes.filter((ligne) => ligne.cle !== cle);
-        return { ...courant, lignes: lignes.length > 0 ? lignes : [ligneVide(courant.niveaux.length)] };
-      }),
-  };
+  const constatsParCle = useMemo(() => {
+    const carte = new Map<string, ConstatTableau[]>();
+    for (const [cle, num] of indicesParCle.entries()) {
+      const liste = constats.get(num);
+      if (liste && liste.length > 0) carte.set(cle, liste);
+    }
+    return carte;
+  }, [indicesParCle, constats]);
+
+  const bloquantesCles = useMemo(() => {
+    const ensemble = new Set<string>();
+    for (const [cle, num] of indicesParCle.entries()) {
+      if (bloquantes.has(num)) ensemble.add(cle);
+    }
+    return ensemble;
+  }, [indicesParCle, bloquantes]);
+
+  const libellesArbre = useMemo<LibellesArbreSaisie>(
+    () => ({
+      ajouterRacine: (niv) => t("ajouterRacine", { niveau: niv }),
+      ajouterEnfant: (niv) => t("ajouterEnfant", { niveau: niv }),
+      retirerNoeud: t("retirerLigne"),
+      deplier: t("deplier"),
+      replier: t("replier"),
+      toutDeplier: t("toutDeplier"),
+      toutReplier: t("toutReplier"),
+      videTitre: t("arbreVideTitre"),
+      videAide: t("arbreVideAide"),
+      niveauRang: (rang) => t("niveauSansNom", { rang }),
+      placeholderIntitule: (niv) => t("placeholderIntitule", { niveau: niv }),
+      saisirOuChoisir: t("saisirOuChoisir"),
+      listeValeurs: t("listeValeurs"),
+      rechercherValeur: t("rechercherValeur"),
+      aucuneValeur: t("aucuneValeur"),
+      resumeFeuilles: (n) => t("resumeFeuilles", { n }),
+      unite: t("unite"),
+      sansUnite: t("sansUnite"),
+      libelleUnite: (u) => tUnite(u),
+      quantite: t("quantite"),
+      montant: t("montant"),
+      montantPlaceholder: t("montantPlaceholder"),
+      dateDebut: t("dateDebut"),
+      dateFin: t("dateFin"),
+      choisirDate: t("choisirDate"),
+      periode: (debut, fin) => t("periode", { debut, fin }),
+    }),
+    [t, tUnite],
+  );
 
   const valeurModele = initial.modele ? `${initial.modele.origine}:${initial.modele.id}` : MODELE_DEFAUT;
-  const vide = tableauEstVide(tableau);
+  const vide = racines.length === 0 || tableauEstVide(tableauCourant);
   const tousLesModeles = useMemo(() => requeteModeles.data ?? [], [requeteModeles.data]);
   const modelesEntreprise = useMemo(
     () => tousLesModeles.filter((m) => m.origine === "ENTREPRISE"),
@@ -401,10 +475,7 @@ function EditeurTableau({
       ),
     [initial.modele, tousLesModeles],
   );
-  const totalMontantSaisi = useMemo(
-    () => tableau.lignes.reduce((somme, ligne) => somme + (ligne.montant ?? 0), 0),
-    [tableau.lignes],
-  );
+  const totalMontantSaisi = useMemo(() => totalMontantArbre(racines), [racines]);
   const plafondBudget = budgetEnVigueur(projet);
   const sourcePlafond = sourcePlafondBudget(projet);
   const ecartBudget =
@@ -413,186 +484,185 @@ function EditeurTableau({
       : 0;
 
   return (
-    <Grille.Provider value={contexte}>
-      <div className="flex flex-col gap-6">
-        <section className="flex flex-col gap-4 rounded-xl border border-solid border-neutral-200 bg-neutral-0 p-4 shadow-sm sm:p-5">
-          <header className="flex flex-col gap-1">
-            <h2 className="m-0 text-lg font-semibold text-neutral-900">{t("titre")}</h2>
-            <p className="m-0 text-sm text-neutral-600">{t("description")}</p>
-          </header>
+    <div className="flex flex-col gap-6">
+      <section className="flex flex-col gap-4 rounded-xl border border-solid border-neutral-200 bg-neutral-0 p-4 shadow-sm sm:p-5">
+        <header className="flex flex-col gap-1">
+          <h2 className="m-0 text-lg font-semibold text-neutral-900">{t("titre")}</h2>
+          <p className="m-0 text-sm text-neutral-600">{t("description")}</p>
+        </header>
 
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex min-w-64 flex-col gap-1.5 text-sm font-medium text-neutral-700">
-              {t("modele")}
-              <Select value={valeurModele} onValueChange={choisirModele} disabled={enCours}>
-                <SelectTrigger className="w-full min-w-64">
-                  <SelectValue placeholder={t("modeleAucun")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {!initial.modele && <SelectItem value={MODELE_DEFAUT}>{t("modeleAucun")}</SelectItem>}
-                  {initial.modele && !modeleInitialPresent && (
-                    <SelectItem value={valeurModele}>{initial.modele.nom}</SelectItem>
-                  )}
-                  {modelesEntreprise.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>{t("groupeModelesEntreprise")}</SelectLabel>
-                      {modelesEntreprise.map((m) => (
-                        <SelectItem key={`${m.origine}:${m.id}`} value={`${m.origine}:${m.id}`}>
-                          {m.nomAffiche}
-                          {m.niveaux.length > 0 ? t("niveauxModele", { niveaux: m.niveaux.join(" → ") }) : ""}
-                          {m.parDefaut
-                            ? ` — ${t("modeleParDefaut")}`
-                            : m.pourCeType
-                              ? ` — ${t("modelePourCeType")}`
-                              : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )}
-                  {modelesEntreprise.length > 0 && modelesPlateforme.length > 0 && (
-                    <SelectSeparator />
-                  )}
-                  {modelesPlateforme.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>{t("groupeModelesPlateforme")}</SelectLabel>
-                      {modelesPlateforme.map((m) => (
-                        <SelectItem key={`${m.origine}:${m.id}`} value={`${m.origine}:${m.id}`}>
-                          {m.nomAffiche}
-                          {m.niveaux.length > 0 ? t("niveauxModele", { niveaux: m.niveaux.join(" → ") }) : ""}
-                          {m.parDefaut
-                            ? ` — ${t("modeleParDefaut")}`
-                            : m.pourCeType
-                              ? ` — ${t("modelePourCeType")}`
-                              : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )}
-                </SelectContent>
-              </Select>
-            </label>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex min-w-64 flex-col gap-1.5 text-sm font-medium text-neutral-700">
+            {t("modele")}
+            <Select value={valeurModele} onValueChange={choisirModele} disabled={enCours}>
+              <SelectTrigger className="w-full min-w-64">
+                <SelectValue placeholder={t("modeleAucun")} />
+              </SelectTrigger>
+              <SelectContent>
+                {!initial.modele && <SelectItem value={MODELE_DEFAUT}>{t("modeleAucun")}</SelectItem>}
+                {initial.modele && !modeleInitialPresent && (
+                  <SelectItem value={valeurModele}>{initial.modele.nom}</SelectItem>
+                )}
+                {modelesEntreprise.length > 0 && (
+                  <SelectGroup>
+                    <SelectLabel>{t("groupeModelesEntreprise")}</SelectLabel>
+                    {modelesEntreprise.map((m) => (
+                      <SelectItem key={`${m.origine}:${m.id}`} value={`${m.origine}:${m.id}`}>
+                        {m.nomAffiche}
+                        {m.niveaux.length > 0 ? t("niveauxModele", { niveaux: m.niveaux.join(" → ") }) : ""}
+                        {m.parDefaut
+                          ? ` — ${t("modeleParDefaut")}`
+                          : m.pourCeType
+                            ? ` — ${t("modelePourCeType")}`
+                            : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
+                {modelesEntreprise.length > 0 && modelesPlateforme.length > 0 && (
+                  <SelectSeparator />
+                )}
+                {modelesPlateforme.length > 0 && (
+                  <SelectGroup>
+                    <SelectLabel>{t("groupeModelesPlateforme")}</SelectLabel>
+                    {modelesPlateforme.map((m) => (
+                      <SelectItem key={`${m.origine}:${m.id}`} value={`${m.origine}:${m.id}`}>
+                        {m.nomAffiche}
+                        {m.niveaux.length > 0 ? t("niveauxModele", { niveaux: m.niveaux.join(" → ") }) : ""}
+                        {m.parDefaut
+                          ? ` — ${t("modeleParDefaut")}`
+                          : m.pourCeType
+                            ? ` — ${t("modelePourCeType")}`
+                            : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
+              </SelectContent>
+            </Select>
+          </label>
 
-            <div className="ml-auto flex flex-wrap gap-2">
-              <input
-                ref={fichier}
-                type="file"
-                accept=".xlsx,.csv"
-                className="hidden"
-                onChange={(evenement) => {
-                  const choisi = evenement.target.files?.[0];
-                  evenement.target.value = "";
-                  if (choisi) importation.mutate(choisi);
-                }}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => telechargementModeleExcel.mutate()}
-                disabled={enCours || telechargementModeleExcel.isPending}
-              >
-                {telechargementModeleExcel.isPending ? <LoaderCircle className="animate-spin" /> : <Download />}
-                {t("telechargerModeleExcel")}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => fichier.current?.click()} disabled={enCours}>
-                {importation.isPending ? <LoaderCircle className="animate-spin" /> : <FileUp />}
-                {t("importer")}
-              </Button>
-              <Button variant="outline" size="sm" onClick={exporter} disabled={enCours || vide}>
-                <Download />
-                {t("exporter")}
-              </Button>
-            </div>
-          </div>
-          <p className="m-0 text-xs text-neutral-500">{t("aideImport")}</p>
-        </section>
-
-        <ReglageNiveaux
-          niveaux={tableau.niveaux}
-          listes={listes}
-          desactive={enCours}
-          onModifier={(index, niveau) =>
-            changer((courant) => ({
-              ...courant,
-              niveaux: courant.niveaux.map((n, rang) => (rang === index ? { ...n, ...niveau } : n)),
-            }))
-          }
-          onAjouter={() =>
-            changer((courant) =>
-              courant.niveaux.length >= MAX_NIVEAUX ? courant : ajouterNiveau(courant),
-            )
-          }
-          onRetirer={(index) => changer((courant) => retirerNiveau(courant, index))}
-          onDeplacer={(index, sens) => changer((courant) => deplacerNiveau(courant, index, sens))}
-          constats={constatsGeneraux(verdict?.bloquants ?? [])}
-        />
-
-        <GrilleLignes voitMontants={voitMontants} />
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              changer((courant) => ({
-                ...courant,
-                lignes: [...courant.lignes, ligneVide(courant.niveaux.length)],
-              }))
-            }
-            disabled={enCours}
-          >
-            <Plus />
-            {t("ajouterLigne")}
-          </Button>
-        </div>
-
-        {voitMontants && ecartBudget > 0 && plafondBudget !== null && sourcePlafond !== null && (
-          <Alert variant="avertissement">
-            <TriangleAlert />
-            <AlertDescription>
-              {t(
-                sourcePlafond === "CONTRACTUEL"
-                  ? "alerteDepassementContractuel"
-                  : "alerteDepassementPrevisionnel",
-                {
-                  decoupage: formaterMontant(totalMontantSaisi),
-                  plafond: formaterMontant(plafondBudget),
-                  ecart: formaterMontant(ecartBudget),
-                },
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {verdict && <Verdict verdict={verdict} />}
-
-        <div className="flex flex-wrap items-center justify-end gap-3 border-0 border-t border-solid border-neutral-200 pt-4">
-          {peutGererModeles && (
+          <div className="ml-auto flex flex-wrap gap-2">
+            <input
+              ref={fichier}
+              type="file"
+              accept=".xlsx,.csv"
+              className="hidden"
+              onChange={(evenement) => {
+                const choisi = evenement.target.files?.[0];
+                evenement.target.value = "";
+                if (choisi) importation.mutate(choisi);
+              }}
+            />
             <Button
               variant="outline"
-              onClick={() => setModaleModeleOuverte(true)}
-              disabled={enCours || vide || tableau.niveaux.length === 0}
+              size="sm"
+              onClick={() => telechargementModeleExcel.mutate()}
+              disabled={enCours || telechargementModeleExcel.isPending}
             >
-              {t("enregistrerCommeModele")}
+              {telechargementModeleExcel.isPending ? <LoaderCircle className="animate-spin" /> : <Download />}
+              {t("telechargerModeleExcel")}
             </Button>
-          )}
+            <Button variant="outline" size="sm" onClick={() => fichier.current?.click()} disabled={enCours}>
+              {importation.isPending ? <LoaderCircle className="animate-spin" /> : <FileUp />}
+              {t("importer")}
+            </Button>
+            <Button variant="outline" size="sm" onClick={exporter} disabled={enCours || vide}>
+              <Download />
+              {t("exporter")}
+            </Button>
+          </div>
+        </div>
+        <p className="m-0 text-xs text-neutral-500">{t("aideImport")}</p>
+      </section>
+
+      <ReglageNiveaux
+        niveaux={niveaux}
+        listes={listes}
+        desactive={enCours}
+        onModifier={(index, niveau) => {
+          setNiveaux((courant) =>
+            courant.map((n, rang) => (rang === index ? { ...n, ...niveau } : n)),
+          );
+          marquerModifie();
+        }}
+        onAjouter={() => {
+          if (niveaux.length >= MAX_NIVEAUX) return;
+          setNiveaux((courant) => [...courant, niveauVide()]);
+          marquerModifie();
+        }}
+        onRetirer={retirerNiveauIndex}
+        onDeplacer={deplacerNiveauIndex}
+        constats={constatsGeneraux(verdict?.bloquants ?? [])}
+      />
+
+      <section className="flex flex-col gap-3 rounded-xl border border-solid border-neutral-200 bg-neutral-0 p-4 shadow-sm sm:p-5">
+        <ArbreSaisie
+          racines={racines}
+          niveaux={niveaux}
+          listes={listes}
+          desactive={enCours}
+          afficherDonneesFeuille
+          voitMontants={voitMontants}
+          constatsParCle={constatsParCle}
+          bloquantesCles={bloquantesCles}
+          signalerIntitulesVides={signalerVides}
+          onAjouterRacine={ajouterRacine}
+          onAjouterEnfant={ajouterEnfant}
+          onModifierLibelle={modifierLibelleNoeud}
+          onModifierFeuille={modifierFeuilleNoeud}
+          onRetirerNoeud={retirerNoeud}
+          libelles={libellesArbre}
+        />
+      </section>
+
+      {voitMontants && ecartBudget > 0 && plafondBudget !== null && sourcePlafond !== null && (
+        <Alert variant="avertissement">
+          <TriangleAlert />
+          <AlertDescription>
+            {t(
+              sourcePlafond === "CONTRACTUEL"
+                ? "alerteDepassementContractuel"
+                : "alerteDepassementPrevisionnel",
+              {
+                decoupage: formaterMontant(totalMontantSaisi),
+                plafond: formaterMontant(plafondBudget),
+                ecart: formaterMontant(ecartBudget),
+              },
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {verdict && <Verdict verdict={verdict} />}
+
+      <div className="flex flex-wrap items-center justify-end gap-3 border-0 border-t border-solid border-neutral-200 pt-4">
+        {peutGererModeles && (
           <Button
             variant="outline"
-            onClick={() => verification.mutate()}
-            disabled={enCours || tableau.niveaux.length === 0}
+            onClick={() => setModaleModeleOuverte(true)}
+            disabled={enCours || vide || niveaux.length === 0}
           >
-            {verification.isPending ? <LoaderCircle className="animate-spin" /> : <ListChecks />}
-            {t("verifier")}
+            {t("enregistrerCommeModele")}
           </Button>
-          <BoutonPermis
-            permis={peutDecouper}
-            permission={PERMISSIONS.DECOUPER}
-            onClick={() => application.mutate(false)}
-            disabled={enCours || vide || tableau.niveaux.length === 0}
-          >
-            {application.isPending ? <LoaderCircle className="animate-spin" /> : <Rows3 />}
-            {t("appliquer")}
-          </BoutonPermis>
-        </div>
+        )}
+        <Button
+          variant="outline"
+          onClick={lancerVerification}
+          disabled={enCours || niveaux.length === 0}
+        >
+          {verification.isPending ? <LoaderCircle className="animate-spin" /> : <ListChecks />}
+          {t("verifier")}
+        </Button>
+        <BoutonPermis
+          permis={peutDecouper}
+          permission={PERMISSIONS.DECOUPER}
+          onClick={lancerApplication}
+          disabled={enCours || vide || niveaux.length === 0}
+        >
+          {application.isPending ? <LoaderCircle className="animate-spin" /> : <Rows3 />}
+          {t("appliquer")}
+        </BoutonPermis>
       </div>
 
       <Dialog open={refus !== null} onOpenChange={(ouvert) => !ouvert && !application.isPending && setRefus(null)}>
@@ -699,7 +769,7 @@ function EditeurTableau({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Grille.Provider>
+    </div>
   );
 }
 
@@ -854,333 +924,6 @@ function ReglageNiveaux({
         </ul>
       )}
     </section>
-  );
-}
-
-/* ------------------------------------------------------------------ *
- * La grille des lignes (`@tanstack/react-table`).
- * ------------------------------------------------------------------ */
-
-/** Aucune fonctionnalité de TanStack : ni tri, ni filtre, ni pagination — l'ordre des lignes est la saisie. */
-const FONCTIONNALITES = tableFeatures({});
-const colonne = createColumnHelper<typeof FONCTIONNALITES, LigneTableau>();
-
-function GrilleLignes({ voitMontants }: { voitMontants: boolean }) {
-  const t = useTranslations("decoupage.tableau");
-  const { tableau } = useGrille();
-  const largeur = tableau.niveaux.length;
-
-  /*
-   * Les colonnes ne dépendent que du nombre de niveaux et du droit de voir les montants : leurs
-   * cellules sont des composants stables qui lisent la saisie par le contexte.
-   */
-  const colonnes = useMemo(() => {
-    const niveaux = Array.from({ length: largeur }, (_, index) =>
-      colonne.display({
-        id: `niveau-${index}`,
-        header: () => <EnTeteNiveau index={index} />,
-        cell: ({ row }) => <CelluleNiveau ligne={row.original} index={index} />,
-      }),
-    );
-    return [
-      colonne.display({
-        id: "numero",
-        header: () => <span className="sr-only">{t("numero")}</span>,
-        cell: ({ row }) => <CelluleNumero rang={row.index + 1} />,
-      }),
-      ...niveaux,
-      colonne.display({
-        id: "unite",
-        header: () => t("unite"),
-        cell: ({ row }) => <CelluleUnite ligne={row.original} />,
-      }),
-      colonne.display({
-        id: "quantite",
-        header: () => t("quantite"),
-        cell: ({ row }) => <CelluleNombre ligne={row.original} champ="quantite" />,
-      }),
-      ...(voitMontants
-        ? [
-            colonne.display({
-              id: "montant",
-              header: () => t("montant"),
-              cell: ({ row }) => <CelluleNombre ligne={row.original} champ="montant" />,
-            }),
-          ]
-        : []),
-      colonne.display({
-        id: "dateDebut",
-        header: () => t("dateDebut"),
-        cell: ({ row }) => <CelluleDate ligne={row.original} champ="dateDebut" />,
-      }),
-      colonne.display({
-        id: "dateFin",
-        header: () => t("dateFin"),
-        cell: ({ row }) => <CelluleDate ligne={row.original} champ="dateFin" />,
-      }),
-      colonne.display({
-        id: "actions",
-        header: () => <span className="sr-only">{t("actionsLigne")}</span>,
-        cell: ({ row }) => <CelluleActions ligne={row.original} />,
-      }),
-    ] as ColumnDef<typeof FONCTIONNALITES, LigneTableau>[];
-  }, [largeur, voitMontants, t]);
-
-  const lignes = useMemo(
-    () => tableau.lignes.map((ligne) => recaler(ligne, largeur)),
-    [tableau.lignes, largeur],
-  );
-
-  const table = useTable({
-    features: FONCTIONNALITES,
-    columns: colonnes,
-    data: lignes,
-    getRowId: (ligne) => ligne.cle,
-  });
-
-  return (
-    <div className="overflow-x-auto rounded-lg border border-solid border-neutral-200 bg-neutral-0">
-      <Table className="min-w-max">
-        <TableHeader>
-          {table.getHeaderGroups().map((groupe) => (
-            <TableRow key={groupe.id} className="hover:bg-transparent">
-              {groupe.headers.map((entete) => (
-                <TableHead key={entete.id} className="align-bottom whitespace-nowrap">
-                  {entete.isPlaceholder ? null : <table.FlexRender header={entete} />}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.map((ligne) => (
-            <LigneGrille key={ligne.id} rang={ligne.index + 1}>
-              {ligne.getAllCells().map((cellule) => (
-                <TableCell key={cellule.id} className="px-1.5 py-1 align-top">
-                  <table.FlexRender cell={cellule} />
-                </TableCell>
-              ))}
-            </LigneGrille>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
-function LigneGrille({ rang, children }: { rang: number; children: ReactNode }) {
-  const { constats, bloquantes } = useGrille();
-  const aConstat = constats.has(rang);
-  return (
-    <TableRow
-      className={cn(
-        bloquantes.has(rang) && "bg-erreur-fond hover:bg-erreur-fond",
-        !bloquantes.has(rang) && aConstat && "bg-avertissement-fond hover:bg-avertissement-fond",
-      )}
-    >
-      {children}
-    </TableRow>
-  );
-}
-
-function EnTeteNiveau({ index }: { index: number }) {
-  const t = useTranslations("decoupage.tableau");
-  const { tableau } = useGrille();
-  const niveau = tableau.niveaux[index];
-  return <span>{niveau?.libelle || t("niveauSansNom", { rang: index + 1 })}</span>;
-}
-
-function CelluleNumero({ rang }: { rang: number }) {
-  const { constats } = useGrille();
-  const liste = constats.get(rang) ?? [];
-  return (
-    <span className="flex min-w-8 items-center gap-1 pt-2 text-xs text-neutral-500 tabular-nums">
-      {rang}
-      {liste.length > 0 && (
-        <CircleAlert
-          className="size-3.5 text-erreur"
-          aria-label={liste.map((constat) => constat.message).join(" ")}
-        >
-          <title>{liste.map((constat) => constat.message).join("\n")}</title>
-        </CircleAlert>
-      )}
-    </span>
-  );
-}
-
-function CelluleNiveau({ ligne, index }: { ligne: LigneTableau; index: number }) {
-  const t = useTranslations("decoupage.tableau");
-  const { tableau, listes, modifierCellule, desactive } = useGrille();
-  const niveau = tableau.niveaux[index];
-  const libelleNiveau = niveau?.libelle || t("niveauSansNom", { rang: index + 1 });
-  const valeurCourante = ligne.cellules[index] ?? "";
-  const liste = trouverListeDuNiveau(listes, niveau?.liste);
-  const dejaSaisies = useMemo(
-    () => valeursSaisiesColonne(tableau.lignes, index, ligne.cle),
-    [tableau.lignes, index, ligne.cle],
-  );
-
-  const options = useMemo<OptionCombobox[]>(() => {
-    if (!liste) return [];
-    const dansListe = new Set(liste.valeurs.map((v) => v.libelle.toLowerCase()));
-    const horsListe = dejaSaisies
-      .filter((texte) => !dansListe.has(texte.toLowerCase()))
-      .map((texte) => ({
-        valeur: texte,
-        libelle: texte,
-        groupe: t("groupeDejaSaisies"),
-      }));
-    const valeursListe = liste.valeurs.map((valeur) => ({
-      valeur: valeur.libelle,
-      libelle: valeur.libelle,
-      groupe: valeur.groupe || undefined,
-    }));
-    return [
-      ...(valeurCourante !== "" ? [{ valeur: "", libelle: t("viderCellule") }] : []),
-      ...horsListe,
-      ...valeursListe,
-    ];
-  }, [liste, dejaSaisies, valeurCourante, t]);
-
-  if (liste) {
-    return (
-      <Combobox
-        options={options}
-        valeur={valeurCourante}
-        onChange={(valeur) => modifierCellule(ligne.cle, index, valeur.slice(0, 200))}
-        placeholder={libelleNiveau}
-        placeholderRecherche={t("rechercherValeur")}
-        aucunResultat={t("aucuneValeur")}
-        libelleSaisieLibre={(saisie) => t("utiliserValeurLibre", { saisie })}
-        aria-label={libelleNiveau}
-        disabled={desactive}
-        className="h-9 min-w-44 text-sm"
-      />
-    );
-  }
-
-  const idColonne = dejaSaisies.length > 0 ? `colonne-${index}-${ligne.cle}` : undefined;
-  return (
-    <>
-      <Input
-        value={valeurCourante}
-        maxLength={200}
-        list={idColonne}
-        aria-label={libelleNiveau}
-        onChange={(evenement) => modifierCellule(ligne.cle, index, evenement.target.value)}
-        disabled={desactive}
-        className="h-9 min-w-40"
-      />
-      {idColonne && (
-        <datalist id={idColonne}>
-          {dejaSaisies.map((texte) => (
-            <option key={texte} value={texte} />
-          ))}
-        </datalist>
-      )}
-    </>
-  );
-}
-
-function CelluleUnite({ ligne }: { ligne: LigneTableau }) {
-  const t = useTranslations("decoupage.tableau");
-  const tUnite = useTranslations("decoupage.unites");
-  const { modifierLigne, desactive } = useGrille();
-  return (
-    <Select
-      value={ligne.unite ?? SANS_UNITE}
-      onValueChange={(valeur) =>
-        modifierLigne(ligne.cle, { unite: valeur === SANS_UNITE ? null : (valeur as UniteMesure) })
-      }
-      disabled={desactive}
-    >
-      <SelectTrigger className="h-9 w-28" aria-label={t("unite")}>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={SANS_UNITE}>{t("sansUnite")}</SelectItem>
-        {UNITES_MESURE.map((unite) => (
-          <SelectItem key={unite} value={unite}>
-            {tUnite(unite)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-/**
- * Une quantité, ou un montant saisi **en francs** et gardé en centimes, comme tout montant du
- * domaine.
- */
-function CelluleNombre({ ligne, champ }: { ligne: LigneTableau; champ: "quantite" | "montant" }) {
-  const t = useTranslations("decoupage.tableau");
-  const { modifierLigne, desactive } = useGrille();
-  const valeur = ligne[champ];
-  const affiche = valeur === null ? "" : String(champ === "montant" ? valeur / 100 : valeur);
-  return (
-    <Input
-      type="number"
-      min={0}
-      step={champ === "montant" ? 1 : "any"}
-      inputMode="decimal"
-      value={affiche}
-      aria-label={t(champ)}
-      onChange={(evenement) => {
-        const texte = evenement.target.value;
-        const nombre = texte === "" ? null : Number(texte);
-        if (nombre !== null && !Number.isFinite(nombre)) return;
-        modifierLigne(ligne.cle, {
-          [champ]: nombre === null ? null : champ === "montant" ? Math.round(nombre * 100) : nombre,
-        });
-      }}
-      disabled={desactive}
-      className="h-9 w-32 text-right tabular-nums"
-    />
-  );
-}
-
-function CelluleDate({ ligne, champ }: { ligne: LigneTableau; champ: "dateDebut" | "dateFin" }) {
-  const t = useTranslations("decoupage.tableau");
-  const { modifierLigne, desactive } = useGrille();
-  return (
-    <Input
-      type="date"
-      value={ligne[champ] ?? ""}
-      aria-label={t(champ)}
-      onChange={(evenement) => modifierLigne(ligne.cle, { [champ]: evenement.target.value || null })}
-      disabled={desactive}
-      className="h-9 w-40"
-    />
-  );
-}
-
-function CelluleActions({ ligne }: { ligne: LigneTableau }) {
-  const t = useTranslations("decoupage.tableau");
-  const { insererApres, retirerLigne, desactive } = useGrille();
-  return (
-    <div className="flex gap-1">
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={t("insererLigne")}
-        title={t("insererLigne")}
-        onClick={() => insererApres(ligne.cle)}
-        disabled={desactive}
-      >
-        <Plus />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={t("retirerLigne")}
-        title={t("retirerLigne")}
-        onClick={() => retirerLigne(ligne.cle)}
-        disabled={desactive}
-      >
-        <Trash2 />
-      </Button>
-    </div>
   );
 }
 

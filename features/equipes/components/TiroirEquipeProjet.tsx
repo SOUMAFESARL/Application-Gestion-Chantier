@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { SelecteurDate } from "@/components/ui/SelecteurDate";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cleDecoupage } from "@/features/decoupage/cles";
@@ -510,6 +511,7 @@ function FenetreAjoutMembre({
 }) {
   const t = useTranslations("equipes.tiroir");
   const tFonction = useTranslations("equipes.fonctions");
+  const tCreationProjet = useTranslations("projets.tiroirCreation");
   const { peutCode } = useDroits();
   const actualiser = useActualiser(projet.id);
 
@@ -771,10 +773,15 @@ function FenetreAjoutMembre({
               </SelectContent>
             </Select>
           </label>
-          <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
-            {t("arrivee")}
-            <Input type="date" value={arrivee} onChange={(e) => setArrivee(e.target.value)} />
-          </label>
+          <div className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+            <span>{t("arrivee")}</span>
+            <SelecteurDate
+              valeur={arrivee}
+              onChange={setArrivee}
+              placeholder={tCreationProjet("champDateChoisir")}
+              disabled={ecriture.isPending}
+            />
+          </div>
         </div>
 
         <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
@@ -1016,6 +1023,7 @@ function FenetreDepart({
   onFermer: () => void;
 }) {
   const t = useTranslations("equipes.tiroir");
+  const tCreationProjet = useTranslations("projets.tiroirCreation");
   const actualiser = useActualiser(projet.id);
   const [date, setDate] = useState(aujourdhuiIso());
   const [erreur, setErreur] = useState<string | null>(null);
@@ -1035,10 +1043,15 @@ function FenetreDepart({
           <DialogTitle>{t("titreDepart", { nom: membre.personne.nomComplet })}</DialogTitle>
           <DialogDescription>{t("descriptionDepart")}</DialogDescription>
         </DialogHeader>
-        <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
-          {t("dateDepart")}
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </label>
+        <div className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+          <span>{t("dateDepart")}</span>
+          <SelecteurDate
+            valeur={date}
+            onChange={setDate}
+            placeholder={tCreationProjet("champDateChoisir")}
+            disabled={ecriture.isPending}
+          />
+        </div>
         {erreur && (
           <Alert variant="erreur">
             <AlertDescription>{erreur}</AlertDescription>

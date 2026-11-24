@@ -49,6 +49,12 @@ export interface Intervenant {
   lienWhatsApp: string | null;
   /** L'identifiant de l'affectation active qui lie la personne à ce projet. */
   affectationId?: string | null;
+  /** Le code du rôle détenu dans l'entreprise. */
+  roleCode?: string | null;
+  /** Le libellé du rôle détenu dans l'entreprise. */
+  roleLibelle?: string | null;
+  /** La fonction ou le vrai rôle de la personne dans l'entreprise. */
+  fonctionEntreprise?: string | null;
 }
 
 /** Le maître d'ouvrage, tel qu'il apparaît sur la fiche chantier. */
@@ -59,6 +65,8 @@ export interface ClientProjet {
   telephone: string | null;
   email: string | null;
   ville: string | null;
+  adresse?: string | null;
+  typeTiers?: string | null;
 }
 
 /**
@@ -104,6 +112,8 @@ export interface LotComplementaireProjet {
   avancement: string;
   statut: string;
   prestataire: string;
+  element_id?: string | null;
+  titulaire_id?: string | null;
 }
 
 export interface DifficulteProjet {
@@ -117,18 +127,23 @@ export interface RecommandationProjet {
   texte: string;
   dest: string;
   echeance: string;
+  responsable_id?: string | null;
 }
 
 export interface IntervenantExterneProjet {
   role: string;
   org: string;
   lot: string;
+  perimetre?: string;
+  tiers_id?: string | null;
+  element_id?: string | null;
 }
 
 export interface EtapeAvenirProjet {
   etape: string;
   echeance: string;
   resp: string;
+  responsable_id?: string | null;
 }
 
 export interface CoordonnateurProjet {
@@ -299,10 +314,24 @@ export interface Projet {
   conducteursTravaux: Intervenant[];
   chefsChantier: ChefChantierProjet[];
   autresMembres: AutreMembreProjet[];
-  /** Le contrat du marché et ses avenants, joints à la création. */
+  /** Le contrat actif du marché (0 ou 1 élément). */
   contrats: ContratProjet[];
+  /** Le contrat actif du marché, ou `null` si aucun n'a été déposé. */
+  contratActif: ContratProjet | null;
+  /** Toutes les versions du contrat du marché, de la plus récente à la plus ancienne. */
+  historiqueContrats: ContratProjet[];
   /** L'ordre de service de démarrage du chantier, joint à la création ou en configuration. */
   ordreService: OrdreServiceProjet | null;
+  /** La phase actuelle dérivée des éléments actifs de niveau 1 du découpage. */
+  phaseActuelle: string | null;
+  /** Les éléments actifs de niveau 1 du découpage servant de phases disponibles. */
+  phasesDisponibles: PhaseProjet[];
+  /** Synthèse dynamique des avenants de délai, du budget contractuel et des reprogrammations. */
+  syntheseAvenantsDelai: SyntheseAvenantsDelai | null;
+  /** Avancement par composante (niveau 1), dérivé dynamiquement du découpage. */
+  avancementComposantes: AvancementComposanteProjet[];
+  /** Intervenants externes agrégés et dédupliqués par `tiersId` (Option A). */
+  intervenantsExternes: IntervenantExterneDynamique[];
   /** La structure du chantier, comptée par le serveur, quand la réponse la joint. */
   statistiques: StatistiquesProjet | null;
   /**
@@ -336,14 +365,81 @@ export interface StatistiquesProjet {
   enRetard: number;
 }
 
-/** Un document de contrat joint au projet, servi par le serveur. */
+/** Un document de contrat joint au projet, versionné et servi par le serveur. */
 export interface ContratProjet {
   id: string;
   nom: string;
+  /** Nom du fichier sans extension (pour affichage). */
+  nomSansExtension: string;
+  /** Numéro de version incrémental (v1, v2…). */
+  version: number;
+  /** Vrai pour l'unique contrat actif en vigueur ; faux pour l'historique archivé. */
+  estActif: boolean;
   /** En octets. */
   taille: number;
   typeContenu: string;
   url: string;
+  creeLe: string | null;
+  creeParNom: string | null;
+}
+
+/** Une phase (élément actif de niveau 1 du découpage) disponible pour la configuration. */
+export interface PhaseProjet {
+  id: string;
+  code: string;
+  libelle: string;
+  statut: string;
+  avancement: number | null;
+  estActuelle: boolean;
+}
+
+/** Synthèse dynamique des avenants de délai, du montant du marché et des reprogrammations. */
+export interface SyntheseAvenantsDelai {
+  nombreAvenants: number;
+  avenantsDelaiJours: number;
+  prolongationAvenants: { annees: number; mois: number; jours: number };
+  /** En centimes. */
+  montantMarcheInitial: number | null;
+  /** En centimes. */
+  montantAvenants: number;
+  /** En centimes. */
+  budgetContractuel: number | null;
+  nombreReprogrammations: number;
+  ecartReprogrammationJours: number;
+  derniereReprogrammationLe: string | null;
+}
+
+/** Les statuts d'une composante, alignés sur le découpage serveur. */
+export type StatutComposanteDecoupage =
+  | "PLANIFIE"
+  | "EN_COURS"
+  | "EN_RETARD"
+  | "SUSPENDU"
+  | "CLOTURE";
+
+/** Avancement d'une composante (niveau 1), dérivé dynamiquement du découpage. */
+export interface AvancementComposanteProjet {
+  id: string;
+  code: string;
+  libelle: string;
+  /** En centimes. */
+  montant: number | null;
+  avancement: number | null;
+  statut: StatutComposanteDecoupage | string;
+  statutLibelle: string;
+  titulaireId: string | null;
+  titulaire: string;
+}
+
+/** Intervenant externe agrégé dynamiquement (Option A dédupliquée par `tiersId`). */
+export interface IntervenantExterneDynamique {
+  tiersId: string | null;
+  nom: string;
+  org: string;
+  role: string;
+  perimetre: string;
+  perimetres: { id: string; libelle: string; chemin: string[] }[];
+  source: "DECOUPAGE" | "EQUIPE" | "MAITRE_OEUVRE";
 }
 
 /** L'ordre de service de démarrage joint au projet, servi par le serveur. */
@@ -395,13 +491,17 @@ export interface ChefChantierProjet {
   affectationId?: string | null;
 }
 
-/** Un autre membre de l'encadrement — financier, ingénieur, documentaliste… */
+/** Un membre de l'encadrement hors CP/CT/CC — financier, ingénieur, documentaliste, etc. */
 export interface AutreMembreProjet {
   intervenant: Intervenant;
-  fonction: FonctionAutreMembre;
-  /** Le rôle tenu sur le projet : VI (ancien « autre membre ») ou tout rôle de portée Projet. */
+  fonction: FonctionAutreMembre | "";
+  /** Libellé explicite résolu par le serveur (vrai rôle si aucune sous-fonction explicite). */
+  fonctionLibelle: string;
+  /** Le rôle tenu sur le projet : VI ou tout rôle de portée Projet. */
   roleCode: string;
   roleLibelle: string;
+  /** Le vrai rôle de la personne dans l'entreprise. */
+  fonctionEntreprise: string;
   affectationId?: string | null;
 }
 
@@ -417,6 +517,8 @@ export interface PlanningProjet {
 export interface AffectationProjet {
   projet: Projet;
   fonction: FonctionProjet;
+  /** Libellé exact du rôle tenu (notamment le vrai rôle dans l'entreprise pour les membres hors CP/CT/CC). */
+  roleLibelle?: string;
 }
 
 /**
@@ -479,6 +581,8 @@ export interface CreationProjet {
   quartier?: string;
   /** Le maître d'ouvrage, en clair : entreprise ou particulier. */
   maitreOuvrage: string;
+  /** L'identifiant du Tiers client / MOA, lorsqu'il est connu. */
+  clientId?: string | null;
   maitreOeuvre?: string;
   /** Facultatifs à la création : absents, le chef de projet les fixe ensuite. */
   dateDebutPrevue?: string;
@@ -516,6 +620,7 @@ export interface ModificationProjet {
   ville?: string;
   quartier?: string;
   maitreOuvrage?: string;
+  clientId?: string | null;
   maitreOeuvre?: string;
   description?: string;
   /** Absentes : le planning déjà enregistré ne change pas. */
@@ -1008,6 +1113,10 @@ export interface AffectationCollaborateur {
   roleProjet: string;
   roleProjetLibelle: string;
   rolePlateforme: string;
+  /** Le libellé du rôle du collaborateur dans l'entreprise. */
+  rolePlateformeLibelle: string;
+  /** La fonction ou le vrai rôle de la personne dans l'entreprise. */
+  fonctionEntreprise: string;
   /** Vide : tout le projet. */
   perimetres: CasePerimetre[];
   dateDebut: string | null;

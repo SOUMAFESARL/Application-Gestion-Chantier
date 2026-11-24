@@ -8,7 +8,6 @@ import {
   Layers,
   Plus,
   Save,
-  Trash2,
   X,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
@@ -16,7 +15,6 @@ import type { ReactNode } from "react";
 
 import { Alerte, Bouton, Champ } from "@/components/ui";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Combobox, type OptionCombobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -26,15 +24,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  ajouterEnfantArbre,
+  ajouterRacineArbre,
+  arbreVersCellules,
+  cellulesVersArbre,
+  compterNoeudsArbre,
+  modifierNoeudArbre,
+  retirerNoeudArbre,
+  type NoeudArbreSaisie,
+} from "@/features/decoupage/arbreSaisie";
+import {
+  ArbreSaisie,
+  type LibellesArbreSaisie,
+} from "@/features/decoupage/components/ArbreSaisie";
+import {
   basculerDefautTypeSelection,
   basculerTypeProjetSelection,
   cleListeEditeur,
   MAX_NIVEAUX,
   nettoyerLignesModele,
-  normaliserLignesModele,
   normaliserTypesEtDefauts,
   SANS_LISTE,
-  trouverListeEditeur,
   validerFormulaireModele,
   type DonneesFormulaireModele,
   type LibellesEditeurModele,
@@ -133,8 +143,8 @@ export function EditeurModeleDecoupage({
   const [niveaux, setNiveaux] = useState<NiveauEditeur[]>(() =>
     valeursInitiales.niveaux.slice(0, MAX_NIVEAUX),
   );
-  const [lignes, setLignes] = useState<string[][]>(() =>
-    normaliserLignesModele(valeursInitiales.lignes, valeursInitiales.niveaux.length),
+  const [racines, setRacines] = useState<NoeudArbreSaisie[]>(() =>
+    cellulesVersArbre(valeursInitiales.lignes),
   );
   const [erreurValidation, setErreurValidation] = useState<string | null>(null);
 
@@ -165,49 +175,53 @@ export function EditeurModeleDecoupage({
   function ajouterColonneNiveau() {
     if (niveaux.length >= MAX_NIVEAUX) return;
     setNiveaux((courant) => [...courant, { libelle: "", liste: null, alerter: false }]);
-    setLignes((courant) => courant.map((ligne) => [...ligne, ""]));
   }
 
   function retirerColonneNiveau(index: number) {
     if (niveaux.length <= 1) return;
+    const lignesCourantes = arbreVersCellules(racines, niveaux.length);
     setNiveaux((courant) => courant.filter((_, i) => i !== index));
-    setLignes((courant) => courant.map((ligne) => ligne.filter((_, i) => i !== index)));
+    setRacines(cellulesVersArbre(lignesCourantes.map((ligne) => ligne.filter((_, i) => i !== index))));
   }
 
   function deplacerColonneNiveau(index: number, direction: -1 | 1) {
     const cible = index + direction;
     if (cible < 0 || cible >= niveaux.length) return;
+    const lignesCourantes = arbreVersCellules(racines, niveaux.length);
     setNiveaux((courant) => {
       const copie = [...courant];
       [copie[index], copie[cible]] = [copie[cible], copie[index]];
       return copie;
     });
-    setLignes((courant) =>
-      courant.map((ligne) => {
-        const copie = [...ligne];
-        [copie[index], copie[cible]] = [copie[cible], copie[index]];
-        return copie;
-      }),
-    );
-  }
-
-  function modifierCelluleLigne(indexLigne: number, indexCol: number, valeur: string) {
-    setLignes((courant) =>
-      courant.map((ligne, r) =>
-        r === indexLigne ? ligne.map((cellule, col) => (col === indexCol ? valeur : cellule)) : ligne,
+    setRacines(
+      cellulesVersArbre(
+        lignesCourantes.map((ligne) => {
+          const copie = [...ligne];
+          [copie[index], copie[cible]] = [copie[cible], copie[index]];
+          return copie;
+        }),
       ),
     );
   }
 
-  function ajouterLigneVide() {
-    setLignes((courant) => [...courant, Array.from({ length: niveaux.length }, () => "")]);
+  function ajouterRacine(): string {
+    const { racines: suivantes, cleCreee } = ajouterRacineArbre(racines);
+    setRacines(suivantes);
+    return cleCreee;
   }
 
-  function retirerLigneIndex(indexLigne: number) {
-    setLignes((courant) => {
-      const reste = courant.filter((_, r) => r !== indexLigne);
-      return reste.length > 0 ? reste : [Array.from({ length: niveaux.length }, () => "")];
-    });
+  function ajouterEnfant(parentCle: string): string {
+    const { racines: suivantes, cleCreee } = ajouterEnfantArbre(racines, parentCle);
+    setRacines(suivantes);
+    return cleCreee;
+  }
+
+  function modifierLibelleNoeud(cle: string, libelle: string) {
+    setRacines((courant) => modifierNoeudArbre(courant, cle, (noeud) => ({ ...noeud, libelle })));
+  }
+
+  function retirerNoeud(cle: string) {
+    setRacines((courant) => retirerNoeudArbre(courant, cle));
   }
 
   async function gererImportFichier(fichier: File) {
@@ -218,7 +232,7 @@ export function EditeurModeleDecoupage({
         const prochainsNiveaux =
           resultat.niveaux.length > 0 ? resultat.niveaux.slice(0, MAX_NIVEAUX) : niveaux;
         setNiveaux(prochainsNiveaux);
-        setLignes(normaliserLignesModele(resultat.lignes, prochainsNiveaux.length));
+        setRacines(cellulesVersArbre(resultat.lignes));
         setErreurValidation(null);
       }
     } catch {
@@ -226,9 +240,40 @@ export function EditeurModeleDecoupage({
     }
   }
 
+  const compteursArbre = useMemo(() => compterNoeudsArbre(racines), [racines]);
+
+  const libellesArbre = useMemo<LibellesArbreSaisie>(
+    () => ({
+      ajouterRacine: (niv) =>
+        libelles.ajouterRacine ? libelles.ajouterRacine(niv) : libelles.ajouterLigne,
+      ajouterEnfant: (niv) =>
+        libelles.ajouterEnfant ? libelles.ajouterEnfant(niv) : libelles.ajouterLigne,
+      retirerNoeud: libelles.retirerLigne,
+      deplier: libelles.deplier ?? "+",
+      replier: libelles.replier ?? "-",
+      toutDeplier: libelles.toutDeplier ?? "+",
+      toutReplier: libelles.toutReplier ?? "-",
+      videTitre: libelles.arbreVideTitre ?? libelles.lignesTitre(0),
+      videAide: libelles.arbreVideAide ?? libelles.lignesAide,
+      niveauRang: libelles.niveauRang,
+      placeholderIntitule: (niv) => niv,
+      saisirOuChoisir: libelles.saisirOuChoisir ?? libelles.rechercherValeur,
+      listeValeurs: libelles.listeValeurs ?? libelles.rechercherValeur,
+      rechercherValeur: libelles.rechercherValeur,
+      aucuneValeur: libelles.aucuneValeur,
+      resumeFeuilles: (n) =>
+        libelles.resumeFeuilles ? libelles.resumeFeuilles(n) : libelles.lignesTitre(n),
+    }),
+    [libelles],
+  );
+
   function soumettre() {
     if (desactive) return;
     const normalises = normaliserTypesEtDefauts(typesChoisis, parDefautPour);
+    const lignesAplaties = nettoyerLignesModele(
+      arbreVersCellules(racines, niveaux.length),
+      niveaux.length,
+    );
     const candidat: DonneesFormulaireModele = {
       nom: nom.trim(),
       description: description.trim(),
@@ -240,7 +285,7 @@ export function EditeurModeleDecoupage({
         liste: niv.liste,
         alerter: niv.alerter,
       })),
-      lignes: nettoyerLignesModele(lignes, niveaux.length),
+      lignes: lignesAplaties,
     };
     const resultat = validerFormulaireModele(candidat, libelles.messagesValidation);
     if (!resultat.valide) {
@@ -486,12 +531,12 @@ export function EditeurModeleDecoupage({
         </div>
       </div>
 
-      {/* Lignes types du modèle */}
+      {/* Structure arborescente du modèle */}
       <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-neutral-0 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h4 className="text-xs font-semibold text-neutral-900">
-              {libelles.lignesTitre(lignes.length)}
+              {libelles.lignesTitre(compteursArbre.feuilles)}
             </h4>
             <p className="text-xs text-neutral-500">{libelles.lignesAide}</p>
           </div>
@@ -534,66 +579,21 @@ export function EditeurModeleDecoupage({
                   </Bouton>
                 </>
               )}
-              <Bouton
-                variante="secondaire"
-                taille="sm"
-                iconeGauche={<Plus size={15} />}
-                disabled={enregistrementEnCours}
-                onClick={ajouterLigneVide}
-              >
-                {libelles.ajouterLigne}
-              </Bouton>
             </div>
           )}
         </div>
 
-        <div className="max-h-80 overflow-auto rounded-lg border border-neutral-200">
-          <table className="w-full border-collapse text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-neutral-100 text-neutral-700">
-              <tr>
-                <th className="w-10 px-2 py-2 text-center font-semibold" />
-                {niveaux.map((niv, idx) => (
-                  <th key={idx} className="min-w-44 px-2 py-2 font-semibold">
-                    {niv.libelle || libelles.niveauRang(idx + 1)}
-                  </th>
-                ))}
-                {peutEcrire && <th className="w-10 px-2 py-2" />}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {lignes.map((ligne, r) => (
-                <tr key={r} className="hover:bg-neutral-50/60">
-                  <td className="px-2 py-1.5 text-center text-neutral-500">{r + 1}</td>
-                  {niveaux.map((niv, col) => (
-                    <td key={col} className="px-1.5 py-1">
-                      <CelluleModeleEditeur
-                        valeur={ligne[col] ?? ""}
-                        niveau={niv}
-                        listes={listes}
-                        desactive={desactive}
-                        libelles={libelles}
-                        onChange={(val) => modifierCelluleLigne(r, col, val)}
-                      />
-                    </td>
-                  ))}
-                  {peutEcrire && (
-                    <td className="px-1.5 py-1 text-center">
-                      <button
-                        type="button"
-                        disabled={enregistrementEnCours}
-                        onClick={() => retirerLigneIndex(r)}
-                        className="rounded border-0 bg-transparent p-1 text-neutral-400 hover:bg-erreur/10 hover:text-erreur disabled:opacity-30"
-                        aria-label={libelles.retirerLigne}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ArbreSaisie
+          racines={racines}
+          niveaux={niveaux}
+          listes={listes}
+          desactive={desactive}
+          onAjouterRacine={ajouterRacine}
+          onAjouterEnfant={ajouterEnfant}
+          onModifierLibelle={modifierLibelleNoeud}
+          onRetirerNoeud={retirerNoeud}
+          libelles={libellesArbre}
+        />
       </div>
 
       {peutEcrire && (
@@ -614,68 +614,5 @@ export function EditeurModeleDecoupage({
         </div>
       )}
     </>
-  );
-}
-
-function CelluleModeleEditeur({
-  valeur,
-  niveau,
-  listes,
-  desactive,
-  libelles,
-  onChange,
-}: {
-  valeur: string;
-  niveau: NiveauEditeur;
-  listes: readonly ListeOptionEditeur[];
-  desactive: boolean;
-  libelles: LibellesEditeurModele;
-  onChange: (valeur: string) => void;
-}) {
-  const liste = useMemo(
-    () => trouverListeEditeur(listes, niveau.liste),
-    [listes, niveau.liste],
-  );
-
-  const options = useMemo<OptionCombobox[]>(() => {
-    if (!liste) return [];
-    const opts: OptionCombobox[] = [];
-    if (valeur.trim()) {
-      opts.push({ valeur: "", libelle: libelles.viderCellule });
-    }
-    for (const v of liste.valeurs) {
-      opts.push({
-        valeur: v.libelle,
-        libelle: v.libelle,
-        groupe: v.groupe || undefined,
-      });
-    }
-    return opts;
-  }, [liste, valeur, libelles.viderCellule]);
-
-  if (liste && !desactive) {
-    return (
-      <Combobox
-        options={options}
-        valeur={valeur}
-        onChange={onChange}
-        placeholder={niveau.libelle || libelles.sansValeur}
-        placeholderRecherche={libelles.rechercherValeur}
-        aucunResultat={libelles.aucuneValeur}
-        libelleSaisieLibre={libelles.utiliserValeurLibre}
-        disabled={desactive}
-        className="h-8 min-w-40 px-2 text-xs font-normal"
-      />
-    );
-  }
-
-  return (
-    <Input
-      value={valeur}
-      maxLength={200}
-      disabled={desactive}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-8 min-w-40 text-xs"
-    />
   );
 }

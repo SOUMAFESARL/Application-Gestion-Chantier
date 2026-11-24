@@ -21,7 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Combobox, type OptionCombobox } from "@/components/ui/combobox";
 import { MenuExport, type ExportTableau } from "@/components/ui/export-tableau";
 import { Input } from "@/components/ui/input";
-import { FiltreTableau, RechercheTableau } from "@/components/ui/tableau-liste";
+import { FiltreTableau } from "@/components/ui/tableau-liste";
 import { Textarea } from "@/components/ui/textarea";
 import {
   CRITERES_LISTES_DECOUPAGE_VIDES,
@@ -374,37 +374,6 @@ export function GestionListesDecoupagePlateforme() {
         </div>
       </div>
 
-      {/* Barre de recherche et filtre statut */}
-      {listes.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
-          <RechercheTableau
-            valeur={criteres.recherche}
-            onChangement={(recherche) => setCriteres((courant) => ({ ...courant, recherche }))}
-            libelle={t("rechercherListe")}
-            placeholder={t("rechercherListePlaceholder")}
-          />
-          <FiltreTableau<Exclude<FiltreStatutDecoupagePlateforme, "">>
-            valeur={criteres.statut}
-            onChangement={(statut) => setCriteres((courant) => ({ ...courant, statut }))}
-            libelle={t("filtreStatut")}
-            libelleTous={t("filtreStatutToutes")}
-            options={[
-              { valeur: "ACTIF", libelle: t("filtreStatutActives") },
-              { valeur: "INACTIF", libelle: t("filtreStatutInactives") },
-            ]}
-          />
-          {filtresActifs && (
-            <Bouton
-              variante="ghost"
-              taille="sm"
-              onClick={() => setCriteres(CRITERES_LISTES_DECOUPAGE_VIDES)}
-            >
-              {t("reinitialiserFiltres")}
-            </Bouton>
-          )}
-        </div>
-      )}
-
       {requete.isPending ? (
         <EtatChargement />
       ) : requete.isError ? (
@@ -414,7 +383,44 @@ export function GestionListesDecoupagePlateforme() {
       ) : (
         <div className="grid gap-5 lg:grid-cols-12">
           {/* Colonne gauche : catalogue des listes plateforme */}
-          <div className="flex flex-col gap-2 lg:col-span-4">
+          <div className="flex flex-col gap-2.5 lg:col-span-4">
+            <div className="relative">
+              <Search
+                size={15}
+                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-neutral-400"
+                aria-hidden="true"
+              />
+              <Input
+                value={criteres.recherche}
+                placeholder={t("rechercherListePlaceholder")}
+                aria-label={t("rechercherListe")}
+                className="pl-9 text-xs"
+                onChange={(e) =>
+                  setCriteres((courant) => ({ ...courant, recherche: e.target.value }))
+                }
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <FiltreTableau<Exclude<FiltreStatutDecoupagePlateforme, "">>
+                valeur={criteres.statut}
+                onChangement={(statut) => setCriteres((courant) => ({ ...courant, statut }))}
+                libelle={t("filtreStatut")}
+                libelleTous={t("filtreStatutToutes")}
+                options={[
+                  { valeur: "ACTIF", libelle: t("filtreStatutActives") },
+                  { valeur: "INACTIF", libelle: t("filtreStatutInactives") },
+                ]}
+              />
+              {filtresActifs && (
+                <Bouton
+                  variante="ghost"
+                  taille="sm"
+                  onClick={() => setCriteres(CRITERES_LISTES_DECOUPAGE_VIDES)}
+                >
+                  {t("reinitialiserFiltres")}
+                </Bouton>
+              )}
+            </div>
             <span className="text-xs font-semibold tracking-wider text-neutral-500 uppercase">
               {t("catalogueListes", { n: listesFiltrees.length })}
             </span>
@@ -808,13 +814,21 @@ export function GestionListesDecoupagePlateforme() {
             disabled={modificationValeur.isPending}
             onChange={(e) => setLibelleValeurModif(e.target.value)}
           />
-          <Champ
-            libelle={t("champGroupe")}
-            value={groupeValeurModif}
-            maxLength={100}
-            disabled={modificationValeur.isPending}
-            onChange={(e) => setGroupeValeurModif(e.target.value)}
-          />
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-semibold text-neutral-800">{t("champGroupe")}</span>
+            <Combobox
+              options={groupesPresents}
+              valeur={groupeValeurModif}
+              onChange={(v) => setGroupeValeurModif(v.slice(0, LONGUEUR_MAX_GROUPE))}
+              placeholder={t("placeholderGroupe")}
+              placeholderRecherche={t("rechercherGroupe")}
+              aucunResultat={t("aucunGroupe")}
+              libelleSaisieLibre={(saisie) => t("creerGroupe", { saisie })}
+              aria-label={t("champGroupe")}
+              className="h-[var(--input-height-md)]"
+              disabled={modificationValeur.isPending}
+            />
+          </div>
           {erreurModaleValeur && <Alerte type="erreur">{erreurModaleValeur}</Alerte>}
         </div>
       </Modale>

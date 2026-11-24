@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import type { ExportTableau } from "@/components/ui/export-tableau";
 import { Input } from "@/components/ui/input";
+import { SelecteurDate } from "@/components/ui/SelecteurDate";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { BORD_DROIT_TABLEAU, TableauListe } from "@/components/ui/tableau-liste";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,6 +38,8 @@ import {
   formaterDate,
   formaterDureeCalendaire,
   formaterMontant,
+  formaterSaisieMontant,
+  saisieEnCentimes,
 } from "@/lib/format";
 
 import {
@@ -292,6 +295,7 @@ function messageErreur(e: unknown, repli: string): string {
 
 function TiroirAvenant({ projet, onFermer, onEnregistre }: { projet: Projet; onFermer: () => void; onEnregistre: () => Promise<void> }) {
   const t = useTranslations("avenants.creation");
+  const tCreationProjet = useTranslations("projets.tiroirCreation");
   const { voitMontants } = useDroits();
   const [numero, setNumero] = useState("");
   const [date, setDate] = useState("");
@@ -316,7 +320,7 @@ function TiroirAvenant({ projet, onFermer, onEnregistre }: { projet: Projet; onF
       const valAnnees = Number.parseInt(annees || "0", 10) || 0;
       const valMois = Number.parseInt(mois || "0", 10) || 0;
       const valJours = Number.parseInt(jours || "0", 10) || 0;
-      const valMontant = montant.trim() === "" ? null : Math.round(Number(montant) * 100);
+      const valMontant = montant.trim() === "" ? null : saisieEnCentimes(montant);
       if (valAnnees < 0 || valMois < 0 || valJours < 0 || (valMontant !== null && valMontant < 0)) {
         throw new Error(t("erreurValeurNegative"));
       }
@@ -374,15 +378,20 @@ function TiroirAvenant({ projet, onFermer, onEnregistre }: { projet: Projet; onF
               </span>
               <Input value={numero} maxLength={30} onChange={(e) => setNumero(e.target.value)} />
             </label>
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+            <div className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
               <span>
                 {t("dateSignature")}{" "}
                 <span className="text-erreur" aria-hidden="true">
                   *
                 </span>
               </span>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </label>
+              <SelecteurDate
+                valeur={date}
+                onChange={setDate}
+                placeholder={tCreationProjet("champDateChoisir")}
+                disabled={ecriture.isPending}
+              />
+            </div>
           </div>
           <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
             <span>
@@ -414,7 +423,14 @@ function TiroirAvenant({ projet, onFermer, onEnregistre }: { projet: Projet; onF
           {voitMontants && (
             <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
               {t("montant")}
-              <Input type="number" step={1} min={0} value={montant} onChange={(e) => setMontant(e.target.value)} />
+              <Input
+                value={montant}
+                onChange={(e) => setMontant(formaterSaisieMontant(e.target.value))}
+                inputMode="numeric"
+                className="tabular-nums"
+                placeholder={tCreationProjet("champBudgetPlaceholder")}
+                disabled={ecriture.isPending}
+              />
               <span className="text-xs font-normal text-neutral-500">{t("montantAide")}</span>
             </label>
           )}

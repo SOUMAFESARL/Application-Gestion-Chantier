@@ -18,6 +18,7 @@ import type { Collaborateur } from "@/features/invitations/types";
 import type {
   Activite,
   AffectationProjet,
+  AutreMembreProjet,
   BadgeSante,
   CandidatEquipe,
   ChefChantierProjet,
@@ -35,6 +36,7 @@ import type {
   Projet,
   SanteProjet,
   StatutActivite,
+  StatutComposanteDecoupage,
   StatutDeclare,
   StatutProjet,
   TypeBordereau,
@@ -615,6 +617,14 @@ export function budgetMaxActivites(lot: Lot): number | null {
  */
 export const DUREE_DEFAUT_JOURS = 180;
 
+/** Date du jour au format ISO court local (`AAAA-MM-JJ`), sans décalage UTC. */
+export function dateAujourdhuiIso(maintenant: Date = new Date()): string {
+  const annee = maintenant.getFullYear();
+  const mois = String(maintenant.getMonth() + 1).padStart(2, "0");
+  const jour = String(maintenant.getDate()).padStart(2, "0");
+  return `${annee}-${mois}-${jour}`;
+}
+
 /** Les dates de repli d'une création de chantier, au format ISO court. */
 export function datesParDefaut(maintenant: Date = new Date()): {
   debut: string;
@@ -710,8 +720,105 @@ export const FORMAT_CONTRAT = "application/pdf,image/png,image/jpeg,.pdf,.png,.j
 /** Plafond par fichier aligné sur `MAX_FICHIER` du serveur (10 Mo). */
 export const TAILLE_MAX_CONTRAT = 10 * 1024 * 1024;
 
-/** Contrat, avenants, annexes : au-delà, ce sont les documents du projet. */
-export const NOMBRE_MAX_CONTRATS = 10;
+/** Un seul contrat actif à la fois : tout nouvel import archive la version précédente. */
+export const NOMBRE_MAX_CONTRATS = 1;
+
+/**
+ * Retire l'extension finale d'un nom de fichier pour l'affichage à l'écran ou dans le PDF
+ * (`Contrat_Marche_v2.pdf` → `Contrat_Marche_v2`). Le téléchargement conserve le nom complet.
+ */
+export function nomFichierSansExtension(nom: string): string {
+  const propre = nom.trim();
+  if (!propre) return "";
+  const dernierPoint = propre.lastIndexOf(".");
+  if (dernierPoint <= 0) return propre;
+  const extension = propre.slice(dernierPoint).toLowerCase();
+  if (/^\.[a-z0-9]{1,8}$/.test(extension)) {
+    return propre.slice(0, dernierPoint);
+  }
+  return propre;
+}
+
+/** Les cinq statuts du découpage, dans l'ordre du cycle d'exécution. */
+export const STATUTS_COMPOSANTE_DECOUPAGE: readonly StatutComposanteDecoupage[] = [
+  "PLANIFIE",
+  "EN_COURS",
+  "EN_RETARD",
+  "SUSPENDU",
+  "CLOTURE",
+];
+
+/**
+ * Normalise un statut (code découpage ou libellé hérité) vers le code canonique du découpage.
+ * Renvoie `null` si la valeur n'est pas reconnue (pour préserver une saisie libre existante).
+ */
+export function normaliserStatutComposante(
+  valeur: string | null | undefined,
+): StatutComposanteDecoupage | null {
+  if (!valeur) return null;
+  const canonique = valeur
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+  if ((STATUTS_COMPOSANTE_DECOUPAGE as readonly string[]).includes(canonique)) {
+    return canonique as StatutComposanteDecoupage;
+  }
+  if (canonique === "NON_DEMARRE" || canonique === "A_VENIR") return "PLANIFIE";
+  if (canonique === "COMMENCE" || canonique === "COMMENCEE") return "EN_COURS";
+  if (canonique === "BLOQUE" || canonique === "BLOQUEE" || canonique === "SUSPENDUE") return "SUSPENDU";
+  if (canonique === "TERMINE" || canonique === "TERMINEE" || canonique === "CLOTUREE") return "CLOTURE";
+  return null;
+}
+
+/** Une option de périmètre aplatie de l'arbre actif (niveau 1 jusqu'au dernier petit-enfant). */
+export interface OptionPerimetreArbre {
+  id: string;
+  numero: string | null;
+  libelle: string;
+  chemin: string;
+  profondeur: number;
+  niveauLibelle: string | null;
+}
+
+interface NoeudPerimetreSource {
+  id: string;
+  libelle: string;
+  numero: string | null;
+  acces: string;
+  estActif: boolean;
+  niveau: { libelle: string | null };
+  enfants: NoeudPerimetreSource[];
+}
+
+/**
+ * Aplatit tous les éléments actifs de l'arbre, du niveau 1 jusqu'au dernier petit-enfant,
+ * en construisant le chemin hiérarchique complet de chacun.
+ */
+export function collecterPerimetresArbre(
+  cases: readonly NoeudPerimetreSource[],
+  ancetres: readonly string[] = [],
+): OptionPerimetreArbre[] {
+  const resultat: OptionPerimetreArbre[] = [];
+  for (const noeud of cases) {
+    const cheminListe = [...ancetres, noeud.libelle];
+    if (noeud.estActif && noeud.acces === "COMPLET") {
+      resultat.push({
+        id: noeud.id,
+        numero: noeud.numero,
+        libelle: noeud.libelle,
+        chemin: cheminListe.join(" › "),
+        profondeur: ancetres.length,
+        niveauLibelle: noeud.niveau.libelle,
+      });
+    }
+    if (noeud.enfants.length > 0) {
+      resultat.push(...collecterPerimetresArbre(noeud.enfants, cheminListe));
+    }
+  }
+  return resultat;
+}
 
 export type RefusContrat = "FORMAT" | "TAILLE";
 
@@ -2249,6 +2356,44 @@ export function financierDuProjet(projet: Projet): Intervenant | null {
   return projet.autresMembres.find((membre) => membre.fonction === "FINANCIER")?.intervenant ?? null;
 }
 
+const ROLES_GENERIQUES_EXCLUS = new Set(["", "AUTRE", "AUTRE_MEMBRE", "VI"]);
+
+function estRoleGenerique(valeur: string | null | undefined): boolean {
+  if (!valeur) return true;
+  const normalise = valeur
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toUpperCase();
+  return ROLES_GENERIQUES_EXCLUS.has(normalise);
+}
+
+/**
+ * Le vrai rôle dans l'entreprise d'un membre de l'encadrement, jamais le libellé générique
+ * « Autre » ou « AUTRE_MEMBRE ». Priorité : fonction dans l'entreprise, puis libellé de rôle,
+ * puis libellé de sous-fonction résolu par le serveur.
+ */
+export function libelleRoleEncadrementMembre(
+  membre: Pick<
+    AutreMembreProjet,
+    "fonctionEntreprise" | "roleLibelle" | "fonctionLibelle" | "intervenant"
+  >,
+): string {
+  const candidats = [
+    membre.fonctionEntreprise,
+    membre.intervenant.fonctionEntreprise,
+    membre.roleLibelle,
+    membre.intervenant.roleLibelle,
+    membre.fonctionLibelle,
+  ];
+  for (const candidat of candidats) {
+    if (candidat && !estRoleGenerique(candidat)) {
+      return candidat.trim();
+    }
+  }
+  return "";
+}
+
 /**
  * Les chantiers où la personne est désignée dans l'équipe projet.
  *
@@ -2262,7 +2407,17 @@ export function affectationsDuCollaborateur(
 ): AffectationProjet[] {
   return projets.flatMap((projet) => {
     const fonctions = fonctionsDansProjet(projet, collaborateurId);
-    return fonctions.map((fonction) => ({ projet, fonction }));
+    return fonctions.map((fonction) => {
+      let roleLibelle: string | undefined;
+      if (fonction === "AUTRE_MEMBRE") {
+        const membre = projet.autresMembres.find((m) => m.intervenant.id === collaborateurId);
+        if (membre) {
+          const resolu = libelleRoleEncadrementMembre(membre);
+          if (resolu) roleLibelle = resolu;
+        }
+      }
+      return { projet, fonction, roleLibelle };
+    });
   });
 }
 

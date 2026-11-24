@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from "recharts";
 
@@ -13,7 +13,7 @@ import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartToo
 import type { ChartConfig } from "@/components/ui/chart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Projet } from "@/features/projets/types";
-import { formaterDate, formaterPourcentage } from "@/lib/format";
+import { formaterDate, formaterJourMoisNumerique, formaterPourcentage } from "@/lib/format";
 
 import { lireArbre, lireCourbe } from "../adaptateur";
 import { cleArbre, cleCourbe } from "../cles";
@@ -23,10 +23,12 @@ import {
   pointsCourbe,
   tachesEnDepassement,
   tachesIndisponibles,
+  trouverCase,
 } from "../regles";
-import type { CaseArbre } from "../types";
+import type { CaseArbre, CourbeAvancement } from "../types";
 
 const PROJET_ENTIER = "projet";
+const JOUR_MS = 86_400_000;
 
 /** Les teintes des séries : celles de la charte des graphiques (`app/globals.css`). */
 const TEINTE_PREVU = "var(--color-graphique-3)";
@@ -40,35 +42,59 @@ const TRAIT_REEL = "var(--color-reel)";
 const POINTILLE = "4 4";
 const POINTILLE_FIN = "2 2";
 
+function enTimestamp(iso: string): number {
+  return Date.parse(`${iso.slice(0, 10)}T00:00:00Z`);
+}
+
+function versIsoDate(timestamp: number): string {
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
 /**
  * L'onglet Avancement de la fiche projet (lot 12, décision P9) : la **courbe en S** — le prévu
  * tiré des dates et des montants, le réel relevé chaque nuit — et la **fin estimée** au rythme
- * des quatre dernières semaines, affichée seulement. Pour le projet entier ou une case.
- *
- * Autour : l'avancement « partiel » ou « indisponible » plutôt qu'un faux 0 %, et les tâches en
- * dépassement (le réalisé passe le prévu). Un écran de lecture : il n'y a plus rien à clôturer
- * ici, une tâche se clôt d'elle-même à 100 % (le geste « Clôturer » reste dans le tiroir de la
- * case, pour une tâche terminée avant son prévu).
+ * des quatre dernières semaines, affichée seulement. Pour le projet entier, toute case active de
+ * niveau 1 (même sans enfant) ou toute case parente active d'un autre niveau.
  */
 export function OngletAvancement({ projet }: { projet: Projet }) {
   const t = useTranslations("decoupage.avancement");
   const [caseId, setCaseId] = useState<string | null>(null);
 
-  const arbre = useQuery({ queryKey: cleArbre(projet.id), queryFn: ({ signal }) => lireArbre(projet.id, signal), enabled: projet.decoupageCree });
-  const courbe = useQuery({
-    queryKey: cleCourbe(projet.id, caseId),
-    queryFn: ({ signal }) => lireCourbe(projet.id, caseId, signal),
+  const arbre = useQuery({
+    queryKey: cleArbre(projet.id),
+    queryFn: ({ signal }) => lireArbre(projet.id, signal),
     enabled: projet.decoupageCree,
   });
 
-  if (!projet.decoupageCree) return <EtatVide titre={t("sansDecoupage")} description={t("sansDecoupageDescription")} />;
+  const casesCourbe = useMemo(
+    () => (arbre.data ? casesAvecCourbe(arbre.data.cases) : []),
+    [arbre.data],
+  );
+
+  const caseSelectionneeId = useMemo(
+    () => (caseId && casesCourbe.some((une) => une.id === caseId) ? caseId : null),
+    [caseId, casesCourbe],
+  );
+
+  const courbe = useQuery({
+    queryKey: cleCourbe(projet.id, caseSelectionneeId),
+    queryFn: ({ signal }) => lireCourbe(projet.id, caseSelectionneeId, signal),
+    enabled: projet.decoupageCree,
+  });
+
+  if (!projet.decoupageCree) {
+    return <EtatVide titre={t("sansDecoupage")} description={t("sansDecoupageDescription")} />;
+  }
   if (arbre.isPending) return <EtatChargement />;
   if (arbre.isError) return <EtatErreur onReessayer={() => void arbre.refetch()} />;
 
   const cases = arbre.data.cases;
-  const depassements = tachesEnDepassement(cases);
-  const indisponibles = tachesIndisponibles(cases);
-  const etat = etatAvancement(arbre.data);
+  const caseSelectionnee = trouverCase(cases, caseSelectionneeId);
+  const perimetreCases = caseSelectionnee ? [caseSelectionnee] : cases;
+  const depassements = tachesEnDepassement(perimetreCases);
+  const indisponibles = tachesIndisponibles(perimetreCases);
+  const cibleAvancement = caseSelectionnee ?? arbre.data;
+  const etat = etatAvancement(cibleAvancement);
 
   return (
     <div className="flex flex-col gap-6">
@@ -78,13 +104,17 @@ export function OngletAvancement({ projet }: { projet: Projet }) {
             <span className="text-base text-neutral-500">{t("indisponible")}</span>
           ) : (
             <span className="flex items-center gap-2">
-              {formaterPourcentage(arbre.data.avancement)}
+              {formaterPourcentage(cibleAvancement.avancement)}
               {etat === "partiel" && <Badge variante="avertissement">{t("partiel")}</Badge>}
             </span>
           )}
         </Tuile>
         <Tuile titre={t("finEstimee")}>
-          {courbe.data?.finEstimee ? formaterDate(courbe.data.finEstimee) : <span className="text-base text-neutral-500">{t("pasDEstimation")}</span>}
+          {courbe.data?.finEstimee ? (
+            formaterDate(courbe.data.finEstimee)
+          ) : (
+            <span className="text-base text-neutral-500">{t("pasDEstimation")}</span>
+          )}
         </Tuile>
         <Tuile titre={t("rythme")}>
           {courbe.data?.rythmeParSemaine !== null && courbe.data?.rythmeParSemaine !== undefined ? (
@@ -107,13 +137,16 @@ export function OngletAvancement({ projet }: { projet: Projet }) {
             <TrendingUp size={18} aria-hidden="true" />
             {t("courbe")}
           </h2>
-          <Select value={caseId ?? PROJET_ENTIER} onValueChange={(v) => setCaseId(v === PROJET_ENTIER ? null : v)}>
+          <Select
+            value={caseSelectionneeId ?? PROJET_ENTIER}
+            onValueChange={(v) => setCaseId(v === PROJET_ENTIER ? null : v)}
+          >
             <SelectTrigger className="w-72 max-sm:w-full" aria-label={t("choisirCase")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={PROJET_ENTIER}>{t("projetEntier")}</SelectItem>
-              {casesAvecCourbe(cases).map((une) => (
+              {casesCourbe.map((une) => (
                 <SelectItem key={une.id} value={une.id}>
                   {t("caseNumerotee", { numero: une.numero ?? "", libelle: une.libelle })}
                 </SelectItem>
@@ -177,46 +210,170 @@ function ListeTaches({
   );
 }
 
-function Graphique({ courbe }: { courbe: Parameters<typeof pointsCourbe>[0] & { finPrevue: string | null; finContractuelle: string | null; finEstimee: string | null } }) {
+function Graphique({ courbe }: { courbe: CourbeAvancement }) {
   const t = useTranslations("decoupage.avancement");
-  const points = pointsCourbe(courbe);
-  if (points.length === 0) return <p className="m-0 py-8 text-center text-sm text-neutral-500">{t("pasDePoints")}</p>;
+  const points = useMemo(() => pointsCourbe(courbe), [courbe]);
+  const aPrevu = useMemo(() => courbe.prevu.some((p) => p.valeur !== null), [courbe.prevu]);
+  const aReel = useMemo(() => courbe.reel.some((p) => p.valeur !== null), [courbe.reel]);
+  const prevuPartiel = useMemo(
+    () => aPrevu && courbe.prevu.some((p) => p.valeur === null),
+    [aPrevu, courbe.prevu],
+  );
+
+  const donnees = useMemo(
+    () =>
+      points.map((point) => ({
+        ...point,
+        timestamp: enTimestamp(point.date),
+      })),
+    [points],
+  );
+
+  const domaine = useMemo(() => {
+    const timestamps = donnees.map((d) => d.timestamp).filter(Number.isFinite);
+    if (courbe.debut) timestamps.push(enTimestamp(courbe.debut));
+    if (courbe.finPrevue) timestamps.push(enTimestamp(courbe.finPrevue));
+    if (courbe.finContractuelle) timestamps.push(enTimestamp(courbe.finContractuelle));
+    if (timestamps.length === 0) return null;
+
+    const minBase = Math.min(...timestamps);
+    let maxBase = Math.max(...timestamps);
+    const etendueBase = Math.max(maxBase - minBase, 180 * JOUR_MS);
+
+    let afficherFinEstimee = false;
+    if (courbe.finEstimee) {
+      const tsEstimee = enTimestamp(courbe.finEstimee);
+      if (Number.isFinite(tsEstimee) && tsEstimee <= maxBase + etendueBase) {
+        afficherFinEstimee = true;
+        maxBase = Math.max(maxBase, tsEstimee);
+      }
+    }
+
+    if (minBase === maxBase) {
+      return {
+        min: minBase - 7 * JOUR_MS,
+        max: maxBase + 7 * JOUR_MS,
+        afficherFinEstimee,
+      };
+    }
+
+    return { min: minBase, max: maxBase, afficherFinEstimee };
+  }, [donnees, courbe.debut, courbe.finPrevue, courbe.finContractuelle, courbe.finEstimee]);
+
+  if (points.length === 0 || !domaine) {
+    return (
+      <p className="m-0 py-8 text-center text-sm text-neutral-500">
+        {!courbe.debut && !courbe.finPrevue ? t("pasDePointsSansDates") : t("pasDePoints")}
+      </p>
+    );
+  }
 
   const configuration = {
-    prevu: { label: t("prevu"), color: TEINTE_PREVU },
-    reel: { label: t("reel"), color: TEINTE_REEL },
+    ...(aPrevu ? { prevu: { label: t("prevu"), color: TEINTE_PREVU } } : {}),
+    ...(aReel ? { reel: { label: t("reel"), color: TEINTE_REEL } } : {}),
   } satisfies ChartConfig;
 
+  const tsFinPrevue = courbe.finPrevue ? enTimestamp(courbe.finPrevue) : null;
+  const tsFinContractuelle =
+    courbe.finContractuelle && courbe.finContractuelle !== courbe.finPrevue
+      ? enTimestamp(courbe.finContractuelle)
+      : null;
+  const tsFinEstimee =
+    domaine.afficherFinEstimee && courbe.finEstimee ? enTimestamp(courbe.finEstimee) : null;
+
   return (
-    <ChartContainer config={configuration} className="aspect-auto h-72 w-full">
-      <LineChart data={points} margin={{ left: 4, right: 12, top: 8 }}>
-        <CartesianGrid vertical={false} stroke={TEINTE_GRILLE} />
-        <XAxis
-          dataKey="date"
-          tickLine={false}
-          axisLine={false}
-          tickMargin={8}
-          minTickGap={28}
-          tickFormatter={(valeur: string) => `${valeur.slice(8, 10)}/${valeur.slice(5, 7)}`}
-        />
-        <YAxis tickLine={false} axisLine={false} width={36} domain={[0, 100]} tickFormatter={(v: number) => `${v} %`} />
-        <ChartTooltip
-          content={
-            <ChartTooltipContent
-              formaterEtiquette={(valeur) => formaterDate(String(valeur))}
-              formaterValeur={(valeur) => formaterPourcentage(valeur ?? null)}
+    <div className="flex flex-col gap-3">
+      {!aPrevu && aReel && (
+        <Alert variant="information">
+          <AlertDescription>{t("alerteDatesAbsentes")}</AlertDescription>
+        </Alert>
+      )}
+      {prevuPartiel && (
+        <Alert variant="information">
+          <AlertDescription>{t("alerteDatesPartielles")}</AlertDescription>
+        </Alert>
+      )}
+
+      <ChartContainer config={configuration} className="aspect-auto h-72 w-full">
+        <LineChart data={donnees} margin={{ left: 4, right: 12, top: 8 }}>
+          <CartesianGrid vertical={false} stroke={TEINTE_GRILLE} />
+          <XAxis
+            dataKey="timestamp"
+            type="number"
+            scale="time"
+            domain={[domaine.min, domaine.max]}
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            minTickGap={28}
+            tickFormatter={(valeur: number) => formaterJourMoisNumerique(versIsoDate(valeur))}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            width={36}
+            domain={[0, 100]}
+            tickFormatter={(v: number) => `${v} %`}
+          />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                formaterEtiquette={(valeur) =>
+                  typeof valeur === "number"
+                    ? formaterDate(versIsoDate(valeur))
+                    : formaterDate(String(valeur))
+                }
+                formaterValeur={(valeur) => formaterPourcentage(valeur ?? null)}
+              />
+            }
+          />
+          <ChartLegend content={<ChartLegendContent />} />
+          {tsFinPrevue !== null && (
+            <ReferenceLine
+              x={tsFinPrevue}
+              stroke={TEINTE_REPERE}
+              strokeDasharray={POINTILLE}
+              label={t("repereFinPrevue")}
             />
-          }
-        />
-        <ChartLegend content={<ChartLegendContent />} />
-        {courbe.finPrevue && <ReferenceLine x={courbe.finPrevue} stroke={TEINTE_REPERE} strokeDasharray={POINTILLE} label={t("repereFinPrevue")} />}
-        {courbe.finContractuelle && courbe.finContractuelle !== courbe.finPrevue && (
-          <ReferenceLine x={courbe.finContractuelle} stroke={TEINTE_REPERE} strokeDasharray={POINTILLE_FIN} label={t("repereFinContractuelle")} />
-        )}
-        {courbe.finEstimee && <ReferenceLine x={courbe.finEstimee} stroke={TEINTE_ESTIMEE} strokeDasharray={POINTILLE} label={t("repereFinEstimee")} />}
-        <Line dataKey="prevu" type="monotone" stroke={TRAIT_PREVU} strokeWidth={2} dot={false} connectNulls />
-        <Line dataKey="reel" type="monotone" stroke={TRAIT_REEL} strokeWidth={2} dot={{ r: 2 }} connectNulls />
-      </LineChart>
-    </ChartContainer>
+          )}
+          {tsFinContractuelle !== null && (
+            <ReferenceLine
+              x={tsFinContractuelle}
+              stroke={TEINTE_REPERE}
+              strokeDasharray={POINTILLE_FIN}
+              label={t("repereFinContractuelle")}
+            />
+          )}
+          {tsFinEstimee !== null && (
+            <ReferenceLine
+              x={tsFinEstimee}
+              stroke={TEINTE_ESTIMEE}
+              strokeDasharray={POINTILLE}
+              label={t("repereFinEstimee")}
+            />
+          )}
+          {aPrevu && (
+            <Line
+              dataKey="prevu"
+              type="monotone"
+              stroke={TRAIT_PREVU}
+              strokeWidth={2}
+              dot={false}
+              connectNulls
+            />
+          )}
+          {aReel && (
+            <Line
+              dataKey="reel"
+              type="monotone"
+              stroke={TRAIT_REEL}
+              strokeWidth={2}
+              dot={{ r: 2 }}
+              connectNulls
+            />
+          )}
+        </LineChart>
+      </ChartContainer>
+    </div>
   );
 }

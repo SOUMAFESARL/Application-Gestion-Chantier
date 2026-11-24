@@ -2,14 +2,14 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Building2,
   CheckCircle2,
   FileDown,
   FolderTree,
-  Landmark,
+  History,
   LoaderCircle,
   Plus,
   Printer,
+  RefreshCw,
   Save,
   Trash2,
 } from "lucide-react";
@@ -18,49 +18,74 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { ReactNode } from "react";
 
+import { ChampTelephone } from "@/components/metier/ChampTelephone";
 import { ComboboxVille } from "@/components/metier/ComboboxVille";
 import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui/button";
+import { Combobox, type OptionCombobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelecteurDate } from "@/components/ui/SelecteurDate";
 import { Textarea } from "@/components/ui/textarea";
 import { ZoneDepotFichiers } from "@/components/ui/zone-depot-fichiers";
 import { paysEntreprise } from "@/features/configuration/api";
-import { lireArbre } from "@/features/decoupage/adaptateur";
+import { lireArbre, listerListes } from "@/features/decoupage/adaptateur";
+import { CLE_LISTES, cleArbre } from "@/features/decoupage/cles";
+import { trouverListeDuNiveau } from "@/features/decoupage/regles";
 import { useDroits } from "@/features/habilitations";
 import {
   lireProjet,
+  listerAffectationsCollaborateurs,
   modifierProjet,
   telechargerContratProjet,
   telechargerOrdreServiceProjet,
 } from "@/features/projets/adaptateur";
-import { cleProjet } from "@/features/projets/cles";
-import { ComboboxTypeProjet } from "@/features/projets/components/ComboboxTypeProjet";
+import {
+  CLE_LISTE_PROJETS,
+  cleAffectationsCollaborateurs,
+  cleProjet,
+} from "@/features/projets/cles";
 import {
   FORMAT_CONTRAT,
-  NATURES_PROJET,
   NOMBRE_MAX_CONTRATS,
+  STATUTS_COMPOSANTE_DECOUPAGE,
   TAILLE_MAX_CONTRAT,
+  collecterPerimetresArbre,
+  dateAujourdhuiIso,
   datesVerrouillees,
+  nomFichierSansExtension,
+  normaliserStatutComposante,
   projetModifiable,
   refusContrat,
 } from "@/features/projets/regles";
 import type {
+  AvancementComposanteProjet,
   BailleurProjet,
+  ContratProjet,
   DifficulteProjet,
   EtapeAvenirProjet,
   EtudeProjet,
   InformationsComplementairesProjet,
+  IntervenantExterneDynamique,
   IntervenantExterneProjet,
   LotComplementaireProjet,
-  NatureProjet,
   Projet,
   RecommandationProjet,
+  StatutComposanteDecoupage,
 } from "@/features/projets/types";
+import { afficherTelephone } from "@/features/referentiels/telephone";
+import { cleTiers, listerTiers } from "@/features/tiers/adaptateur";
 import { ComboboxTiers } from "@/features/tiers/components/ComboboxTiers";
 import type { ErreurApi } from "@/lib/api";
-import { formaterTailleFichier } from "@/lib/format";
+import {
+  ABSENT,
+  centimesEnFrancs,
+  formaterDate,
+  formaterDureeCalendaire,
+  formaterMontant,
+  formaterSaisieMontant,
+  formaterTailleFichier,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { useGenerationFicheProjet } from "../GenerationFicheProjet";
@@ -80,7 +105,6 @@ const CLES_SECTEURS = [
   "autre",
 ] as const;
 
-const CLES_PHASES = ["identification", "passation", "execution", "reception", "cloture"] as const;
 const CLES_DEVISES = ["fcfa", "eur", "usd"] as const;
 const CLES_REGIMES = ["ttc", "ht_exonere", "tva_suspendue"] as const;
 const CLES_MODES_FIN = ["budget_etat", "conjoint", "ext_pret", "ext_don", "ppp"] as const;
@@ -96,7 +120,6 @@ const CLES_DISPONIBILITES = ["disponible", "partielle", "en_acquisition", "litig
 const CLES_DELIMITATIONS = ["borne", "en_cours", "non_borne"] as const;
 const CLES_PERMIS_STATUTS = ["obtenu", "instruction", "non_depose", "non_applicable"] as const;
 const CLES_STATUTS_ETUDE = ["validee", "en_cours", "a_lancer"] as const;
-const CLES_STATUTS_LOT = ["en_cours", "non_demarre", "en_retard", "termine", "bloque"] as const;
 const CLES_GRAVITES = ["critique", "majeure", "moderee"] as const;
 const CLES_STATUTS_DIFFICULTE = ["ouvert", "en_traitement", "resolu"] as const;
 
@@ -105,8 +128,6 @@ const CHAMP_SELECT =
 
 interface EtatFormulaire {
   nom: string;
-  natureProjet: NatureProjet;
-  typeProjet: string;
   ville: string;
   quartier: string;
   maitreOuvrage: string;
@@ -114,19 +135,84 @@ interface EtatFormulaire {
   description: string;
   dateDebutPrevue: string;
   dateFinPrevue: string;
-  dateDebutReelle: string;
-  dateFinReelle: string;
   infos: InformationsComplementairesProjet;
   objectifsTexte: string;
   impactsTexte: string;
 }
 
-function etatInitialDepuisProjet(projet: Projet): EtatFormulaire {
+function normaliserMontantTexte(valeur: string | undefined): string {
+  if (!valeur) return "";
+  const propre = valeur.trim();
+  if (/^[\d\s]+$/.test(propre)) {
+    return formaterSaisieMontant(propre);
+  }
+  return valeur;
+}
+
+function composantesVersLignes(
+  composantes: readonly AvancementComposanteProjet[],
+  libelleStatut: (code: StatutComposanteDecoupage) => string,
+): LotComplementaireProjet[] {
+  return composantes.map((comp, idx) => {
+    const codeStatut = normaliserStatutComposante(comp.statut) ?? "PLANIFIE";
+    return {
+      code: comp.code || `C-${String(idx + 1).padStart(2, "0")}`,
+      nom: comp.libelle,
+      montant:
+        comp.montant !== null ? formaterSaisieMontant(String(centimesEnFrancs(comp.montant))) : "",
+      avancement: comp.avancement !== null ? String(Math.round(comp.avancement)) : "0",
+      statut: libelleStatut(codeStatut),
+      prestataire: comp.titulaire || "",
+      element_id: comp.id,
+      titulaire_id: comp.titulaireId,
+    };
+  });
+}
+
+function intervenantsDynamiquesVersLignes(
+  intervenants: readonly IntervenantExterneDynamique[],
+): IntervenantExterneProjet[] {
+  return intervenants.map((item) => ({
+    role: item.role || "",
+    org: item.org || item.nom,
+    lot: item.perimetre || "",
+    perimetre: item.perimetre || "",
+    tiers_id: item.tiersId,
+    element_id: item.perimetres[0]?.id ?? null,
+  }));
+}
+
+function etatInitialDepuisProjet(
+  projet: Projet,
+  libelleStatut: (code: StatutComposanteDecoupage) => string,
+): EtatFormulaire {
   const infos = projet.informationsComplementaires ?? {};
+  const lotsInitiaux: LotComplementaireProjet[] =
+    infos.lots && infos.lots.length > 0
+      ? infos.lots.map((lot) => {
+          const codeStatut = normaliserStatutComposante(lot.statut);
+          return {
+            ...lot,
+            montant: normaliserMontantTexte(lot.montant),
+            statut: codeStatut ? libelleStatut(codeStatut) : lot.statut,
+          };
+        })
+      : projet.avancementComposantes.length > 0
+        ? composantesVersLignes(projet.avancementComposantes, libelleStatut)
+        : [];
+  const intervenantsInitiaux: IntervenantExterneProjet[] =
+    infos.intervenants && infos.intervenants.length > 0
+      ? infos.intervenants.map((intv) => ({
+          ...intv,
+          perimetre: intv.perimetre ?? intv.lot ?? "",
+          lot: intv.perimetre ?? intv.lot ?? "",
+        }))
+      : projet.intervenantsExternes.length > 0
+        ? intervenantsDynamiquesVersLignes(projet.intervenantsExternes)
+        : [];
+
   return {
     nom: projet.nom,
-    natureProjet: projet.natureProjet ?? "PRIVE",
-    typeProjet: projet.typeProjet ?? "",
     ville: projet.ville,
     quartier: projet.quartier ?? "",
     maitreOuvrage: projet.client.raisonSociale,
@@ -134,18 +220,31 @@ function etatInitialDepuisProjet(projet: Projet): EtatFormulaire {
     description: projet.description ?? "",
     dateDebutPrevue: projet.dateDebutPrevue ?? "",
     dateFinPrevue: projet.dateFinPrevue ?? "",
-    dateDebutReelle: projet.dateDebutReelle ?? "",
-    dateFinReelle: projet.dateFinReelle ?? "",
     infos: {
       ...infos,
+      phase: infos.phase || projet.phaseActuelle || "",
+      date_situation: infos.date_situation || dateAujourdhuiIso(),
+      cout: normaliserMontantTexte(infos.cout),
+      etat_effectif: normaliserMontantTexte(infos.etat_effectif),
+      etat_decaissement: normaliserMontantTexte(infos.etat_decaissement),
+      purge_total: normaliserMontantTexte(infos.purge_total),
+      purge_engage: normaliserMontantTexte(infos.purge_engage),
+      purge_paye: normaliserMontantTexte(infos.purge_paye),
       devise: infos.devise || "FCFA",
       coordonnateur: infos.coordonnateur ?? { nom: "", tel: "", email: "" },
-      bailleurs: infos.bailleurs ?? [],
-      etudes: infos.etudes ?? [],
-      lots: infos.lots ?? [],
+      bailleurs: (infos.bailleurs ?? []).map((b) => ({
+        ...b,
+        effectif: normaliserMontantTexte(b.effectif),
+        decaisse: normaliserMontantTexte(b.decaisse),
+      })),
+      etudes: (infos.etudes ?? []).map((et) => ({
+        ...et,
+        montant: normaliserMontantTexte(et.montant),
+      })),
+      lots: lotsInitiaux,
       difficultes: infos.difficultes ?? [],
       recos: infos.recos ?? [],
-      intervenants: infos.intervenants ?? [],
+      intervenants: intervenantsInitiaux,
       etapes: infos.etapes ?? [],
     },
     objectifsTexte: (infos.objectifs ?? []).join("\n"),
@@ -258,12 +357,19 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
   const clientRequetes = useQueryClient();
   const { peutSurProjet, voitMontants } = useDroits();
 
-  const [etat, setEtat] = useState<EtatFormulaire>(() => etatInitialDepuisProjet(projet));
+  const libelleStatutComposante = (code: StatutComposanteDecoupage) =>
+    t(`options.statutsComposante.${code}`);
+
+  const [etat, setEtat] = useState<EtatFormulaire>(() =>
+    etatInitialDepuisProjet(projet, libelleStatutComposante),
+  );
   const [rubriqueActive, setRubriqueActive] = useState<IdRubrique>("s1");
   const [nouveauxContrats, setNouveauxContrats] = useState<File[]>([]);
   const [nouvelOs, setNouvelOs] = useState<File[]>([]);
+  const [historiqueContratsOuvert, setHistoriqueContratsOuvert] = useState(false);
   const [enCours, setEnCours] = useState(false);
   const [importEnCours, setImportEnCours] = useState(false);
+  const [syncIntervenantsEnCours, setSyncIntervenantsEnCours] = useState(false);
   const [pays, setPays] = useState("");
 
   useEffect(() => {
@@ -275,6 +381,163 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
       vivant = false;
     };
   }, []);
+
+  const requeteArbre = useQuery({
+    queryKey: cleArbre(projet.id),
+    queryFn: ({ signal }) => lireArbre(projet.id, signal),
+    enabled: projet.decoupageCree,
+  });
+
+  const niveau1 = useMemo(() => {
+    const niveaux = requeteArbre.data?.niveaux ?? [];
+    return niveaux.find((n) => n.ordre === 1) ?? niveaux[0] ?? null;
+  }, [requeteArbre.data?.niveaux]);
+
+  const requeteListes = useQuery({
+    queryKey: CLE_LISTES,
+    queryFn: ({ signal }) => listerListes(signal),
+    enabled: Boolean(niveau1?.liste),
+  });
+
+  const requeteAffectations = useQuery({
+    queryKey: cleAffectationsCollaborateurs(projet.id),
+    queryFn: ({ signal }) => listerAffectationsCollaborateurs(projet.id, signal),
+  });
+
+  const requeteTiersMoa = useQuery({
+    queryKey: cleTiers("CLIENT_MOA"),
+    queryFn: ({ signal }) => listerTiers("CLIENT_MOA", signal),
+  });
+
+  const requeteTousTiers = useQuery({
+    queryKey: cleTiers(),
+    queryFn: ({ signal }) => listerTiers(undefined, signal),
+  });
+
+  const estPublic = projet.natureProjet === "PUBLIC";
+
+  const optionsPhases = useMemo(() => {
+    if (projet.phasesDisponibles.length > 0) {
+      return projet.phasesDisponibles.map((p) => ({
+        cle: p.id,
+        libelle: p.libelle,
+      }));
+    }
+    return (requeteArbre.data?.cases ?? [])
+      .filter((une) => une.estActif && une.acces === "COMPLET")
+      .map((une) => ({ cle: une.id, libelle: une.libelle }));
+  }, [projet.phasesDisponibles, requeteArbre.data?.cases]);
+
+  const phaseEffective = etat.infos.phase || projet.phaseActuelle || "";
+
+  const tiersMoaActuel = useMemo(
+    () =>
+      (requeteTiersMoa.data ?? []).find(
+        (item) =>
+          item.raisonSociale.trim().toLowerCase() === etat.maitreOuvrage.trim().toLowerCase(),
+      ),
+    [requeteTiersMoa.data, etat.maitreOuvrage],
+  );
+
+  const telMoaDynamique = tiersMoaActuel?.telephone || projet.client.telephone || null;
+  const emailMoaDynamique = tiersMoaActuel?.email || projet.client.email || null;
+  const contactMoaDynamique = useMemo(
+    () =>
+      [telMoaDynamique ? afficherTelephone(telMoaDynamique) : null, emailMoaDynamique]
+        .filter(Boolean)
+        .join(" · "),
+    [telMoaDynamique, emailMoaDynamique],
+  );
+
+  const syntheseAvenantsTexte = useMemo(() => {
+    const synth = projet.syntheseAvenantsDelai;
+    if (!synth) return etat.infos.reprogrammation ?? "";
+    const parties: string[] = [];
+    if (synth.nombreAvenants > 0) {
+      const dureeProl = formaterDureeCalendaire(synth.prolongationAvenants);
+      parties.push(
+        dureeProl !== ABSENT
+          ? t("champs.syntheseAvenantsDuree", {
+              nombre: synth.nombreAvenants,
+              duree: dureeProl,
+            })
+          : t("champs.syntheseAvenantsJours", {
+              nombre: synth.nombreAvenants,
+              jours: synth.avenantsDelaiJours,
+            }),
+      );
+    }
+    if (synth.nombreReprogrammations > 0) {
+      parties.push(
+        synth.derniereReprogrammationLe
+          ? t("champs.syntheseReprogrammationsAvecDate", {
+              nombre: synth.nombreReprogrammations,
+              jours: synth.ecartReprogrammationJours,
+              date: formaterDate(synth.derniereReprogrammationLe),
+            })
+          : t("champs.syntheseReprogrammations", {
+              nombre: synth.nombreReprogrammations,
+              jours: synth.ecartReprogrammationJours,
+            }),
+      );
+    }
+    return parties.length > 0 ? parties.join(" · ") : t("champs.aucunAvenantReprog");
+  }, [projet.syntheseAvenantsDelai, etat.infos.reprogrammation, t]);
+
+  const budgetContractuelCentimes =
+    projet.syntheseAvenantsDelai?.budgetContractuel ?? projet.budgetCourant;
+  const budgetContractuelFormate =
+    budgetContractuelCentimes !== null
+      ? formaterSaisieMontant(String(centimesEnFrancs(budgetContractuelCentimes)))
+      : "";
+
+  const optionsComposante = useMemo<OptionCombobox[]>(() => {
+    const liste = trouverListeDuNiveau(requeteListes.data ?? [], niveau1?.liste);
+    if (!liste) return [];
+    return liste.valeurs.map((v) => ({
+      valeur: v.libelle,
+      libelle: v.libelle,
+      groupe: v.groupe || undefined,
+    }));
+  }, [requeteListes.data, niveau1?.liste]);
+
+  const perimetresArbre = useMemo(
+    () => collecterPerimetresArbre(requeteArbre.data?.cases ?? []),
+    [requeteArbre.data?.cases],
+  );
+
+  const optionsPerimetre = useMemo<OptionCombobox[]>(
+    () =>
+      perimetresArbre.map((p) => ({
+        valeur: p.chemin,
+        libelle: p.numero ? `${p.numero} · ${p.chemin}` : p.chemin,
+        groupe: p.niveauLibelle || undefined,
+      })),
+    [perimetresArbre],
+  );
+
+  const affectationsActives = useMemo(
+    () => (requeteAffectations.data ?? []).filter((a) => a.estActif && !a.dateFin),
+    [requeteAffectations.data],
+  );
+
+  const optionsMembresProjet = useMemo<OptionCombobox[]>(
+    () =>
+      affectationsActives.map((a) => ({
+        valeur: a.utilisateur.nomComplet,
+        libelle: a.roleProjetLibelle
+          ? `${a.utilisateur.nomComplet} — ${a.roleProjetLibelle}`
+          : a.utilisateur.nomComplet,
+      })),
+    [affectationsActives],
+  );
+
+  const contratActif = projet.contratActif ?? projet.contrats[0] ?? null;
+  const anciennesVersionsContrat = useMemo(
+    () =>
+      projet.historiqueContrats.filter((c) => !c.estActif && c.id !== contratActif?.id),
+    [projet.historiqueContrats, contratActif?.id],
+  );
 
   const projetApercu = useMemo<Projet>(() => {
     const objectifs = etat.objectifsTexte
@@ -288,73 +551,86 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
     return {
       ...projet,
       nom: etat.nom,
-      natureProjet: etat.natureProjet,
-      typeProjet: etat.typeProjet || projet.typeProjet,
       ville: etat.ville,
       quartier: etat.quartier,
-      client: { ...projet.client, raisonSociale: etat.maitreOuvrage },
+      client: {
+        ...projet.client,
+        id: tiersMoaActuel?.id ?? projet.client.id,
+        raisonSociale: etat.maitreOuvrage,
+        telephone: telMoaDynamique,
+        email: emailMoaDynamique,
+      },
       maitreOeuvre: etat.maitreOeuvre || null,
       description: etat.description,
       dateDebutPrevue: etat.dateDebutPrevue || projet.dateDebutPrevue,
       dateFinPrevue: etat.dateFinPrevue || projet.dateFinPrevue,
-      dateDebutReelle: etat.dateDebutReelle || null,
-      dateFinReelle: etat.dateFinReelle || null,
       informationsComplementaires: {
         ...etat.infos,
+        phase: phaseEffective,
+        contact: contactMoaDynamique,
+        reprogrammation: syntheseAvenantsTexte,
+        budget_contractuel: budgetContractuelFormate,
         objectifs,
         impacts,
       },
     };
-  }, [projet, etat]);
+  }, [
+    projet,
+    etat,
+    tiersMoaActuel?.id,
+    telMoaDynamique,
+    emailMoaDynamique,
+    phaseEffective,
+    contactMoaDynamique,
+    syntheseAvenantsTexte,
+    budgetContractuelFormate,
+  ]);
 
   const fichePdf = useGenerationFicheProjet(projetApercu);
 
   const compteurs = useMemo(() => {
-    const pub = etat.natureProjet === "PUBLIC";
     const i = etat.infos;
     const listes: Record<IdRubrique, unknown[]> = {
-      s1: pub
+      s1: estPublic
         ? [
             etat.nom,
-            etat.typeProjet,
             etat.ville,
             etat.maitreOuvrage,
             i.tutelle,
             i.delegue,
             i.agence,
             i.secteur,
-            i.phase,
+            phaseEffective,
             etat.description,
           ]
         : [
             etat.nom,
-            etat.typeProjet,
             etat.ville,
             etat.maitreOuvrage,
             etat.maitreOeuvre,
             i.secteur,
-            i.phase,
+            phaseEffective,
             etat.description,
           ],
-      s2: pub
+      s2: estPublic
         ? [i.capacite_projet, i.superficie_ha, i.surface_batie, i.perimetre, etat.impactsTexte]
         : [i.surface_batie, i.terrain_m2, i.niveaux, i.usage, i.perimetre],
       s3: [
         etat.dateDebutPrevue,
         etat.dateFinPrevue,
         i.date_situation,
-        i.cout || projet.budgetInitial,
+        i.cout || projet.budgetInitial || budgetContractuelCentimes,
         i.devise,
       ],
-      s4: pub
+      s4: estPublic
         ? [i.mode_fin, i.statut_fin, i.etat_effectif, i.etat_decaissement, i.bailleurs]
         : [i.source_fin, i.statut_fin, i.etablissement, i.contractualisation],
-      s5: pub
+      s5: estPublic
         ? [i.disponibilite, i.delimitation, i.purge_total, i.etudes]
         : [i.disponibilite, i.titre_foncier, i.permis_statut, i.etudes],
       s6: [i.taux_saisi || projet.avancementReel, i.etat_narratif, i.lots],
       s7: [i.difficultes, i.recos],
-      s8: pub
+      s8: estPublic
         ? [i.coordonnateur?.nom, projet.chefProjet, i.intervenants]
         : [projet.chefProjet, i.intervenants],
       s9: [i.etapes, i.note_cp],
@@ -376,10 +652,9 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
       parRubrique,
       pct: totalChamps > 0 ? Math.round((totalRemplis / totalChamps) * 100) : 0,
     };
-  }, [etat, projet]);
+  }, [etat, estPublic, phaseEffective, budgetContractuelCentimes, projet]);
 
   const peutModifier = peutSurProjet("projets.ecrire", projet) && projetModifiable(projet);
-  const estPublic = etat.natureProjet === "PUBLIC";
   const verrouDates = datesVerrouillees({
     debut: projet.dateDebutPrevue,
     fin: projet.dateFinPrevue,
@@ -415,29 +690,66 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
     }
   }
 
-  async function importerLotsDepuisDecoupage() {
+  async function telechargerContrat(contrat: ContratProjet) {
+    try {
+      const blob = await telechargerContratProjet(projet.id, contrat.id);
+      const lien = document.createElement("a");
+      lien.href = URL.createObjectURL(blob);
+      lien.download = contrat.nom || `contrat-${projet.reference}`;
+      lien.click();
+      URL.revokeObjectURL(lien.href);
+    } catch (err) {
+      const cause = err as ErreurApi;
+      toast.error(cause.message || t("erreurEnregistrement"));
+    }
+  }
+
+  async function importerComposantesDepuisDecoupage() {
     if (!projet) return;
     setImportEnCours(true);
     try {
+      const projetFrais = await lireProjet(projet.id);
+      clientRequetes.setQueryData(cleProjet(projet.id), projetFrais);
+      if (projetFrais.avancementComposantes.length > 0) {
+        const lignes = composantesVersLignes(
+          projetFrais.avancementComposantes,
+          libelleStatutComposante,
+        );
+        majInfo("lots", lignes);
+        toast.success(t("importDecoupageSucces", { nombre: lignes.length }));
+        return;
+      }
       const arbre = await lireArbre(projet.id);
-      const racines = arbre.cases;
+      const racines = arbre.cases.filter((c) => c.estActif && c.acces === "COMPLET");
       if (racines.length === 0) {
         toast.info(t("importDecoupageSucces", { nombre: 0 }));
         return;
       }
-      const lignes: LotComplementaireProjet[] = racines.map((el, idx) => ({
-        code: el.code || el.numero || `L-${String(idx + 1).padStart(2, "0")}`,
-        nom: el.libelle,
-        montant: el.montant !== null ? String(Math.round(el.montant / 100)) : "",
-        avancement: el.avancement !== null ? String(Math.round(el.avancement)) : "0",
-        statut:
-          el.avancement !== null && el.avancement >= 100
-            ? t("options.statutsLot.termine")
-            : el.avancement !== null && el.avancement > 0
-              ? t("options.statutsLot.en_cours")
-              : t("options.statutsLot.non_demarre"),
-        prestataire: "",
-      }));
+      const lignes: LotComplementaireProjet[] = racines.map((el, idx) => {
+        const montantCentimes = el.estFeuille ? el.montant : (el.montant ?? el.poids);
+        const codeStatut =
+          normaliserStatutComposante(el.statut) ??
+          (el.cloture || (el.avancement !== null && el.avancement >= 100)
+            ? "CLOTURE"
+            : el.suspendu
+              ? "SUSPENDU"
+              : el.commence || (el.avancement !== null && el.avancement > 0)
+                ? "EN_COURS"
+                : "PLANIFIE");
+        return {
+          code: el.code || el.numero || `C-${String(idx + 1).padStart(2, "0")}`,
+          nom: el.libelle,
+          montant:
+            montantCentimes !== null
+              ? formaterSaisieMontant(String(centimesEnFrancs(montantCentimes)))
+              : "",
+          avancement: el.avancement !== null ? String(Math.round(el.avancement)) : "0",
+          statut: libelleStatutComposante(codeStatut),
+          prestataire: el.titulaireNom || el.titulaireEffectifNom || "",
+          element_id: el.id,
+          titulaire_id: el.titulaireId ?? el.titulaireEffectifId ?? null,
+        };
+      });
       majInfo("lots", lignes);
       toast.success(t("importDecoupageSucces", { nombre: lignes.length }));
     } catch (err) {
@@ -445,6 +757,27 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
       toast.error(cause.message || t("erreurEnregistrement"));
     } finally {
       setImportEnCours(false);
+    }
+  }
+
+  async function synchroniserIntervenantsDepuisProjet() {
+    if (!projet) return;
+    setSyncIntervenantsEnCours(true);
+    try {
+      const projetFrais = await lireProjet(projet.id);
+      clientRequetes.setQueryData(cleProjet(projet.id), projetFrais);
+      const lignes = intervenantsDynamiquesVersLignes(projetFrais.intervenantsExternes);
+      majInfo("intervenants", lignes);
+      if (lignes.length === 0) {
+        toast.info(t("syncIntervenantsSucces", { nombre: 0 }));
+      } else {
+        toast.success(t("syncIntervenantsSucces", { nombre: lignes.length }));
+      }
+    } catch (err) {
+      const cause = err as ErreurApi;
+      toast.error(cause.message || t("erreurEnregistrement"));
+    } finally {
+      setSyncIntervenantsEnCours(false);
     }
   }
 
@@ -463,30 +796,29 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
 
       const projetMaj = await modifierProjet(projet.id, {
         ...(projet.peutRenommer ? { nom: etat.nom } : {}),
-        natureProjet: etat.natureProjet,
-        typeProjet: etat.typeProjet || (projet.typeProjet ?? undefined),
         ville: etat.ville,
         quartier: etat.quartier,
         maitreOuvrage: etat.maitreOuvrage,
+        ...(tiersMoaActuel ? { clientId: tiersMoaActuel.id } : {}),
         maitreOeuvre: etat.maitreOeuvre,
         description: etat.description,
         ...(!verrouDates.debut && etat.dateDebutPrevue
           ? { dateDebutPrevue: etat.dateDebutPrevue }
           : {}),
         ...(!verrouDates.fin && etat.dateFinPrevue ? { dateFinPrevue: etat.dateFinPrevue } : {}),
-        dateDebutReelle: etat.dateDebutReelle || null,
-        dateFinReelle: etat.dateFinReelle || null,
         informationsComplementaires: {
           ...etat.infos,
+          phase: phaseEffective,
+          contact: contactMoaDynamique,
           objectifs,
           impacts,
         },
-        contrats: nouveauxContrats.length > 0 ? nouveauxContrats : undefined,
+        contrats: nouveauxContrats.length > 0 ? nouveauxContrats.slice(0, 1) : undefined,
         ordreService: nouvelOs[0] ?? undefined,
       });
 
       clientRequetes.setQueryData(cleProjet(projet.id), projetMaj);
-      void clientRequetes.invalidateQueries({ queryKey: ["projets", "liste"] });
+      void clientRequetes.invalidateQueries({ queryKey: CLE_LISTE_PROJETS });
       setNouveauxContrats([]);
       setNouvelOs([]);
       toast.success(t("succesEnregistrement"));
@@ -509,53 +841,18 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Barre supérieure : bascule Public/Privé, jauge de complétion et boutons d'action */}
+      {/* Barre supérieure : jauge de complétion et boutons d'action */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-solid border-neutral-200 bg-white p-4 shadow-xs">
-        <div className="flex flex-wrap items-center gap-4">
-          <div
-            role="radiogroup"
-            aria-label={t("champs.natureProjet")}
-            className="inline-flex rounded-lg border border-solid border-neutral-200 bg-neutral-100 p-1"
-          >
-            {NATURES_PROJET.map((nature) => {
-              const actif = etat.natureProjet === nature;
-              return (
-                <button
-                  key={nature}
-                  type="button"
-                  role="radio"
-                  aria-checked={actif}
-                  disabled={!peutModifier || enCours}
-                  onClick={() => majChamp("natureProjet", nature)}
-                  className={cn(
-                    "inline-flex cursor-pointer items-center gap-2 rounded-md border-0 px-3.5 py-1.5 text-xs font-bold transition-colors",
-                    actif
-                      ? "bg-neutral-900 text-white shadow-xs"
-                      : "bg-transparent text-neutral-600 hover:text-neutral-900",
-                  )}
-                >
-                  {nature === "PUBLIC" ? (
-                    <Landmark className="size-3.5" aria-hidden="true" />
-                  ) : (
-                    <Building2 className="size-3.5" aria-hidden="true" />
-                  )}
-                  {tCreation(`natureProjet.${nature}`)}
-                </button>
-              );
-            })}
+        <div className="flex items-center gap-2.5">
+          <div className="h-2 w-28 overflow-hidden rounded-full bg-neutral-200">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${compteurs.pct}%` }}
+            />
           </div>
-
-          <div className="flex items-center gap-2.5">
-            <div className="h-2 w-28 overflow-hidden rounded-full bg-neutral-200">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${compteurs.pct}%` }}
-              />
-            </div>
-            <span className="text-xs font-semibold text-neutral-700 tabular-nums">
-              {t("completion", { pct: compteurs.pct })}
-            </span>
-          </div>
+          <span className="text-xs font-semibold text-neutral-700 tabular-nums">
+            {t("completion", { pct: compteurs.pct })}
+          </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -635,16 +932,6 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
               );
             })}
           </nav>
-
-          <div className="mt-1 rounded-md border border-solid border-neutral-200 bg-neutral-50 p-3 text-xs leading-relaxed text-neutral-600">
-            <div className="mb-1 flex items-center gap-1.5 font-bold text-neutral-800">
-              <Badge variante={estPublic ? "secondaire" : "primaire"}>
-                {estPublic ? t("badgePublic") : t("badgePrive")}
-              </Badge>
-              <span>{t("legendeTitre")}</span>
-            </div>
-            <p className="m-0">{estPublic ? t("legendePublic") : t("legendePrive")}</p>
-          </div>
         </aside>
 
         <div className="flex flex-col gap-6">
@@ -684,17 +971,6 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                 />
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold text-neutral-700">
-                  {t("champs.typeProjet")}
-                </Label>
-                <ComboboxTypeProjet
-                  valeur={etat.typeProjet}
-                  onChange={(val) => majChamp("typeProjet", val)}
-                  disabled={!peutModifier || enCours}
-                />
-              </div>
-
               <ChampSelect
                 id="cfg-secteur"
                 label={t("champs.secteur")}
@@ -711,13 +987,12 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
               <ChampSelect
                 id="cfg-phase"
                 label={t("champs.phase")}
-                valeur={etat.infos.phase ?? ""}
-                placeholder={t("selectionner")}
+                valeur={phaseEffective}
+                placeholder={
+                  optionsPhases.length > 0 ? t("selectionner") : t("champs.aucunePhaseDecoupage")
+                }
                 disabled={!peutModifier || enCours}
-                options={CLES_PHASES.map((cle) => ({
-                  cle,
-                  libelle: t(`options.phases.${cle}`),
-                }))}
+                options={optionsPhases}
                 onChange={(val) => majInfo("phase", val)}
               />
 
@@ -801,10 +1076,10 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                 </Label>
                 <Input
                   id="cfg-contact"
-                  value={etat.infos.contact ?? ""}
-                  placeholder={t("champs.contactPlaceholder")}
-                  onChange={(e) => majInfo("contact", e.target.value)}
-                  disabled={!peutModifier || enCours}
+                  value={contactMoaDynamique}
+                  placeholder={t("champs.contactMoaAuto")}
+                  readOnly
+                  className="bg-neutral-100"
                 />
               </div>
 
@@ -1200,11 +1475,14 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                   {t("champs.dateDebutReelle")}
                 </Label>
                 <SelecteurDate
-                  valeur={etat.dateDebutReelle}
-                  onChange={(val) => majChamp("dateDebutReelle", val)}
-                  placeholder={tCreation("champDateChoisir")}
-                  disabled={!peutModifier || enCours}
+                  valeur={projet.dateDebutReelle ?? ""}
+                  onChange={() => {}}
+                  placeholder={t("champs.nonDemarreAuto")}
+                  disabled
                 />
+                <span className="text-[11px] text-neutral-500">
+                  {t("champs.dateDebutReelleAide")}
+                </span>
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -1212,11 +1490,14 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                   {t("champs.dateFinReelle")}
                 </Label>
                 <SelecteurDate
-                  valeur={etat.dateFinReelle}
-                  onChange={(val) => majChamp("dateFinReelle", val)}
-                  placeholder={tCreation("champDateChoisir")}
-                  disabled={!peutModifier || enCours}
+                  valeur={projet.dateFinReelle ?? ""}
+                  onChange={() => {}}
+                  placeholder={t("champs.nonClotureAuto")}
+                  disabled
                 />
+                <span className="text-[11px] text-neutral-500">
+                  {t("champs.dateFinReelleAide")}
+                </span>
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -1242,10 +1523,9 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
               </Label>
               <Input
                 id="cfg-reprog"
-                value={etat.infos.reprogrammation ?? ""}
-                placeholder={t("champs.reprogrammationPlaceholder")}
-                onChange={(e) => majInfo("reprogrammation", e.target.value)}
-                disabled={!peutModifier || enCours}
+                value={syntheseAvenantsTexte}
+                readOnly
+                className="bg-neutral-100"
               />
             </div>
 
@@ -1259,7 +1539,9 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                     id="cfg-cout"
                     value={etat.infos.cout ?? ""}
                     placeholder={t("champs.coutPlaceholder")}
-                    onChange={(e) => majInfo("cout", e.target.value)}
+                    inputMode="numeric"
+                    className="tabular-nums"
+                    onChange={(e) => majInfo("cout", formaterSaisieMontant(e.target.value))}
                     disabled={!peutModifier || enCours}
                   />
                 </div>
@@ -1304,11 +1586,19 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                   </Label>
                   <Input
                     id="cfg-budget-contractuel"
-                    value={etat.infos.budget_contractuel ?? ""}
-                    placeholder={t("champs.budgetContractuelPlaceholder")}
-                    onChange={(e) => majInfo("budget_contractuel", e.target.value)}
-                    disabled={!peutModifier || enCours}
+                    value={budgetContractuelFormate}
+                    placeholder={t("champs.budgetContractuelNonDefini")}
+                    readOnly
+                    className="bg-neutral-100 tabular-nums"
                   />
+                  {projet.budgetContractuelInitial !== null && projet.montantAvenants > 0 && (
+                    <span className="text-[11px] text-neutral-500 tabular-nums">
+                      {t("champs.budgetContractuelDecomposition", {
+                        initial: formaterMontant(projet.budgetContractuelInitial),
+                        avenants: formaterMontant(projet.montantAvenants),
+                      })}
+                    </span>
+                  )}
                 </div>
 
                 {estPublic && (
@@ -1328,7 +1618,7 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
               </div>
             )}
 
-            {/* Ordre de service de démarrage & Contrats */}
+            {/* Ordre de service de démarrage & Contrat du marché (unique + historique) */}
             <div className="grid grid-cols-2 gap-4 border-0 border-t border-solid border-neutral-200 pt-4 max-sm:grid-cols-1">
               <div className="flex flex-col gap-2">
                 <Label className="text-xs font-semibold text-neutral-700">
@@ -1384,57 +1674,109 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                 <Label className="text-xs font-semibold text-neutral-700">
                   {tCreation("sectionContrat")}
                 </Label>
-                {projet.contrats.length > 0 && (
-                  <div className="flex flex-col gap-1.5">
-                    {projet.contrats.map((contrat) => (
-                      <div
-                        key={contrat.id}
-                        className="flex items-center justify-between gap-2 rounded-md border border-solid border-neutral-200 bg-neutral-50 px-3 py-1.5"
-                      >
+                {contratActif && (
+                  <div className="flex flex-col gap-2 rounded-md border border-solid border-neutral-200 bg-neutral-50 px-3 py-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
                         <span className="truncate text-xs font-medium text-neutral-800">
-                          {contrat.nom}
+                          {contratActif.nomSansExtension ||
+                            nomFichierSansExtension(contratActif.nom)}
                         </span>
+                        <Badge variante="primaire">
+                          {tCreation("versionContrat", { version: contratActif.version })}
+                        </Badge>
+                        <Badge variante="succes">{t("contratActifBadge")}</Badge>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {anciennesVersionsContrat.length > 0 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs text-neutral-600"
+                            onClick={() => setHistoriqueContratsOuvert((o) => !o)}
+                          >
+                            <History className="size-3.5" aria-hidden="true" />
+                            {tCreation("historiqueVersions", {
+                              nombre: anciennesVersionsContrat.length,
+                            })}
+                          </Button>
+                        )}
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           className="h-7 text-xs"
-                          onClick={async () => {
-                            try {
-                              const blob = await telechargerContratProjet(projet.id, contrat.id);
-                              const lien = document.createElement("a");
-                              lien.href = URL.createObjectURL(blob);
-                              lien.download = contrat.nom || `contrat-${projet.reference}`;
-                              lien.click();
-                              URL.revokeObjectURL(lien.href);
-                            } catch (err) {
-                              const cause = err as ErreurApi;
-                              toast.error(cause.message || t("erreurEnregistrement"));
-                            }
-                          }}
+                          onClick={() => void telechargerContrat(contratActif)}
                         >
                           <FileDown className="size-3.5" aria-hidden="true" />
-                          {tCreation("telechargerOrdreService")}
+                          {tCreation("telechargerContrat")}
                         </Button>
                       </div>
-                    ))}
+                    </div>
+
+                    {historiqueContratsOuvert && anciennesVersionsContrat.length > 0 && (
+                      <ul className="m-0 flex list-none flex-col gap-1.5 border-0 border-t border-solid border-neutral-200 p-0 pt-2">
+                        {anciennesVersionsContrat.map((version) => (
+                          <li
+                            key={version.id}
+                            className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-700"
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              <Badge variante="neutre">
+                                {tCreation("versionContrat", { version: version.version })}
+                              </Badge>
+                              <span className="truncate font-medium">
+                                {version.nomSansExtension ||
+                                  nomFichierSansExtension(version.nom)}
+                              </span>
+                              {version.creeLe && (
+                                <span className="text-neutral-500">
+                                  {formaterDate(version.creeLe)}
+                                </span>
+                              )}
+                              {version.creeParNom && (
+                                <span className="text-neutral-500">{version.creeParNom}</span>
+                              )}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-primary-600"
+                              onClick={() => void telechargerContrat(version)}
+                            >
+                              <FileDown className="size-3.5" aria-hidden="true" />
+                              {tCreation("telechargerContrat")}
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 )}
                 {peutModifier && (
-                  <ZoneDepotFichiers
-                    fichiers={nouveauxContrats}
-                    onChange={setNouveauxContrats}
-                    name="contrats_config"
-                    accept={FORMAT_CONTRAT}
-                    multiple
-                    maximum={NOMBRE_MAX_CONTRATS}
-                    refuser={motifRefusContrat}
-                    consigne={tCreation("consigneContrats", {
-                      taille: formaterTailleFichier(TAILLE_MAX_CONTRAT),
-                      max: NOMBRE_MAX_CONTRATS,
-                    })}
-                    disabled={enCours}
-                  />
+                  <>
+                    <ZoneDepotFichiers
+                      fichiers={nouveauxContrats}
+                      onChange={(fichiers) =>
+                        setNouveauxContrats(fichiers.slice(0, NOMBRE_MAX_CONTRATS))
+                      }
+                      name="contrats_config"
+                      accept={FORMAT_CONTRAT}
+                      maximum={NOMBRE_MAX_CONTRATS}
+                      refuser={motifRefusContrat}
+                      consigne={tCreation("consigneContratUnique", {
+                        taille: formaterTailleFichier(TAILLE_MAX_CONTRAT),
+                      })}
+                      disabled={enCours}
+                    />
+                    {contratActif && (
+                      <span className="text-[11px] text-neutral-500">
+                        {tCreation("aideRemplacementContrat")}
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -1506,7 +1848,11 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                     id="cfg-etat-eff"
                     value={etat.infos.etat_effectif ?? ""}
                     placeholder={t("champs.etatEffectifPlaceholder")}
-                    onChange={(e) => majInfo("etat_effectif", e.target.value)}
+                    inputMode="numeric"
+                    className="tabular-nums"
+                    onChange={(e) =>
+                      majInfo("etat_effectif", formaterSaisieMontant(e.target.value))
+                    }
                     disabled={!peutModifier || enCours}
                   />
                 </div>
@@ -1522,7 +1868,11 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                     id="cfg-etat-dec"
                     value={etat.infos.etat_decaissement ?? ""}
                     placeholder={t("champs.etatDecaissementPlaceholder")}
-                    onChange={(e) => majInfo("etat_decaissement", e.target.value)}
+                    inputMode="numeric"
+                    className="tabular-nums"
+                    onChange={(e) =>
+                      majInfo("etat_decaissement", formaterSaisieMontant(e.target.value))
+                    }
                     disabled={!peutModifier || enCours}
                   />
                 </div>
@@ -1638,7 +1988,11 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                     id="cfg-etat-eff-prive"
                     value={etat.infos.etat_effectif ?? ""}
                     placeholder={t("champs.etatEffectifPlaceholder")}
-                    onChange={(e) => majInfo("etat_effectif", e.target.value)}
+                    inputMode="numeric"
+                    className="tabular-nums"
+                    onChange={(e) =>
+                      majInfo("etat_effectif", formaterSaisieMontant(e.target.value))
+                    }
                     disabled={!peutModifier || enCours}
                   />
                 </div>
@@ -1654,7 +2008,11 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                     id="cfg-etat-dec-prive"
                     value={etat.infos.etat_decaissement ?? ""}
                     placeholder={t("champs.etatDecaissementPlaceholder")}
-                    onChange={(e) => majInfo("etat_decaissement", e.target.value)}
+                    inputMode="numeric"
+                    className="tabular-nums"
+                    onChange={(e) =>
+                      majInfo("etat_decaissement", formaterSaisieMontant(e.target.value))
+                    }
                     disabled={!peutModifier || enCours}
                   />
                 </div>
@@ -1703,8 +2061,8 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                       <tr className="border-0 border-b border-solid border-neutral-200 bg-neutral-50 text-left font-semibold text-neutral-700">
                         <th className="p-2">{t("tableaux.bailleurs.org")}</th>
                         <th className="p-2">{t("tableaux.bailleurs.type")}</th>
-                        <th className="p-2">{t("tableaux.bailleurs.signature")}</th>
-                        <th className="p-2">{t("tableaux.bailleurs.limite")}</th>
+                        <th className="min-w-44 p-2">{t("tableaux.bailleurs.signature")}</th>
+                        <th className="min-w-44 p-2">{t("tableaux.bailleurs.limite")}</th>
                         <th className="p-2">{t("tableaux.bailleurs.effectif")}</th>
                         <th className="p-2">{t("tableaux.bailleurs.decaisse")}</th>
                         {peutModifier && <th className="w-10 p-2" />}
@@ -1739,37 +2097,43 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                               />
                             </td>
                             <td className="p-1.5">
-                              <Input
-                                type="date"
-                                value={ligne.signature}
-                                onChange={(e) => majLigne("signature", e.target.value)}
+                              <SelecteurDate
+                                valeur={ligne.signature}
+                                onChange={(val) => majLigne("signature", val)}
+                                placeholder={tCreation("champDateChoisir")}
                                 disabled={!peutModifier}
-                                className="h-8 text-xs"
+                                className="h-8 px-2 text-xs"
                               />
                             </td>
                             <td className="p-1.5">
-                              <Input
-                                type="date"
-                                value={ligne.limite}
-                                onChange={(e) => majLigne("limite", e.target.value)}
+                              <SelecteurDate
+                                valeur={ligne.limite}
+                                onChange={(val) => majLigne("limite", val)}
+                                placeholder={tCreation("champDateChoisir")}
                                 disabled={!peutModifier}
-                                className="h-8 text-xs"
+                                className="h-8 px-2 text-xs"
                               />
                             </td>
                             <td className="p-1.5">
                               <Input
                                 value={ligne.effectif}
-                                onChange={(e) => majLigne("effectif", e.target.value)}
+                                inputMode="numeric"
+                                onChange={(e) =>
+                                  majLigne("effectif", formaterSaisieMontant(e.target.value))
+                                }
                                 disabled={!peutModifier}
-                                className="h-8 text-xs"
+                                className="h-8 text-xs tabular-nums"
                               />
                             </td>
                             <td className="p-1.5">
                               <Input
                                 value={ligne.decaisse}
-                                onChange={(e) => majLigne("decaisse", e.target.value)}
+                                inputMode="numeric"
+                                onChange={(e) =>
+                                  majLigne("decaisse", formaterSaisieMontant(e.target.value))
+                                }
                                 disabled={!peutModifier}
-                                className="h-8 text-xs"
+                                className="h-8 text-xs tabular-nums"
                               />
                             </td>
                             {peutModifier && (
@@ -1851,7 +2215,11 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                       id="cfg-purge-tot"
                       value={etat.infos.purge_total ?? ""}
                       placeholder={t("champs.purgeTotalPlaceholder")}
-                      onChange={(e) => majInfo("purge_total", e.target.value)}
+                      inputMode="numeric"
+                      className="tabular-nums"
+                      onChange={(e) =>
+                        majInfo("purge_total", formaterSaisieMontant(e.target.value))
+                      }
                       disabled={!peutModifier || enCours}
                     />
                   </div>
@@ -1867,7 +2235,11 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                       id="cfg-purge-eng"
                       value={etat.infos.purge_engage ?? ""}
                       placeholder={t("champs.purgeEngagePlaceholder")}
-                      onChange={(e) => majInfo("purge_engage", e.target.value)}
+                      inputMode="numeric"
+                      className="tabular-nums"
+                      onChange={(e) =>
+                        majInfo("purge_engage", formaterSaisieMontant(e.target.value))
+                      }
                       disabled={!peutModifier || enCours}
                     />
                   </div>
@@ -1883,7 +2255,11 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                       id="cfg-purge-paye"
                       value={etat.infos.purge_paye ?? ""}
                       placeholder={t("champs.purgePayePlaceholder")}
-                      onChange={(e) => majInfo("purge_paye", e.target.value)}
+                      inputMode="numeric"
+                      className="tabular-nums"
+                      onChange={(e) =>
+                        majInfo("purge_paye", formaterSaisieMontant(e.target.value))
+                      }
                       disabled={!peutModifier || enCours}
                     />
                   </div>
@@ -2035,9 +2411,12 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                             <td className="p-1.5">
                               <Input
                                 value={ligne.montant}
-                                onChange={(e) => majLigne("montant", e.target.value)}
+                                inputMode="numeric"
+                                onChange={(e) =>
+                                  majLigne("montant", formaterSaisieMontant(e.target.value))
+                                }
                                 disabled={!peutModifier}
-                                className="h-8 text-xs"
+                                className="h-8 text-xs tabular-nums"
                               />
                             </td>
                             {peutModifier && (
@@ -2128,7 +2507,7 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                       size="sm"
                       className="h-7 text-xs"
                       disabled={importEnCours}
-                      onClick={() => void importerLotsDepuisDecoupage()}
+                      onClick={() => void importerComposantesDepuisDecoupage()}
                     >
                       {importEnCours ? (
                         <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
@@ -2146,12 +2525,14 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                         majInfo("lots", [
                           ...lots,
                           {
-                            code: `L-${String(lots.length + 1).padStart(2, "0")}`,
+                            code: `C-${String(lots.length + 1).padStart(2, "0")}`,
                             nom: "",
                             montant: "",
                             avancement: "0",
-                            statut: t("options.statutsLot.en_cours"),
+                            statut: libelleStatutComposante("PLANIFIE"),
                             prestataire: "",
+                            element_id: null,
+                            titulaire_id: null,
                           },
                         ])
                       }
@@ -2172,7 +2553,7 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                     <thead>
                       <tr className="border-0 border-b border-solid border-neutral-200 bg-neutral-50 text-left font-semibold text-neutral-700">
                         <th className="w-24 p-2">{t("tableaux.lots.code")}</th>
-                        <th className="p-2">{t("tableaux.lots.nom")}</th>
+                        <th className="min-w-52 p-2">{t("tableaux.lots.nom")}</th>
                         <th className="p-2">{t("tableaux.lots.montant")}</th>
                         <th className="w-28 p-2">{t("tableaux.lots.avancement")}</th>
                         <th className="p-2">{t("tableaux.lots.statut")}</th>
@@ -2187,6 +2568,13 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                           copie[idx] = { ...copie[idx], [cle]: val };
                           majInfo("lots", copie);
                         };
+                        const libellesStatuts = STATUTS_COMPOSANTE_DECOUPAGE.map((code) => ({
+                          code,
+                          libelle: libelleStatutComposante(code),
+                        }));
+                        const statutHorsListe =
+                          ligne.statut &&
+                          !libellesStatuts.some((s) => s.libelle === ligne.statut);
                         return (
                           <tr
                             key={idx}
@@ -2201,19 +2589,38 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                               />
                             </td>
                             <td className="p-1.5">
-                              <Input
-                                value={ligne.nom}
-                                onChange={(e) => majLigne("nom", e.target.value)}
-                                disabled={!peutModifier}
-                                className="h-8 text-xs"
-                              />
+                              {optionsComposante.length > 0 ? (
+                                <Combobox
+                                  options={optionsComposante}
+                                  valeur={ligne.nom}
+                                  onChange={(val) => majLigne("nom", val)}
+                                  libelleSaisieLibre={(saisie) =>
+                                    t("utiliserValeurLibre", { saisie })
+                                  }
+                                  placeholder={t("tableaux.lots.nomPlaceholder")}
+                                  placeholderRecherche={t("rechercherOuSaisir")}
+                                  aucunResultat={t("aucunResultat")}
+                                  disabled={!peutModifier}
+                                  className="h-8 text-xs"
+                                />
+                              ) : (
+                                <Input
+                                  value={ligne.nom}
+                                  onChange={(e) => majLigne("nom", e.target.value)}
+                                  disabled={!peutModifier}
+                                  className="h-8 text-xs"
+                                />
+                              )}
                             </td>
                             <td className="p-1.5">
                               <Input
                                 value={ligne.montant}
-                                onChange={(e) => majLigne("montant", e.target.value)}
+                                inputMode="numeric"
+                                onChange={(e) =>
+                                  majLigne("montant", formaterSaisieMontant(e.target.value))
+                                }
                                 disabled={!peutModifier}
-                                className="h-8 text-xs"
+                                className="h-8 text-xs tabular-nums"
                               />
                             </td>
                             <td className="p-1.5">
@@ -2221,7 +2628,7 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                                 value={ligne.avancement}
                                 onChange={(e) => majLigne("avancement", e.target.value)}
                                 disabled={!peutModifier}
-                                className="h-8 text-xs"
+                                className="h-8 text-xs tabular-nums"
                               />
                             </td>
                             <td className="p-1.5">
@@ -2231,9 +2638,12 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                                 disabled={!peutModifier}
                                 className={cn(CHAMP_SELECT, "h-8 py-1 text-xs")}
                               >
-                                {CLES_STATUTS_LOT.map((cle) => (
-                                  <option key={cle} value={t(`options.statutsLot.${cle}`)}>
-                                    {t(`options.statutsLot.${cle}`)}
+                                {statutHorsListe && (
+                                  <option value={ligne.statut}>{ligne.statut}</option>
+                                )}
+                                {libellesStatuts.map((item) => (
+                                  <option key={item.code} value={item.libelle}>
+                                    {item.libelle}
                                   </option>
                                 ))}
                               </select>
@@ -2325,7 +2735,7 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                       <tr className="border-0 border-b border-solid border-neutral-200 bg-neutral-50 text-left font-semibold text-neutral-700">
                         <th className="p-2">{t("tableaux.difficultes.desc")}</th>
                         <th className="w-44 p-2">{t("tableaux.difficultes.gravite")}</th>
-                        <th className="w-36 p-2">{t("tableaux.difficultes.date")}</th>
+                        <th className="w-44 p-2">{t("tableaux.difficultes.date")}</th>
                         <th className="w-44 p-2">{t("tableaux.difficultes.statut")}</th>
                         {peutModifier && <th className="w-10 p-2" />}
                       </tr>
@@ -2365,12 +2775,12 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                               </select>
                             </td>
                             <td className="p-1.5">
-                              <Input
-                                type="date"
-                                value={ligne.date}
-                                onChange={(e) => majLigne("date", e.target.value)}
+                              <SelecteurDate
+                                valeur={ligne.date}
+                                onChange={(val) => majLigne("date", val)}
+                                placeholder={tCreation("champDateChoisir")}
                                 disabled={!peutModifier}
-                                className="h-8 text-xs"
+                                className="h-8 px-2 text-xs"
                               />
                             </td>
                             <td className="p-1.5">
@@ -2427,7 +2837,10 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                     size="sm"
                     className="h-7 text-xs"
                     onClick={() =>
-                      majInfo("recos", [...recos, { texte: "", dest: "", echeance: "" }])
+                      majInfo("recos", [
+                        ...recos,
+                        { texte: "", dest: "", echeance: "", responsable_id: null },
+                      ])
                     }
                   >
                     <Plus className="size-3.5" aria-hidden="true" />
@@ -2445,8 +2858,8 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                     <thead>
                       <tr className="border-0 border-b border-solid border-neutral-200 bg-neutral-50 text-left font-semibold text-neutral-700">
                         <th className="p-2">{t("tableaux.recos.texte")}</th>
-                        <th className="w-56 p-2">{t("tableaux.recos.dest")}</th>
-                        <th className="w-36 p-2">{t("tableaux.recos.echeance")}</th>
+                        <th className="w-64 p-2">{t("tableaux.recos.dest")}</th>
+                        <th className="w-44 p-2">{t("tableaux.recos.echeance")}</th>
                         {peutModifier && <th className="w-10 p-2" />}
                       </tr>
                     </thead>
@@ -2471,20 +2884,38 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                               />
                             </td>
                             <td className="p-1.5">
-                              <Input
-                                value={ligne.dest}
-                                onChange={(e) => majLigne("dest", e.target.value)}
+                              <Combobox
+                                options={optionsMembresProjet}
+                                valeur={ligne.dest}
+                                onChange={(val) => {
+                                  const membre = affectationsActives.find(
+                                    (a) => a.utilisateur.nomComplet === val,
+                                  );
+                                  const copie = [...recos];
+                                  copie[idx] = {
+                                    ...copie[idx],
+                                    dest: val,
+                                    responsable_id: membre?.utilisateur.id ?? null,
+                                  };
+                                  majInfo("recos", copie);
+                                }}
+                                libelleSaisieLibre={(saisie) =>
+                                  t("utiliserValeurLibre", { saisie })
+                                }
+                                placeholder={t("tableaux.recos.destPlaceholder")}
+                                placeholderRecherche={t("rechercherMembreOuSaisir")}
+                                aucunResultat={t("aucunMembreProjet")}
                                 disabled={!peutModifier}
                                 className="h-8 text-xs"
                               />
                             </td>
                             <td className="p-1.5">
-                              <Input
-                                type="date"
-                                value={ligne.echeance}
-                                onChange={(e) => majLigne("echeance", e.target.value)}
+                              <SelecteurDate
+                                valeur={ligne.echeance}
+                                onChange={(val) => majLigne("echeance", val)}
+                                placeholder={tCreation("champDateChoisir")}
                                 disabled={!peutModifier}
-                                className="h-8 text-xs"
+                                className="h-8 px-2 text-xs"
                               />
                             </td>
                             {peutModifier && (
@@ -2547,20 +2978,18 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <Label
-                    htmlFor="cfg-coord-tel"
-                    className="text-xs font-semibold text-neutral-700"
-                  >
+                  <Label className="text-xs font-semibold text-neutral-700">
                     {t("champs.coordTel")}
                   </Label>
-                  <Input
-                    id="cfg-coord-tel"
-                    value={coordonnateur.tel}
-                    placeholder={t("champs.coordTelPlaceholder")}
-                    onChange={(e) =>
-                      majInfo("coordonnateur", { ...coordonnateur, tel: e.target.value })
+                  <ChampTelephone
+                    paysDefaut={pays}
+                    international
+                    valeur={coordonnateur.tel}
+                    onChange={(val) =>
+                      majInfo("coordonnateur", { ...coordonnateur, tel: val })
                     }
                     disabled={!peutModifier || enCours}
+                    className="h-10"
                   />
                 </div>
 
@@ -2586,26 +3015,50 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
 
             {/* Tableau Intervenants externes */}
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-bold text-neutral-800">
                   {t("tableaux.intervenants.titre")}
                 </span>
                 {peutModifier && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() =>
-                      majInfo("intervenants", [
-                        ...intervenants,
-                        { role: "", org: "", lot: "" },
-                      ])
-                    }
-                  >
-                    <Plus className="size-3.5" aria-hidden="true" />
-                    {t("ajouterLigne")}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      disabled={syncIntervenantsEnCours}
+                      onClick={() => void synchroniserIntervenantsDepuisProjet()}
+                    >
+                      {syncIntervenantsEnCours ? (
+                        <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <RefreshCw className="size-3.5" aria-hidden="true" />
+                      )}
+                      {t("synchroniserIntervenants")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() =>
+                        majInfo("intervenants", [
+                          ...intervenants,
+                          {
+                            role: "",
+                            org: "",
+                            lot: "",
+                            perimetre: "",
+                            tiers_id: null,
+                            element_id: null,
+                          },
+                        ])
+                      }
+                    >
+                      <Plus className="size-3.5" aria-hidden="true" />
+                      {t("ajouterLigne")}
+                    </Button>
+                  </div>
                 )}
               </div>
               {intervenants.length === 0 ? (
@@ -2618,8 +3071,8 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                     <thead>
                       <tr className="border-0 border-b border-solid border-neutral-200 bg-neutral-50 text-left font-semibold text-neutral-700">
                         <th className="p-2">{t("tableaux.intervenants.role")}</th>
-                        <th className="p-2">{t("tableaux.intervenants.org")}</th>
-                        <th className="p-2">{t("tableaux.intervenants.lot")}</th>
+                        <th className="min-w-52 p-2">{t("tableaux.intervenants.org")}</th>
+                        <th className="min-w-56 p-2">{t("tableaux.intervenants.lot")}</th>
                         {peutModifier && <th className="w-10 p-2" />}
                       </tr>
                     </thead>
@@ -2647,17 +3100,48 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                               />
                             </td>
                             <td className="p-1.5">
-                              <Input
-                                value={ligne.org}
-                                onChange={(e) => majLigne("org", e.target.value)}
+                              <ComboboxTiers
+                                paysDefaut={pays}
+                                valeur={ligne.org}
+                                onChange={(val) => {
+                                  const tiers = (requeteTousTiers.data ?? []).find(
+                                    (item) =>
+                                      item.raisonSociale.trim().toLowerCase() ===
+                                      val.trim().toLowerCase(),
+                                  );
+                                  const copie = [...intervenants];
+                                  copie[idx] = {
+                                    ...copie[idx],
+                                    org: val,
+                                    tiers_id: tiers?.id ?? null,
+                                  };
+                                  majInfo("intervenants", copie);
+                                }}
                                 disabled={!peutModifier}
                                 className="h-8 text-xs"
                               />
                             </td>
                             <td className="p-1.5">
-                              <Input
-                                value={ligne.lot}
-                                onChange={(e) => majLigne("lot", e.target.value)}
+                              <Combobox
+                                options={optionsPerimetre}
+                                valeur={ligne.perimetre ?? ligne.lot}
+                                onChange={(val) => {
+                                  const perim = perimetresArbre.find((p) => p.chemin === val);
+                                  const copie = [...intervenants];
+                                  copie[idx] = {
+                                    ...copie[idx],
+                                    lot: val,
+                                    perimetre: val,
+                                    element_id: perim?.id ?? null,
+                                  };
+                                  majInfo("intervenants", copie);
+                                }}
+                                libelleSaisieLibre={(saisie) =>
+                                  t("utiliserValeurLibre", { saisie })
+                                }
+                                placeholder={t("tableaux.intervenants.perimetrePlaceholder")}
+                                placeholderRecherche={t("rechercherPerimetre")}
+                                aucunResultat={t("aucunPerimetre")}
                                 disabled={!peutModifier}
                                 className="h-8 text-xs"
                               />
@@ -2715,7 +3199,7 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                     onClick={() =>
                       majInfo("etapes", [
                         ...etapes,
-                        { etape: "", echeance: "", resp: "" },
+                        { etape: "", echeance: "", resp: "", responsable_id: null },
                       ])
                     }
                   >
@@ -2734,8 +3218,8 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                     <thead>
                       <tr className="border-0 border-b border-solid border-neutral-200 bg-neutral-50 text-left font-semibold text-neutral-700">
                         <th className="p-2">{t("tableaux.etapes.etape")}</th>
-                        <th className="w-40 p-2">{t("tableaux.etapes.echeance")}</th>
-                        <th className="w-56 p-2">{t("tableaux.etapes.resp")}</th>
+                        <th className="w-44 p-2">{t("tableaux.etapes.echeance")}</th>
+                        <th className="w-64 p-2">{t("tableaux.etapes.resp")}</th>
                         {peutModifier && <th className="w-10 p-2" />}
                       </tr>
                     </thead>
@@ -2760,18 +3244,36 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                               />
                             </td>
                             <td className="p-1.5">
-                              <Input
-                                type="date"
-                                value={ligne.echeance}
-                                onChange={(e) => majLigne("echeance", e.target.value)}
+                              <SelecteurDate
+                                valeur={ligne.echeance}
+                                onChange={(val) => majLigne("echeance", val)}
+                                placeholder={tCreation("champDateChoisir")}
                                 disabled={!peutModifier}
-                                className="h-8 text-xs"
+                                className="h-8 px-2 text-xs"
                               />
                             </td>
                             <td className="p-1.5">
-                              <Input
-                                value={ligne.resp}
-                                onChange={(e) => majLigne("resp", e.target.value)}
+                              <Combobox
+                                options={optionsMembresProjet}
+                                valeur={ligne.resp}
+                                onChange={(val) => {
+                                  const membre = affectationsActives.find(
+                                    (a) => a.utilisateur.nomComplet === val,
+                                  );
+                                  const copie = [...etapes];
+                                  copie[idx] = {
+                                    ...copie[idx],
+                                    resp: val,
+                                    responsable_id: membre?.utilisateur.id ?? null,
+                                  };
+                                  majInfo("etapes", copie);
+                                }}
+                                libelleSaisieLibre={(saisie) =>
+                                  t("utiliserValeurLibre", { saisie })
+                                }
+                                placeholder={t("tableaux.etapes.respPlaceholder")}
+                                placeholderRecherche={t("rechercherMembreOuSaisir")}
+                                aucunResultat={t("aucunMembreProjet")}
                                 disabled={!peutModifier}
                                 className="h-8 text-xs"
                               />

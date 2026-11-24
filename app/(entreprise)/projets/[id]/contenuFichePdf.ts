@@ -12,8 +12,10 @@ import {
   estEnRetard,
   financierDuProjet,
   libelleDelta,
+  libelleRoleEncadrementMembre,
   niveauBudget,
   niveauConformite,
+  nomFichierSansExtension,
   pointsDeVigilance,
   precisionChefChantier,
   prochainesEtapes,
@@ -37,6 +39,7 @@ import {
   formaterDate,
   formaterDateHeure,
   formaterDuree,
+  formaterDureeCalendaire,
   formaterMontant,
   formaterPourcentage,
 } from "@/lib/format";
@@ -168,6 +171,8 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
       ? libelles.natureProjet(projet.natureProjet)
       : null;
 
+  const phaseCourante = infos.phase?.trim() || projet.phaseActuelle || "";
+
   const pastilles: PastillePdf[] = [
     ...(libelleNature
       ? [
@@ -180,20 +185,19 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
     ...(projet.typeProjet
       ? [{ texte: libelles.typeProjet(projet.typeProjet), ton: "neutre" as const }]
       : []),
-    ...(infos.phase ? [{ texte: infos.phase, ton: "neutre" as const }] : []),
+    ...(phaseCourante ? [{ texte: phaseCourante, ton: "neutre" as const }] : []),
     { texte: libelles.statutProjet(projet.statut), ton: TON_STATUT[projet.statut] },
   ];
 
   /* --- 1. Identification du projet --- */
 
-  const contactClient =
-    infos.contact?.trim() ||
-    [
-      projet.client.telephone ? afficherTelephone(projet.client.telephone) : null,
-      projet.client.email,
-    ]
-      .filter(Boolean)
-      .join(" · ");
+  const contactDepuisMoa = [
+    projet.client.telephone ? afficherTelephone(projet.client.telephone) : null,
+    projet.client.email,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const contactClient = contactDepuisMoa || infos.contact?.trim() || "";
 
   const clesIdentification: CleValeurPdf[] = [
     ...(libelleNature
@@ -209,7 +213,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
       : t("identification.nonRenseigne"),
   });
   ajouterSiRempli(clesIdentification, t("identification.secteur"), infos.secteur);
-  ajouterSiRempli(clesIdentification, t("identification.phase"), infos.phase);
+  ajouterSiRempli(clesIdentification, t("identification.phase"), phaseCourante);
   clesIdentification.push(
     {
       libelle: estPublic ? t("identification.maitreOuvrage") : t("identification.client"),
@@ -233,10 +237,11 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
       valeur: projet.ordreService.nom,
     });
   }
-  if (projet.contrats.length > 0) {
+  const contratActif = projet.contratActif ?? projet.contrats[0] ?? null;
+  if (contratActif) {
     clesIdentification.push({
       libelle: t("identification.contrats"),
-      valeur: projet.contrats.map((c) => c.nom).join(", "),
+      valeur: contratActif.nomSansExtension || nomFichierSansExtension(contratActif.nom),
     });
   }
   ajouterSiRempli(
@@ -356,10 +361,43 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
           : undefined,
     },
   );
+  const syntheseReprogParties: string[] = [];
+  const synth = projet.syntheseAvenantsDelai;
+  if (synth && synth.nombreAvenants > 0) {
+    const dureeProl = formaterDureeCalendaire(synth.prolongationAvenants);
+    syntheseReprogParties.push(
+      dureeProl !== ABSENT
+        ? t("calendrier.syntheseAvenantsDuree", {
+            nombre: synth.nombreAvenants,
+            duree: dureeProl,
+          })
+        : t("calendrier.syntheseAvenantsJours", {
+            nombre: synth.nombreAvenants,
+            jours: synth.avenantsDelaiJours,
+          }),
+    );
+  }
+  if (synth && synth.nombreReprogrammations > 0) {
+    syntheseReprogParties.push(
+      t("calendrier.syntheseReprogrammations", {
+        nombre: synth.nombreReprogrammations,
+        jours: synth.ecartReprogrammationJours,
+      }),
+    );
+  }
+  const texteReprogrammation =
+    syntheseReprogParties.join(" · ") || infos.reprogrammation?.trim() || "";
+
+  if (projet.dateFinReelle) {
+    clesCalendrierBudget.push({
+      libelle: t("calendrier.finReelle"),
+      valeur: formaterDate(projet.dateFinReelle),
+    });
+  }
   ajouterSiRempli(
     clesCalendrierBudget,
     t("calendrier.reprogrammation"),
-    infos.reprogrammation,
+    texteReprogrammation,
     true,
   );
 
@@ -371,10 +409,12 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
         ? t("budget.nonDefini")
         : francs(projet.budgetInitial, true),
   });
-  if (projet.budgetCourant !== null) {
+  const budgetContractuelEffectif =
+    projet.syntheseAvenantsDelai?.budgetContractuel ?? projet.budgetCourant;
+  if (budgetContractuelEffectif !== null) {
     clesCalendrierBudget.push({
       libelle: t("budget.contractuel"),
-      valeur: francs(projet.budgetCourant, true),
+      valeur: francs(budgetContractuelEffectif, true),
     });
   } else if (infos.budget_contractuel?.trim()) {
     clesCalendrierBudget.push({
@@ -541,7 +581,19 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
           { texte: lot.montant || ABSENT },
           { texte: lot.statut || ABSENT, gras: true },
         ])
-      : lots.map((lot) => {
+      : projet.avancementComposantes.length > 0
+        ? projet.avancementComposantes.map((comp) => [
+            { texte: comp.code || ABSENT, gras: true },
+            { texte: comp.libelle || ABSENT, gras: true },
+            { texte: comp.titulaire || ABSENT },
+            { texte: ABSENT },
+            comp.avancement === null
+              ? { texte: ABSENT, ton: "neutre" }
+              : { texte: formaterPourcentage(comp.avancement), gras: true },
+            { texte: francs(comp.montant) },
+            { texte: comp.statutLibelle || comp.statut || ABSENT, gras: true },
+          ])
+        : lots.map((lot) => {
           const statut = statutLot(lot, maintenant);
           const avancement = lot.avancement ?? avancementLot(lot);
           const ton: TonPdf = statut === "SANS_ACTIVITE" ? "neutre" : BADGE_STATUT[statut];
@@ -747,7 +799,9 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
     membres.push({
       role: t("equipe.coordonnateur"),
       nom: infos.coordonnateur.nom.trim(),
-      tel: infos.coordonnateur.tel?.trim() || ABSENT,
+      tel: infos.coordonnateur.tel?.trim()
+        ? afficherTelephone(infos.coordonnateur.tel.trim())
+        : ABSENT,
       email: infos.coordonnateur.email?.trim() || ABSENT,
       designe: true,
     });
@@ -777,10 +831,12 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
     );
   }
   for (const membre of projet.autresMembres) {
-    ajouterIntervenantInterne(
-      libelles.fonctionAutreMembre(membre.fonction),
-      membre.intervenant,
-    );
+    const roleReel =
+      libelleRoleEncadrementMembre(membre) ||
+      (membre.fonction && membre.fonction !== "AUTRE"
+        ? libelles.fonctionAutreMembre(membre.fonction)
+        : t("equipe.membreEncadrement"));
+    ajouterIntervenantInterne(roleReel, membre.intervenant);
   }
 
   const blocsEquipe: BlocPdf[] = [
@@ -799,7 +855,19 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
       },
     },
   ];
-  if (infos.intervenants && infos.intervenants.length > 0) {
+  const intervenantsAffiches =
+    infos.intervenants && infos.intervenants.length > 0
+      ? infos.intervenants.map((intv) => ({
+          role: intv.role,
+          org: intv.org,
+          perimetre: intv.perimetre || intv.lot,
+        }))
+      : projet.intervenantsExternes.map((intv) => ({
+          role: intv.role,
+          org: intv.org || intv.nom,
+          perimetre: intv.perimetre,
+        }));
+  if (intervenantsAffiches.length > 0) {
     blocsEquipe.push({
       type: "tableau",
       vide: "",
@@ -810,10 +878,10 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
           t("equipe.intervenants.lot"),
         ],
         largeurs: [0.3, 0.4, 0.3],
-        lignes: infos.intervenants.map((intv) => [
+        lignes: intervenantsAffiches.map((intv) => [
           { texte: intv.role || ABSENT, gras: true },
           { texte: intv.org || ABSENT },
-          { texte: intv.lot || ABSENT },
+          { texte: intv.perimetre || ABSENT },
         ]),
       },
     });

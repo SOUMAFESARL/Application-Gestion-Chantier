@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { ExportTableau } from "@/components/ui/export-tableau";
-import { Input } from "@/components/ui/input";
+import { SelecteurDate } from "@/components/ui/SelecteurDate";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { BORD_DROIT_TABLEAU, TableauListe } from "@/components/ui/tableau-liste";
@@ -94,16 +94,26 @@ export function AffectationsCollaborateurs({ projet }: { projet: Projet }) {
       colonne.display({
         id: "role",
         header: t("colonnes.role"),
-        cell: ({ row }) => (
-          <span className="flex flex-col">
-            <span>{row.original.roleProjetLibelle}</span>
-            {row.original.rolePlateforme && row.original.rolePlateforme !== row.original.roleProjet && (
-              <span className="text-xs text-neutral-500">
-                {t("rolePlateforme", { role: row.original.rolePlateforme })}
-              </span>
-            )}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const libelleEntreprise =
+            row.original.rolePlateformeLibelle ||
+            row.original.fonctionEntreprise ||
+            row.original.rolePlateforme;
+          const afficherEntreprise =
+            Boolean(libelleEntreprise) &&
+            libelleEntreprise !== row.original.roleProjetLibelle &&
+            row.original.rolePlateforme !== row.original.roleProjet;
+          return (
+            <span className="flex flex-col">
+              <span>{row.original.roleProjetLibelle}</span>
+              {afficherEntreprise && (
+                <span className="text-xs text-neutral-500">
+                  {t("rolePlateforme", { role: libelleEntreprise })}
+                </span>
+              )}
+            </span>
+          );
+        },
       }),
       colonne.display({
         id: "perimetre",
@@ -172,7 +182,10 @@ export function AffectationsCollaborateurs({ projet }: { projet: Projet }) {
       colonnes: [
         { entete: t("colonnes.collaborateur"), valeur: (a) => a.utilisateur.nomComplet },
         { entete: t("colonnes.role"), valeur: (a) => a.roleProjetLibelle },
-        { entete: t("export.rolePlateforme"), valeur: (a) => a.rolePlateforme },
+        {
+          entete: t("export.rolePlateforme"),
+          valeur: (a) => a.rolePlateformeLibelle || a.fonctionEntreprise || a.rolePlateforme,
+        },
         {
           entete: t("colonnes.perimetre"),
           valeur: (a) => (a.perimetres.length === 0 ? t("toutLeProjet") : libellePerimetre(a.perimetres)),
@@ -446,6 +459,7 @@ export function FenetreRemplacement({
   onFermer: () => void;
 }) {
   const t = useTranslations("ficheProjet.affectations");
+  const tCreation = useTranslations("projets.tiroirCreation");
   const actualiser = useActualiser(projet.id);
   const [utilisateurId, setUtilisateurId] = useState("");
   const [date, setDate] = useState("");
@@ -505,11 +519,16 @@ export function FenetreRemplacement({
             </SelectContent>
           </Select>
         </label>
-        <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
-          {t("champDateChangement")}
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <div className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+          <span>{t("champDateChangement")}</span>
+          <SelecteurDate
+            valeur={date}
+            onChange={setDate}
+            placeholder={tCreation("champDateChoisir")}
+            disabled={ecriture.isPending}
+          />
           <span className="text-xs font-normal text-neutral-500">{t("aideDateChangement")}</span>
-        </label>
+        </div>
         {erreur && (
           <Alert variant="erreur">
             <AlertDescription>{erreur}</AlertDescription>

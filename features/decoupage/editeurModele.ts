@@ -95,6 +95,17 @@ export interface LibellesEditeurModele {
   importerExcel: string;
   ajouterLigne: string;
   retirerLigne: string;
+  ajouterRacine?: (niveau: string) => string;
+  ajouterEnfant?: (niveau: string) => string;
+  deplier?: string;
+  replier?: string;
+  toutDeplier?: string;
+  toutReplier?: string;
+  arbreVideTitre?: string;
+  arbreVideAide?: string;
+  saisirOuChoisir?: string;
+  listeValeurs?: string;
+  resumeFeuilles?: (n: number) => string;
   viderCellule: string;
   sansValeur: string;
   rechercherValeur: string;

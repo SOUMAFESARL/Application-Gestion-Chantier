@@ -150,7 +150,9 @@ export function VueArbre({ projet }: { projet: Projet }) {
             onClick={() => setGeste({ geste: "ajouter", cible: null })}
           >
             <Plus />
-            {t("ajouterRacine", { niveau: arbre.niveaux[0]?.libelle ?? "" })}
+            {t("ajouterRacine", {
+              niveau: arbre.niveaux[0]?.libelle?.trim() || t("composantProjetDefaut"),
+            })}
           </BoutonPermis>
         </div>
       </div>
@@ -254,8 +256,7 @@ function TableauArbre({
                   className={cn(
                     "truncate",
                     une.estFeuille ? "text-neutral-800" : "font-semibold text-neutral-900",
-                    (!une.estActif || une.acces === "CHEMIN") && "text-neutral-400",
-                    !une.estActif && "line-through",
+                    une.acces === "CHEMIN" && "text-neutral-400",
                   )}
                 >
                   {une.libelle}

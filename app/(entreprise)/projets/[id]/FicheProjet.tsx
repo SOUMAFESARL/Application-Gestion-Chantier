@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ChevronRight,
   FileDown,
+  History,
   Mail,
   Pencil,
   Phone,
@@ -63,6 +64,7 @@ import {
   largeurJauge,
   libelleDelta,
   niveauBudget,
+  nomFichierSansExtension,
   principalePenalite,
   ratioConsommationBudget,
   ROLE_PROJET_PAR_FONCTION,
@@ -179,6 +181,7 @@ export function FicheProjet({ projetId }: { projetId: string }) {
   // projet passe par « Remplacer », la seule voie d'un rôle unique par projet.
   const [ajout, setAjout] = useState<{ role: string; rang: number } | null>(null);
   const [remplacement, setRemplacement] = useState<AffectationCollaborateur | null>(null);
+  const [historiqueContratsOuvert, setHistoriqueContratsOuvert] = useState(false);
   const requeteAffectations = useQuery({
     queryKey: cleAffectationsCollaborateurs(projetId),
     queryFn: ({ signal }) => listerAffectationsCollaborateurs(projetId, signal),
@@ -317,34 +320,102 @@ export function FicheProjet({ projetId }: { projetId: string }) {
                   </span>
                 )}
               </Information>
-              {projet.contrats.length > 0 && (
-                <Information libelle={t("informations.contrats")} large>
-                  <div className="flex flex-wrap gap-3">
-                    {projet.contrats.map((contrat) => (
-                      <button
-                        key={contrat.id}
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            const blob = await telechargerContratProjet(projet.id, contrat.id);
-                            const lien = document.createElement("a");
-                            lien.href = URL.createObjectURL(blob);
-                            lien.download = contrat.nom;
-                            lien.click();
-                            URL.revokeObjectURL(lien.href);
-                          } catch {
-                            toast.error(t("informations.erreurTelechargement"));
-                          }
-                        }}
-                        className="inline-flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-left text-sm font-medium text-primary-600 hover:underline"
-                      >
-                        <FileDown size={14} aria-hidden="true" />
-                        <span>{contrat.nom}</span>
-                      </button>
-                    ))}
-                  </div>
-                </Information>
-              )}
+              {(() => {
+                const contratActif = projet.contratActif ?? projet.contrats[0] ?? null;
+                const anciennesVersions = projet.historiqueContrats.filter(
+                  (c) => !c.estActif && c.id !== contratActif?.id,
+                );
+                if (!contratActif && anciennesVersions.length === 0) return null;
+                const telecharger = async (contrat: (typeof projet.contrats)[number]) => {
+                  try {
+                    const blob = await telechargerContratProjet(projet.id, contrat.id);
+                    const lien = document.createElement("a");
+                    lien.href = URL.createObjectURL(blob);
+                    lien.download = contrat.nom;
+                    lien.click();
+                    URL.revokeObjectURL(lien.href);
+                  } catch {
+                    toast.error(t("informations.erreurTelechargement"));
+                  }
+                };
+                return (
+                  <Information libelle={t("informations.contrats")} large>
+                    <div className="flex flex-col gap-2">
+                      {contratActif && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void telecharger(contratActif)}
+                            className="inline-flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-left text-sm font-medium text-primary-600 hover:underline"
+                          >
+                            <FileDown size={14} aria-hidden="true" />
+                            <span>
+                              {contratActif.nomSansExtension ||
+                                nomFichierSansExtension(contratActif.nom)}
+                            </span>
+                          </button>
+                          {(contratActif.version > 1 || anciennesVersions.length > 0) && (
+                            <Badge variante="primaire">
+                              {t("informations.versionContrat", {
+                                version: contratActif.version,
+                              })}
+                            </Badge>
+                          )}
+                          {anciennesVersions.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setHistoriqueContratsOuvert((o) => !o)}
+                              className="inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-xs font-medium text-neutral-600 hover:text-primary-600 hover:underline"
+                            >
+                              <History size={13} aria-hidden="true" />
+                              <span>
+                                {t("informations.historiqueContrats", {
+                                  nombre: anciennesVersions.length,
+                                })}
+                              </span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {historiqueContratsOuvert && anciennesVersions.length > 0 && (
+                        <ul className="m-0 flex list-none flex-col gap-1.5 rounded-md border border-solid border-neutral-200 bg-neutral-50 p-2.5">
+                          {anciennesVersions.map((version) => (
+                            <li
+                              key={version.id}
+                              className="flex flex-wrap items-center justify-between gap-2 text-xs"
+                            >
+                              <span className="flex items-center gap-2 text-neutral-700">
+                                <Badge variante="neutre">
+                                  {t("informations.versionContrat", {
+                                    version: version.version,
+                                  })}
+                                </Badge>
+                                <span className="font-medium">
+                                  {version.nomSansExtension ||
+                                    nomFichierSansExtension(version.nom)}
+                                </span>
+                                {version.creeLe && (
+                                  <span className="text-neutral-500">
+                                    {formaterDate(version.creeLe)}
+                                  </span>
+                                )}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => void telecharger(version)}
+                                className="inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-xs font-medium text-primary-600 hover:underline"
+                              >
+                                <FileDown size={13} aria-hidden="true" />
+                                <span>{t("informations.telechargerVersion")}</span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </Information>
+                );
+              })()}
               {projet.description && (
                 <Information libelle={t("informations.description")} large>
                   <span className="text-neutral-700">{projet.description}</span>
@@ -433,8 +504,8 @@ export function FicheProjet({ projetId }: { projetId: string }) {
               rang: (courant?.rang ?? 0) + 1,
             }));
           }}
-          onRetirer={(fonction, intervenant, affectationId) =>
-            retirerEncadrement({ projet, fonction, intervenant, affectationId })
+          onRetirer={(fonction, intervenant, affectationId, roleLibelle) =>
+            retirerEncadrement({ projet, fonction, intervenant, affectationId, roleLibelle })
           }
         />
       </div>

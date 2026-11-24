@@ -26,6 +26,8 @@ export interface RetraitEncadrement {
   fonction: FonctionProjet;
   intervenant: Intervenant;
   affectationId: string;
+  /** Le vrai rôle de la personne dans l'entreprise ou sur le projet, pour la confirmation. */
+  roleLibelle?: string;
 }
 
 interface Props {
@@ -77,7 +79,11 @@ export function ModaleRetraitEncadrement({ retrait, onFermer, onModifie }: Props
               <DialogDescription>
                 {t("retrait.description", {
                   nom,
-                  fonction: t(`fonctionUnitaire.${retrait.fonction}`).toLowerCase(),
+                  fonction: (
+                    retrait.roleLibelle ||
+                    retrait.intervenant.fonctionEntreprise ||
+                    t(`fonctionUnitaire.${retrait.fonction}`)
+                  ).toLowerCase(),
                 })}
               </DialogDescription>
             </DialogHeader>

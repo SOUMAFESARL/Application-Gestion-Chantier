@@ -16,7 +16,8 @@
  *   POST/PATCH /projets/{id}/niveaux/[{niveau_id}/]  réglages des niveaux
  *   POST       /projets/{id}/elements/               ajouter une case
  *   PATCH      /elements/{id}/                       renommer, chiffrer, métrer
- *   POST       /elements/{id}/planifier|mesure|cloturer|rouvrir|desactiver|reactiver/
+ *   DELETE     /elements/{id}/                       supprimer une case et ses descendants
+ *   POST       /elements/{id}/planifier|mesure|cloturer|rouvrir/
  *
  * Les charges (`Charge*`) sont privées : elles décrivent un transport.
  */
@@ -689,6 +690,8 @@ interface ChargeCase {
   type_bordereau_effectif?: string;
   titulaire_id?: string | null;
   titulaire_effectif_id?: string | null;
+  titulaire_nom?: string | null;
+  titulaire_effectif_nom?: string | null;
   equipes?: ChargeEquipeCase[];
   equipes_heritees_de?: string | null;
   enfants?: ChargeCase[];
@@ -806,6 +809,8 @@ function versCase(charge: ChargeCase, temporels: Temporels): CaseArbre {
     typeBordereauEffectif: charge.type_bordereau_effectif ?? "",
     titulaireId: charge.titulaire_id ?? null,
     titulaireEffectifId: charge.titulaire_effectif_id ?? null,
+    titulaireNom: charge.titulaire_nom ?? null,
+    titulaireEffectifNom: charge.titulaire_effectif_nom ?? null,
     equipes: (charge.equipes ?? []).map(versEquipeCase),
     equipesHeriteesDe: charge.equipes_heritees_de ?? null,
     enfants: (charge.enfants ?? []).map((enfant) => versCase(enfant, temporels)),
@@ -959,16 +964,13 @@ export async function rouvrirCase(caseId: string, motif: string): Promise<CaseAr
   );
 }
 
-/** Sortir une case des calculs ; elle garde son historique. Motif de 10 caractères au moins. */
-export async function desactiverCase(caseId: string, motif: string): Promise<CaseArbre> {
-  return versCase(
-    await api.creer<ChargeCase>(`/elements/${caseId}/desactiver/`, { motif }),
-    new Map(),
-  );
-}
-
-export async function reactiverCase(caseId: string): Promise<CaseArbre> {
-  return versCase(await api.creer<ChargeCase>(`/elements/${caseId}/reactiver/`, {}), new Map());
+/**
+ * Supprime définitivement une case et tous ses descendants.
+ * Le serveur refuse l'opération si la case ou un descendant possède déjà des mesures,
+ * rapports journaliers, affectations d'équipes ou opérations de stock.
+ */
+export async function supprimerCase(caseId: string): Promise<void> {
+  await api.supprimer(`/elements/${caseId}/`);
 }
 
 export async function modifierNiveau(

@@ -11,11 +11,11 @@ import { EnTeteParametrage } from "../EnTeteParametrage";
 
 const ONGLETS: {
   href: string;
-  cle: "ongletModeles" | "ongletListes" | "ongletModesExecution" | "ongletTypesProjet";
+  cle: "ongletListes" | "ongletModeles" | "ongletModesExecution" | "ongletTypesProjet";
   icone: typeof Layers;
 }[] = [
-  { href: "/admin/parametres/referentiels/modeles", cle: "ongletModeles", icone: Layers },
   { href: "/admin/parametres/referentiels/listes", cle: "ongletListes", icone: ListChecks },
+  { href: "/admin/parametres/referentiels/modeles", cle: "ongletModeles", icone: Layers },
   {
     href: "/admin/parametres/referentiels/modes-execution",
     cle: "ongletModesExecution",
@@ -33,7 +33,7 @@ export function NavigationReferentielsPlateforme() {
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col gap-4 bg-background md:sticky md:top-16 md:z-30 md:-mx-6 md:-mt-6 md:px-6 md:pt-6 md:pb-3">
+    <div className="flex flex-col gap-4">
       <EnTeteParametrage section="referentiels" />
       <nav
         aria-label={t("titre")}

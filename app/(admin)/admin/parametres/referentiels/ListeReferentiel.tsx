@@ -6,11 +6,17 @@ import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { Alerte, Bouton, Champ, EtatChargement, EtatErreur, Modale } from "@/components/ui";
+import { SelecteurModeBase } from "@/components/metier/SelecteurModeBase";
+import { Alerte, Badge, Bouton, Champ, EtatChargement, EtatErreur, Modale } from "@/components/ui";
+import { Combobox, type OptionCombobox } from "@/components/ui/combobox";
 import { aideColonnes } from "@/components/ui/data-table";
 import type { ExportTableau } from "@/components/ui/export-tableau";
-import { SelecteurModeBase } from "@/components/metier/SelecteurModeBase";
-import { BORD_DROIT_TABLEAU, RechercheTableau, TableauListe } from "@/components/ui/tableau-liste";
+import {
+  BORD_DROIT_TABLEAU,
+  FiltreTableau,
+  RechercheTableau,
+  TableauListe,
+} from "@/components/ui/tableau-liste";
 import { peutParametrerPlateforme } from "@/features/administration";
 import type {
   CategorieReferentielPlateforme,
@@ -63,6 +69,7 @@ export function ListeReferentiel({ categorie }: { categorie: CategorieReferentie
   const [libelle, setLibelle] = useState("");
   const [groupe, setGroupe] = useState("");
   const [recherche, setRecherche] = useState("");
+  const [filtreGroupe, setFiltreGroupe] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
 
   const requete = useQuery({
@@ -112,15 +119,27 @@ export function ListeReferentiel({ categorie }: { categorie: CategorieReferentie
     onError: surErreur,
   });
 
+  const groupesPresents = useMemo(() => {
+    const distincts = [
+      ...new Set((requete.data ?? []).map((e) => e.groupe).filter(Boolean)),
+    ];
+    return distincts.map((valeur) => ({ valeur, libelle: libelleGroupe(valeur) }));
+  }, [requete.data, libelleGroupe]);
+
+  const optionsComboboxGroupe = useMemo<OptionCombobox[]>(
+    () => [{ valeur: "", libelle: tCommun("groupeAucun") }, ...groupesPresents],
+    [groupesPresents, tCommun],
+  );
+
   const entrees = useMemo(() => {
     const terme = recherche.trim().toLowerCase();
     const toutes = requete.data ?? [];
-    return terme
-      ? toutes.filter((e) =>
-          `${e.libelle} ${libelleGroupe(e.groupe)}`.toLowerCase().includes(terme),
-        )
-      : toutes;
-  }, [requete.data, recherche, libelleGroupe]);
+    return toutes.filter((e) => {
+      if (filtreGroupe && e.groupe !== filtreGroupe) return false;
+      if (!terme) return true;
+      return `${e.libelle} ${libelleGroupe(e.groupe)}`.toLowerCase().includes(terme);
+    });
+  }, [requete.data, recherche, filtreGroupe, libelleGroupe]);
 
   const colonnes = useMemo(
     () =>
@@ -135,7 +154,12 @@ export function ListeReferentiel({ categorie }: { categorie: CategorieReferentie
         colonne.accessor("groupe", {
           id: "groupe",
           header: tCommun("colonneGroupe"),
-          cell: ({ row }) => libelleGroupe(row.original.groupe),
+          cell: ({ row }) =>
+            row.original.groupe ? (
+              <Badge variante="neutre">{libelleGroupe(row.original.groupe)}</Badge>
+            ) : (
+              <span className="text-neutral-400">{tCommun("sansGroupe")}</span>
+            ),
         }),
         colonne.display({
           id: "actions",
@@ -184,9 +208,14 @@ export function ListeReferentiel({ categorie }: { categorie: CategorieReferentie
     [t, tCommun, libelleGroupe],
   );
 
+  const filtresActifs = recherche.trim() !== "" || filtreGroupe !== "";
+
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-base font-semibold text-neutral-900">{t("titre")}</h2>
+    <section className="flex flex-col gap-4 rounded-xl border border-neutral-200 bg-neutral-0 p-4 sm:p-6">
+      <div>
+        <h2 className="text-base font-semibold text-neutral-900">{t("titre")}</h2>
+        <p className="text-sm text-neutral-600">{t("description")}</p>
+      </div>
       {requete.isPending ? (
         <EtatChargement />
       ) : requete.isError ? (
@@ -198,14 +227,30 @@ export function ListeReferentiel({ categorie }: { categorie: CategorieReferentie
           cleLigne={(e) => e.id}
           messageVide={t("vide")}
           exporter={exporter}
-          cleCriteres={recherche}
+          cleCriteres={`${recherche}|${filtreGroupe}`}
+          filtresActifs={filtresActifs}
+          onReinitialiser={() => {
+            setRecherche("");
+            setFiltreGroupe("");
+          }}
           outils={
-            <RechercheTableau
-              valeur={recherche}
-              onChangement={setRecherche}
-              libelle={tCommun("rechercher")}
-              placeholder={tCommun("rechercher")}
-            />
+            <>
+              <RechercheTableau
+                valeur={recherche}
+                onChangement={setRecherche}
+                libelle={tCommun("rechercher")}
+                placeholder={tCommun("rechercher")}
+              />
+              {groupesPresents.length > 0 && (
+                <FiltreTableau<string>
+                  valeur={filtreGroupe}
+                  onChangement={setFiltreGroupe}
+                  libelle={tCommun("filtreGroupe")}
+                  libelleTous={tCommun("filtreGroupeTous")}
+                  options={groupesPresents}
+                />
+              )}
+            </>
           }
           actions={
             peutAgir && (
@@ -251,14 +296,24 @@ export function ListeReferentiel({ categorie }: { categorie: CategorieReferentie
               disabled={enregistrement.isPending}
             />
           ) : (
-            <Champ
-              libelle={tCommun("colonneGroupe")}
-              aide={t("aideGroupe")}
-              value={groupe}
-              maxLength={100}
-              disabled={enregistrement.isPending}
-              onChange={(e) => setGroupe(e.target.value)}
-            />
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-semibold text-neutral-800">
+                {tCommun("colonneGroupe")}
+              </span>
+              <Combobox
+                options={optionsComboboxGroupe}
+                valeur={groupe}
+                onChange={(v) => setGroupe(v.slice(0, 100))}
+                placeholder={tCommun("groupePlaceholder")}
+                placeholderRecherche={tCommun("groupeRechercher")}
+                aucunResultat={tCommun("groupeAucunResultat")}
+                libelleSaisieLibre={(saisie) => tCommun("groupeCreer", { saisie })}
+                aria-label={tCommun("colonneGroupe")}
+                className="h-[var(--input-height-md)]"
+                disabled={enregistrement.isPending}
+              />
+              <span className="text-xs text-neutral-500">{t("aideGroupe")}</span>
+            </div>
           )}
           {erreur && <Alerte type="erreur">{erreur}</Alerte>}
         </div>

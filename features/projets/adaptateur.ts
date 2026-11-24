@@ -23,6 +23,7 @@ import {
   ROLE_MEMBRE_PAR_DEFAUT,
   STATUT_DECLARE_PAR_DEFAUT,
   STATUT_VISE,
+  nomFichierSansExtension,
   statutDeReprise,
 } from "./regles";
 import type { ChangementStatut } from "./regles";
@@ -32,6 +33,7 @@ import type {
   Activite,
   AlerteIntemperies,
   AutreMembreProjet,
+  AvancementComposanteProjet,
   ChefChantierProjet,
   ClientProjet,
   ContratProjet,
@@ -43,6 +45,7 @@ import type {
   InformationsComplementairesProjet,
   InstantaneSante,
   Intervenant,
+  IntervenantExterneDynamique,
   Lot,
   MembreEquipe,
   MeteoProjet,
@@ -50,6 +53,7 @@ import type {
   MotifReport,
   NatureEquipe,
   NatureProjet,
+  PhaseProjet,
   PlanningProjet,
   Projet,
   Reprogrammation,
@@ -61,6 +65,7 @@ import type {
   StatistiquesProjet,
   StatutDeclare,
   StatutProjet,
+  SyntheseAvenantsDelai,
   TypeBordereau,
   TypeProjet,
   UniteActivite,
@@ -80,14 +85,71 @@ interface ChargeIntervenant {
   statut?: "INVITE" | "ACTIF";
   lien_whatsapp?: string;
   affectation_id?: string | null;
+  role_code?: string | null;
+  role_libelle?: string | null;
+  fonction_entreprise?: string | null;
 }
 
 interface ChargeClient {
   id: string;
   raison_sociale: string;
-  telephone?: string;
-  email?: string;
-  ville?: string;
+  telephone?: string | null;
+  email?: string | null;
+  ville?: string | null;
+  adresse?: string | null;
+  type_tiers?: string | null;
+}
+
+interface ChargeContactMoa {
+  tiers_id?: string | null;
+  raison_sociale?: string;
+  telephone?: string | null;
+  email?: string | null;
+  ville?: string | null;
+  adresse?: string | null;
+}
+
+interface ChargePhaseProjet {
+  id: string;
+  code?: string;
+  libelle: string;
+  statut?: string;
+  avancement?: number | string | null;
+  est_actuelle?: boolean;
+}
+
+interface ChargeSyntheseAvenantsDelai {
+  nombre_avenants?: number;
+  avenants_delai_jours?: number;
+  prolongation_avenants?: { annees: number; mois: number; jours: number } | null;
+  montant_marche_initial?: number | string | null;
+  montant_avenants?: number | string | null;
+  budget_contractuel?: number | string | null;
+  nombre_reprogrammations?: number;
+  ecart_reprogrammation_jours?: number;
+  derniere_reprogrammation_le?: string | null;
+}
+
+interface ChargeAvancementComposante {
+  id: string;
+  code?: string;
+  libelle: string;
+  montant?: number | string | null;
+  avancement?: number | string | null;
+  statut?: string;
+  statut_libelle?: string;
+  titulaire_id?: string | null;
+  titulaire?: string;
+}
+
+interface ChargeIntervenantExterne {
+  tiers_id?: string | null;
+  nom?: string;
+  org?: string;
+  role?: string;
+  perimetre?: string;
+  perimetres?: { id: string; libelle: string; chemin?: string[] }[];
+  source?: "DECOUPAGE" | "EQUIPE" | "MAITRE_OEUVRE";
 }
 
 /**
@@ -110,8 +172,10 @@ interface ChargeProjet {
   informations_complementaires?: InformationsComplementairesProjet | null;
   /** Le maître d'ouvrage, en clair — la forme de la route livrée. */
   maitre_ouvrage?: string;
-  /** Une fiche tiers complète, si le serveur la joint un jour. */
+  /** Une fiche tiers complète, résolue côté serveur. */
   client?: ChargeClient | null;
+  /** Coordonnées MOA dynamiques dérivées du Tiers client. */
+  contact_moa?: ChargeContactMoa | null;
   ville: string;
   quartier?: string;
   statut?: StatutProjet;
@@ -153,7 +217,14 @@ interface ChargeProjet {
   } | null;
   maitre_oeuvre?: string | null;
   contrat?: ChargeContrat[];
+  contrat_actif?: ChargeContrat | null;
+  historique_contrats?: ChargeContrat[];
   ordre_service?: ChargeOrdreService | null;
+  phase_actuelle?: string | null;
+  phases_disponibles?: ChargePhaseProjet[];
+  synthese_avenants_delai?: ChargeSyntheseAvenantsDelai | null;
+  avancement_composantes?: ChargeAvancementComposante[];
+  intervenants_externes?: ChargeIntervenantExterne[];
   chef_projet?: ChargeIntervenant | null;
   conducteurs_travaux?: ChargeIntervenant[];
   chefs_chantier?: ChargeChefChantier[];
@@ -181,9 +252,14 @@ interface ChargeStatistiques {
 interface ChargeContrat {
   id: string;
   nom: string;
+  nom_sans_extension?: string;
+  version?: number;
+  est_actif?: boolean;
   taille: number;
   type_contenu: string;
   url: string;
+  cree_le?: string | null;
+  cree_par_nom?: string | null;
 }
 
 interface ChargeOrdreService {
@@ -214,9 +290,11 @@ interface ChargeAffectation {
 
 interface ChargeAutreMembre {
   utilisateur: ChargeIntervenant;
-  fonction: FonctionAutreMembre;
+  fonction?: FonctionAutreMembre | "";
+  fonction_libelle?: string;
   role_code?: string;
   role_libelle?: string;
+  fonction_entreprise?: string;
   affectation_id?: string | null;
 }
 
@@ -256,6 +334,7 @@ interface ChargeCreationProjet {
   ville: string;
   quartier?: string;
   maitre_ouvrage: string;
+  client_id?: string | null;
   maitre_oeuvre?: string;
   date_debut_prevue?: string;
   date_fin_prevue?: string;
@@ -290,6 +369,9 @@ function versIntervenant(charge: ChargeIntervenant | null | undefined): Interven
     statut: charge.statut ?? null,
     lienWhatsApp: charge.lien_whatsapp ?? null,
     affectationId: charge.affectation_id ?? null,
+    roleCode: charge.role_code ?? null,
+    roleLibelle: charge.role_libelle ?? null,
+    fonctionEntreprise: charge.fonction_entreprise ?? null,
   };
 }
 
@@ -320,26 +402,42 @@ function versAutreMembre(charge: ChargeAutreMembre): AutreMembreProjet | null {
   return intervenant
     ? {
         intervenant,
-        fonction: charge.fonction,
-        roleCode: charge.role_code ?? "VI",
+        fonction: charge.fonction ?? "",
+        fonctionLibelle: charge.fonction_libelle ?? "",
+        roleCode: charge.role_code ?? "",
         roleLibelle: charge.role_libelle ?? "",
+        fonctionEntreprise: charge.fonction_entreprise ?? intervenant.fonctionEntreprise ?? "",
         affectationId: charge.affectation_id ?? intervenant.affectationId ?? null,
       }
     : null;
 }
 
 /**
- * Le maître d'ouvrage. La route livrée ne le donne qu'en clair : la fiche n'a
- * alors ni identifiant ni coordonnées — on ne les invente pas.
+ * Le maître d'ouvrage : résolu dynamiquement depuis la fiche Tiers client (`client` / `contact_moa`),
+ * avec repli sur le nom en clair `maitre_ouvrage` lorsqu'aucune fiche tiers n'y est rattachée.
  */
 function versClient(charge: ChargeProjet): ClientProjet {
+  const moa = charge.contact_moa;
   if (charge.client) {
     return {
       id: charge.client.id,
-      raisonSociale: charge.client.raison_sociale,
-      telephone: charge.client.telephone ?? null,
-      email: charge.client.email ?? null,
-      ville: charge.client.ville ?? null,
+      raisonSociale: charge.client.raison_sociale || moa?.raison_sociale || charge.maitre_ouvrage || "",
+      telephone: charge.client.telephone ?? moa?.telephone ?? null,
+      email: charge.client.email ?? moa?.email ?? null,
+      ville: charge.client.ville ?? moa?.ville ?? null,
+      adresse: charge.client.adresse ?? moa?.adresse ?? null,
+      typeTiers: charge.client.type_tiers ?? null,
+    };
+  }
+  if (moa) {
+    return {
+      id: moa.tiers_id ?? null,
+      raisonSociale: moa.raison_sociale || charge.maitre_ouvrage || "",
+      telephone: moa.telephone ?? null,
+      email: moa.email ?? null,
+      ville: moa.ville ?? null,
+      adresse: moa.adresse ?? null,
+      typeTiers: null,
     };
   }
   return {
@@ -348,6 +446,8 @@ function versClient(charge: ChargeProjet): ClientProjet {
     telephone: null,
     email: null,
     ville: null,
+    adresse: null,
+    typeTiers: null,
   };
 }
 
@@ -355,9 +455,72 @@ function versContrat(charge: ChargeContrat): ContratProjet {
   return {
     id: charge.id,
     nom: charge.nom,
+    nomSansExtension: charge.nom_sans_extension || nomFichierSansExtension(charge.nom),
+    version: charge.version ?? 1,
+    estActif: charge.est_actif ?? true,
     taille: charge.taille,
     typeContenu: charge.type_contenu,
     url: charge.url,
+    creeLe: charge.cree_le ?? null,
+    creeParNom: charge.cree_par_nom ?? null,
+  };
+}
+
+function versPhaseProjet(charge: ChargePhaseProjet): PhaseProjet {
+  return {
+    id: charge.id,
+    code: charge.code ?? "",
+    libelle: charge.libelle,
+    statut: charge.statut ?? "",
+    avancement: versNombre(charge.avancement),
+    estActuelle: charge.est_actuelle ?? false,
+  };
+}
+
+function versSyntheseAvenantsDelai(
+  charge: ChargeSyntheseAvenantsDelai | null | undefined,
+): SyntheseAvenantsDelai | null {
+  if (!charge) return null;
+  return {
+    nombreAvenants: charge.nombre_avenants ?? 0,
+    avenantsDelaiJours: charge.avenants_delai_jours ?? 0,
+    prolongationAvenants: charge.prolongation_avenants ?? { annees: 0, mois: 0, jours: 0 },
+    montantMarcheInitial: versMontant(charge.montant_marche_initial),
+    montantAvenants: versMontant(charge.montant_avenants) ?? 0,
+    budgetContractuel: versMontant(charge.budget_contractuel),
+    nombreReprogrammations: charge.nombre_reprogrammations ?? 0,
+    ecartReprogrammationJours: charge.ecart_reprogrammation_jours ?? 0,
+    derniereReprogrammationLe: charge.derniere_reprogrammation_le ?? null,
+  };
+}
+
+function versAvancementComposante(charge: ChargeAvancementComposante): AvancementComposanteProjet {
+  return {
+    id: charge.id,
+    code: charge.code ?? "",
+    libelle: charge.libelle,
+    montant: versMontant(charge.montant),
+    avancement: versNombre(charge.avancement),
+    statut: charge.statut ?? "PLANIFIE",
+    statutLibelle: charge.statut_libelle ?? "",
+    titulaireId: charge.titulaire_id ?? null,
+    titulaire: charge.titulaire ?? "",
+  };
+}
+
+function versIntervenantExterne(charge: ChargeIntervenantExterne): IntervenantExterneDynamique {
+  return {
+    tiersId: charge.tiers_id ?? null,
+    nom: charge.nom ?? charge.org ?? "",
+    org: charge.org ?? charge.nom ?? "",
+    role: charge.role ?? "",
+    perimetre: charge.perimetre ?? "",
+    perimetres: (charge.perimetres ?? []).map((p) => ({
+      id: p.id,
+      libelle: p.libelle,
+      chemin: p.chemin ?? [p.libelle],
+    })),
+    source: charge.source ?? "DECOUPAGE",
   };
 }
 
@@ -463,6 +626,10 @@ export function versProjet(charge: ChargeProjet, affectations: ChargeAffectation
       : null,
     maitreOeuvre: charge.maitre_oeuvre || null,
     contrats: (charge.contrat ?? []).map(versContrat),
+    contratActif: charge.contrat_actif
+      ? versContrat(charge.contrat_actif)
+      : (charge.contrat ?? []).map(versContrat)[0] ?? null,
+    historiqueContrats: (charge.historique_contrats ?? charge.contrat ?? []).map(versContrat),
     ordreService: charge.ordre_service
       ? {
           nom: charge.ordre_service.nom,
@@ -471,6 +638,11 @@ export function versProjet(charge: ChargeProjet, affectations: ChargeAffectation
           url: charge.ordre_service.url,
         }
       : null,
+    phaseActuelle: charge.phase_actuelle ?? null,
+    phasesDisponibles: (charge.phases_disponibles ?? []).map(versPhaseProjet),
+    syntheseAvenantsDelai: versSyntheseAvenantsDelai(charge.synthese_avenants_delai),
+    avancementComposantes: (charge.avancement_composantes ?? []).map(versAvancementComposante),
+    intervenantsExternes: (charge.intervenants_externes ?? []).map(versIntervenantExterne),
     chefProjet: versIntervenant(charge.chef_projet),
     chefProjetModifiable: affectationChef?.modifiable === true,
     conducteursTravaux: intervenants(charge.conducteurs_travaux),
@@ -535,6 +707,7 @@ function versChargeCreation(creation: CreationProjet): ChargeCreationProjet {
     ville: creation.ville,
     quartier: creation.quartier,
     maitre_ouvrage: creation.maitreOuvrage,
+    ...(creation.clientId !== undefined ? { client_id: creation.clientId } : {}),
     maitre_oeuvre: creation.maitreOeuvre,
     date_debut_prevue: creation.dateDebutPrevue,
     date_fin_prevue: creation.dateFinPrevue,
@@ -558,6 +731,7 @@ function versChargeModification(modification: ModificationProjet) {
   if (modification.ville !== undefined) charge.ville = modification.ville;
   if (modification.quartier !== undefined) charge.quartier = modification.quartier;
   if (modification.maitreOuvrage !== undefined) charge.maitre_ouvrage = modification.maitreOuvrage;
+  if (modification.clientId !== undefined) charge.client_id = modification.clientId;
   if (modification.maitreOeuvre !== undefined) charge.maitre_oeuvre = modification.maitreOeuvre;
   if (modification.description !== undefined) charge.description = modification.description;
   if (modification.dateDebutPrevue !== undefined)
@@ -640,7 +814,7 @@ function versCorpsCreation(creation: CreationProjet): ChargeCreationProjet | For
       corps.append(cle, String(valeur));
     }
   }
-  for (const contrat of creation.contrats ?? []) {
+  for (const contrat of (creation.contrats ?? []).slice(0, 1)) {
     corps.append("contrat", contrat, contrat.name);
   }
   if (creation.ordreService) {
@@ -670,7 +844,7 @@ function versCorpsModification(
       corps.append(cle, String(valeur));
     }
   }
-  for (const contrat of modification.contrats ?? []) {
+  for (const contrat of (modification.contrats ?? []).slice(0, 1)) {
     corps.append("contrat", contrat, contrat.name);
   }
   if (modification.ordreService) {
@@ -697,6 +871,19 @@ export async function telechargerContratProjet(
   contratId: string,
 ): Promise<Blob> {
   return api.telecharger(`/projets/${projetId}/?contrat=${contratId}`);
+}
+
+/** Toutes les versions du contrat du marché (actif + historique archivé). */
+export async function listerContratsProjet(
+  projetId: string,
+  signal?: AbortSignal,
+): Promise<ContratProjet[]> {
+  const charge = await api.lire<ChargeContrat[] | ChargeListe<ChargeContrat>>(
+    `/projets/${projetId}/contrats/`,
+    undefined,
+    signal,
+  );
+  return aPlat(charge).map(versContrat);
 }
 
 /**
@@ -1391,6 +1578,8 @@ interface ChargeAffectationCollaborateur {
   role_projet: string;
   role_projet_libelle?: string;
   role_plateforme?: string;
+  role_plateforme_libelle?: string;
+  fonction_entreprise?: string;
   perimetres?: { id: string; libelle: string; niveau: string; chemin: string[] }[];
   date_debut?: string | null;
   date_fin?: string | null;
@@ -1410,6 +1599,8 @@ function versAffectationCollaborateur(charge: ChargeAffectationCollaborateur): A
     roleProjet: charge.role_projet,
     roleProjetLibelle: charge.role_projet_libelle || charge.role_projet,
     rolePlateforme: charge.role_plateforme ?? "",
+    rolePlateformeLibelle: charge.role_plateforme_libelle ?? charge.fonction_entreprise ?? "",
+    fonctionEntreprise: charge.fonction_entreprise ?? charge.role_plateforme_libelle ?? "",
     perimetres: (charge.perimetres ?? []).map((cas) => ({ ...cas, id: String(cas.id) })),
     dateDebut: charge.date_debut ?? null,
     dateFin: charge.date_fin ?? null,

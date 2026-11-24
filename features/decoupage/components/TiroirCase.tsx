@@ -8,8 +8,7 @@ import {
   Gauge,
   Pencil,
   Plus,
-  PowerOff,
-  RotateCcw,
+  Trash2,
   TriangleAlert,
   Undo2,
 } from "lucide-react";
@@ -37,8 +36,7 @@ const ICONE_GESTE: Record<GesteCase, ReactNode> = {
   mesurer: <Gauge />,
   cloturer: <CheckCheck />,
   rouvrir: <Undo2 />,
-  desactiver: <PowerOff />,
-  reactiver: <RotateCcw />,
+  supprimer: <Trash2 />,
 };
 
 /**
@@ -100,11 +98,6 @@ export function TiroirCase({
                     <Alert variant="erreur">
                       <TriangleAlert />
                       <AlertDescription>{t("depasseEnveloppe")}</AlertDescription>
-                    </Alert>
-                  )}
-                  {!cible.estActif && cible.motif && (
-                    <Alert variant="information">
-                      <AlertDescription>{t("motifDesactivation", { motif: cible.motif })}</AlertDescription>
                     </Alert>
                   )}
 
@@ -211,7 +204,7 @@ export function TiroirCase({
                       <BoutonPermis
                         key={geste}
                         size="sm"
-                        variant={geste === "desactiver" ? "outline" : "secondary"}
+                        variant={geste === "supprimer" ? "destructive" : "secondary"}
                         permis={peutSurProjet(PERMISSION_DU_GESTE[geste], projet)}
                         permission={PERMISSION_DU_GESTE[geste]}
                         onClick={() => onGeste(geste, cible)}
