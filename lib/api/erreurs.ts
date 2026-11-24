@@ -62,6 +62,9 @@ export const CODES_METIER = [
   "chef_projet_protege",
   // Rôles — changement de portée (apps/accounts/views/role.py)
   "confirmation_requise",
+  // Planning & import Microsoft Project (.xml)
+  "import_ms_project_bloque",
+  "remplacement_decoupage_requis",
 ] as const;
 
 export type CodeErreur =

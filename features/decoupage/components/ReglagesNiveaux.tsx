@@ -16,6 +16,7 @@ import { ErreurApi } from "@/lib/api";
 
 import { ajouterNiveauProjet, listerListes, modifierNiveau } from "../adaptateur";
 import { CLE_LISTES, cleDecoupage } from "../cles";
+import { clePlanningGantt } from "@/features/planning/cles";
 import type { ListeValeurs, NiveauProjet, ReferenceListe } from "../types";
 
 const SANS_LISTE = "aucune";
@@ -41,6 +42,7 @@ export function ReglagesNiveaux({ projet, niveaux }: { projet: Projet; niveaux: 
       toast.success(t("ajoute", { libelle: nouveau.trim() }));
       setNouveau("");
       await client.invalidateQueries({ queryKey: cleDecoupage(projet.id) });
+      await client.invalidateQueries({ queryKey: clePlanningGantt(projet.id) });
     },
     onError: (erreur) => toast.error(erreur instanceof ErreurApi ? erreur.message : t("erreur")),
   });
@@ -115,6 +117,7 @@ function LigneNiveau({
     onSuccess: async () => {
       toast.success(t("enregistre", { libelle: libelle.trim() }));
       await client.invalidateQueries({ queryKey: cleDecoupage(projet.id) });
+      await client.invalidateQueries({ queryKey: clePlanningGantt(projet.id) });
       await client.invalidateQueries({ queryKey: ["projets", projet.id] });
     },
     onError: (erreur) => toast.error(erreur instanceof ErreurApi ? erreur.message : t("erreur")),

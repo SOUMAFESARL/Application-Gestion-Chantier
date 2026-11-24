@@ -1582,7 +1582,9 @@
     "generique": "Une erreur est survenue. Réessayez dans un instant.",
     "pagePrecedente": "Page précédente",
     "reseauIndisponible": "Connexion indisponible. Vérifiez votre réseau puis réessayez.",
-    "titre404": "Page introuvable"
+    "titre404": "Page introuvable",
+    "import_ms_project_bloque": "Impossible d'importer un planning MS Project : l'exécution de ce projet a déjà démarré.",
+    "remplacement_decoupage_requis": "Ce projet possède déjà un découpage. Confirmez son remplacement pour importer ce planning MS Project."
   },
   "essai": {
     "compteur": "{jours, plural, =0 {Essai terminé} =1 {Essai · dernier jour} other {Essai · # jours}}"
@@ -1740,7 +1742,8 @@
         "champNotePlaceholder": "Ajoutez ou modifiez un commentaire de synthèse pour cette édition PDF…",
         "actualiserApercu": "Actualiser l'aperçu",
         "telecharger": "Télécharger",
-        "imprimer": "Imprimer"
+        "imprimer": "Imprimer",
+        "ouvrirPleinePage": "Ouvrir sur une page complète"
       },
       "nomFichier": "fiche-projet-{reference}-{date}.pdf",
       "titre": "Fiche projet",
@@ -1765,7 +1768,8 @@
         "equipe": "9. Équipe d'encadrement et intervenants",
         "prochainesEtapes": "10. Prochaines étapes (J+14)",
         "note": "11. Note du chef de projet",
-        "signatures": "Validation et signatures"
+        "signatures": "Validation et signatures",
+        "avenants": "3 bis. Avenants et ordres de service"
       },
       "identification": {
         "natureProjet": "Type de projet",
@@ -1837,7 +1841,9 @@
         "restant": "Reste à réaliser",
         "depasse": "Dépassement",
         "part": "{valeur} % du budget",
-        "nonDefini": "Non défini"
+        "nonDefini": "Non défini",
+        "contractuelInitial": "Budget contractuel initial",
+        "avenants": "Cumul des avenants"
       },
       "financement": {
         "modeFin": "Mode de financement",
@@ -1976,6 +1982,21 @@
       },
       "pied": {
         "page": "Page {page}/{total}"
+      },
+      "avenants": {
+        "osDemarrage": "OS de démarrage",
+        "resume": "{nombre, plural, one {# avenant enregistré} other {# avenants enregistrés}}",
+        "numero": "N°",
+        "date": "Signature",
+        "objet": "Objet",
+        "impactBudget": "Impact budget",
+        "impactDelai": "Impact délai",
+        "statut": "Statut / Périmètre",
+        "ordreService": "Ordre de service",
+        "signe": "Signé",
+        "enregistre": "Enregistré",
+        "projetEntier": "Projet entier",
+        "vide": "Aucun avenant enregistré."
       }
     },
     "onglets": {
@@ -1985,7 +2006,8 @@
       "avancement": "Avancement",
       "equipes": "Équipes",
       "avenants": "Avenants",
-      "configuration": "Configuration"
+      "configuration": "Configuration",
+      "planning": "Planning"
     },
     "configuration": {
       "titre": "Configuration et informations complémentaires",
@@ -2397,6 +2419,36 @@
       "descriptionRetrait": "Il ne tiendra plus le rôle « {role} » sur ce projet.",
       "retire": "{nom} est retiré du projet.",
       "candidat": "{nom} — {role}"
+    },
+    "apercuPleinePage": "Fiche complète",
+    "apercuPage": {
+      "retourFiche": "Retour à la fiche projet",
+      "modeSynthese": "Vue synthétique (A4)",
+      "modePdf": "Aperçu PDF intégré",
+      "noteLabel": "Note du chef de projet",
+      "notePlaceholder": "Ajoutez ou modifiez un commentaire de synthèse pour le Maître d'ouvrage, la Direction ou l'impression…",
+      "actualiser": "Actualiser",
+      "telechargerPdf": "Télécharger PDF",
+      "imprimer": "Imprimer",
+      "generationPdfEnCours": "Génération de l'aperçu PDF en cours…",
+      "generationPdfErreur": "Impossible de générer l'aperçu PDF. Réessayez.",
+      "reessayer": "Réessayer",
+      "enteteOfficielle": "Fiche projet officielle",
+      "kpisTitre": "Indicateurs clés de pilotage",
+      "avancementTitre": "Avancement physique & temporel",
+      "budgetTitre": "Synthèse budgétaire",
+      "calendrierTitre": "Calendrier & délais",
+      "montantMasque": "Montants masqués (droits restreints)",
+      "osDemarrageNonJoint": "Aucun OS de démarrage joint",
+      "noteVideApercu": "Aucune note saisie. Utilisez le champ ci-dessus pour ajouter un commentaire avant impression ou export PDF.",
+      "cumulAvenantsBudget": "+{montant}",
+      "cumulAvenantsDelai": "+{duree}",
+      "telechargerOs": "Télécharger l'ordre de service",
+      "telechargerAvenant": "Télécharger l'avenant signé",
+      "erreurTelechargement": "Le téléchargement du document a échoué.",
+      "pourcentageValeur": "{valeur} %",
+      "debutContractuelOs": "Début (OS) : {date}",
+      "finContractuelleDate": "Fin contractuelle : {date}"
     }
   },
   "format": {
@@ -7376,6 +7428,246 @@
       "retirer": "Retirer",
       "succes": "Avenant {numero} retiré.",
       "erreur": "L’avenant n’a pas pu être retiré."
+    }
+  },
+  "planning": {
+    "chargement": "Chargement du planning…",
+    "erreurChargement": "Impossible de charger le planning du chantier. Réessayez dans un instant.",
+    "page": {
+      "titre": "Planning & Gantt",
+      "description": "Pilotez l'enchaînement des tâches, suivez les dérives par rapport à la baseline et importez vos plannings Microsoft Project.",
+      "ouvrirDansFiche": "Ouvrir dans la fiche projet",
+      "selecteurProjet": "Chantier",
+      "selecteurPlaceholder": "Choisir un chantier",
+      "aucunProjetTitre": "Aucun chantier accessible",
+      "aucunProjetDescription": "Créez un chantier ou demandez à être affecté à un projet pour consulter son diagramme de Gantt.",
+      "allerProjets": "Voir les projets"
+    },
+    "etatVide": {
+      "titre": "Aucune tâche à planifier pour le moment",
+      "description": "Construisez le découpage du chantier ou importez directement un planning Microsoft Project (.xml) pour afficher le diagramme de Gantt.",
+      "allerDecoupage": "Construire le découpage"
+    },
+    "kpis": {
+      "tachesPlanifiees": "Tâches planifiées",
+      "ratioPlanifiees": "{planifiees} / {total}",
+      "detailStructure": "{cases} éléments dont {jalons, plural, =0 {aucun jalon} one {# jalon} other {# jalons}}",
+      "tachesEnRetard": "Tâches en retard",
+      "retardsDetectes": "Écart supérieur à 5 points sur le prévisionnel",
+      "aucunRetard": "Aucune dérive détectée",
+      "tachesTerminees": "Tâches terminées",
+      "surFeuilles": "Sur {total, plural, =0 {0 tâche} one {# tâche} other {# tâches}}",
+      "dependances": "Dépendances FS",
+      "dependancesEnConflit": "{nombre, plural, one {# lien non respecté} other {# liens non respectés}}",
+      "dependancesConformes": "Tous les enchaînements sont cohérents"
+    },
+    "bandeau": {
+      "horizon": "Horizon du planning",
+      "importVerrouilleBadge": "Import MS Project verrouillé"
+    },
+    "actions": {
+      "importerMsProject": "Importer MS Project (.xml)",
+      "importerMsProjectVerrouille": "Import MS Project verrouillé",
+      "voirDecoupage": "Ouvrir le découpage"
+    },
+    "echelles": {
+      "JOUR": "Jour",
+      "SEMAINE": "Semaine",
+      "MOIS": "Mois",
+      "TRIMESTRE": "Trimestre"
+    },
+    "statuts": {
+      "PLANIFIE": "Planifié",
+      "A_VENIR": "À venir",
+      "EN_COURS": "En cours",
+      "EN_RETARD": "En retard",
+      "SUSPENDU": "Suspendu",
+      "BLOQUE": "Bloqué",
+      "TERMINE": "Terminé",
+      "CLOTURE": "Clôturé"
+    },
+    "barreOutils": {
+      "recherche": "Rechercher une tâche dans le planning",
+      "recherchePlaceholder": "Rechercher une tâche, un numéro…",
+      "effacerRecherche": "Effacer la recherche",
+      "filtreRetards": "Retards",
+      "replierTout": "Replier tout",
+      "deplierTout": "Déplier tout",
+      "echelleAria": "Échelle temporelle du diagramme de Gantt",
+      "aujourdhui": "Aujourd'hui",
+      "reinitialiserFiltres": "Réinitialiser les filtres"
+    },
+    "gantt": {
+      "colonneTache": "Tâche",
+      "colonneAvancement": "Avanc.",
+      "diagrammeAria": "Diagramme de Gantt du chantier",
+      "replierNoeud": "Replier {libelle}",
+      "deplierNoeud": "Déplier {libelle}",
+      "enRetard": "En retard",
+      "sansDatesCourt": "Non datée",
+      "aucunResultatTitre": "Aucune tâche ne correspond aux filtres",
+      "aucunResultatDescription": "Modifiez votre recherche ou désactivez le filtre des retards pour afficher l'ensemble du planning."
+    },
+    "legende": {
+      "parent": "Enveloppe parente",
+      "avancementPhysique": "Avancement physique",
+      "marqueurTheorique": "Avancement théorique",
+      "baseline": "Baseline d'origine",
+      "jalon": "Jalon",
+      "lienRespecte": "Lien FS respecté",
+      "lienNonRespecte": "Lien FS en conflit",
+      "aujourdhui": "Aujourd'hui"
+    },
+    "infobulle": {
+      "periode": "Période prévue",
+      "baseline": "Baseline initiale",
+      "intervalle": "{debut} → {fin}",
+      "avancementPhysique": "Avancement physique",
+      "avancementTemporel": "Avancement théorique",
+      "ecart": "Écart temporel",
+      "points": "{valeur} pts",
+      "indiceEdition": "Cliquez pour planifier, reprogrammer ou gérer les liens"
+    },
+    "export": {
+      "titreDefaut": "Planning du chantier",
+      "titreProjet": "Planning — {projet}",
+      "nomFichier": "planning-gantt",
+      "colonnes": {
+        "numero": "N°",
+        "libelle": "Tâche",
+        "niveau": "Niveau",
+        "type": "Type",
+        "debut": "Début prévu",
+        "fin": "Fin prévue",
+        "debutBaseline": "Début baseline",
+        "finBaseline": "Fin baseline",
+        "avancement": "Avancement physique (%)",
+        "avancementTemporel": "Avancement théorique (%)",
+        "deltaRetard": "Écart retard (pts)",
+        "statut": "Statut"
+      },
+      "types": {
+        "PARENT": "Parent",
+        "FEUILLE": "Tâche",
+        "JALON": "Jalon"
+      }
+    },
+    "tiroir": {
+      "badgeJalon": "Jalon",
+      "avancementPhysique": "Physique",
+      "avancementTemporel": "Théorique",
+      "baseline": "Baseline",
+      "lectureSeuleInfo": "Vous consultez cette tâche en lecture seule. La permission de planification sur ce projet est requise pour modifier les dates ou les dépendances.",
+      "sectionPlanifier": "Planifier la tâche",
+      "sectionReprogrammer": "Reprogrammer les dates (RG-11)",
+      "dateDebut": "Date de début prévue",
+      "dateFin": "Date de fin prévue",
+      "choisirDate": "Choisir une date",
+      "prolongationRequise": "Ces dates débordent du cadre parent. Confirmez la prolongation des éléments suivants :",
+      "ligneProlongation": "{libelle} : {debutAvant} – {finAvant} → {debutApres} – {finApres}",
+      "decalageRequis": "Ce report ferait démarrer des tâches suivantes avant la fin de celle-ci. Sélectionnez les successeurs à décaler :",
+      "ligneDecalage": "({debutAvant} → {debutApres}, +{jours} j)",
+      "motifReport": "Motif du report",
+      "motifPlaceholder": "Choisir un motif de report",
+      "justification": "Justification détaillée",
+      "compteurJustification": "{actuel} / {min} car. min.",
+      "justificationPlaceholder": "Expliquez la cause du report ou de la prolongation (30 caractères minimum)…",
+      "actionPlanifier": "Enregistrer les dates",
+      "actionReprogrammer": "Reprogrammer",
+      "confirmerReport": "Confirmer et enregistrer",
+      "planificationSucces": "Dates enregistrées pour « {libelle} ».",
+      "reprogrammationSucces": "Dates reprogrammées pour « {libelle} ».",
+      "alerteDg": "Un écart par rapport à la baseline a été signalé à la direction générale.",
+      "erreurDates": "Impossible d'enregistrer les dates de cette tâche.",
+      "erreurDatesRequises": "Renseignez au moins une date de début ou de fin.",
+      "erreurDateFinRequise": "La date de fin prévue est obligatoire pour reprogrammer.",
+      "erreurOrdreDates": "La date de fin ne peut pas précéder la date de début.",
+      "erreurMotifRequis": "Choisissez un motif de report.",
+      "erreurJustificationCourte": "La justification doit contenir au moins {min} caractères.",
+      "sectionDependances": "Dépendances Fin → Début (FS)",
+      "dependancesParentInfo": "Les dépendances Fin → Début relient uniquement les tâches feuilles du découpage.",
+      "chargementDependances": "Chargement des dépendances…",
+      "predecesseursTitre": "Prédécesseurs (doivent finir avant cette tâche)",
+      "aucunPredecesseur": "Aucun prédécesseur défini pour cette tâche.",
+      "tacheHorsPerimetre": "Tâche hors de votre périmètre",
+      "finPredecesseur": "Fin prévue : {date}",
+      "lienRespecte": "Respecté",
+      "lienNonRespecte": "Conflit",
+      "supprimerDependance": "Retirer cette dépendance",
+      "ajouterPredecesseur": "Ajouter un prédécesseur FS",
+      "choisirPredecesseur": "Sélectionner une tâche prédécesseur",
+      "aucunCandidat": "Aucune autre tâche feuille disponible",
+      "actionAjouterLien": "Lier",
+      "dependanceAjoutee": "Dépendance Fin → Début ajoutée.",
+      "dependanceSupprimee": "Dépendance retirée.",
+      "erreurDependance": "Impossible de mettre à jour la dépendance.",
+      "successeursTitre": "Successeurs (dépendent de la fin de cette tâche)"
+    },
+    "importMsProject": {
+      "titre": "Importer un planning Microsoft Project (.xml)",
+      "titreApercu": "Aperçu du planning Microsoft Project",
+      "description": "Importez un export XML MS Project pour initialiser le découpage, les dates et les dépendances de « {projet} ».",
+      "descriptionApercu": "Vérifiez la structure extraite de « {fichier} » avant de valider l'importation.",
+      "consigneDepot": "Fichier XML Microsoft Project (.xml) uniquement · 20 Mo max.",
+      "aideExport": {
+        "titre": "Comment exporter depuis Microsoft Project ?",
+        "description": "Dans Microsoft Project, ouvrez Fichier → Enregistrer sous, puis choisissez le format « Format XML (*.xml) »."
+      },
+      "verrouille": {
+        "titre": "Import MS Project bloqué",
+        "descriptionDefaut": "Ce chantier a déjà démarré (avancement, mesures, rapports ou affectations enregistrés). L'import d'un nouveau planning est désactivé pour protéger l'historique d'exécution."
+      },
+      "remplacement": {
+        "alerteTitre": "Découpage existant non démarré",
+        "alerteDescription": "Ce projet possède déjà un découpage sans aucune donnée d'exécution. L'import remplacera logiquement la structure actuelle après votre confirmation à l'étape suivante.",
+        "confirmationLibelle": "Je confirme le remplacement du découpage actuel (non démarré) et de ses liens par ce planning Microsoft Project."
+      },
+      "apercu": {
+        "periodeXml": "Période XML : {debut} → {fin}",
+        "niveaux": "Niveaux détectés :"
+      },
+      "statistiques": {
+        "totalTaches": "Total tâches",
+        "feuilles": "Tâches feuilles",
+        "jalons": "Jalons",
+        "dependancesRetenues": "Liens FS retenus",
+        "dependancesIgnorees": "Liens ignorés"
+      },
+      "avertissements": {
+        "titre": "{nombre, plural, one {# avertissement détecté lors de l'analyse} other {# avertissements détectés lors de l'analyse}}"
+      },
+      "onglets": {
+        "aria": "Vues d'aperçu du planning MS Project",
+        "liste": "Liste structurée",
+        "gantt": "Aperçu Gantt"
+      },
+      "liste": {
+        "numero": "N°",
+        "tache": "Tâche",
+        "niveau": "Niveau",
+        "debut": "Début",
+        "fin": "Fin",
+        "duree": "Durée",
+        "heures": "{heures} h",
+        "avancementXml": "Avanc. XML",
+        "dependancesTitre": "Dépendances Fin → Début retenues ({nombre})",
+        "lienRespecte": "Cohérent",
+        "lienNonRespecte": "À ajuster"
+      },
+      "actions": {
+        "annuler": "Annuler",
+        "analyser": "Analyser le fichier",
+        "changerFichier": "Changer de fichier",
+        "importer": "Importer le planning"
+      },
+      "succesImport": "Planning importé : {elements} éléments et {dependances} dépendances créés.",
+      "erreurs": {
+        "extensionInvalide": "Seuls les fichiers Microsoft Project au format .xml sont acceptés.",
+        "tailleDepassee": "Le fichier dépasse la taille maximale autorisée de 20 Mo.",
+        "fichierManquant": "Aucun fichier XML sélectionné.",
+        "analyseEchouee": "L'analyse du fichier XML a échoué. Vérifiez qu'il s'agit d'un export Microsoft Project valide.",
+        "importEchoue": "L'importation du planning a échoué."
+      }
     }
   }
 }

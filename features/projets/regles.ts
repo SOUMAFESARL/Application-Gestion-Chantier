@@ -2486,6 +2486,7 @@ export function libellePerimetre(cases: { chemin: string[] }[]): string {
 export const ONGLETS_PROJET = [
   "synthese",
   "decoupage",
+  "planning",
   "avancement",
   "equipes",
   "avenants",

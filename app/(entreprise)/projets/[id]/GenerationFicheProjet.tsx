@@ -1,7 +1,8 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CircleX, Download, LoaderCircle, Printer, RefreshCw } from "lucide-react";
+import { CircleX, Download, LoaderCircle, Maximize2, Printer, RefreshCw } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
@@ -17,22 +18,23 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { listerAvenants } from "@/features/avenants/adaptateur";
+import { cleAvenants } from "@/features/avenants/cles";
 import { indicateursJournalProjet } from "@/features/chantier";
 import { lireJournal } from "@/features/chantier/adaptateur";
 import { CLE_JOURNAL } from "@/features/chantier/cles";
 import { lireEntreprise } from "@/features/configuration/api";
 import { lireArbre } from "@/features/decoupage/adaptateur";
 import { cleArbre } from "@/features/decoupage/cles";
-import type { CaseArbre } from "@/features/decoupage/types";
 import { lireDocumentsOuNull } from "@/features/documents/adaptateur";
 import { useIdentitePlateforme } from "@/features/plateforme/hooks";
 import { listerEquipes, listerLots } from "@/features/projets/adaptateur";
 import { cleEquipes, cleLots } from "@/features/projets/cles";
 import { REFERENTIEL_TYPES_PROJET, useReferentiel } from "@/features/projets/referentiels";
-import type { Activite, Lot, Projet, StatutDeclare } from "@/features/projets/types";
+import type { Projet } from "@/features/projets/types";
 import { chargerImagePdf, genererDocumentPdf } from "@/lib/export/documentPdf";
 
-import { contenuFicheProjet } from "./contenuFichePdf";
+import { contenuFicheProjet, lotsDepuisArbre } from "./contenuFichePdf";
 
 /** Une lecture qui échoue donne `null` : la fiche sort quand même, et le dit. */
 async function ouNull<T>(promesse: Promise<T>): Promise<T | null> {
@@ -41,67 +43,6 @@ async function ouNull<T>(promesse: Promise<T>): Promise<T | null> {
   } catch {
     return null;
   }
-}
-
-function collecterFeuilles(noeud: CaseArbre): CaseArbre[] {
-  if (noeud.estFeuille || noeud.enfants.length === 0) {
-    return [noeud];
-  }
-  return noeud.enfants.flatMap(collecterFeuilles);
-}
-
-function statutDeclareDeCase(noeud: CaseArbre): StatutDeclare {
-  if (noeud.cloture || (noeud.avancement !== null && noeud.avancement >= 100)) return "TERMINE";
-  if (noeud.suspendu) return "BLOQUE";
-  if (noeud.commence || (noeud.avancement !== null && noeud.avancement > 0)) return "EN_COURS";
-  return "NON_DEMARRE";
-}
-
-function lotsDepuisArbre(projetId: string, cases: CaseArbre[]): Lot[] {
-  return cases.map((racine, idx) => {
-    const codeLot = racine.code || racine.numero || `L-${String(idx + 1).padStart(2, "0")}`;
-    const feuilles = collecterFeuilles(racine);
-    const activites: Activite[] = feuilles.map((f, fIdx) => ({
-      id: f.id,
-      lotId: racine.id,
-      code: f.code || f.numero || `${codeLot}.${String(fIdx + 1).padStart(2, "0")}`,
-      libelle: f.libelle,
-      quantitePrevue: f.quantitePrevue,
-      unite: null,
-      budget: f.montant,
-      dateDebutPrevue: f.dateDebutPrevue,
-      dateFinPrevue: f.dateFinPrevue,
-      avancement: f.avancement ?? 0,
-      quantiteRealisee: f.quantiteRealisee,
-      surCheminCritique: false,
-      dependanceId: null,
-      responsableId: null,
-      equipe:
-        f.equipes.length > 0
-          ? { id: f.equipes[0].equipeId, nom: f.equipes[0].nom, effectif: 0 }
-          : null,
-      statut: statutDeclareDeCase(f),
-    }));
-
-    return {
-      id: racine.id,
-      projetId,
-      code: codeLot,
-      nom: racine.libelle,
-      modeExecution: racine.modeExecutionEffectif || racine.modeExecution || "REGIE",
-      modeExecutionLibelle: racine.modeExecutionEffectif || racine.modeExecution || "—",
-      typeBordereau:
-        racine.typeBordereauEffectif === "PRIX_UNITAIRE" ? "PRIX_UNITAIRE" : "FORFAIT_GLOBAL",
-      budget: racine.montant,
-      dateDebut: racine.dateDebutPrevue,
-      dateFin: racine.dateFinPrevue,
-      statut: statutDeclareDeCase(racine),
-      avancement: racine.avancement,
-      avancementTemporel: racine.avancementTemporel,
-      deltaRetard: racine.ecart,
-      activites,
-    };
-  });
 }
 
 /** Le PDF généré, prêt à l'aperçu : son URL `blob:` et le nom sous lequel le télécharger. */
@@ -131,7 +72,7 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
       note: string;
     }): Promise<ApercuPdf> => {
       const maintenant = new Date();
-      const [lotsApi, arbre, equipes, journal, entreprise, documents] = await Promise.all([
+      const [lotsApi, arbre, avenants, equipes, journal, entreprise, documents] = await Promise.all([
         client
           .fetchQuery({
             queryKey: cleLots(cible.id),
@@ -142,6 +83,12 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
           client.fetchQuery({
             queryKey: cleArbre(cible.id),
             queryFn: ({ signal }) => lireArbre(cible.id, signal),
+          }),
+        ),
+        ouNull(
+          client.fetchQuery({
+            queryKey: cleAvenants(cible.id),
+            queryFn: ({ signal }) => listerAvenants(cible.id, signal),
           }),
         ),
         ouNull(
@@ -170,6 +117,7 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
       const contenu = contenuFicheProjet((cle, valeurs) => t(cle, valeurs), {
         projet: cible,
         lots,
+        avenants,
         equipes,
         journal: journal
           ? indicateursJournalProjet(journal.entrees, cible.id, journal.aujourdhui)
@@ -279,18 +227,33 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
               title={t("generation.titreApercu")}
               className="min-h-0 w-full flex-1 rounded-md border border-solid border-neutral-200 bg-neutral-100"
             />
-            <DialogFooter className="gap-3">
-              <Button type="button" variant="outline" onClick={() => generation.reset()}>
-                {t("generation.fermer")}
-              </Button>
-              <Button type="button" variant="outline" onClick={telecharger}>
-                <Download aria-hidden="true" />
-                {t("generation.telecharger")}
-              </Button>
-              <Button type="button" onClick={imprimer}>
-                <Printer aria-hidden="true" />
-                {t("generation.imprimer")}
-              </Button>
+            <DialogFooter className="gap-3 sm:justify-between">
+              {projet && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  asChild
+                  onClick={() => generation.reset()}
+                >
+                  <Link href={`/projets/${projet.id}/fiche`}>
+                    <Maximize2 aria-hidden="true" />
+                    {t("generation.ouvrirPleinePage")}
+                  </Link>
+                </Button>
+              )}
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => generation.reset()}>
+                  {t("generation.fermer")}
+                </Button>
+                <Button type="button" variant="outline" onClick={telecharger}>
+                  <Download aria-hidden="true" />
+                  {t("generation.telecharger")}
+                </Button>
+                <Button type="button" onClick={imprimer}>
+                  <Printer aria-hidden="true" />
+                  {t("generation.imprimer")}
+                </Button>
+              </div>
             </DialogFooter>
           </>
         ) : generation.isPending ? (
