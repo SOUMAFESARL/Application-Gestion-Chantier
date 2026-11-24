@@ -46,5 +46,6 @@ export type ConditionAcces =
   | { type: "TOUS" }
   | { type: "DIRECTION" }
   | { type: "PERMISSION"; code: string }
+  | { type: "PERMISSIONS"; codes: readonly string[] }
   /** Au moins une permission sur ce module : la règle des entrées du menu. */
   | { type: "MODULE"; module: string };

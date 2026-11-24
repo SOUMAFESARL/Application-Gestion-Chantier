@@ -60,7 +60,16 @@ export interface ResumeModele {
   /** Celui qui pré-remplit le tableau d'un projet de ce type. */
   parDefaut: boolean;
   originePlateformeId: string | null;
+  estPersonnalise: boolean;
   originalModifie: boolean;
+  originalSupprime: boolean;
+}
+
+export type FiltreOrigineModele = "" | OrigineReference;
+
+export interface CriteresModelesEntreprise {
+  recherche: string;
+  origine: FiltreOrigineModele;
 }
 
 /** Un modèle de découpage complet, avec ses niveaux détaillés et ses lignes types. */

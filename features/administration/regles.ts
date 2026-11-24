@@ -35,6 +35,10 @@ import type {
   PermissionPlateforme,
   ApercuSuppression,
   RoleSysteme,
+  CriteresListesDecoupagePlateforme,
+  CriteresModelesDecoupagePlateforme,
+  ListeDecoupagePlateforme,
+  ResumeModeleDecoupagePlateforme,
 } from "./types";
 
 /**
@@ -924,5 +928,91 @@ export function moduleDeLaPermission(
   const prefixe = moduleDuCode(code);
   if (!prefixe) return null;
   return modules.find((m) => m.code.toLowerCase() === prefixe) ?? null;
+}
+
+/* ------------------------------------------------------------------ *
+ * Référentiels de découpage (modèles et listes de valeurs plateforme)
+ * ------------------------------------------------------------------ */
+
+export const CRITERES_MODELES_DECOUPAGE_VIDES: CriteresModelesDecoupagePlateforme = {
+  recherche: "",
+  typeProjet: "",
+  statut: "",
+};
+
+export function criteresModelesDecoupageActifs(
+  criteres: CriteresModelesDecoupagePlateforme,
+): boolean {
+  return (
+    criteres.recherche.trim() !== "" ||
+    criteres.typeProjet !== "" ||
+    criteres.statut !== ""
+  );
+}
+
+export function filtrerModelesDecoupagePlateforme(
+  modeles: ResumeModeleDecoupagePlateforme[],
+  criteres: CriteresModelesDecoupagePlateforme,
+): ResumeModeleDecoupagePlateforme[] {
+  const recherche = normaliser(criteres.recherche);
+
+  return modeles.filter((modele) => {
+    if (criteres.statut === "ACTIF" && !modele.estActif) return false;
+    if (criteres.statut === "INACTIF" && modele.estActif) return false;
+    if (criteres.typeProjet && !modele.typesProjet.includes(criteres.typeProjet)) return false;
+    if (!recherche) return true;
+
+    return (
+      normaliser(modele.nom).includes(recherche) ||
+      normaliser(modele.description).includes(recherche) ||
+      modele.niveaux.some((niv) => normaliser(niv).includes(recherche))
+    );
+  });
+}
+
+export const CRITERES_LISTES_DECOUPAGE_VIDES: CriteresListesDecoupagePlateforme = {
+  recherche: "",
+  statut: "",
+};
+
+export function criteresListesDecoupageActifs(
+  criteres: CriteresListesDecoupagePlateforme,
+): boolean {
+  return criteres.recherche.trim() !== "" || criteres.statut !== "";
+}
+
+export function filtrerListesDecoupagePlateforme(
+  listes: ListeDecoupagePlateforme[],
+  criteres: CriteresListesDecoupagePlateforme,
+): ListeDecoupagePlateforme[] {
+  const recherche = normaliser(criteres.recherche);
+
+  return listes.filter((liste) => {
+    if (criteres.statut === "ACTIF" && !liste.estActif) return false;
+    if (criteres.statut === "INACTIF" && liste.estActif) return false;
+    if (!recherche) return true;
+
+    return (
+      normaliser(liste.libelle).includes(recherche) ||
+      normaliser(liste.description).includes(recherche)
+    );
+  });
+}
+
+/** Retourne uniquement les listes actives de la plateforme pour le sélecteur de niveaux de l'éditeur. */
+export function listesActivesPlateforme(
+  listes: ListeDecoupagePlateforme[],
+): ListeDecoupagePlateforme[] {
+  return listes.filter((liste) => liste.estActif !== false);
+}
+
+/** Total des utilisations d'une liste de valeurs (modèles plateforme + entreprises/projets). */
+export function totalUtilisationsListePlateforme(
+  liste: Pick<
+    ListeDecoupagePlateforme,
+    "nombreUtilisationsPlateforme" | "nombreUtilisationsEntreprises"
+  >,
+): number {
+  return liste.nombreUtilisationsPlateforme + liste.nombreUtilisationsEntreprises;
 }
 
