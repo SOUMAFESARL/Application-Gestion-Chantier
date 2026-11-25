@@ -73,6 +73,7 @@ const ONGLETS_FIL: Record<string, string> = {
   "/avancement": "projetAvancement",
   "/equipes": "projetEquipes",
   "/avenants": "projetAvenants",
+  "/documents": "documents",
 };
 
 /**

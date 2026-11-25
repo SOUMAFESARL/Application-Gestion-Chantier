@@ -23,6 +23,7 @@
     "equipes",
     "etats",
     "ficheProjet",
+    "ged",
     "gestionCollaborateurs",
     "habilitations",
     "journal",
@@ -71,10 +72,12 @@
     "pagination"
   ],
   "public": [
+    "etats",
+    "ged",
     "inscription",
     "marque",
     "meta",
-    "squelettes"
+    "pagination"
   ],
   "designSystem": [
     "etats",

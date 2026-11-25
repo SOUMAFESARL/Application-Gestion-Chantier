@@ -19,7 +19,7 @@ import { Badge, EtatVide } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { MenuExport, type ExportTableau } from "@/components/ui/export-tableau";
 import { Input } from "@/components/ui/input";
-import { ABSENT, formaterDate, formaterPourcentage } from "@/lib/format";
+import { ABSENT, formaterDate, formaterEcartAvancement, formaterPourcentage } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import {
@@ -34,6 +34,7 @@ import {
   ECHELLES_GANTT,
   estCaseEnRetard,
   filtrerArbrePlanning,
+  formaterEtiquetteDependance,
   genererGraduationsGantt,
   HAUTEUR_ENTETE_GANTT,
   HAUTEUR_LIGNE_GANTT,
@@ -53,6 +54,7 @@ const POINTILLES_AUJOURDHUI = "4 3";
 const POINTILLES_DEPENDANCE = "3 3";
 const ORIENTATION_AUTO = "auto";
 const ANCRAGE_DEBUT = "start";
+const ANCRAGE_MILIEU = "middle";
 const LIGNE_BASE_CENTRE = "central";
 const LARGEUR_COLONNE_ARBRE = 320;
 
@@ -113,13 +115,6 @@ function cheminTriangleTheorique(cx: number, yHaut: number): string {
 
 function estTerminee(item: CasePlanning): boolean {
   return item.statut === "TERMINE" || item.statut === "CLOTURE" || item.avancement === 100;
-}
-
-function formaterDelta(delta: number | null): string {
-  if (delta === null) return ABSENT;
-  const arrondi = Math.round(delta * 10) / 10;
-  const signe = arrondi > 0 ? "+" : "";
-  return `${signe}${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(arrondi)}`;
 }
 
 /**
@@ -668,7 +663,9 @@ export function DiagrammeGantt({
                         {item.acces === "COMPLET" ? (
                           dates.debut || dates.fin ? (
                             <span className="min-w-9 text-right text-xs font-medium text-neutral-600 tabular-nums">
-                              {item.avancement !== null ? formaterPourcentage(item.avancement) : ABSENT}
+                              {item.avancement !== null
+                                ? formaterPourcentage(item.avancement, planning.uniteAvancement)
+                                : ABSENT}
                             </span>
                           ) : (
                             <Badge variante="neutre">{t("gantt.sansDatesCourt")}</Badge>
@@ -791,8 +788,8 @@ export function DiagrammeGantt({
                     })}
                   </g>
 
-                  {/* Flèches de dépendances FS */}
-                  <g aria-hidden="true">
+                  {/* Flèches de dépendances (FS, SS, FF, SF + décalage) */}
+                  <g>
                     {fleches.map((fleche) => {
                       const estViole = fleche.respectee === false;
                       const estOk = fleche.respectee === true;
@@ -801,22 +798,60 @@ export function DiagrammeGantt({
                         : estOk
                           ? `url(#${idMarqueurOk})`
                           : `url(#${idMarqueurNeutre})`;
+                      const etiquetteComplete = formaterEtiquetteDependance(
+                        fleche.typeLien,
+                        fleche.decalageJours,
+                      );
+                      const largeurEtiquette = Math.max(24, fleche.etiquette.length * 5.6 + 8);
                       return (
-                        <path
-                          key={fleche.id}
-                          d={fleche.cheminSvg}
-                          fill="none"
-                          strokeWidth={estViole ? 1.8 : 1.4}
-                          strokeDasharray={fleche.respectee === null ? POINTILLES_DEPENDANCE : undefined}
-                          markerEnd={marqueur}
-                          className={cn(
-                            estViole
-                              ? "stroke-erreur"
-                              : estOk
-                                ? "stroke-succes"
-                                : "stroke-neutral-400",
+                        <g key={fleche.id}>
+                          <title>{etiquetteComplete}</title>
+                          <path
+                            d={fleche.cheminSvg}
+                            fill="none"
+                            strokeWidth={estViole ? 1.8 : 1.4}
+                            strokeDasharray={
+                              fleche.respectee === null ? POINTILLES_DEPENDANCE : undefined
+                            }
+                            markerEnd={marqueur}
+                            className={cn(
+                              estViole
+                                ? "stroke-erreur"
+                                : estOk
+                                  ? "stroke-succes"
+                                  : "stroke-neutral-400",
+                            )}
+                          />
+                          {fleche.etiquette !== "" && (
+                            <g className="pointer-events-none">
+                              <rect
+                                x={fleche.xEtiquette - largeurEtiquette / 2}
+                                y={fleche.yEtiquette - 7}
+                                width={largeurEtiquette}
+                                height={14}
+                                rx={3}
+                                strokeWidth={0.75}
+                                className="fill-neutral-0/95 stroke-neutral-200"
+                              />
+                              <text
+                                x={fleche.xEtiquette}
+                                y={fleche.yEtiquette}
+                                textAnchor={ANCRAGE_MILIEU}
+                                dominantBaseline={LIGNE_BASE_CENTRE}
+                                className={cn(
+                                  "text-[9px] font-semibold",
+                                  estViole
+                                    ? "fill-erreur"
+                                    : estOk
+                                      ? "fill-succes"
+                                      : "fill-neutral-600",
+                                )}
+                              >
+                                {fleche.etiquette}
+                              </text>
+                            </g>
                           )}
-                        />
+                        </g>
                       );
                     })}
                   </g>
@@ -982,7 +1017,7 @@ export function DiagrammeGantt({
                               dominantBaseline={LIGNE_BASE_CENTRE}
                               className="fill-neutral-600 text-[11px] font-medium"
                             >
-                              {formaterPourcentage(item.avancement)}
+                              {formaterPourcentage(item.avancement, planning.uniteAvancement)}
                             </text>
                           )}
                         </g>
@@ -1083,7 +1118,7 @@ export function DiagrammeGantt({
             <div className="flex justify-between gap-2">
               <span className="text-neutral-400">{t("infobulle.avancementPhysique")}</span>
               <span className="font-semibold tabular-nums">
-                {formaterPourcentage(infobulle.ligne.caseItem.avancement)}
+                {formaterPourcentage(infobulle.ligne.caseItem.avancement, planning.uniteAvancement)}
               </span>
             </div>
 
@@ -1091,7 +1126,10 @@ export function DiagrammeGantt({
               <div className="flex justify-between gap-2">
                 <span className="text-neutral-400">{t("infobulle.avancementTemporel")}</span>
                 <span className="tabular-nums">
-                  {formaterPourcentage(infobulle.ligne.caseItem.avancementTemporel)}
+                  {formaterPourcentage(
+                    infobulle.ligne.caseItem.avancementTemporel,
+                    planning.uniteAvancement,
+                  )}
                 </span>
               </div>
             )}
@@ -1105,7 +1143,9 @@ export function DiagrammeGantt({
                     infobulle.ligne.estEnRetard ? "text-primary-300" : "text-neutral-0",
                   )}
                 >
-                  {t("infobulle.points", { valeur: formaterDelta(infobulle.ligne.caseItem.deltaRetard) })}
+                  {formaterEcartAvancement(infobulle.ligne.caseItem.deltaRetard, {
+                    unite: planning.uniteAvancement,
+                  })}
                 </span>
               </div>
             )}

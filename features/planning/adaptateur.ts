@@ -15,6 +15,7 @@
  */
 
 import { api, ErreurApi } from "@/lib/api";
+import { UNITE_AVANCEMENT } from "@/lib/format";
 
 import type {
   AccesCasePlanning,
@@ -29,9 +30,12 @@ import type {
   LienDependanceCree,
   ModeMesurePlanning,
   NiveauMsProject,
+  OptionsAjoutDependance,
+  OptionsImportMsProject,
   PlanningGantt,
   ResultatImportMsProject,
   TacheMsProject,
+  TypeDependance,
 } from "./types";
 
 /* ------------------------------------------------------------------ *
@@ -43,6 +47,8 @@ interface ChargeEtatImportMsProject {
   decoupage_existant?: boolean;
   remplacement_requis?: boolean;
   motif_blocage?: string | null;
+  peut_voir_montants?: boolean;
+  peut_chiffrer?: boolean;
 }
 
 interface ChargeCasePlanning {
@@ -70,6 +76,8 @@ interface ChargeDependancePlanning {
   id: string;
   predecesseur_id: string;
   successeur_id: string;
+  type_lien?: string | null;
+  decalage_jours?: number | string | null;
   respectee?: boolean | null;
 }
 
@@ -77,6 +85,7 @@ interface ChargePlanningGantt {
   aujourdhui: string;
   projet_debut?: string | null;
   projet_fin?: string | null;
+  unite_avancement?: string | null;
   import_ms_project?: ChargeEtatImportMsProject | null;
   cases?: ChargeCasePlanning[];
   dependances?: ChargeDependancePlanning[];
@@ -89,6 +98,8 @@ interface ChargeLienCaseElement {
   libelle?: string | null;
   date_debut_prevue?: string | null;
   date_fin_prevue?: string | null;
+  type_lien?: string | null;
+  decalage_jours?: number | string | null;
   respectee?: boolean | null;
 }
 
@@ -110,6 +121,8 @@ interface ChargeLienDependanceCree {
     libelle: string;
     date_debut_prevue?: string | null;
   };
+  type_lien?: string | null;
+  decalage_jours?: number | string | null;
   respectee?: boolean | null;
 }
 
@@ -126,15 +139,21 @@ interface ChargeNiveauMsProject {
 interface ChargeTacheMsProject {
   uid: string;
   numero?: string | null;
+  code?: string | null;
   libelle: string;
   niveau_ordre: number;
   niveau?: string | null;
   debut?: string | null;
   fin?: string | null;
+  debut_baseline?: string | null;
+  fin_baseline?: string | null;
   duree_heures?: number | string | null;
   est_jalon?: boolean;
   est_feuille?: boolean;
+  est_actif?: boolean;
   pourcentage_xml?: number | string | null;
+  cout_brut?: number | string | null;
+  cout_fcfa?: number | string | null;
   enfants?: ChargeTacheMsProject[];
 }
 
@@ -143,7 +162,8 @@ interface ChargeDependanceMsProject {
   predecesseur_libelle: string;
   successeur_uid: string;
   successeur_libelle: string;
-  type?: string;
+  type?: string | null;
+  decalage_jours?: number | string | null;
   respectee?: boolean | null;
 }
 
@@ -151,6 +171,8 @@ interface ChargeStatistiquesMsProject {
   total_taches?: number;
   feuilles?: number;
   jalons?: number;
+  inactives?: number;
+  taches_chiffrees?: number;
   dependances_retenues?: number;
   dependances_ignorees?: number;
 }
@@ -161,6 +183,13 @@ interface ChargeAnalyseMsProject {
     titre?: string | null;
     date_debut?: string | null;
     date_fin?: string | null;
+    date_debut_baseline?: string | null;
+    date_fin_baseline?: string | null;
+    devise_code?: string | null;
+    devise_symbole?: string | null;
+    taux_conversion_suggere?: number | string | null;
+    cout_total_brut?: number | string | null;
+    cout_total_fcfa?: number | string | null;
   } | null;
   niveaux?: ChargeNiveauMsProject[];
   taches?: ChargeTacheMsProject[];
@@ -173,6 +202,8 @@ interface ChargeResultatImportMsProject {
   elements_crees?: number;
   niveaux_crees?: number;
   dependances_creees?: number;
+  inactives_creees?: number;
+  montants_importes?: boolean;
   remplacement_effectue?: boolean;
   avertissements?: ChargeAvertissementMsProject[];
   planning: ChargePlanningGantt;
@@ -220,11 +251,17 @@ export interface ResultatReprogrammationGantt {
  * ------------------------------------------------------------------ */
 
 const MODES_MESURE_VALIDES: readonly ModeMesurePlanning[] = ["QUANTITE", "POURCENTAGE", "JALON"];
+const TYPES_DEPENDANCE_VALIDES: readonly TypeDependance[] = ["FS", "SS", "FF", "SF"];
 
 function versNombre(valeur: number | string | null | undefined): number | null {
   if (valeur === null || valeur === undefined || valeur === "") return null;
   const nombre = typeof valeur === "number" ? valeur : Number(valeur);
   return Number.isFinite(nombre) ? nombre : null;
+}
+
+function versEntier(valeur: number | string | null | undefined, defaut = 0): number {
+  const nombre = versNombre(valeur);
+  return nombre === null ? defaut : Math.trunc(nombre);
 }
 
 function versModeMesure(valeur: string | null | undefined): ModeMesurePlanning | null {
@@ -233,12 +270,21 @@ function versModeMesure(valeur: string | null | undefined): ModeMesurePlanning |
     : null;
 }
 
+function versTypeDependance(valeur: string | null | undefined): TypeDependance {
+  const normalise = (valeur ?? "").trim().toUpperCase();
+  return (TYPES_DEPENDANCE_VALIDES as readonly string[]).includes(normalise)
+    ? (normalise as TypeDependance)
+    : "FS";
+}
+
 function versEtatImport(charge: ChargeEtatImportMsProject | null | undefined): EtatImportMsProject {
   return {
     autorise: charge?.autorise ?? false,
     decoupageExistant: charge?.decoupage_existant ?? false,
     remplacementRequis: charge?.remplacement_requis ?? false,
     motifBlocage: charge?.motif_blocage ?? null,
+    peutVoirMontants: charge?.peut_voir_montants ?? false,
+    peutChiffrer: charge?.peut_chiffrer ?? false,
   };
 }
 
@@ -273,6 +319,8 @@ function versDependancePlanning(charge: ChargeDependancePlanning): DependancePla
     id: charge.id,
     predecesseurId: charge.predecesseur_id,
     successeurId: charge.successeur_id,
+    typeLien: versTypeDependance(charge.type_lien),
+    decalageJours: versEntier(charge.decalage_jours, 0),
     respectee: charge.respectee ?? null,
   };
 }
@@ -282,6 +330,7 @@ function versPlanningGantt(charge: ChargePlanningGantt): PlanningGantt {
     aujourdhui: charge.aujourdhui,
     projetDebut: charge.projet_debut ?? null,
     projetFin: charge.projet_fin ?? null,
+    uniteAvancement: charge.unite_avancement ?? UNITE_AVANCEMENT,
     importMsProject: versEtatImport(charge.import_ms_project),
     cases: (charge.cases ?? []).map(versCasePlanning),
     dependances: (charge.dependances ?? []).map(versDependancePlanning),
@@ -296,6 +345,8 @@ function versLienCase(charge: ChargeLienCaseElement): LienCaseElement {
     libelle: charge.libelle ?? null,
     dateDebutPrevue: charge.date_debut_prevue ?? null,
     dateFinPrevue: charge.date_fin_prevue ?? null,
+    typeLien: versTypeDependance(charge.type_lien),
+    decalageJours: versEntier(charge.decalage_jours, 0),
     respectee: charge.respectee ?? null,
   };
 }
@@ -319,15 +370,21 @@ function versTacheMsProject(charge: ChargeTacheMsProject): TacheMsProject {
   return {
     uid: charge.uid,
     numero: charge.numero ?? null,
+    code: charge.code ?? "",
     libelle: charge.libelle,
     niveauOrdre: charge.niveau_ordre,
     niveau: charge.niveau ?? null,
     debut: charge.debut ?? null,
     fin: charge.fin ?? null,
+    debutBaseline: charge.debut_baseline ?? null,
+    finBaseline: charge.fin_baseline ?? null,
     dureeHeures: versNombre(charge.duree_heures),
     estJalon: charge.est_jalon ?? false,
     estFeuille: charge.est_feuille ?? enfants.length === 0,
+    estActif: charge.est_actif ?? true,
     pourcentageXml: versNombre(charge.pourcentage_xml),
+    coutBrut: versNombre(charge.cout_brut),
+    coutFcfa: versNombre(charge.cout_fcfa),
     enfants,
   };
 }
@@ -338,7 +395,8 @@ function versDependanceMsProject(charge: ChargeDependanceMsProject): DependanceM
     predecesseurLibelle: charge.predecesseur_libelle,
     successeurUid: charge.successeur_uid,
     successeurLibelle: charge.successeur_libelle,
-    type: charge.type ?? "FS",
+    type: versTypeDependance(charge.type),
+    decalageJours: versEntier(charge.decalage_jours, 0),
     respectee: charge.respectee ?? null,
   };
 }
@@ -377,14 +435,19 @@ export async function lireDependancesElement(
   };
 }
 
-/** Crée une dépendance Fin → Début : `elementId` démarre après la fin de `predecesseurId`. */
+/** Crée une dépendance typée (FS/SS/FF/SF) avec décalage signé entre deux tâches feuilles. */
 export async function ajouterDependanceElement(
   elementId: string,
   predecesseurId: string,
+  options?: OptionsAjoutDependance,
 ): Promise<LienDependanceCree> {
   const charge = await api.creer<ChargeLienDependanceCree>(
     `/elements/${elementId}/dependances/`,
-    { predecesseur_id: predecesseurId },
+    {
+      predecesseur_id: predecesseurId,
+      type_lien: options?.typeLien ?? "FS",
+      decalage_jours: options?.decalageJours ?? 0,
+    },
   );
   return {
     id: charge.id,
@@ -398,6 +461,8 @@ export async function ajouterDependanceElement(
       libelle: charge.successeur.libelle,
       dateDebutPrevue: charge.successeur.date_debut_prevue ?? null,
     },
+    typeLien: versTypeDependance(charge.type_lien),
+    decalageJours: versEntier(charge.decalage_jours, 0),
     respectee: charge.respectee ?? null,
   };
 }
@@ -466,6 +531,13 @@ export async function analyserImportMsProject(
       titre: charge.projet_xml?.titre ?? null,
       dateDebut: charge.projet_xml?.date_debut ?? null,
       dateFin: charge.projet_xml?.date_fin ?? null,
+      dateDebutBaseline: charge.projet_xml?.date_debut_baseline ?? null,
+      dateFinBaseline: charge.projet_xml?.date_fin_baseline ?? null,
+      deviseCode: charge.projet_xml?.devise_code?.trim().toUpperCase() || "XOF",
+      deviseSymbole: charge.projet_xml?.devise_symbole?.trim() || "FCFA",
+      tauxConversionSuggere: versNombre(charge.projet_xml?.taux_conversion_suggere),
+      coutTotalBrut: versNombre(charge.projet_xml?.cout_total_brut),
+      coutTotalFcfa: versNombre(charge.projet_xml?.cout_total_fcfa),
     },
     niveaux: (charge.niveaux ?? []).map(versNiveauMsProject),
     taches: (charge.taches ?? []).map(versTacheMsProject),
@@ -474,6 +546,8 @@ export async function analyserImportMsProject(
       totalTaches: charge.statistiques?.total_taches ?? 0,
       feuilles: charge.statistiques?.feuilles ?? 0,
       jalons: charge.statistiques?.jalons ?? 0,
+      inactives: charge.statistiques?.inactives ?? 0,
+      tachesChiffrees: charge.statistiques?.taches_chiffrees ?? 0,
       dependancesRetenues: charge.statistiques?.dependances_retenues ?? 0,
       dependancesIgnorees: charge.statistiques?.dependances_ignorees ?? 0,
     },
@@ -485,11 +559,23 @@ export async function analyserImportMsProject(
 export async function importerMsProject(
   projetId: string,
   fichier: File,
-  confirmerRemplacement: boolean,
+  options: boolean | OptionsImportMsProject,
 ): Promise<ResultatImportMsProject> {
+  const parametres: OptionsImportMsProject =
+    typeof options === "boolean" ? { confirmerRemplacement: options } : options;
   const corps = new FormData();
   corps.append("fichier", fichier, fichier.name);
-  corps.append("confirmer_remplacement", confirmerRemplacement ? "true" : "false");
+  corps.append("confirmer_remplacement", parametres.confirmerRemplacement ? "true" : "false");
+  if (parametres.importerMontants !== undefined) {
+    corps.append("importer_montants", parametres.importerMontants ? "true" : "false");
+  }
+  if (
+    parametres.tauxConversion !== undefined &&
+    Number.isFinite(parametres.tauxConversion) &&
+    parametres.tauxConversion > 0
+  ) {
+    corps.append("taux_conversion", String(parametres.tauxConversion));
+  }
   const charge = await api.creer<ChargeResultatImportMsProject>(
     `/projets/${projetId}/planning/ms-project/importer/`,
     corps,
@@ -498,6 +584,8 @@ export async function importerMsProject(
     elementsCrees: charge.elements_crees ?? 0,
     niveauxCrees: charge.niveaux_crees ?? 0,
     dependancesCreees: charge.dependances_creees ?? 0,
+    inactivesCreees: charge.inactives_creees ?? 0,
+    montantsImportes: charge.montants_importes ?? false,
     remplacementEffectue: charge.remplacement_effectue ?? false,
     avertissements: (charge.avertissements ?? []).map(versAvertissement),
     planning: versPlanningGantt(charge.planning),

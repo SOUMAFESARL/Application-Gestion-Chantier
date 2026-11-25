@@ -257,18 +257,44 @@ export function formaterDureeCalendaire(
 }
 
 // ---------------------------------------------------------------------------
-// Pourcentages
+// Pourcentages & écarts d'avancement (SSOT : une seule unité « % » partout)
 // ---------------------------------------------------------------------------
+
+/** Unité officielle de tout avancement physique, théorique et de son écart. */
+export const UNITE_AVANCEMENT = "%";
 
 /**
  * L'API transporte les pourcentages en chaîne décimale (`"42.50"`)
  * pour qu'aucune couche ne les arrondisse en chemin.
  */
-export function formaterPourcentage(valeur: string | number | null | undefined): string {
+export function formaterPourcentage(
+  valeur: string | number | null | undefined,
+  unite = UNITE_AVANCEMENT,
+): string {
   if (valeur === null || valeur === undefined) return ABSENT;
   const nombre = typeof valeur === "string" ? Number.parseFloat(valeur) : valeur;
   if (Number.isNaN(nombre)) return ABSENT;
-  return `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(nombre)}${INSECABLE}%`;
+  return `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(nombre)}${INSECABLE}${unite}`;
+}
+
+/**
+ * Formate un écart ou un retard d'avancement avec la même unité que l'avancement
+ * physique/théorique (`%` par défaut, ou `unite` transmise par le serveur).
+ * Exemples : `12.5` → « +12,5 % », `-4` → « -4 % », `0` → « 0 % ».
+ */
+export function formaterEcartAvancement(
+  valeur: string | number | null | undefined,
+  options: { signe?: boolean; absolu?: boolean; unite?: string } = {},
+): string {
+  if (valeur === null || valeur === undefined) return ABSENT;
+  const brut = typeof valeur === "string" ? Number.parseFloat(valeur) : valeur;
+  if (Number.isNaN(brut)) return ABSENT;
+  const { signe = true, absolu = false, unite = UNITE_AVANCEMENT } = options;
+  const arrondi = Math.round(brut * 10) / 10;
+  const cible = absolu ? Math.abs(arrondi) : arrondi;
+  const prefixe = !absolu && signe && cible > 0 ? "+" : "";
+  const texteNombre = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(cible);
+  return `${prefixe}${texteNombre}${INSECABLE}${unite}`;
 }
 
 /** Indice de santé 0-100 → couleur sémantique de la charte (CDC module 1). */

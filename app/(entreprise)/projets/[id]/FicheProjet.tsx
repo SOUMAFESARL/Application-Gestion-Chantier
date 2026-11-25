@@ -16,7 +16,7 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { ReactNode } from "react";
@@ -81,6 +81,7 @@ import {
   formaterDate,
   formaterDuree,
   formaterDureeCalendaire,
+  formaterEcartAvancement,
   formaterMontant,
   formaterMontantCourt,
   formaterPourcentage,
@@ -1033,7 +1034,6 @@ function CarteAvancement({
   avancementReel?: number;
 }) {
   const t = useTranslations("ficheProjet");
-  const format = useFormatter();
   const reel = avancementReel ?? projet.avancementReel;
   const ecart = ecartAvancement(
     reel,
@@ -1085,12 +1085,7 @@ function CarteAvancement({
         />
         <Detail
           libelle={t("avancement.ecart")}
-          valeur={t("points", {
-            valeur: format.number(ecart, {
-              signDisplay: "exceptZero",
-              maximumFractionDigits: 1,
-            }),
-          })}
+          valeur={formaterEcartAvancement(ecart)}
           className={cn(retard ? "text-avertissement" : "text-succes")}
         />
         {infoDelta && (

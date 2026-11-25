@@ -173,6 +173,8 @@ export function peutChangerPortee(
   return compte.estDirection;
 }
 
+export const PERMISSIONS_GENERALES_GED = ["ged.lire", "ged.telecharger"] as const;
+
 export const CATEGORIES_GED = [
   "plans",
   "contrats",
@@ -193,10 +195,16 @@ export interface LigneCategorieGed {
   actions: Partial<Record<ActionGed, PermissionCatalogue>>;
 }
 
+function rangPermissionGeneraleGed(perm: PermissionCatalogue): number {
+  const index = (PERMISSIONS_GENERALES_GED as readonly string[]).indexOf(perm.code.toLowerCase());
+  return index === -1 ? PERMISSIONS_GENERALES_GED.length + perm.ordre : index;
+}
+
 /**
  * Sépare les permissions générales de la GED (`ged.lire`, `ged.telecharger`) et regroupe
  * les permissions par catégorie BTP (`plans`, `contrats`, `rapports`, `administratif`, `photos`, `divers`)
- * dans l'ordre `voir` -> `deposer` -> `supprimer`.
+ * dans l'ordre du registre serveur : générales (`ged.lire`, `ged.telecharger`) puis
+ * `voir` -> `deposer` -> `supprimer` pour chacune des 6 catégories (20 permissions au total).
  */
 export function grouperPermissionsGed(permissions: PermissionCatalogue[]): {
   generales: PermissionCatalogue[];
@@ -223,6 +231,13 @@ export function grouperPermissionsGed(permissions: PermissionCatalogue[]): {
     parCategorie.set(cat, actuel);
   }
 
+  generales.sort(
+    (a, b) =>
+      rangPermissionGeneraleGed(a) - rangPermissionGeneraleGed(b) ||
+      a.ordre - b.ordre ||
+      a.code.localeCompare(b.code),
+  );
+
   const categories: LigneCategorieGed[] = [];
   for (const cat of CATEGORIES_GED) {
     const actions = parCategorie.get(cat);
@@ -232,5 +247,19 @@ export function grouperPermissionsGed(permissions: PermissionCatalogue[]): {
   }
 
   return { generales, categories };
+}
+
+/** Compte les permissions GED cochées sur le total disponible dans le catalogue. */
+export function compterPermissionsGed(
+  permissions: readonly PermissionCatalogue[],
+  codesSelectionnes: ReadonlySet<string>,
+): { selectionnees: number; total: number } {
+  let selectionnees = 0;
+  for (const perm of permissions) {
+    if (codesSelectionnes.has(perm.code.toLowerCase())) {
+      selectionnees += 1;
+    }
+  }
+  return { selectionnees, total: permissions.length };
 }
 

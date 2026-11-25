@@ -366,6 +366,12 @@ Two things that migration surfaced, worth knowing before reading old code:
     function names, query keys in `cles.ts`. Do not introduce another way of
     doing it. The wiring work is sequenced in lots, one open at a time:
     read `docs/plan_alignement_api.md` before starting any of it.
+13. **Source de Vérité Unique (SSOT) pour rôles, référentiels et unités métier :**
+    le frontend ne redéfinit jamais en dur un nom de rôle, un libellé de
+    référentiel ou une unité déjà portée par le backend. Tout pourcentage
+    d'avancement et tout écart/retard d'avancement passe par `formaterPourcentage`
+    et `formaterEcartAvancement` (`lib/format/index.ts`, `UNITE_AVANCEMENT = "%"`) —
+    jamais par une clé i18n locale `pts` / `points`.
 
 ### Skills
 

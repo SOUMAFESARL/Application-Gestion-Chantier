@@ -14,6 +14,7 @@ import {
   couleurIndiceSante,
   formaterDate,
   formaterDateHeure,
+  formaterEcartAvancement,
   formaterMontant,
   formaterPourcentage,
 } from "@/lib/format";
@@ -81,11 +82,6 @@ function horodatageFichier(maintenant: Date): { date: string; heure: string } {
   };
 }
 
-/** Le retard en points, signé : positif = retard sur le temporel (convention du serveur). */
-function pointsSignes(delta: number): string {
-  return new Intl.NumberFormat("fr-FR", { signDisplay: "exceptZero", maximumFractionDigits: 1 }).format(delta);
-}
-
 export function contenuPortefeuille(t: Traduire, donnees: DonneesPortefeuille): DocumentPdf {
   const { projets, criteres, chefFiltre, voitMontants, entreprise, logo, documents, marque, libelles, maintenant } =
     donnees;
@@ -151,7 +147,11 @@ export function contenuPortefeuille(t: Traduire, donnees: DonneesPortefeuille): 
       { texte: formaterPourcentage(projet.avancementTheorique) },
       projet.deltaRetard === null
         ? { texte: ABSENT, ton: "neutre" }
-        : { texte: pointsSignes(projet.deltaRetard), gras: true, ton: TON_RETARD[niveauRetardProjet(projet)] },
+        : {
+            texte: formaterEcartAvancement(projet.deltaRetard),
+            gras: true,
+            ton: TON_RETARD[niveauRetardProjet(projet)],
+          },
       projet.indiceSante === null
         ? { texte: ABSENT, ton: "neutre" }
         : { texte: String(projet.indiceSante), gras: true, ton: TON_SANTE_PDF[sante] },

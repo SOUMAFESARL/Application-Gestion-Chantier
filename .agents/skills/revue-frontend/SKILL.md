@@ -55,9 +55,10 @@ couche qui le nourrit.
 - Un `<button>` ou `<input>` nu sans `bg-transparent border-0` (le *preflight* est désactivé).
 - L'écran tient-il à 390 px ?
 
-**Langue**
+**Langue & Source de Vérité Unique (SSOT)**
 - Une exemption ajoutée à `eslint.config.mjs` pour un dossier entier, ou sans justification.
 - Un libellé fabriqué à partir d'un code (`"TERMINE".toLowerCase()` perd l'accent).
+- Un nom de rôle, un libellé de référentiel ou une unité redéfini localement au lieu d'être lu depuis le serveur ou `lib/format/index.ts` (`formaterPourcentage`, `formaterEcartAvancement` en `%`, jamais `pts`/`points` pour un écart d'avancement).
 
 ## 3. Vérifier plutôt que supposer
 

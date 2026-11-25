@@ -14,6 +14,7 @@
 import type { ProfilUtilisateur } from "@/features/auth/api";
 import type { Droits } from "@/features/habilitations/types";
 import type { Collaborateur } from "@/features/invitations/types";
+import { formaterEcartAvancement } from "@/lib/format";
 
 import type {
   Activite,
@@ -92,26 +93,26 @@ export function estEnRetard(ecart: number): boolean {
 }
 
 /**
- * L'écart, préfixé de son signe, pour l'affichage — « +3 », « -2.5 ».
+ * L'écart, préfixé de son signe et suivi de `%`, pour l'affichage — « +3 % », « -2,5 % ».
  *
- * Le signe positif est explicite : « 3 » se lit comme une valeur absolue,
- * « +3 » se lit comme une avance.
+ * Le signe positif est explicite : « 3 % » se lit comme une valeur absolue,
+ * « +3 % » se lit comme une avance.
  */
 export function ecartSigne(ecart: number): string {
-  return ecart >= 0 ? `+${ecart}` : `${ecart}`;
+  return formaterEcartAvancement(ecart);
 }
 
 /** Résultat structuré de la mise en mots du delta de retard (clé i18n et paramètres). */
 export interface ResultatLibelleDelta {
   cle: string;
-  params?: { points: string };
+  params?: { valeur: string };
 }
 
 /**
- * Mise en mots du delta de retard (avancement temporel − avancement physique).
- * Règle pure rendant une clé i18n et ses paramètres pour affichage (points formatés en français) :
- * - delta > 0 : « Retard : X pts » (`cle: "delta.retard"`, `params: { points: "X,X" }`)
- * - delta < 0 : « Avance : X pts » (`cle: "delta.avance"`, `params: { points: "X,X" }`)
+ * Mise en mots du delta de retard (avancement temporel - avancement physique).
+ * Règle pure rendant une clé i18n et ses paramètres pour affichage en `%` :
+ * - delta > 0 : « Retard : X,X % » (`cle: "delta.retard"`, `params: { valeur: "X,X %" }`)
+ * - delta < 0 : « Avance : X,X % » (`cle: "delta.avance"`, `params: { valeur: "X,X %" }`)
  * - delta === 0 : « Dans les délais » (`cle: "delta.dansLesDelais"`)
  * - null ou undefined : null (rien à afficher)
  */
@@ -120,21 +121,13 @@ export function libelleDelta(delta: number | null | undefined): ResultatLibelleD
   if (delta > 0) {
     return {
       cle: "delta.retard",
-      params: {
-        points: new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(
-          Math.abs(delta),
-        ),
-      },
+      params: { valeur: formaterEcartAvancement(delta, { absolu: true }) },
     };
   }
   if (delta < 0) {
     return {
       cle: "delta.avance",
-      params: {
-        points: new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(
-          Math.abs(delta),
-        ),
-      },
+      params: { valeur: formaterEcartAvancement(delta, { absolu: true }) },
     };
   }
   return { cle: "delta.dansLesDelais" };
@@ -2490,6 +2483,7 @@ export const ONGLETS_PROJET = [
   "avancement",
   "equipes",
   "avenants",
+  "documents",
   "configuration",
 ] as const;
 export type OngletProjet = (typeof ONGLETS_PROJET)[number];

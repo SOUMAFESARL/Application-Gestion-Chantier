@@ -33,7 +33,7 @@ import { SelecteurDate } from "@/components/ui/SelecteurDate";
 import { Textarea } from "@/components/ui/textarea";
 import { useDroits } from "@/features/habilitations";
 import { listerMotifsReport } from "@/features/projets/adaptateur";
-import { CLE_MOTIFS_REPORT } from "@/features/projets/cles";
+import { CLE_MOTIFS_REPORT, cleProjet } from "@/features/projets/cles";
 import { ComboboxModeExecution } from "@/features/projets/components/ComboboxModeExecution";
 import { ModaleReprogrammation } from "@/features/projets/components/ModaleReprogrammation";
 import { REFERENTIEL_MODES_EXECUTION, useReferentiel } from "@/features/projets/referentiels";
@@ -45,17 +45,26 @@ import { cn } from "@/lib/utils";
 import {
   cloturerCase,
   creerCase,
+  desactiverCase,
   listerListes,
   mesurerCase,
   modifierCase,
   planifierCase,
   prolongationsRequises,
+  reactiverCase,
   rouvrirCase,
   supprimerCase,
 } from "../adaptateur";
-import { CLE_LISTES, cleDecoupage } from "../cles";
+import { cleArbre, CLE_LISTES, cleDecoupage } from "../cles";
 import { clePlanningGantt } from "@/features/planning/cles";
-import { compterDescendants, niveauCibleAjout, trouverListeDuNiveau, type GesteCase } from "../regles";
+import {
+  compterDescendants,
+  compterDescendantsDesactives,
+  LONGUEUR_MIN_MOTIF,
+  niveauCibleAjout,
+  trouverListeDuNiveau,
+  type GesteCase,
+} from "../regles";
 import type { CaseArbre, ModeMesure, ModificationCase, NiveauProjet, Prolongation, UniteMesure } from "../types";
 import { MODES_MESURE, UNITES_MESURE } from "../types";
 import { premierMessage, schemaDates, schemaJustification, schemaLibelle, schemaMotif } from "../validations";
@@ -126,6 +135,18 @@ export function FenetreGeste({
       );
     case "rouvrir":
       return ouvert.cible && <FenetreReouverture key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />;
+    case "desactiver":
+      return (
+        ouvert.cible && (
+          <FenetreDesactivation key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />
+        )
+      );
+    case "reactiver":
+      return (
+        ouvert.cible && (
+          <FenetreReactivation key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />
+        )
+      );
     case "supprimer":
       return ouvert.cible && <FenetreSuppression key={cle} projet={projet} cible={ouvert.cible} onFermer={onFermer} />;
   }
@@ -142,10 +163,13 @@ function useEcriture<T>(projet: Projet, ecrire: (saisie: T) => Promise<unknown>,
     onSuccess: async () => {
       toast.success(succes);
       onFermer();
-      // L'arbre, et le projet (son avancement, ses dates) : tout est sous `["projets", id]`.
-      await client.invalidateQueries({ queryKey: cleDecoupage(projet.id) });
-      await client.invalidateQueries({ queryKey: clePlanningGantt(projet.id) });
-      await client.invalidateQueries({ queryKey: ["projets", projet.id] });
+      // L'arbre, le planning et le projet (avancement, dates, budget) sont invalidés ensemble.
+      await Promise.all([
+        client.invalidateQueries({ queryKey: cleArbre(projet.id) }),
+        client.invalidateQueries({ queryKey: cleDecoupage(projet.id) }),
+        client.invalidateQueries({ queryKey: clePlanningGantt(projet.id) }),
+        client.invalidateQueries({ queryKey: cleProjet(projet.id) }),
+      ]);
     },
   });
 }
@@ -872,6 +896,126 @@ function FenetreReouverture({ projet, cible, onFermer }: { projet: Projet; cible
       <Champ libelle={t("champs.motif")}>
         <Textarea value={motif} onChange={(e) => setMotif(e.target.value)} rows={3} />
       </Champ>
+    </Cadre>
+  );
+}
+
+/** Désactiver une case (et sa branche active) : motif obligatoire (>= 10 car.), historique préservé. */
+function FenetreDesactivation({
+  projet,
+  cible,
+  onFermer,
+}: {
+  projet: Projet;
+  cible: CaseArbre;
+  onFermer: () => void;
+}) {
+  const t = useTranslations("decoupage.gestes");
+  const [motif, setMotif] = useState("");
+  const [erreur, setErreur] = useState<string | null>(null);
+  const nbDescendants = compterDescendants(cible);
+  const longueurMotif = motif.trim().length;
+
+  const ecriture = useEcriture(
+    projet,
+    () => desactiverCase(cible.id, motif.trim()),
+    t("desactiver.succes", { libelle: cible.libelle }),
+    onFermer,
+  );
+
+  function valider() {
+    const refus = premierMessage(schemaMotif.safeParse(motif));
+    if (refus) {
+      setErreur(refus);
+      return;
+    }
+    setErreur(null);
+    ecriture.mutate(undefined, { onError: (e) => setErreur(messageServeur(e, t("erreur"))) });
+  }
+
+  return (
+    <Cadre
+      titre={t("desactiver.titre", { libelle: cible.libelle })}
+      description={t("desactiver.description")}
+      erreur={erreur}
+      enCours={ecriture.isPending}
+      libelleAction={t("desactiver.action")}
+      onValider={valider}
+      onFermer={onFermer}
+    >
+      <Alert variant="avertissement">
+        <TriangleAlert />
+        <AlertDescription>
+          <p className="m-0">
+            {nbDescendants > 0
+              ? t("desactiver.avertissementCascade", { nombre: nbDescendants })
+              : t("desactiver.avertissementFeuille")}
+          </p>
+        </AlertDescription>
+      </Alert>
+      <Champ
+        libelle={t("champs.motif")}
+        aide={t("desactiver.motifAide", { actuel: longueurMotif, min: LONGUEUR_MIN_MOTIF })}
+      >
+        <Textarea
+          value={motif}
+          onChange={(e) => setMotif(e.target.value)}
+          rows={3}
+          placeholder={t("desactiver.motifPlaceholder")}
+          autoFocus
+        />
+      </Champ>
+    </Cadre>
+  );
+}
+
+/** Réactiver une case précédemment désactivée (confirmation simple + option descendants). */
+function FenetreReactivation({
+  projet,
+  cible,
+  onFermer,
+}: {
+  projet: Projet;
+  cible: CaseArbre;
+  onFermer: () => void;
+}) {
+  const t = useTranslations("decoupage.gestes");
+  const [inclureDescendants, setInclureDescendants] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const nbDescendantsDesactives = compterDescendantsDesactives(cible);
+
+  const ecriture = useEcriture(
+    projet,
+    () => reactiverCase(cible.id, inclureDescendants),
+    t("reactiver.succes", { libelle: cible.libelle }),
+    onFermer,
+  );
+
+  return (
+    <Cadre
+      titre={t("reactiver.titre", { libelle: cible.libelle })}
+      description={t("reactiver.description")}
+      erreur={erreur}
+      enCours={ecriture.isPending}
+      libelleAction={t("reactiver.action")}
+      onValider={() => {
+        setErreur(null);
+        ecriture.mutate(undefined, { onError: (e) => setErreur(messageServeur(e, t("erreur"))) });
+      }}
+      onFermer={onFermer}
+    >
+      {nbDescendantsDesactives > 0 && (
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-solid border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-800">
+          <Checkbox
+            checked={inclureDescendants}
+            onCheckedChange={(v) => setInclureDescendants(v === true)}
+            className="mt-0.5"
+          />
+          <span>
+            {t("reactiver.inclureDescendants", { nombre: nbDescendantsDesactives })}
+          </span>
+        </label>
+      )}
     </Cadre>
   );
 }

@@ -22,6 +22,7 @@ import { Badge, type VarianteBadge } from "@/components/ui";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -49,7 +50,7 @@ import { projetModifiable } from "@/features/projets/regles";
 import type { Projet } from "@/features/projets/types";
 import { JUSTIFICATION_MIN } from "@/features/projets/validations";
 import { ErreurApi } from "@/lib/api";
-import { ABSENT, formaterDate, formaterPourcentage } from "@/lib/format";
+import { ABSENT, formaterDate, formaterPourcentage, UNITE_AVANCEMENT } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import {
@@ -66,13 +67,16 @@ import {
   datesEffectivesCase,
   estCaseEnRetard,
   estCaseJalon,
+  formaterEtiquetteDependance,
+  TYPES_DEPENDANCE,
 } from "../regles";
-import type { CasePlanning } from "../types";
+import type { CasePlanning, TypeDependance } from "../types";
 
 export interface PropsPanneauEditionTacheGantt {
   projet: Projet;
   cible: CasePlanning | null;
   toutesFeuilles: readonly CasePlanning[];
+  uniteAvancement?: string;
   onFermer: () => void;
 }
 
@@ -105,6 +109,7 @@ export function PanneauEditionTacheGantt({
   projet,
   cible,
   toutesFeuilles,
+  uniteAvancement = UNITE_AVANCEMENT,
   onFermer,
 }: PropsPanneauEditionTacheGantt) {
   return (
@@ -116,6 +121,7 @@ export function PanneauEditionTacheGantt({
             projet={projet}
             cible={cible}
             toutesFeuilles={toutesFeuilles}
+            uniteAvancement={uniteAvancement}
           />
         )}
       </SheetContent>
@@ -127,10 +133,12 @@ function ContenuPanneauTache({
   projet,
   cible,
   toutesFeuilles,
+  uniteAvancement,
 }: {
   projet: Projet;
   cible: CasePlanning;
   toutesFeuilles: readonly CasePlanning[];
+  uniteAvancement: string;
 }) {
   const t = useTranslations("planning");
   const clientRequetes = useQueryClient();
@@ -158,6 +166,8 @@ function ContenuPanneauTache({
 
   // État du bloc dépendances
   const [predecesseurChoisi, setPredecesseurChoisi] = useState("");
+  const [typeLienChoisi, setTypeLienChoisi] = useState<TypeDependance>("FS");
+  const [decalageJoursSaisi, setDecalageJoursSaisi] = useState("0");
   const [erreurDependance, setErreurDependance] = useState<string | null>(null);
 
   const besoinMotifs = estDejaPlanifiee || prolongations !== null;
@@ -252,10 +262,20 @@ function ContenuPanneauTache({
   });
 
   const mutationAjouterDependance = useMutation({
-    mutationFn: (predecesseurId: string) => ajouterDependanceElement(cible.id, predecesseurId),
+    mutationFn: (parametres: {
+      predecesseurId: string;
+      typeLien: TypeDependance;
+      decalageJours: number;
+    }) =>
+      ajouterDependanceElement(cible.id, parametres.predecesseurId, {
+        typeLien: parametres.typeLien,
+        decalageJours: parametres.decalageJours,
+      }),
     onSuccess: async () => {
       toast.success(t("tiroir.dependanceAjoutee"));
       setPredecesseurChoisi("");
+      setTypeLienChoisi("FS");
+      setDecalageJoursSaisi("0");
       setErreurDependance(null);
       await invaliderCaches();
     },
@@ -374,13 +394,13 @@ function ContenuPanneauTache({
           <div className="flex flex-col gap-0.5">
             <span className="text-neutral-500">{t("tiroir.avancementPhysique")}</span>
             <span className="text-sm font-semibold text-neutral-900 tabular-nums">
-              {formaterPourcentage(cible.avancement)}
+              {formaterPourcentage(cible.avancement, uniteAvancement)}
             </span>
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-neutral-500">{t("tiroir.avancementTemporel")}</span>
             <span className="text-sm font-semibold text-neutral-900 tabular-nums">
-              {formaterPourcentage(cible.avancementTemporel)}
+              {formaterPourcentage(cible.avancementTemporel, uniteAvancement)}
             </span>
           </div>
           <div className="flex flex-col gap-0.5">
@@ -433,10 +453,12 @@ function ContenuPanneauTache({
                   valeur={dateDebut}
                   onChange={(valeur) => {
                     setDateDebut(valeur);
+                    if (estJalon || (valeur && dateFin && valeur > dateFin)) {
+                      setDateFin(valeur);
+                    }
                     setProlongations(null);
                     setSuccesseursDecalage(null);
                   }}
-                  auPlusTard={dateFin || undefined}
                   placeholder={t("tiroir.choisirDate")}
                   disabled={!peutPlanifier || enCoursDates}
                 />
@@ -449,15 +471,21 @@ function ContenuPanneauTache({
                   valeur={dateFin}
                   onChange={(valeur) => {
                     setDateFin(valeur);
+                    if (estJalon) {
+                      setDateDebut(valeur);
+                    }
                     setProlongations(null);
                     setSuccesseursDecalage(null);
                   }}
-                  auPlusTot={dateDebut || undefined}
+                  auPlusTot={estJalon ? undefined : dateDebut || undefined}
                   placeholder={t("tiroir.choisirDate")}
                   disabled={!peutPlanifier || enCoursDates}
                 />
               </div>
             </div>
+            {estJalon && (
+              <p className="m-0 text-xs text-neutral-500">{t("tiroir.jalonDateUniqueAide")}</p>
+            )}
 
             {/* Alerte prolongations parentes */}
             {prolongations && (
@@ -619,99 +647,162 @@ function ContenuPanneauTache({
                   </p>
                 ) : (
                   <ul className="m-0 flex list-none flex-col gap-2 p-0">
-                    {predecesseurs.map((lien) => (
-                      <li
-                        key={lien.lienId}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-solid border-neutral-200 bg-neutral-0 px-3 py-2 text-xs"
-                      >
-                        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                          <span className="truncate font-medium text-neutral-900">
-                            {lien.visible && lien.libelle
-                              ? lien.libelle
-                              : t("tiroir.tacheHorsPerimetre")}
-                          </span>
-                          <span className="text-neutral-500 tabular-nums">
-                            {t("tiroir.finPredecesseur", {
-                              date: formaterDate(lien.dateFinPrevue),
-                            })}
-                          </span>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          {lien.respectee === true && (
-                            <Badge
-                              variante="succes"
-                              icone={<CheckCircle2 className="size-3" aria-hidden="true" />}
-                            >
-                              {t("tiroir.lienRespecte")}
-                            </Badge>
-                          )}
-                          {lien.respectee === false && (
-                            <Badge
-                              variante="erreur"
-                              icone={<AlertTriangle className="size-3" aria-hidden="true" />}
-                            >
-                              {t("tiroir.lienNonRespecte")}
-                            </Badge>
-                          )}
-                          {peutPlanifier && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              onClick={() => mutationSupprimerDependance.mutate(lien.lienId)}
-                              disabled={mutationSupprimerDependance.isPending}
-                              aria-label={t("tiroir.supprimerDependance")}
-                              className="text-neutral-500 hover:bg-erreur-fond hover:text-erreur"
-                            >
-                              <Trash2 className="size-3.5" aria-hidden="true" />
-                            </Button>
-                          )}
-                        </div>
-                      </li>
-                    ))}
+                    {predecesseurs.map((lien) => {
+                      const depuisDebut = lien.typeLien === "SS" || lien.typeLien === "SF";
+                      return (
+                        <li
+                          key={lien.lienId}
+                          className="flex items-center justify-between gap-2 rounded-lg border border-solid border-neutral-200 bg-neutral-0 px-3 py-2 text-xs"
+                        >
+                          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                            <span className="flex items-center gap-1.5">
+                              <span className="truncate font-medium text-neutral-900">
+                                {lien.visible && lien.libelle
+                                  ? lien.libelle
+                                  : t("tiroir.tacheHorsPerimetre")}
+                              </span>
+                              <Badge variante="neutre">
+                                {formaterEtiquetteDependance(lien.typeLien, lien.decalageJours)}
+                              </Badge>
+                            </span>
+                            <span className="text-neutral-500 tabular-nums">
+                              {depuisDebut
+                                ? t("tiroir.debutPredecesseur", {
+                                    date: formaterDate(lien.dateDebutPrevue),
+                                  })
+                                : t("tiroir.finPredecesseur", {
+                                    date: formaterDate(lien.dateFinPrevue),
+                                  })}
+                            </span>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            {lien.respectee === true && (
+                              <Badge
+                                variante="succes"
+                                icone={<CheckCircle2 className="size-3" aria-hidden="true" />}
+                              >
+                                {t("tiroir.lienRespecte")}
+                              </Badge>
+                            )}
+                            {lien.respectee === false && (
+                              <Badge
+                                variante="erreur"
+                                icone={<AlertTriangle className="size-3" aria-hidden="true" />}
+                              >
+                                {t("tiroir.lienNonRespecte")}
+                              </Badge>
+                            )}
+                            {peutPlanifier && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => mutationSupprimerDependance.mutate(lien.lienId)}
+                                disabled={mutationSupprimerDependance.isPending}
+                                aria-label={t("tiroir.supprimerDependance")}
+                                className="text-neutral-500 hover:bg-erreur-fond hover:text-erreur"
+                              >
+                                <Trash2 className="size-3.5" aria-hidden="true" />
+                              </Button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
 
-              {/* Ajout d'un prédécesseur FS */}
+              {/* Ajout d'un prédécesseur (FS / SS / FF / SF + décalage) */}
               {peutPlanifier && (
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2.5 rounded-lg border border-solid border-neutral-200 bg-neutral-50 p-3">
                   <label className="text-xs font-medium text-neutral-700">
                     {t("tiroir.ajouterPredecesseur")}
                   </label>
-                  <div className="flex items-center gap-2 max-sm:flex-col max-sm:items-stretch">
-                    <Select
-                      value={predecesseurChoisi || undefined}
-                      onValueChange={setPredecesseurChoisi}
-                      disabled={mutationAjouterDependance.isPending || candidats.length === 0}
-                    >
-                      <SelectTrigger className="min-w-0 flex-1">
-                        <SelectValue
-                          placeholder={
-                            candidats.length > 0
-                              ? t("tiroir.choisirPredecesseur")
-                              : t("tiroir.aucunCandidat")
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {candidats.map((candidat) => (
-                          <SelectItem key={candidat.id} value={candidat.id}>
-                            {candidat.numero ? `${candidat.numero} ` : ""}
-                            {candidat.libelle}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <Select
+                    value={predecesseurChoisi || undefined}
+                    onValueChange={setPredecesseurChoisi}
+                    disabled={mutationAjouterDependance.isPending || candidats.length === 0}
+                  >
+                    <SelectTrigger className="w-full bg-neutral-0">
+                      <SelectValue
+                        placeholder={
+                          candidats.length > 0
+                            ? t("tiroir.choisirPredecesseur")
+                            : t("tiroir.aucunCandidat")
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {candidats.map((candidat) => (
+                        <SelectItem key={candidat.id} value={candidat.id}>
+                          {candidat.numero ? `${candidat.numero} ` : ""}
+                          {candidat.libelle}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <div className="grid grid-cols-[1fr_7.5rem_auto] items-end gap-2 max-sm:grid-cols-1">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[11px] font-medium text-neutral-600">
+                        {t("tiroir.typeLien")}
+                      </label>
+                      <Select
+                        value={typeLienChoisi}
+                        onValueChange={(v) => setTypeLienChoisi(v as TypeDependance)}
+                        disabled={mutationAjouterDependance.isPending || candidats.length === 0}
+                      >
+                        <SelectTrigger className="w-full bg-neutral-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TYPES_DEPENDANCE.map((typeOption) => (
+                            <SelectItem key={typeOption} value={typeOption}>
+                              {t(`typesLien.${typeOption}`)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[11px] font-medium text-neutral-600">
+                        {t("tiroir.decalageJours")}
+                      </label>
+                      <Input
+                        type="number"
+                        step={1}
+                        value={decalageJoursSaisi}
+                        onChange={(evenement) => setDecalageJoursSaisi(evenement.target.value)}
+                        aria-label={t("tiroir.decalageJours")}
+                        disabled={mutationAjouterDependance.isPending || candidats.length === 0}
+                        className="h-9 bg-neutral-0 text-sm tabular-nums"
+                      />
+                    </div>
+
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       disabled={!predecesseurChoisi || mutationAjouterDependance.isPending}
-                      onClick={() =>
-                        predecesseurChoisi && mutationAjouterDependance.mutate(predecesseurChoisi)
-                      }
-                      className="shrink-0"
+                      onClick={() => {
+                        if (!predecesseurChoisi) return;
+                        const brut = decalageJoursSaisi.trim();
+                        const decalage =
+                          brut === "" || brut === "-" || brut === "+" ? 0 : Number.parseInt(brut, 10);
+                        if (!Number.isFinite(decalage)) {
+                          setErreurDependance(t("tiroir.erreurDecalageInvalide"));
+                          return;
+                        }
+                        setErreurDependance(null);
+                        mutationAjouterDependance.mutate({
+                          predecesseurId: predecesseurChoisi,
+                          typeLien: typeLienChoisi,
+                          decalageJours: decalage,
+                        });
+                      }}
+                      className="h-9 shrink-0 bg-neutral-0"
                     >
                       {mutationAjouterDependance.isPending ? (
                         <LoaderCircle className="animate-spin" aria-hidden="true" />
@@ -721,6 +812,7 @@ function ContenuPanneauTache({
                       <span>{t("tiroir.actionAjouterLien")}</span>
                     </Button>
                   </div>
+                  <p className="m-0 text-[11px] text-neutral-500">{t("tiroir.decalageJoursAide")}</p>
                 </div>
               )}
 
@@ -750,9 +842,26 @@ function ContenuPanneauTache({
                               ? lien.libelle
                               : t("tiroir.tacheHorsPerimetre")}
                           </span>
+                          <Badge variante="neutre">
+                            {formaterEtiquetteDependance(lien.typeLien, lien.decalageJours)}
+                          </Badge>
                         </span>
-                        <span className="shrink-0 text-neutral-500 tabular-nums">
-                          {formaterDate(lien.dateDebutPrevue)}
+                        <span className="flex shrink-0 items-center gap-1.5 text-neutral-500 tabular-nums">
+                          {lien.respectee === false && (
+                            <Badge
+                              variante="erreur"
+                              icone={<AlertTriangle className="size-3" aria-hidden="true" />}
+                            >
+                              {t("tiroir.lienNonRespecte")}
+                            </Badge>
+                          )}
+                          <span>
+                            {formaterDate(
+                              lien.typeLien === "FF" || lien.typeLien === "SF"
+                                ? lien.dateFinPrevue
+                                : lien.dateDebutPrevue,
+                            )}
+                          </span>
                         </span>
                       </li>
                     ))}

@@ -1,19 +1,16 @@
-import { useTranslations } from "next-intl";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 
-import { EnTetePage } from "@/components/layout/EnTetePage";
+import { EspaceDocumentsGed } from "@/features/ged/components/EspaceDocumentsGed";
 
 /**
- * Écran « Documents »
- *
- * Motif d'interface : Liste filtrable
- *
- * Squelette posé par la tâche T-005. Le contenu réel est développé
- * au sprint qui porte la fonctionnalité correspondante.
+ * Écran global « Documents » (`/documents`) — GED multi-projets (F6).
  */
-export default function Page() {
-  const t = useTranslations("squelettes");
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("ged.meta");
+  return { title: t("titre") };
+}
 
-  return (
-    <EnTetePage titre={t("documents.titre")} description={t("aConstruire", { motif: t("documents.motif") })} />
-  );
+export default function Page() {
+  return <EspaceDocumentsGed />;
 }

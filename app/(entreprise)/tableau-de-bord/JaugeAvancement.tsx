@@ -2,7 +2,8 @@
 
 import { useTranslations } from "next-intl";
 
-import { ecartSigne, estEnRetard, largeurJauge, libelleDelta } from "@/features/projets/regles";
+import { estEnRetard, largeurJauge, libelleDelta } from "@/features/projets/regles";
+import { formaterEcartAvancement } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { JAUGE_CIBLE, JAUGE_PISTE, JAUGE_REMPLI } from "./classes";
@@ -29,7 +30,7 @@ export function JaugeAvancement({
 }: Props) {
   const t = useTranslations("tableauDeBord.portefeuille");
   const enRetard = estEnRetard(ecart);
-  const prevu = t("prevu", { taux: avancementTheorique, ecart: ecartSigne(ecart) });
+  const prevu = t("prevu", { taux: avancementTheorique, ecart: formaterEcartAvancement(ecart) });
   const infoDelta = libelleDelta(deltaRetard);
   const texteDelta = infoDelta ? t(infoDelta.cle, infoDelta.params) : null;
   const infobulle = texteDelta ? t("infobulle", { prevu, delta: texteDelta }) : prevu;

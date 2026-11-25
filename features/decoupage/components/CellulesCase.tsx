@@ -3,7 +3,13 @@
 import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui";
-import { ABSENT, formaterDate, formaterMontant, formaterPourcentage } from "@/lib/format";
+import {
+  ABSENT,
+  formaterDate,
+  formaterEcartAvancement,
+  formaterMontant,
+  formaterPourcentage,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { deriveSurOrigine, etatAvancement } from "../regles";
@@ -51,10 +57,9 @@ export function Physique({ une }: { une: CaseArbre }) {
 /** L'écart temporel − physique, en pourcentage : positif, la case est en retard. */
 export function Ecart({ valeur }: { valeur: number | null }) {
   if (valeur === null) return <>{ABSENT}</>;
-  const texte = formaterPourcentage(valeur);
   return (
     <span className={cn("whitespace-nowrap tabular-nums", valeur > 0 ? "text-erreur" : "text-succes")}>
-      {valeur > 0 ? `+${texte}` : texte}
+      {formaterEcartAvancement(valeur)}
     </span>
   );
 }
@@ -62,6 +67,7 @@ export function Ecart({ valeur }: { valeur: number | null }) {
 export function Statut({ une }: { une: CaseArbre }) {
   const t = useTranslations("decoupage.arbre.etats");
   if (une.acces !== "COMPLET") return null;
+  if (!une.estActif) return <Badge variante="neutre">{t("desactivee")}</Badge>;
   // Une feuille se clôt (`cloture`) ; un parent est clôturé *parce que* tous ses enfants le sont,
   // et le serveur le dit par `statut` : `cloture` ne vaut que pour une feuille.
   if (une.cloture || une.statut === STATUT_CLOTURE) return <Badge variante="succes">{t("cloturee")}</Badge>;

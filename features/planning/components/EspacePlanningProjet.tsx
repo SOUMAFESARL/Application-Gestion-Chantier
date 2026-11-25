@@ -315,6 +315,7 @@ export function EspacePlanningProjet({
         projet={projet}
         cible={caseSelectionnee}
         toutesFeuilles={toutesFeuilles}
+        uniteAvancement={planning.uniteAvancement}
         onFermer={() => setCaseSelectionneeId(null)}
       />
 
