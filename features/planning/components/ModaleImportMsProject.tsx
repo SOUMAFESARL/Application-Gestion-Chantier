@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  Banknote,
   BarChart3,
   CheckCircle2,
   CircleAlert,
@@ -31,18 +32,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { ZoneDepotFichiers } from "@/components/ui/zone-depot-fichiers";
 import { cleDecoupage } from "@/features/decoupage/cles";
 import { CLE_LISTE_PROJETS, cleProjet } from "@/features/projets/cles";
 import { ErreurApi } from "@/lib/api";
-import { ABSENT, formaterDate, formaterPourcentage } from "@/lib/format";
+import {
+  ABSENT,
+  formaterDate,
+  formaterMontant,
+  formaterPourcentage,
+  formaterQuantite,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { analyserImportMsProject, importerMsProject } from "../adaptateur";
 import { clePlanningGantt } from "../cles";
 import {
+  aBaselineDifferente,
   aplatirTachesMsProject,
+  calculerCoutFcfaCentimes,
   convertirAnalyseMsProjectEnPlanning,
+  formaterEtiquetteDependance,
+  tauxConversionInitialMsProject,
   validerFichierMsProject,
 } from "../regles";
 import type {
@@ -118,10 +130,37 @@ function ContenuModaleImportMsProject({
   const [analyse, setAnalyse] = useState<AnalyseMsProject | null>(null);
   const [onglet, setOnglet] = useState<OngletApercu>("LISTE");
   const [confirmerRemplacement, setConfirmerRemplacement] = useState(false);
+  const [importerMontants, setImporterMontants] = useState(false);
+  const [tauxConversionSaisi, setTauxConversionSaisi] = useState("1");
+  const [montantsDejaFcfa, setMontantsDejaFcfa] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
   const fichierSelectionne = fichiers[0] ?? null;
   const etatEffectif = analyse?.etatImport ?? etatImport;
+
+  const tauxInitial = useMemo(
+    () => (analyse ? tauxConversionInitialMsProject(analyse.projetXml) : 1),
+    [analyse],
+  );
+
+  const deviseEstXof = (analyse?.projetXml.deviseCode ?? "XOF") === "XOF";
+  const afficherMontants = Boolean(
+    analyse && etatEffectif.peutVoirMontants && analyse.statistiques.tachesChiffrees > 0,
+  );
+
+  const tauxParse = Number(tauxConversionSaisi.replace(",", "."));
+  const tauxValide = Number.isFinite(tauxParse) && tauxParse > 0 ? tauxParse : null;
+  const tauxEffectif = deviseEstXof || montantsDejaFcfa ? 1 : tauxValide;
+
+  const coutTotalCentimes = useMemo(() => {
+    if (!analyse || !afficherMontants) return null;
+    return calculerCoutFcfaCentimes(
+      analyse.projetXml.coutTotalBrut,
+      analyse.projetXml.coutTotalFcfa,
+      tauxEffectif,
+      tauxInitial,
+    );
+  }, [analyse, afficherMontants, tauxEffectif, tauxInitial]);
 
   const mutationAnalyser = useMutation({
     mutationFn: (fichier: File) => analyserImportMsProject(projetId, fichier),
@@ -130,6 +169,12 @@ function ContenuModaleImportMsProject({
       setConfirmerRemplacement(false);
       setOnglet("LISTE");
       setErreur(null);
+      const tauxDefaut = tauxConversionInitialMsProject(resultat.projetXml);
+      setTauxConversionSaisi(String(tauxDefaut));
+      setMontantsDejaFcfa(resultat.projetXml.deviseCode === "XOF");
+      setImporterMontants(
+        resultat.etatImport.peutChiffrer && resultat.statistiques.tachesChiffrees > 0,
+      );
     },
     onError: (err) => {
       setErreur(messageErreurImport(err, t("erreurs.analyseEchouee")));
@@ -141,7 +186,12 @@ function ContenuModaleImportMsProject({
       if (!fichierSelectionne) {
         throw new Error(t("erreurs.fichierManquant"));
       }
-      return importerMsProject(projetId, fichierSelectionne, confirmerRemplacement);
+      const activerMontants = afficherMontants && etatEffectif.peutChiffrer && importerMontants;
+      return importerMsProject(projetId, fichierSelectionne, {
+        confirmerRemplacement,
+        importerMontants: activerMontants,
+        tauxConversion: activerMontants && tauxEffectif !== null ? tauxEffectif : undefined,
+      });
     },
     onSuccess: async (resultat) => {
       clientRequetes.setQueryData(clePlanningGantt(projetId), resultat.planning);
@@ -185,10 +235,13 @@ function ContenuModaleImportMsProject({
   };
 
   const etapeApercu = analyse !== null;
+  const tauxRequisValide =
+    !afficherMontants || !etatEffectif.peutChiffrer || !importerMontants || tauxEffectif !== null;
   const peutValiderImport =
     etapeApercu &&
     etatEffectif.autorise &&
     (!etatEffectif.remplacementRequis || confirmerRemplacement) &&
+    tauxRequisValide &&
     !mutationImporter.isPending;
 
   return (
@@ -258,7 +311,7 @@ function ContenuModaleImportMsProject({
         {/* ÉTAPE 2 : Aperçu interactif avant import */}
         {etapeApercu && analyse && planningApercu && (
           <>
-            {/* Métadonnées XML & niveaux */}
+            {/* Métadonnées XML, baseline, total FCFA & niveaux */}
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-solid border-neutral-200 bg-neutral-50 px-4 py-3 text-xs">
               <div className="flex flex-col gap-0.5">
                 <span className="font-semibold text-neutral-900">
@@ -270,21 +323,58 @@ function ContenuModaleImportMsProject({
                     fin: formaterDate(analyse.projetXml.dateFin),
                   })}
                 </span>
+                {(analyse.projetXml.dateDebutBaseline || analyse.projetXml.dateFinBaseline) && (
+                  <span className="text-neutral-500 tabular-nums">
+                    {t("apercu.baselineXml", {
+                      debut: formaterDate(analyse.projetXml.dateDebutBaseline),
+                      fin: formaterDate(analyse.projetXml.dateFinBaseline),
+                    })}
+                  </span>
+                )}
               </div>
-              {analyse.niveaux.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-neutral-500">{t("apercu.niveaux")}</span>
-                  {analyse.niveaux.map((niv) => (
-                    <Badge key={niv.ordre} variante="neutre">
-                      {niv.libelle}
-                    </Badge>
-                  ))}
-                </div>
-              )}
+
+              <div className="flex flex-wrap items-center gap-3">
+                {afficherMontants && (
+                  <div className="flex flex-col items-end gap-0.5 rounded-md border border-solid border-primary-200 bg-neutral-0 px-3 py-1.5">
+                    <span className="text-[11px] text-neutral-500">{t("montants.totalConverti")}</span>
+                    <span className="text-sm font-bold text-neutral-900 tabular-nums">
+                      {coutTotalCentimes !== null ? formaterMontant(coutTotalCentimes) : ABSENT}
+                    </span>
+                    {!deviseEstXof &&
+                      tauxEffectif !== 1 &&
+                      analyse.projetXml.coutTotalBrut !== null && (
+                        <span className="text-[11px] text-neutral-500 tabular-nums">
+                          {t("montants.totalBrut", {
+                            montant: formaterQuantite(analyse.projetXml.coutTotalBrut),
+                            devise: analyse.projetXml.deviseSymbole || analyse.projetXml.deviseCode,
+                          })}
+                        </span>
+                      )}
+                  </div>
+                )}
+
+                {analyse.niveaux.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-neutral-500">{t("apercu.niveaux")}</span>
+                    {analyse.niveaux.map((niv) => (
+                      <Badge key={niv.ordre} variante="neutre">
+                        {niv.libelle}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Statistiques clés */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <div
+              className={cn(
+                "grid grid-cols-2 gap-3",
+                analyse.statistiques.inactives > 0
+                  ? "sm:grid-cols-3 lg:grid-cols-6"
+                  : "sm:grid-cols-5",
+              )}
+            >
               <CarteStatistique
                 libelle={t("statistiques.totalTaches")}
                 valeur={analyse.statistiques.totalTaches}
@@ -297,6 +387,12 @@ function ContenuModaleImportMsProject({
                 libelle={t("statistiques.jalons")}
                 valeur={analyse.statistiques.jalons}
               />
+              {analyse.statistiques.inactives > 0 && (
+                <CarteStatistique
+                  libelle={t("statistiques.inactives")}
+                  valeur={analyse.statistiques.inactives}
+                />
+              )}
               <CarteStatistique
                 libelle={t("statistiques.dependancesRetenues")}
                 valeur={analyse.statistiques.dependancesRetenues}
@@ -308,6 +404,99 @@ function ContenuModaleImportMsProject({
                 ton={analyse.statistiques.dependancesIgnorees > 0 ? "avertissement" : "neutre"}
               />
             </div>
+
+            {/* Encart montants & conversion de devise */}
+            {afficherMontants && (
+              <div className="flex flex-col gap-3 rounded-lg border border-solid border-primary-200 bg-primary-50/40 p-3.5 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 font-semibold text-neutral-900">
+                    <Banknote className="size-4 text-primary-600" aria-hidden="true" />
+                    <span>
+                      {t("montants.titre", { nombre: analyse.statistiques.tachesChiffrees })}
+                    </span>
+                  </div>
+                  {!deviseEstXof && (
+                    <Badge variante="information">
+                      {t("montants.deviseDetectee", {
+                        code: analyse.projetXml.deviseCode,
+                        symbole: analyse.projetXml.deviseSymbole,
+                      })}
+                    </Badge>
+                  )}
+                </div>
+
+                {!deviseEstXof && (
+                  <div className="flex flex-wrap items-end gap-4 rounded-md border border-solid border-neutral-200 bg-neutral-0 p-3">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[11px] font-medium text-neutral-700">
+                        {t("montants.tauxConversion", { code: analyse.projetXml.deviseCode })}
+                      </label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="any"
+                        inputMode="decimal"
+                        value={tauxConversionSaisi}
+                        disabled={montantsDejaFcfa || enCours}
+                        onChange={(evenement) => {
+                          setTauxConversionSaisi(evenement.target.value);
+                          setMontantsDejaFcfa(false);
+                        }}
+                        aria-label={t("montants.tauxConversion", {
+                          code: analyse.projetXml.deviseCode,
+                        })}
+                        className="h-8 w-40 bg-neutral-0 text-xs tabular-nums"
+                      />
+                    </div>
+
+                    <label className="flex cursor-pointer items-center gap-2 pb-1 text-xs font-medium text-neutral-800">
+                      <Checkbox
+                        checked={montantsDejaFcfa}
+                        disabled={enCours}
+                        onCheckedChange={(coche) => {
+                          const actif = coche === true;
+                          setMontantsDejaFcfa(actif);
+                          setTauxConversionSaisi(actif ? "1" : String(tauxInitial));
+                        }}
+                      />
+                      <span>{t("montants.dejaEnFcfa")}</span>
+                    </label>
+
+                    {tauxEffectif === null && (
+                      <span className="w-full text-[11px] font-medium text-erreur">
+                        {t("montants.tauxInvalide")}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-1">
+                  <label
+                    className={cn(
+                      "flex items-start gap-2.5 text-xs",
+                      etatEffectif.peutChiffrer
+                        ? "cursor-pointer text-neutral-900"
+                        : "cursor-not-allowed text-neutral-500",
+                    )}
+                  >
+                    <Checkbox
+                      checked={importerMontants}
+                      disabled={!etatEffectif.peutChiffrer || enCours}
+                      onCheckedChange={(v) => setImporterMontants(v === true)}
+                      className="mt-0.5"
+                    />
+                    <span className="leading-relaxed font-medium">
+                      {t("montants.importerCheckbox")}
+                    </span>
+                  </label>
+                  {!etatEffectif.peutChiffrer && (
+                    <p className="m-0 pl-6 text-[11px] text-neutral-500">
+                      {t("montants.permissionChiffrerRequise")}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Avertissements de l'analyse */}
             {analyse.avertissements.length > 0 && (
@@ -377,57 +566,112 @@ function ContenuModaleImportMsProject({
                         <th className="px-3 py-2 text-left font-semibold">{t("liste.debut")}</th>
                         <th className="px-3 py-2 text-left font-semibold">{t("liste.fin")}</th>
                         <th className="px-3 py-2 text-right font-semibold">{t("liste.duree")}</th>
+                        {afficherMontants && (
+                          <th className="px-3 py-2 text-right font-semibold">
+                            {t("liste.montantFcfa")}
+                          </th>
+                        )}
                         <th className="px-3 py-2 text-right font-semibold">{t("liste.avancementXml")}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {lignesApercu.map(({ tache, profondeur }) => (
-                        <tr
-                          key={tache.uid}
-                          className="border-0 border-b border-solid border-neutral-100 last:border-b-0 hover:bg-neutral-50"
-                        >
-                          <td className="px-3 py-2 font-mono text-neutral-500">
-                            {tache.numero ?? ABSENT}
-                          </td>
-                          <td className="px-3 py-2">
-                            <div
-                              className="flex items-center gap-1.5"
-                              style={{ paddingLeft: Math.min(profondeur, 6) * 14 }}
-                            >
-                              {tache.estJalon && (
-                                <Diamond
-                                  className="size-3 shrink-0 fill-avertissement text-avertissement"
-                                  aria-hidden="true"
-                                />
+                      {lignesApercu.map(({ tache, profondeur }) => {
+                        const inactive = !tache.estActif;
+                        const aBaseline = Boolean(tache.debutBaseline || tache.finBaseline);
+                        const baselineDiff = aBaselineDifferente(tache);
+                        const centimesLigne = afficherMontants
+                          ? calculerCoutFcfaCentimes(
+                              tache.coutBrut,
+                              tache.coutFcfa,
+                              tauxEffectif,
+                              tauxInitial,
+                            )
+                          : null;
+
+                        return (
+                          <tr
+                            key={tache.uid}
+                            className={cn(
+                              "border-0 border-b border-solid border-neutral-100 last:border-b-0 hover:bg-neutral-50",
+                              inactive && "bg-neutral-50/80 text-neutral-400 opacity-75",
+                            )}
+                          >
+                            <td className="px-3 py-2 font-mono text-neutral-500">
+                              {tache.numero ?? ABSENT}
+                            </td>
+                            <td className="px-3 py-2">
+                              <div
+                                className="flex flex-wrap items-center gap-1.5"
+                                style={{ paddingLeft: Math.min(profondeur, 6) * 14 }}
+                              >
+                                {tache.estJalon && (
+                                  <Diamond
+                                    className="size-3 shrink-0 fill-avertissement text-avertissement"
+                                    aria-hidden="true"
+                                  />
+                                )}
+                                <span
+                                  className={cn(
+                                    !tache.estFeuille
+                                      ? "font-semibold text-neutral-900"
+                                      : "text-neutral-800",
+                                    inactive && "font-normal text-neutral-500 line-through",
+                                  )}
+                                >
+                                  {tache.libelle}
+                                </span>
+                                {inactive && (
+                                  <Badge variante="neutre">{t("liste.badgeDesactivee")}</Badge>
+                                )}
+                                {aBaseline && (
+                                  <Badge variante="neutre">{t("liste.badgeBaseline")}</Badge>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 text-neutral-600">{tache.niveau ?? ABSENT}</td>
+                            <td className="px-3 py-2 text-neutral-600 tabular-nums">
+                              <div>{formaterDate(tache.debut)}</div>
+                              {baselineDiff && tache.debutBaseline && (
+                                <div className="text-[10px] text-neutral-400">
+                                  {t("liste.baselineDate", {
+                                    date: formaterDate(tache.debutBaseline),
+                                  })}
+                                </div>
                               )}
-                              <span
+                            </td>
+                            <td className="px-3 py-2 text-neutral-600 tabular-nums">
+                              <div>{formaterDate(tache.fin)}</div>
+                              {baselineDiff && tache.finBaseline && (
+                                <div className="text-[10px] text-neutral-400">
+                                  {t("liste.baselineDate", {
+                                    date: formaterDate(tache.finBaseline),
+                                  })}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right text-neutral-600 tabular-nums">
+                              {tache.dureeHeures !== null
+                                ? t("liste.heures", { heures: tache.dureeHeures })
+                                : ABSENT}
+                            </td>
+                            {afficherMontants && (
+                              <td
                                 className={cn(
-                                  !tache.estFeuille
-                                    ? "font-semibold text-neutral-900"
-                                    : "text-neutral-800",
+                                  "px-3 py-2 text-right whitespace-nowrap text-neutral-700 tabular-nums",
+                                  inactive && "text-neutral-400 line-through",
                                 )}
                               >
-                                {tache.libelle}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-neutral-600">{tache.niveau ?? ABSENT}</td>
-                          <td className="px-3 py-2 text-neutral-600 tabular-nums">
-                            {formaterDate(tache.debut)}
-                          </td>
-                          <td className="px-3 py-2 text-neutral-600 tabular-nums">
-                            {formaterDate(tache.fin)}
-                          </td>
-                          <td className="px-3 py-2 text-right text-neutral-600 tabular-nums">
-                            {tache.dureeHeures !== null
-                              ? t("liste.heures", { heures: tache.dureeHeures })
-                              : ABSENT}
-                          </td>
-                          <td className="px-3 py-2 text-right text-neutral-600 tabular-nums">
-                            {formaterPourcentage(tache.pourcentageXml)}
-                          </td>
-                        </tr>
-                      ))}
+                                {centimesLigne !== null
+                                  ? formaterMontant(centimesLigne, { avecDevise: false })
+                                  : ABSENT}
+                              </td>
+                            )}
+                            <td className="px-3 py-2 text-right text-neutral-600 tabular-nums">
+                              {formaterPourcentage(tache.pourcentageXml)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -451,7 +695,9 @@ function ContenuModaleImportMsProject({
                               <span className="truncate font-medium">{dep.successeurLibelle}</span>
                             </span>
                             <span className="flex shrink-0 items-center gap-1.5">
-                              <Badge variante="neutre">{dep.type}</Badge>
+                              <Badge variante="neutre">
+                                {formaterEtiquetteDependance(dep.type, dep.decalageJours)}
+                              </Badge>
                               {dep.respectee === true && (
                                 <Badge
                                   variante="succes"
@@ -527,6 +773,9 @@ function ContenuModaleImportMsProject({
               onClick={() => {
                 setAnalyse(null);
                 setConfirmerRemplacement(false);
+                setImporterMontants(false);
+                setTauxConversionSaisi("1");
+                setMontantsDejaFcfa(false);
                 setErreur(null);
               }}
             >

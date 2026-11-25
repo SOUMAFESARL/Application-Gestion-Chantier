@@ -8,6 +8,7 @@ import {
   avancementLot,
   budgetEnVigueur,
   budgetRestant,
+  dureeContractuelleTotale,
   ecartAvancement,
   echeancierProjet,
   effectifProjet,
@@ -44,6 +45,7 @@ import {
   formaterDateHeure,
   formaterDuree,
   formaterDureeCalendaire,
+  formaterEcartAvancement,
   formaterMontant,
   formaterPourcentage,
 } from "@/lib/format";
@@ -406,7 +408,15 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
     { libelle: t("calendrier.finPrevue"), valeur: formaterDate(projet.dateFinPrevue) },
     { libelle: t("calendrier.duree"), valeur: formaterDuree(projet.duree ?? echeancier.duree) },
   );
-  ajouterSiRempli(clesCalendrierBudget, t("calendrier.dureeContrat"), infos.duree_contrat);
+  const dureeContratTotale = dureeContractuelleTotale(projet);
+  const dureeContratFormatee = dureeContratTotale
+    ? formaterDureeCalendaire(dureeContratTotale)
+    : ABSENT;
+  ajouterSiRempli(
+    clesCalendrierBudget,
+    t("calendrier.dureeContrat"),
+    dureeContratFormatee !== ABSENT ? dureeContratFormatee : undefined,
+  );
   clesCalendrierBudget.push(
     {
       libelle: t("calendrier.debutReel"),
@@ -496,30 +506,15 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
     });
   }
   const budgetContractuelEffectif =
-    projet.syntheseAvenantsDelai?.budgetContractuel ?? projet.budgetCourant;
+    projet.budgetContractuelInitial === null
+      ? null
+      : (projet.syntheseAvenantsDelai?.budgetContractuel ??
+          projet.budgetContractuelInitial + projet.montantAvenants);
   if (budgetContractuelEffectif !== null) {
     clesCalendrierBudget.push({
       libelle: t("budget.contractuel"),
       valeur: francs(budgetContractuelEffectif, true),
     });
-  } else if (infos.budget_contractuel?.trim()) {
-    clesCalendrierBudget.push({
-      libelle: t("budget.contractuel"),
-      valeur: infos.budget_contractuel.trim(),
-    });
-  }
-  if (infos.cout?.trim()) {
-    const dev = infos.devise || "FCFA";
-    clesCalendrierBudget.push({
-      libelle: t("budget.coutDeclare"),
-      valeur: `${infos.cout.trim()} ${dev}`,
-    });
-    if (dev !== "FCFA" && infos.taux_change?.trim()) {
-      clesCalendrierBudget.push({
-        libelle: t("budget.tauxChange", { devise: dev }),
-        valeur: `${infos.taux_change.trim()} FCFA`,
-      });
-    }
   }
   ajouterSiRempli(clesCalendrierBudget, t("budget.regime"), infos.regime);
 
@@ -728,10 +723,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
 
   const ecart = ecartAvancement(projet.avancementReel, projet.avancementTheorique);
   const retard = estEnRetard(ecart);
-  const ecartTexte = new Intl.NumberFormat("fr-FR", {
-    signDisplay: "exceptZero",
-    maximumFractionDigits: 1,
-  }).format(ecart);
+  const ecartFormate = formaterEcartAvancement(ecart);
 
   const lignesLots: CellulePdf[][] =
     infos.lots && infos.lots.length > 0
@@ -782,7 +774,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
 
   const deltaInfo = libelleDelta(projet.deltaRetard);
   const texteEcart = [
-    t("avancement.ecart", { valeur: ecartTexte }),
+    t("avancement.ecart", { valeur: ecartFormate }),
     deltaInfo ? t(deltaInfo.cle, deltaInfo.params) : null,
   ]
     .filter(Boolean)
@@ -888,7 +880,7 @@ export function contenuFicheProjet(t: Traduire, donnees: DonneesFiche): Document
           },
           {
             libelle: t("indicateurs.ecart"),
-            valeur: `${t("indicateurs.points", { valeur: ecartTexte })} (${detailEcart})`,
+            valeur: `${ecartFormate} (${detailEcart})`,
             ton: retard ? "erreur" : "succes",
           },
         ],
@@ -1232,7 +1224,9 @@ export function pointVigilance(t: Traduire, point: PointVigilance): PastillePdf 
       return { texte: t("vigilance.ECHEANCE_DEPASSEE", { jours: point.jours }), ton: "erreur" };
     case "RETARD_AVANCEMENT":
       return {
-        texte: t("vigilance.RETARD_AVANCEMENT", { ecart: Math.abs(point.ecart) }),
+        texte: t("vigilance.RETARD_AVANCEMENT", {
+          ecart: formaterEcartAvancement(point.ecart, { absolu: true }),
+        }),
         ton: "avertissement",
       };
     case "BUDGET":

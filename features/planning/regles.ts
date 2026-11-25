@@ -5,6 +5,8 @@
  * française en dur : les intitulés de graduation viennent d'`Intl.DateTimeFormat` en UTC.
  */
 
+import { UNITE_AVANCEMENT } from "@/lib/format";
+
 import type {
   AnalyseMsProject,
   BornesGantt,
@@ -19,11 +21,19 @@ import type {
   LigneExportPlanning,
   LigneGantt,
   PlanningGantt,
+  ProjetXmlApercu,
   TacheMsProject,
+  TypeDependance,
 } from "./types";
 
 /** Les quatre échelles de zoom du diagramme de Gantt, de la plus fine à la plus large. */
 export const ECHELLES_GANTT: readonly EchelleGantt[] = ["JOUR", "SEMAINE", "MOIS", "TRIMESTRE"];
+
+/** Les quatre types de dépendances planning supportés. */
+export const TYPES_DEPENDANCE: readonly TypeDependance[] = ["FS", "SS", "FF", "SF"];
+
+/** Parité fixe officielle Euro → Franc CFA (XOF). */
+export const TAUX_CONVERSION_EUR_FCFA = 655.957;
 
 /** Hauteur uniforme (px) de chaque ligne du panneau arbre et de la frise SVG. */
 export const HAUTEUR_LIGNE_GANTT = 40;
@@ -646,7 +656,27 @@ function arrondirPx(valeur: number): number {
 }
 
 /**
- * Routage orthogonal SVG des dépendances Fin → Début (FS) entre lignes actuellement visibles.
+ * Formate le code technique d'une dépendance avec son décalage en jours ouvrés.
+ * Exemples : `("FS", 0)` → `"FS"`, `("FS", 7)` → `"FS +7 j"`, `("SS", -2)` → `"SS -2 j"`.
+ * Si `masquerDefaut` est vrai, renvoie `""` pour `FS` sans décalage.
+ */
+export function formaterEtiquetteDependance(
+  typeLien: TypeDependance,
+  decalageJours: number,
+  options: { masquerDefaut?: boolean } = {},
+): string {
+  const decalage = Math.trunc(decalageJours || 0);
+  if (options.masquerDefaut && typeLien === "FS" && decalage === 0) {
+    return "";
+  }
+  if (decalage === 0) return typeLien;
+  const signe = decalage > 0 ? "+" : "";
+  return `${typeLien} ${signe}${decalage} j`;
+}
+
+/**
+ * Routage orthogonal SVG des quatre types de dépendances (`FS`, `SS`, `FF`, `SF`)
+ * entre lignes actuellement visibles sur le Gantt.
  */
 export function calculerFlechesDependances(
   dependances: readonly DependancePlanning[],
@@ -662,6 +692,7 @@ export function calculerFlechesDependances(
   const fleches: FlecheGantt[] = [];
   const margeSortie = 10;
   const margeEntree = 10;
+  const margeBoucle = 14;
 
   for (const dep of dependances) {
     const indexPred = indexParId.get(dep.predecesseurId);
@@ -672,27 +703,82 @@ export function calculerFlechesDependances(
     const geoSucc = geometrieParId.get(dep.successeurId);
     if (!geoPred || !geoSucc) continue;
 
-    const x1 = arrondirPx(geoPred.estJalon ? geoPred.x + 8 : geoPred.x + geoPred.largeur);
+    const xGauchePred = arrondirPx(geoPred.estJalon ? geoPred.x - 8 : geoPred.x);
+    const xDroitePred = arrondirPx(geoPred.estJalon ? geoPred.x + 8 : geoPred.x + geoPred.largeur);
+    const xGaucheSucc = arrondirPx(geoSucc.estJalon ? geoSucc.x - 8 : geoSucc.x);
+    const xDroiteSucc = arrondirPx(geoSucc.estJalon ? geoSucc.x + 8 : geoSucc.x + geoSucc.largeur);
+
     const y1 = arrondirPx(indexPred * hauteurLigne + hauteurLigne / 2);
-    const x2 = arrondirPx(geoSucc.estJalon ? geoSucc.x - 8 : geoSucc.x);
     const y2 = arrondirPx(indexSucc * hauteurLigne + hauteurLigne / 2);
+    const direction = y2 >= y1 ? 1 : -1;
+    const typeLien = dep.typeLien ?? "FS";
+    const decalageJours = dep.decalageJours ?? 0;
 
     let cheminSvg: string;
-    if (x2 >= x1 + margeSortie + 4) {
-      const xCoude = arrondirPx(x1 + Math.min(margeSortie + 4, (x2 - x1) / 2));
-      cheminSvg = `M ${x1} ${y1} L ${xCoude} ${y1} L ${xCoude} ${y2} L ${x2} ${y2}`;
+    let xEtiquette: number;
+    let yEtiquette: number;
+
+    if (typeLien === "SS") {
+      // Début A → Début B : boucle propre à gauche des deux barres.
+      const x1 = xGauchePred;
+      const x2 = xGaucheSucc;
+      const xBoucle = arrondirPx(Math.max(4, Math.min(x1, x2) - margeBoucle));
+      cheminSvg = `M ${x1} ${y1} L ${xBoucle} ${y1} L ${xBoucle} ${y2} L ${x2} ${y2}`;
+      xEtiquette = xBoucle;
+      yEtiquette = arrondirPx((y1 + y2) / 2);
+    } else if (typeLien === "FF") {
+      // Fin A → Fin B : boucle propre à droite des deux barres.
+      const x1 = xDroitePred;
+      const x2 = xDroiteSucc;
+      const xBoucle = arrondirPx(Math.max(x1, x2) + margeBoucle);
+      cheminSvg = `M ${x1} ${y1} L ${xBoucle} ${y1} L ${xBoucle} ${y2} L ${x2} ${y2}`;
+      xEtiquette = xBoucle;
+      yEtiquette = arrondirPx((y1 + y2) / 2);
+    } else if (typeLien === "SF") {
+      // Début A → Fin B : sortie à gauche de A, entrée à droite de B.
+      const x1 = xGauchePred;
+      const x2 = xDroiteSucc;
+      if (x1 >= x2 + margeSortie + 4) {
+        const xCoude = arrondirPx(x1 - Math.min(margeSortie + 4, (x1 - x2) / 2));
+        cheminSvg = `M ${x1} ${y1} L ${xCoude} ${y1} L ${xCoude} ${y2} L ${x2} ${y2}`;
+        xEtiquette = xCoude;
+        yEtiquette = arrondirPx((y1 + y2) / 2);
+      } else {
+        const xSortie = arrondirPx(Math.max(4, x1 - margeSortie));
+        const xEntree = arrondirPx(x2 + margeEntree);
+        const yCouloir = arrondirPx(y1 + direction * (hauteurLigne / 2));
+        cheminSvg = `M ${x1} ${y1} L ${xSortie} ${y1} L ${xSortie} ${yCouloir} L ${xEntree} ${yCouloir} L ${xEntree} ${y2} L ${x2} ${y2}`;
+        xEtiquette = arrondirPx((xSortie + xEntree) / 2);
+        yEtiquette = arrondirPx(yCouloir - 5);
+      }
     } else {
-      const xSortie = arrondirPx(x1 + margeSortie);
-      const xEntree = arrondirPx(x2 - margeEntree);
-      const direction = y2 >= y1 ? 1 : -1;
-      const yCouloir = arrondirPx(y1 + direction * (hauteurLigne / 2));
-      cheminSvg = `M ${x1} ${y1} L ${xSortie} ${y1} L ${xSortie} ${yCouloir} L ${xEntree} ${yCouloir} L ${xEntree} ${y2} L ${x2} ${y2}`;
+      // FS (défaut) : Fin A → Début B.
+      const x1 = xDroitePred;
+      const x2 = xGaucheSucc;
+      if (x2 >= x1 + margeSortie + 4) {
+        const xCoude = arrondirPx(x1 + Math.min(margeSortie + 4, (x2 - x1) / 2));
+        cheminSvg = `M ${x1} ${y1} L ${xCoude} ${y1} L ${xCoude} ${y2} L ${x2} ${y2}`;
+        xEtiquette = x2 - xCoude >= 42 ? arrondirPx((xCoude + x2) / 2) : xCoude;
+        yEtiquette = x2 - xCoude >= 42 ? arrondirPx(y2 - 7) : arrondirPx((y1 + y2) / 2);
+      } else {
+        const xSortie = arrondirPx(x1 + margeSortie);
+        const xEntree = arrondirPx(Math.max(4, x2 - margeEntree));
+        const yCouloir = arrondirPx(y1 + direction * (hauteurLigne / 2));
+        cheminSvg = `M ${x1} ${y1} L ${xSortie} ${y1} L ${xSortie} ${yCouloir} L ${xEntree} ${yCouloir} L ${xEntree} ${y2} L ${x2} ${y2}`;
+        xEtiquette = arrondirPx((xSortie + xEntree) / 2);
+        yEtiquette = arrondirPx(yCouloir - 5);
+      }
     }
 
     fleches.push({
       id: dep.id,
       predecesseurId: dep.predecesseurId,
       successeurId: dep.successeurId,
+      typeLien,
+      decalageJours,
+      etiquette: formaterEtiquetteDependance(typeLien, decalageJours, { masquerDefaut: true }),
+      xEtiquette,
+      yEtiquette,
       cheminSvg,
       respectee: dep.respectee,
     });
@@ -782,50 +868,115 @@ export function construireLignesExportPlanning(
   });
 }
 
-function convertirTacheMsProject(tache: TacheMsProject): CasePlanning {
-  return {
-    id: tache.uid,
-    libelle: tache.libelle,
-    numero: tache.numero,
-    niveau: tache.niveau,
-    debut: tache.debut,
-    fin: tache.fin,
-    debutPrevu: tache.debut,
-    finPrevue: tache.fin,
-    debutBaseline: null,
-    finBaseline: null,
-    avancement: tache.pourcentageXml,
-    avancementTemporel: null,
-    deltaRetard: null,
-    statut: "PLANIFIE",
-    acces: "COMPLET",
-    estFeuille: tache.estFeuille,
-    modeMesure: tache.estJalon ? "JALON" : "POURCENTAGE",
-    enfants: tache.enfants.map(convertirTacheMsProject),
-  };
+function convertirTachesMsProjectActives(
+  taches: readonly TacheMsProject[],
+  idsActifs: Set<string>,
+): CasePlanning[] {
+  const resultat: CasePlanning[] = [];
+  for (const tache of taches) {
+    if (!tache.estActif) continue;
+    idsActifs.add(tache.uid);
+    const enfants = convertirTachesMsProjectActives(tache.enfants, idsActifs);
+    resultat.push({
+      id: tache.uid,
+      libelle: tache.libelle,
+      numero: tache.numero,
+      niveau: tache.niveau,
+      debut: tache.debut,
+      fin: tache.fin,
+      debutPrevu: tache.debut,
+      finPrevue: tache.fin,
+      debutBaseline: tache.debutBaseline,
+      finBaseline: tache.finBaseline,
+      avancement: tache.pourcentageXml,
+      avancementTemporel: null,
+      deltaRetard: null,
+      statut: "PLANIFIE",
+      acces: "COMPLET",
+      estFeuille: tache.estFeuille,
+      modeMesure: tache.estJalon ? "JALON" : "POURCENTAGE",
+      enfants,
+    });
+  }
+  return resultat;
 }
 
 /**
  * Convertit l'aperçu d'une analyse MS Project `.xml` en structure `PlanningGantt`
  * directement affichable en lecture seule dans `DiagrammeGantt`.
+ * Les tâches désactivées (`estActif === false`) sont exclues du Gantt d'aperçu.
  */
 export function convertirAnalyseMsProjectEnPlanning(
   analyse: AnalyseMsProject,
   aujourdhui = dateAujourdhuiIso(),
 ): PlanningGantt {
+  const idsActifs = new Set<string>();
+  const cases = convertirTachesMsProjectActives(analyse.taches, idsActifs);
   return {
     aujourdhui,
     projetDebut: analyse.projetXml.dateDebut,
     projetFin: analyse.projetXml.dateFin,
+    uniteAvancement: UNITE_AVANCEMENT,
     importMsProject: analyse.etatImport,
-    cases: analyse.taches.map(convertirTacheMsProject),
-    dependances: analyse.dependances.map((dep, index) => ({
-      id: `${dep.predecesseurUid}-${dep.successeurUid}-${index}`,
-      predecesseurId: dep.predecesseurUid,
-      successeurId: dep.successeurUid,
-      respectee: dep.respectee,
-    })),
+    cases,
+    dependances: analyse.dependances
+      .filter((dep) => idsActifs.has(dep.predecesseurUid) && idsActifs.has(dep.successeurUid))
+      .map((dep, index) => ({
+        id: `${dep.predecesseurUid}-${dep.successeurUid}-${index}`,
+        predecesseurId: dep.predecesseurUid,
+        successeurId: dep.successeurUid,
+        typeLien: dep.type,
+        decalageJours: dep.decalageJours,
+        respectee: dep.respectee,
+      })),
   };
+}
+
+/** Taux de conversion initial proposé pour un export XML MS Project. */
+export function tauxConversionInitialMsProject(projetXml: ProjetXmlApercu): number {
+  if (projetXml.deviseCode === "XOF") return 1;
+  if (projetXml.tauxConversionSuggere !== null && projetXml.tauxConversionSuggere > 0) {
+    return projetXml.tauxConversionSuggere;
+  }
+  if (projetXml.deviseCode === "EUR") return TAUX_CONVERSION_EUR_FCFA;
+  return 1;
+}
+
+/**
+ * Calcule un montant converti en centimes de FCFA (format attendu par `formaterMontant`
+ * et renvoyé par le serveur dans `cout_fcfa` / `cout_total_fcfa`) pour le recalcul en
+ * direct dans l'aperçu d'import MS Project.
+ */
+export function calculerCoutFcfaCentimes(
+  coutBrut: number | null,
+  coutFcfaCentimesInitial: number | null,
+  tauxConversion: number | null,
+  tauxInitial: number,
+): number | null {
+  if (coutBrut !== null && coutBrut > 0) {
+    if (tauxConversion === null || tauxConversion <= 0) return null;
+    return Math.round(coutBrut * tauxConversion) * 100;
+  }
+  if (coutFcfaCentimesInitial !== null && coutFcfaCentimesInitial > 0) {
+    if (
+      tauxConversion !== null &&
+      tauxConversion > 0 &&
+      tauxInitial > 0 &&
+      tauxConversion !== tauxInitial
+    ) {
+      return Math.round((coutFcfaCentimesInitial / 100 / tauxInitial) * tauxConversion) * 100;
+    }
+    return Math.round(coutFcfaCentimesInitial);
+  }
+  return null;
+}
+
+/** Vrai si la tâche porte des dates baseline distinctes de ses dates prévues. */
+export function aBaselineDifferente(
+  tache: Pick<TacheMsProject, "debut" | "fin" | "debutBaseline" | "finBaseline">,
+): boolean {
+  if (!tache.debutBaseline && !tache.finBaseline) return false;
+  return tache.debutBaseline !== tache.debut || tache.finBaseline !== tache.fin;
 }
 
 /** Aplatit les tâches d'une analyse MS Project avec leur profondeur pour la liste structurée. */

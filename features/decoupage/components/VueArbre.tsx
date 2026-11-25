@@ -15,6 +15,8 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   Download,
+  Eye,
+  EyeOff,
   Plus,
   Settings2,
   TriangleAlert,
@@ -46,7 +48,14 @@ import { cn } from "@/lib/utils";
 
 import { exporterArbre, lireArbre } from "../adaptateur";
 import { cleArbre } from "../cles";
-import { arbreDepliable, arbreToutDeplie, trouverCase } from "../regles";
+import {
+  arbreDepliable,
+  arbreToutDeplie,
+  codeDistinctDuNumero,
+  compterCasesDesactivees,
+  filtrerCasesActives,
+  trouverCase,
+} from "../regles";
 import type { CaseArbre } from "../types";
 import { Ecart, Montant, Periode, Physique, Statut } from "./CellulesCase";
 import { FenetreGeste, type GesteOuvert } from "./FenetreGeste";
@@ -75,6 +84,7 @@ export function VueArbre({ projet }: { projet: Projet }) {
   const [geste, setGeste] = useState<GesteOuvert | null>(null);
   const [reglages, setReglages] = useState(false);
   const [deplie, setDeplie] = useState<ExpandedState>(true);
+  const [afficherDesactivees, setAfficherDesactivees] = useState(true);
 
   const requete = useQuery({
     queryKey: cleArbre(projet.id),
@@ -100,8 +110,10 @@ export function VueArbre({ projet }: { projet: Projet }) {
   const arbre = requete.data;
   const ouverte = trouverCase(arbre.cases, caseOuverte);
   const peutDecouper = peutSurProjet(PERMISSIONS.DECOUPER, projet);
-  const depliable = arbreDepliable(arbre.cases);
-  const toutDeplie = arbreToutDeplie(arbre.cases, deplie);
+  const nbDesactivees = compterCasesDesactivees(arbre.cases);
+  const casesVisibles = afficherDesactivees ? arbre.cases : filtrerCasesActives(arbre.cases);
+  const depliable = arbreDepliable(casesVisibles);
+  const toutDeplie = arbreToutDeplie(casesVisibles, deplie);
   const plafondBudget = budgetEnVigueur(projet);
   const sourcePlafond = sourcePlafondBudget(projet);
   const depassement = depassementDecoupage(projet);
@@ -117,6 +129,19 @@ export function VueArbre({ projet }: { projet: Projet }) {
             : t("avancementIndisponible")}
         </p>
         <div className="flex flex-wrap gap-2">
+          {nbDesactivees > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              aria-pressed={afficherDesactivees}
+              onClick={() => setAfficherDesactivees((v) => !v)}
+            >
+              {afficherDesactivees ? <EyeOff /> : <Eye />}
+              {afficherDesactivees
+                ? t("masquerDesactivees", { nombre: nbDesactivees })
+                : t("afficherDesactivees", { nombre: nbDesactivees })}
+            </Button>
+          )}
           {depliable && (
             <Button
               variant="outline"
@@ -188,11 +213,11 @@ export function VueArbre({ projet }: { projet: Projet }) {
 
       {reglages && <ReglagesNiveaux projet={projet} niveaux={arbre.niveaux} />}
 
-      {arbre.cases.length === 0 ? (
+      {casesVisibles.length === 0 ? (
         <EtatVide titre={t("vide")} />
       ) : (
         <TableauArbre
-          cases={arbre.cases}
+          cases={casesVisibles}
           deplie={deplie}
           onDeplieChange={setDeplie}
           onOuvrir={setCaseOuverte}
@@ -251,16 +276,18 @@ function TableauArbre({
                   <span className="size-6 shrink-0" aria-hidden="true" />
                 )}
                 <span className="font-mono text-xs text-neutral-500 tabular-nums">{une.numero}</span>
-                {une.code && <Badge variante="neutre">{une.code}</Badge>}
+                {codeDistinctDuNumero(une) && <Badge variante="neutre">{une.code}</Badge>}
                 <span
                   className={cn(
                     "truncate",
                     une.estFeuille ? "text-neutral-800" : "font-semibold text-neutral-900",
                     une.acces === "CHEMIN" && "text-neutral-400",
+                    !une.estActif && "font-normal text-neutral-500 line-through",
                   )}
                 >
                   {une.libelle}
                 </span>
+                {!une.estActif && <Badge variante="neutre">{t("etats.desactivee")}</Badge>}
               </div>
             );
           },
@@ -346,7 +373,11 @@ function TableauArbre({
             <TableRow
               key={ligne.id}
               onClick={() => onOuvrir(ligne.original.id)}
-              className={cn("cursor-pointer", ligne.depth === 0 && "bg-neutral-50")}
+              className={cn(
+                "cursor-pointer",
+                ligne.depth === 0 && "bg-neutral-50",
+                !ligne.original.estActif && "bg-neutral-50/70 opacity-65",
+              )}
             >
               {ligne.getAllCells().map((cellule) => (
                 <TableCell key={cellule.id} className="py-2">

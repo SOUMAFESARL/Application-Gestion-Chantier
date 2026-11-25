@@ -118,7 +118,7 @@ export function OngletAvancement({ projet }: { projet: Projet }) {
         </Tuile>
         <Tuile titre={t("rythme")}>
           {courbe.data?.rythmeParSemaine !== null && courbe.data?.rythmeParSemaine !== undefined ? (
-            t("rythmeValeur", { valeur: courbe.data.rythmeParSemaine })
+            t("rythmeValeur", { valeur: formaterPourcentage(courbe.data.rythmeParSemaine) })
           ) : (
             <span className="text-base text-neutral-500">{t("pasDeRythme")}</span>
           )}

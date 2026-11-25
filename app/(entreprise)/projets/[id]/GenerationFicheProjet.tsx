@@ -1,10 +1,10 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CircleX, Download, LoaderCircle, Maximize2, Printer, RefreshCw } from "lucide-react";
+import { CircleX, Download, LoaderCircle, Maximize2, Printer } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { listerAvenants } from "@/features/avenants/adaptateur";
 import { cleAvenants } from "@/features/avenants/cles";
 import { indicateursJournalProjet } from "@/features/chantier";
@@ -60,18 +58,11 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
   const identite = useIdentitePlateforme().data;
 
   const cadre = useRef<HTMLIFrameElement>(null);
-  const [noteModifiee, setNoteModifiee] = useState<string | null>(null);
-  const noteSaisie = noteModifiee ?? projet?.informationsComplementaires?.note_cp ?? "";
 
   const generation = useMutation({
-    mutationFn: async ({
-      cible,
-      note,
-    }: {
-      cible: Projet;
-      note: string;
-    }): Promise<ApercuPdf> => {
+    mutationFn: async (cible: Projet): Promise<ApercuPdf> => {
       const maintenant = new Date();
+      const note = cible.informationsComplementaires?.note_cp ?? "";
       const [lotsApi, arbre, avenants, equipes, journal, entreprise, documents] = await Promise.all([
         client
           .fetchQuery({
@@ -152,7 +143,7 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
 
   function generer() {
     if (projet && !generation.isPending) {
-      generation.mutate({ cible: projet, note: noteSaisie });
+      generation.mutate(projet);
     }
   }
 
@@ -202,25 +193,6 @@ export function useGenerationFicheProjet(projet: Projet | undefined) {
 
         {generation.isSuccess ? (
           <>
-            <div className="flex items-end gap-2 rounded-md border border-solid border-neutral-200 bg-neutral-50 p-2.5">
-              <div className="flex flex-1 flex-col gap-1">
-                <Label htmlFor="pdf-note-cp" className="text-xs font-semibold text-neutral-700">
-                  {t("generation.champNote")}
-                </Label>
-                <Textarea
-                  id="pdf-note-cp"
-                  rows={2}
-                  value={noteSaisie}
-                  placeholder={t("generation.champNotePlaceholder")}
-                  onChange={(e) => setNoteModifiee(e.target.value)}
-                  className="bg-white text-xs"
-                />
-              </div>
-              <Button type="button" variant="outline" size="sm" onClick={generer}>
-                <RefreshCw className="size-3.5" aria-hidden="true" />
-                {t("generation.actualiserApercu")}
-              </Button>
-            </div>
             <iframe
               ref={cadre}
               src={generation.data.url}

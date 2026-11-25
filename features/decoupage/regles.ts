@@ -272,6 +272,39 @@ export function etatAvancement(
   return une.avancementPartiel ? "partiel" : "complet";
 }
 
+/** Vrai si le code libre est renseigné et diffère de la numérotation hiérarchique affichée. */
+export function codeDistinctDuNumero(une: Pick<CaseArbre, "code" | "numero">): boolean {
+  const code = une.code.trim();
+  if (!code) return false;
+  return code !== (une.numero ?? "").trim();
+}
+
+/** Compte les cases désactivées présentes dans l'arbre. */
+export function compterCasesDesactivees(cases: readonly CaseArbre[]): number {
+  return aplatirCases([...cases]).filter((une) => !une.estActif).length;
+}
+
+/** Filtre l'arbre pour masquer les cases désactivées (et leurs descendants). */
+export function filtrerCasesActives(cases: readonly CaseArbre[]): CaseArbre[] {
+  const resultat: CaseArbre[] = [];
+  for (const une of cases) {
+    if (!une.estActif) continue;
+    resultat.push({
+      ...une,
+      enfants: filtrerCasesActives(une.enfants),
+    });
+  }
+  return resultat;
+}
+
+/** Compte les descendants désactivés d'une case. */
+export function compterDescendantsDesactives(une: CaseArbre): number {
+  return une.enfants.reduce(
+    (somme, enfant) => somme + (enfant.estActif ? 0 : 1) + compterDescendantsDesactives(enfant),
+    0,
+  );
+}
+
 /** Les gestes de la vue en arbre (lot 4) ; les autres arrivent avec le lot 6. */
 export type GesteCase =
   | "ajouter"
@@ -281,6 +314,8 @@ export type GesteCase =
   | "mesurer"
   | "cloturer"
   | "rouvrir"
+  | "desactiver"
+  | "reactiver"
   | "supprimer";
 
 /**
@@ -290,6 +325,7 @@ export type GesteCase =
  */
 export function gestesPossibles(une: CaseArbre): GesteCase[] {
   if (une.acces !== "COMPLET") return [];
+  if (!une.estActif) return ["reactiver", "supprimer"];
   const gestes: GesteCase[] = ["modifier"];
   // Une tâche commencée ne se découpe plus par ajout : elle se « détaille » (A-5, lot 6).
   if (!(une.estFeuille && une.commence)) gestes.unshift("ajouter");
@@ -299,7 +335,7 @@ export function gestesPossibles(une: CaseArbre): GesteCase[] {
   // Une tâche clôturée se rouvre, avec un motif : c'est la voie de retour d'une clôture, et donc
   // d'un projet « Terminé » — il se déduit des tâches, il se rouvre par elles.
   if (une.estFeuille && une.cloture) gestes.push("rouvrir");
-  gestes.push("supprimer");
+  gestes.push("desactiver", "supprimer");
   return gestes;
 }
 
@@ -318,6 +354,8 @@ export const PERMISSION_DU_GESTE: Record<GesteCase, CodePermission> = {
   cloturer: PERMISSIONS.MESURER,
   // Le serveur exige la même permission pour rouvrir que pour mesurer ou clôturer.
   rouvrir: PERMISSIONS.MESURER,
+  desactiver: PERMISSIONS.DECOUPER,
+  reactiver: PERMISSIONS.DECOUPER,
   supprimer: PERMISSIONS.DECOUPER,
 };
 

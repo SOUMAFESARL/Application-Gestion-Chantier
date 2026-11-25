@@ -17,7 +17,7 @@
  *   POST       /projets/{id}/elements/               ajouter une case
  *   PATCH      /elements/{id}/                       renommer, chiffrer, métrer
  *   DELETE     /elements/{id}/                       supprimer une case et ses descendants
- *   POST       /elements/{id}/planifier|mesure|cloturer|rouvrir/
+ *   POST       /elements/{id}/planifier|mesure|cloturer|rouvrir|desactiver|reactiver/
  *
  * Les charges (`Charge*`) sont privées : elles décrivent un transport.
  */
@@ -960,6 +960,33 @@ export async function cloturerCase(caseId: string): Promise<CaseArbre> {
 export async function rouvrirCase(caseId: string, motif: string): Promise<CaseArbre> {
   return versCase(
     await api.creer<ChargeCase>(`/elements/${caseId}/rouvrir/`, { motif }),
+    new Map(),
+  );
+}
+
+/**
+ * Désactive une case (et sa branche active) : elle reste visible dans l'arbre avec son historique,
+ * est exclue du planning, des calculs d'avancement et ses dépendances sont retirées.
+ * Motif de 10 caractères au moins.
+ */
+export async function desactiverCase(elementId: string, motif: string): Promise<CaseArbre> {
+  return versCase(
+    await api.creer<ChargeCase>(`/elements/${elementId}/desactiver/`, { motif }),
+    new Map(),
+  );
+}
+
+/**
+ * Réactive une case précédemment désactivée (et éventuellement ses descendants désactivés).
+ */
+export async function reactiverCase(
+  elementId: string,
+  inclureDescendants = false,
+): Promise<CaseArbre> {
+  return versCase(
+    await api.creer<ChargeCase>(`/elements/${elementId}/reactiver/`, {
+      inclure_descendants: inclureDescendants,
+    }),
     new Map(),
   );
 }

@@ -1,20 +1,17 @@
-import { useTranslations } from "next-intl";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+
+import { PageDocumentPartage } from "@/features/ged/components/PageDocumentPartage";
 
 /**
- * Écran « Document partagé »
- *
- * Motif d'interface : Consultation externe
- *
- * Squelette posé par la tâche T-005. Le contenu réel est développé
- * au sprint qui porte la fonctionnalité correspondante.
+ * Écran public de consultation d'un document partagé (`/partage/[jeton]`, sans compte).
  */
-export default function Page() {
-  const t = useTranslations("squelettes");
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("ged.partagePublic.meta");
+  return { title: t("titre") };
+}
 
-  return (
-    <main className="p-8">
-      <h1 className="text-h1">{t("documentPartage.titre")}</h1>
-      <p className="text-body mt-2">{t("aConstruire", { motif: t("documentPartage.motif") })}</p>
-    </main>
-  );
+export default async function Page({ params }: { params: Promise<{ jeton: string }> }) {
+  const { jeton } = await params;
+  return <PageDocumentPartage jeton={jeton} />;
 }

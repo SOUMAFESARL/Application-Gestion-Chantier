@@ -1276,7 +1276,7 @@
       "actions": "Actions"
     },
     "lotProjet": "Projet",
-    "points": "{valeur} pts",
+    "points": "{valeur} %",
     "actionDetail": "Voir le détail de l’alerte sur « {projet} »",
     "niveau": {
       "MODERE": "Modéré",
@@ -1298,7 +1298,7 @@
         "lotCode": "Code du lot",
         "lotLibelle": "Lot",
         "niveau": "Niveau",
-        "retard": "Retard (points)",
+        "retard": "Retard (%)",
         "dateDetection": "Date de détection",
         "indiceSante": "Indice de santé",
         "statut": "État"
@@ -1315,7 +1315,7 @@
       "lotValeur": "{code} — {libelle}",
       "lotProjet": "Projet entier",
       "retard": "Retard sur l’avancement temporel",
-      "points": "{valeur} pts",
+      "points": "{valeur} %",
       "dateDetection": "Détectée le",
       "indiceSante": "Indice de santé",
       "santeSur100": "{indice} / 100",
@@ -1599,7 +1599,7 @@
   "ficheProjet": {
     "actionWhatsApp": "Contacter sur WhatsApp",
     "retourProjets": "Retour aux projets",
-    "points": "{valeur} pts",
+    "points": "{valeur} %",
     "calendrier": {
       "titre": "Calendrier",
       "blocContractuel": "Contractuel",
@@ -1656,8 +1656,8 @@
       "repereTheorique": "Repère : avancement temporel"
     },
     "delta": {
-      "retard": "Retard : {points} pts",
-      "avance": "Avance : {points} pts",
+      "retard": "Retard : {valeur}",
+      "avance": "Avance : {valeur}",
       "dansLesDelais": "Dans les délais"
     },
     "sante": {
@@ -1814,7 +1814,7 @@
         "debutPrevu": "Début prévu",
         "finPrevue": "Fin prévue",
         "duree": "Durée contractuelle",
-        "dureeContrat": "Durée marché déclarée",
+        "dureeContrat": "Durée contractuelle du marché",
         "debutReel": "Démarrage réel",
         "finReelle": "Fin réelle",
         "nonDemarre": "Pas encore démarré",
@@ -1890,11 +1890,11 @@
         "theorique": "Avancement temporel",
         "tauxDeclare": "Taux physique consolidé déclaré",
         "etatNarratif": "Constat d'avancement détaillé",
-        "ecart": "Écart au temporel : {valeur} pts"
+        "ecart": "Écart au temporel : {valeur}"
       },
       "delta": {
-        "retard": "Retard : {points} pts",
-        "avance": "Avance : {points} pts",
+        "retard": "Retard : {valeur}",
+        "avance": "Avance : {valeur}",
         "dansLesDelais": "Dans les délais"
       },
       "lots": {
@@ -1917,12 +1917,12 @@
         "incidentsDetail": "{blocages, plural, =0 {aucun blocage} one {# blocage} other {# blocages}} · 9 semaines",
         "ecart": "Avancement vs prévu",
         "ecartDetail": "réel {reel} · prévu {theorique}",
-        "points": "{valeur} pts",
+        "points": "{valeur} %",
         "journalIndisponible": "journal indisponible"
       },
       "vigilance": {
         "ECHEANCE_DEPASSEE": "Échéance contractuelle dépassée de {jours, plural, one {# jour} other {# jours}}.",
-        "RETARD_AVANCEMENT": "Avancement en retard de {ecart} points sur le théorique.",
+        "RETARD_AVANCEMENT": "Avancement en retard de {ecart} sur le théorique.",
         "BUDGET_alerte": "Budget consommé à {ratio} % : seuil d'alerte franchi.",
         "BUDGET_depassement": "Budget dépassé : {ratio} % du budget réalisé.",
         "LOT_EN_RETARD": "Lot {code} — {nom} : en retard.",
@@ -2007,7 +2007,8 @@
       "equipes": "Équipes",
       "avenants": "Avenants",
       "configuration": "Configuration",
-      "planning": "Planning"
+      "planning": "Planning",
+      "documents": "Documents"
     },
     "configuration": {
       "titre": "Configuration et informations complémentaires",
@@ -2042,7 +2043,7 @@
         },
         "s3": {
           "titre": "3. Calendrier, budget et pièces",
-          "sousTitre": "Dates clés, coût global, devise, régime fiscal, contrat et ordre de service de démarrage"
+          "sousTitre": "Dates clés, budget prévisionnel, budget contractuel, régime fiscal, contrat et ordre de service de démarrage"
         },
         "s4": {
           "titre": "4. Financement",
@@ -2129,7 +2130,7 @@
         "dateFinPrevue": "Date de fin prévue",
         "dateDebutReelle": "Date de démarrage réel",
         "dateFinReelle": "Date de fin réelle",
-        "dureeContrat": "Durée contractuelle déclarée",
+        "dureeContrat": "Durée contractuelle",
         "dureeContratPlaceholder": "Ex : 24 mois (hors saison des pluies)",
         "reprogrammation": "Synthèse des avenants de délai / reprogrammations",
         "reprogrammationPlaceholder": "Ex : Prorogation de 3 mois par OS n°2…",
@@ -2195,8 +2196,12 @@
         "syntheseReprogrammations": "{nombre, plural, one {# reprogrammation} other {# reprogrammations}} ({jours} j)",
         "syntheseReprogrammationsAvecDate": "{nombre, plural, one {# reprogrammation} other {# reprogrammations}} ({jours} j, dernière le {date})",
         "aucunAvenantReprog": "Aucun avenant de délai ni reprogrammation",
-        "budgetContractuelNonDefini": "Non défini (déposez le contrat du marché)",
-        "budgetContractuelDecomposition": "Initial : {initial} + Avenants : {avenants}"
+        "budgetContractuelNonDefini": "Aucun contrat chiffré enregistré",
+        "budgetContractuelDecomposition": "Initial : {initial} + Avenants : {avenants}",
+        "dureeContratNonDefinie": "Non définie — contrat requis",
+        "budgetInitial": "Budget prévisionnel (FCFA)",
+        "budgetInitialPlaceholder": "Ex : 485 000 000",
+        "erreurBudgetInvalide": "Saisissez un budget prévisionnel valide."
       },
       "tableaux": {
         "bailleurs": {
@@ -2808,7 +2813,7 @@
         "chefProjet": "Chef de projet",
         "avancementReel": "Avancement réel (%)",
         "avancementTemporel": "Avancement temporel (%)",
-        "deltaRetard": "Retard (points)",
+        "deltaRetard": "Retard (%)",
         "indiceSante": "Indice de santé",
         "dateFinPrevue": "Date de fin prévue",
         "budgetInitial": "Budget initial (FCFA)",
@@ -2859,7 +2864,7 @@
         "chefProjet": "Chef de projet",
         "avancementReel": "Avanc. physique réel",
         "avancementTemporel": "Avanc. temporel",
-        "retard": "Retard (pts)",
+        "retard": "Retard (%)",
         "sante": "Santé",
         "finContractuelle": "Fin contractuelle",
         "statut": "Statut",
@@ -2867,7 +2872,7 @@
         "sansChefProjet": "Non désigné",
         "budgetNonDefini": "Non défini",
         "vide": "Aucun projet ne correspond aux filtres appliqués.",
-        "legende": "L'avancement temporel est la part du délai contractuel écoulée à la date du rapport. Le retard est l'écart en points entre l'avancement temporel et l'avancement physique réel : positif, le projet est en retard."
+        "legende": "L'avancement temporel est la part du délai contractuel écoulée à la date du rapport. Le retard est l'écart entre l'avancement temporel et l'avancement physique réel : positif, le projet est en retard."
       },
       "pied": {
         "page": "Page {page} / {total}"
@@ -3049,8 +3054,8 @@
       "pourcentage": "{valeur} %",
       "avancementTemporel": "Temporel : {valeur}",
       "delta": {
-        "retard": "Retard : {points} pts",
-        "avance": "Avance : {points} pts",
+        "retard": "Retard : {points} %",
+        "avance": "Avance : {points} %",
         "dansLesDelais": "Dans les délais"
       },
       "onglets": {
@@ -3180,8 +3185,8 @@
         "legende": {
           "duree": "Durée prévue",
           "DANS_LES_DELAIS": "Avancement : dans les délais",
-          "MODERE": "Avancement : retard modéré (> {seuil} pts)",
-          "CRITIQUE": "Avancement : retard critique (> {seuil} pts)",
+          "MODERE": "Avancement : retard modéré (> {seuil} %)",
+          "CRITIQUE": "Avancement : retard critique (> {seuil} %)",
           "temporel": "Avancement temporel du lot"
         }
       },
@@ -3912,7 +3917,7 @@
         "colonneCategorie": "Catégorie documentaire",
         "badgeSuppression": "AD / CP",
         "indisponible": "—",
-        "noteSuppression": "La suppression manuelle d’un document est réservée à l’Administrateur (AD), au Chef de Projet (CP) et au Directeur Général (DG). Les documents générés automatiquement sont inaltérables.",
+        "noteSuppression": "La suppression manuelle d’un document est strictement réservée à l’Administrateur (AD) et au Chef de Projet (CP), ainsi qu’au Directeur Général (DG). Les pièces archivées automatiquement (F1 Contrats, F2 Journal, F9 Stocks) sont inaltérables et ne peuvent jamais être supprimées.",
         "actions": {
           "voir": "Voir",
           "deposer": "Déposer",
@@ -3925,7 +3930,11 @@
           "administratif": "Documents administratifs",
           "photos": "Photos de chantier",
           "divers": "Divers & bons de livraison"
-        }
+        },
+        "compteur": "{selectionnees} / {total}",
+        "vueMatrice": "Vue matrice",
+        "vueDetaillee": "Libellés détaillés",
+        "titreGenerales": "Accès généraux"
       }
     },
     "enregistrer": "Enregistrer",
@@ -4913,7 +4922,7 @@
         "BUDGET_DEPASSE": "Budget dépassé ({valeur} %)",
         "BUDGET_NON_DEFINI": "Budget non défini",
         "MARGE_NEGATIVE": "Marge {valeur} %",
-        "RETARD": "Retard de {valeur} pts",
+        "RETARD": "Retard de {valeur} %",
         "SANTE_CRITIQUE": "Santé {valeur}/100",
         "SUSPENDU": "Projet suspendu"
       },
@@ -5100,8 +5109,8 @@
       "compteur": "{n, plural, one {# projet suivi} other {# projets suivis}}",
       "consulter": "Consulter le projet",
       "delta": {
-        "retard": "Retard : {points} pts",
-        "avance": "Avance : {points} pts",
+        "retard": "Retard : {valeur}",
+        "avance": "Avance : {valeur}",
         "dansLesDelais": "Dans les délais"
       },
       "detailProjet": "{client} · {ville}",
@@ -5231,7 +5240,7 @@
       "avancementDebut": "Avancement début",
       "avancementFin": "Avancement fin",
       "gain": "Gain sur la période",
-      "points": "{valeur} pts",
+      "points": "{valeur} %",
       "pointsCourts": "{valeur}",
       "objectif": "Objectif",
       "ecart": "Écart vs objectif",
@@ -5685,7 +5694,7 @@
       "quantiteUnite": "{quantite} {unite}",
       "chiffres": {
         "avancement": "Avancement du chantier",
-        "retard": "Retard {points} pts · prévu {theorique} %",
+        "retard": "Retard {points} % · prévu {theorique} %",
         "alHeure": "Dans le planning · prévu {theorique} %",
         "effectifs": "Effectifs",
         "presence": "{taux} % de présence",
@@ -5864,7 +5873,7 @@
         "separateurDetail": " — ",
         "dateGeneration": "Date de génération : {date}",
         "identification": "Identification et chiffres du jour",
-        "retard": "Retard {points} pts",
+        "retard": "Retard {points} %",
         "alHeure": "Dans le planning",
         "photo": "{titre} — {legende} · {meta}",
         "signeLe": "Signé le : {quand}",
@@ -6822,7 +6831,7 @@
       "indisponible": "indisponible",
       "partiel": "partiel",
       "depassement": "+{valeur} %",
-      "points": "{valeur} pts",
+      "points": "{valeur} %",
       "colonnes": {
         "element": "Élément",
         "niveau": "Niveau",
@@ -6843,7 +6852,9 @@
         "aVenir": "À venir"
       },
       "periode": "{debut} → {fin}",
-      "datesCalculees": "Dates calculées d’après les cases en dessous"
+      "datesCalculees": "Dates calculées d’après les cases en dessous",
+      "afficherDesactivees": "Afficher les désactivées ({nombre})",
+      "masquerDesactivees": "Masquer les désactivées ({nombre})"
     },
     "tiroir": {
       "horsPerimetre": "Cette case mène à votre périmètre : ses données ne vous sont pas accessibles.",
@@ -6875,7 +6886,8 @@
       "heritees": "(héritées d’une case parente)",
       "gestes": "Gestes",
       "dejaPlanifiee": "Les dates de cette case sont fixées : « Reprogrammer » les change, avec un motif et une justification.",
-      "derive": "Dérive"
+      "derive": "Dérive",
+      "caseDesactiveeInfo": "Cette case est désactivée : elle est exclue du planning et des calculs d’avancement tout en conservant son historique."
     },
     "gestes": {
       "annuler": "Annuler",
@@ -6889,7 +6901,9 @@
         "cloturer": "Clôturer",
         "rouvrir": "Rouvrir",
         "supprimer": "Supprimer",
-        "reprogrammer": "Reprogrammer"
+        "reprogrammer": "Reprogrammer",
+        "desactiver": "Désactiver",
+        "reactiver": "Réactiver"
       },
       "champs": {
         "libelle": "Intitulé",
@@ -6982,6 +6996,23 @@
         "avertissementCascade": "{nombre, plural, one {Attention : cet élément et # sous-élément seront supprimés définitivement en cascade.} other {Attention : cet élément et ses # sous-éléments seront supprimés définitivement en cascade.}}",
         "avertissementFeuille": "Attention : cet élément sera supprimé définitivement.",
         "avertissementConditions": "La suppression est refusée si l’élément ou l’un de ses descendants possède déjà des mesures, rapports journaliers, affectations d’équipes ou mouvements de stock."
+      },
+      "desactiver": {
+        "titre": "Désactiver « {libelle} » ?",
+        "description": "La case reste visible dans l’arbre avec son historique, mais sort du planning, des calculs d’avancement et perd ses dépendances.",
+        "action": "Désactiver",
+        "succes": "« {libelle} » désactivée.",
+        "avertissementCascade": "{nombre, plural, one {Cet élément et son sous-élément actif seront désactivés. Leurs dépendances seront retirées.} other {Cet élément et ses # sous-éléments actifs seront désactivés. Leurs dépendances seront retirées.}}",
+        "avertissementFeuille": "Cet élément sera désactivé et ses dépendances planning seront retirées. Vous pourrez le réactiver plus tard.",
+        "motifAide": "Motif obligatoire ({actuel} / {min} caractères minimum).",
+        "motifPlaceholder": "Expliquez pourquoi cette case est désactivée (10 caractères minimum)…"
+      },
+      "reactiver": {
+        "titre": "Réactiver « {libelle} » ?",
+        "description": "La case réintègre le planning et les calculs d’avancement du projet. Les anciennes dépendances ne sont pas rétablies automatiquement.",
+        "action": "Réactiver",
+        "succes": "« {libelle} » réactivée.",
+        "inclureDescendants": "{nombre, plural, one {Réactiver aussi le sous-élément désactivé en dessous} other {Réactiver aussi les # sous-éléments désactivés en dessous}}"
       }
     },
     "niveaux": {
@@ -7021,7 +7052,7 @@
       "finEstimee": "Fin estimée",
       "pasDEstimation": "Pas d’estimation",
       "rythme": "Rythme récent",
-      "rythmeValeur": "{valeur} pts / semaine",
+      "rythmeValeur": "{valeur} / semaine",
       "pasDeRythme": "Pas assez de relevés",
       "courbe": "Courbe en S",
       "courbeAide": "Le prévu suit les dates et les montants ; le réel, les relevés de chaque nuit. La fin estimée prolonge le rythme des quatre dernières semaines : elle est affichée, jamais appliquée aux dates.",
@@ -7453,11 +7484,11 @@
       "ratioPlanifiees": "{planifiees} / {total}",
       "detailStructure": "{cases} éléments dont {jalons, plural, =0 {aucun jalon} one {# jalon} other {# jalons}}",
       "tachesEnRetard": "Tâches en retard",
-      "retardsDetectes": "Écart supérieur à 5 points sur le prévisionnel",
+      "retardsDetectes": "Écart supérieur à 5 % sur le prévisionnel",
       "aucunRetard": "Aucune dérive détectée",
       "tachesTerminees": "Tâches terminées",
       "surFeuilles": "Sur {total, plural, =0 {0 tâche} one {# tâche} other {# tâches}}",
-      "dependances": "Dépendances FS",
+      "dependances": "Dépendances",
       "dependancesEnConflit": "{nombre, plural, one {# lien non respecté} other {# liens non respectés}}",
       "dependancesConformes": "Tous les enchaînements sont cohérents"
     },
@@ -7514,8 +7545,8 @@
       "marqueurTheorique": "Avancement théorique",
       "baseline": "Baseline d'origine",
       "jalon": "Jalon",
-      "lienRespecte": "Lien FS respecté",
-      "lienNonRespecte": "Lien FS en conflit",
+      "lienRespecte": "Lien respecté",
+      "lienNonRespecte": "Lien en conflit",
       "aujourdhui": "Aujourd'hui"
     },
     "infobulle": {
@@ -7525,7 +7556,7 @@
       "avancementPhysique": "Avancement physique",
       "avancementTemporel": "Avancement théorique",
       "ecart": "Écart temporel",
-      "points": "{valeur} pts",
+      "points": "{valeur} %",
       "indiceEdition": "Cliquez pour planifier, reprogrammer ou gérer les liens"
     },
     "export": {
@@ -7543,7 +7574,7 @@
         "finBaseline": "Fin baseline",
         "avancement": "Avancement physique (%)",
         "avancementTemporel": "Avancement théorique (%)",
-        "deltaRetard": "Écart retard (pts)",
+        "deltaRetard": "Écart retard (%)",
         "statut": "Statut"
       },
       "types": {
@@ -7584,24 +7615,30 @@
       "erreurOrdreDates": "La date de fin ne peut pas précéder la date de début.",
       "erreurMotifRequis": "Choisissez un motif de report.",
       "erreurJustificationCourte": "La justification doit contenir au moins {min} caractères.",
-      "sectionDependances": "Dépendances Fin → Début (FS)",
-      "dependancesParentInfo": "Les dépendances Fin → Début relient uniquement les tâches feuilles du découpage.",
+      "sectionDependances": "Dépendances entre tâches",
+      "dependancesParentInfo": "Les dépendances relient uniquement les tâches feuilles du découpage.",
       "chargementDependances": "Chargement des dépendances…",
-      "predecesseursTitre": "Prédécesseurs (doivent finir avant cette tâche)",
+      "predecesseursTitre": "Prédécesseurs",
       "aucunPredecesseur": "Aucun prédécesseur défini pour cette tâche.",
       "tacheHorsPerimetre": "Tâche hors de votre périmètre",
       "finPredecesseur": "Fin prévue : {date}",
       "lienRespecte": "Respecté",
       "lienNonRespecte": "Conflit",
       "supprimerDependance": "Retirer cette dépendance",
-      "ajouterPredecesseur": "Ajouter un prédécesseur FS",
+      "ajouterPredecesseur": "Ajouter un prédécesseur",
       "choisirPredecesseur": "Sélectionner une tâche prédécesseur",
       "aucunCandidat": "Aucune autre tâche feuille disponible",
       "actionAjouterLien": "Lier",
-      "dependanceAjoutee": "Dépendance Fin → Début ajoutée.",
+      "dependanceAjoutee": "Dépendance ajoutée.",
       "dependanceSupprimee": "Dépendance retirée.",
       "erreurDependance": "Impossible de mettre à jour la dépendance.",
-      "successeursTitre": "Successeurs (dépendent de la fin de cette tâche)"
+      "successeursTitre": "Successeurs",
+      "jalonDateUniqueAide": "Un jalon est ponctuel : la date de début et la date de fin restent identiques.",
+      "debutPredecesseur": "Début prévu : {date}",
+      "typeLien": "Type de lien",
+      "decalageJours": "Décalage (j ouvrés)",
+      "decalageJoursAide": "Positif : attente ou séchage (+7) · Négatif : avance ou chevauchement (-2) · 0 par défaut.",
+      "erreurDecalageInvalide": "Saisissez un nombre entier de jours ouvrés (ex. 0, +3 ou -2)."
     },
     "importMsProject": {
       "titre": "Importer un planning Microsoft Project (.xml)",
@@ -7624,14 +7661,16 @@
       },
       "apercu": {
         "periodeXml": "Période XML : {debut} → {fin}",
-        "niveaux": "Niveaux détectés :"
+        "niveaux": "Niveaux détectés :",
+        "baselineXml": "Baseline XML : {debut} → {fin}"
       },
       "statistiques": {
         "totalTaches": "Total tâches",
         "feuilles": "Tâches feuilles",
         "jalons": "Jalons",
-        "dependancesRetenues": "Liens FS retenus",
-        "dependancesIgnorees": "Liens ignorés"
+        "dependancesRetenues": "Liens retenus",
+        "dependancesIgnorees": "Liens ignorés",
+        "inactives": "Désactivées"
       },
       "avertissements": {
         "titre": "{nombre, plural, one {# avertissement détecté lors de l'analyse} other {# avertissements détectés lors de l'analyse}}"
@@ -7650,9 +7689,13 @@
         "duree": "Durée",
         "heures": "{heures} h",
         "avancementXml": "Avanc. XML",
-        "dependancesTitre": "Dépendances Fin → Début retenues ({nombre})",
+        "dependancesTitre": "Dépendances retenues ({nombre})",
         "lienRespecte": "Cohérent",
-        "lienNonRespecte": "À ajuster"
+        "lienNonRespecte": "À ajuster",
+        "montantFcfa": "Montant (FCFA)",
+        "badgeDesactivee": "Désactivée",
+        "badgeBaseline": "Baseline",
+        "baselineDate": "Base : {date}"
       },
       "actions": {
         "annuler": "Annuler",
@@ -7667,7 +7710,283 @@
         "fichierManquant": "Aucun fichier XML sélectionné.",
         "analyseEchouee": "L'analyse du fichier XML a échoué. Vérifiez qu'il s'agit d'un export Microsoft Project valide.",
         "importEchoue": "L'importation du planning a échoué."
+      },
+      "montants": {
+        "titre": "Montants détectés ({nombre, plural, one {# tâche chiffrée} other {# tâches chiffrées}})",
+        "totalConverti": "Total estimé (FCFA)",
+        "totalBrut": "Soit {montant} {devise}",
+        "deviseDetectee": "Devise détectée : {code} ({symbole})",
+        "tauxConversion": "Taux de conversion (1 {code} → FCFA)",
+        "dejaEnFcfa": "Montants déjà en FCFA (taux = 1)",
+        "tauxInvalide": "Saisissez un taux de conversion strictement positif pour convertir les montants.",
+        "importerCheckbox": "Importer les montants du fichier dans le découpage du projet",
+        "permissionChiffrerRequise": "La permission de chiffrage sur l’ensemble du projet est requise pour importer les montants."
       }
+    },
+    "typesLien": {
+      "FS": "FS — Fin → Début",
+      "SS": "SS — Début → Début",
+      "FF": "FF — Fin → Fin",
+      "SF": "SF — Début → Fin"
+    }
+  },
+  "ged": {
+    "meta": {
+      "titre": "Documents — Gestion documentaire"
+    },
+    "titre": "Documents",
+    "chargement": "Chargement des documents…",
+    "resume": "{total, plural, =0 {0 document} one {# document} other {# documents}} · {references, plural, =0 {0 de référence} one {# de référence} other {# de référence}} · {automatiques, plural, =0 {0 archivé automatiquement} one {# archivé automatiquement} other {# archivés automatiquement}}",
+    "navigationCategories": "Catégories documentaires",
+    "onglets": {
+      "toutes": "Toutes"
+    },
+    "categories": {
+      "PLANS": "Plans",
+      "CONTRATS": "Contrats",
+      "RAPPORTS": "Rapports",
+      "ADMINISTRATIF": "Administratif",
+      "PHOTOS": "Photos",
+      "DIVERS": "Divers"
+    },
+    "origines": {
+      "MANUEL": "Manuel",
+      "F1_CONTRAT": "F1 Contrats",
+      "F2_RAPPORT": "F2 Journal",
+      "F9_BRV": "F9 Stock"
+    },
+    "colonnes": {
+      "document": "Document",
+      "categorie": "Catégorie",
+      "projet": "Projet",
+      "origine": "Origine",
+      "version": "Version",
+      "dateAuteur": "Mise à jour",
+      "actions": "Actions"
+    },
+    "filtres": {
+      "rechercheLibelle": "Rechercher un document",
+      "recherchePlaceholder": "Titre, fichier, description, auteur…",
+      "projetLibelle": "Filtrer par projet",
+      "tousProjets": "Tous les projets",
+      "origineLibelle": "Filtrer par origine",
+      "toutesOrigines": "Toutes les origines",
+      "dateDebut": "Du…",
+      "dateFin": "Au…",
+      "effacerDateDebut": "Effacer la date de début",
+      "effacerDateFin": "Effacer la date de fin",
+      "referencesUniquement": "Références uniquement"
+    },
+    "actions": {
+      "deposer": "Déposer un document",
+      "fermer": "Fermer",
+      "annuler": "Annuler",
+      "reessayer": "Réessayer",
+      "telecharger": "Télécharger",
+      "partager": "Partager 72 h",
+      "supprimer": "Supprimer",
+      "nouvelleVersion": "Nouvelle version",
+      "epinglerReference": "Épingler comme référence",
+      "retirerReference": "Retirer des références",
+      "detailEtVersions": "Détail & versions",
+      "voirVersions": "Voir l’historique des versions",
+      "consulterDetail": "Consulter le détail de « {nom} »",
+      "telechargerDocument": "Télécharger « {nom} »",
+      "partagerDocument": "Partager « {nom} » par lien 72 h",
+      "supprimerDocument": "Supprimer « {nom} »",
+      "telechargementLance": "Téléchargement lancé : {nom}",
+      "referenceEpinglee": "« {nom} » a été épinglé comme document de référence.",
+      "referenceRetiree": "« {nom} » a été retiré des documents de référence."
+    },
+    "accesRefuse": {
+      "titre": "Accès non autorisé",
+      "description": "Votre rôle ne donne accès à aucune catégorie documentaire de la GED."
+    },
+    "apiIndisponible": {
+      "titre": "Service documentaire momentanément indisponible",
+      "description": "Les routes de la gestion documentaire ne répondent pas encore sur le serveur. Réessayez dans quelques instants."
+    },
+    "vide": {
+      "aucunDocument": "Aucun document dans cette vue. Déposez un document ou attendez l’archivage automatique depuis les modules chantier.",
+      "aucunResultat": "Aucun document ne correspond aux critères de recherche sélectionnés."
+    },
+    "export": {
+      "titre": "Liste des documents GED",
+      "nom": "Document",
+      "categorie": "Catégorie",
+      "projet": "Projet",
+      "referenceProjet": "Référence projet",
+      "origine": "Origine",
+      "version": "Version",
+      "fichier": "Fichier",
+      "taille": "Taille",
+      "reference": "Document de référence",
+      "oui": "Oui",
+      "non": "Non",
+      "misAJourLe": "Mis à jour le",
+      "auteur": "Auteur",
+      "sha256": "Empreinte SHA-256"
+    },
+    "depot": {
+      "titre": "Déposer un document",
+      "soumettre": "Déposer le document",
+      "succes": "Le document « {nom} » a été déposé.",
+      "champProjet": "Projet",
+      "placeholderProjet": "Sélectionner un projet",
+      "champCategorie": "Catégorie documentaire",
+      "placeholderCategorie": "Sélectionner une catégorie",
+      "champFichier": "Fichier",
+      "consigneFichier": "PDF, JPG, JPEG, PNG, DOC, DOCX, XLS, XLSX · 50 Mo maximum",
+      "champNom": "Titre du document",
+      "placeholderNom": "Ex. : Plan de masse — Bâtiment administratif",
+      "champDescription": "Description (optionnel)",
+      "placeholderDescription": "Objet, zone concernée ou précisions utiles…",
+      "champCommentaire": "Note de version v1 (optionnel)",
+      "placeholderCommentaire": "Ex. : Dépôt initial validé pour exécution",
+      "champReference": "Épingler comme document de référence",
+      "aideReference": "Les documents de référence restent affichés en tête de liste."
+    },
+    "nouvelleVersion": {
+      "titre": "Publier une nouvelle version",
+      "sousTitre": "Remplace {courante} par {suivante} tout en conservant l’historique complet.",
+      "soumettre": "Publier {version}",
+      "succes": "La version {version} de « {nom} » a été publiée.",
+      "champFichier": "Nouveau fichier",
+      "champCommentaire": "Note de révision",
+      "placeholderCommentaire": "Décrivez les modifications apportées dans cette nouvelle version…",
+      "aideCommentaire": "Obligatoire pour la traçabilité des révisions.",
+      "champReference": "Conserver épinglé comme document de référence"
+    },
+    "detail": {
+      "navigationOnglets": "Sections du document",
+      "badgeReference": "Référence",
+      "badgeActive": "Active",
+      "bandeauAutoTitre": "Archivage automatique ({origine})",
+      "bandeauAutoDescription": "Cette pièce a été archivée automatiquement pour la piste d’audit : elle ne peut ni être remplacée manuellement ni supprimée.",
+      "telechargerVersion": "Télécharger {version}",
+      "totalVersions": "{count, plural, =0 {0 version} one {# version au total} other {# versions au total}}",
+      "versionsDescription": "Toutes les versions sont conservées sans perte avec leur empreinte SHA-256.",
+      "aucuneVersion": "Aucune version disponible.",
+      "journalDescription": "Historique chronologique des consultations, téléchargements, dépôts, partages et suppressions.",
+      "journalIndisponible": "Le journal des consultations n’est pas encore disponible sur le serveur.",
+      "journalVideTitre": "Aucun événement enregistré",
+      "journalVideDescription": "Les consultations, téléchargements et partages de ce document apparaîtront ici.",
+      "copierHash": "Copier l’empreinte SHA-256",
+      "hashCopie": "Empreinte SHA-256 copiée dans le presse-papiers.",
+      "onglets": {
+        "metadonnees": "Métadonnées",
+        "versions": "Versions",
+        "journal": "Journal d’audit"
+      },
+      "lienSource": {
+        "F1_CONTRAT": "Ouvrir dans le projet",
+        "F2_RAPPORT": "Ouvrir dans le journal chantier",
+        "F9_BRV": "Ouvrir dans les stocks",
+        "MANUEL": "Ouvrir la source"
+      },
+      "champs": {
+        "categorie": "Catégorie",
+        "versionActive": "Version active",
+        "nomFichier": "Nom du fichier",
+        "tailleEtFormat": "Taille & format",
+        "mimeType": "Type MIME",
+        "auteurEtDate": "Dernière mise à jour",
+        "description": "Description",
+        "noteVersionActive": "Note de la version active",
+        "empreinteSha256": "Empreinte SHA-256"
+      }
+    },
+    "partage": {
+      "titre": "Partage externe temporaire (72 h)",
+      "infoDuree": "Chaque lien donne un accès en consultation et téléchargement sans compte, et expire automatiquement après {heures} heures.",
+      "lienGenereTitre": "Lien temporaire prêt à être partagé",
+      "copier": "Copier le lien",
+      "copie": "Copié",
+      "lienCopie": "Lien de partage copié dans le presse-papiers.",
+      "erreurCopie": "Impossible de copier automatiquement. Copiez le lien manuellement.",
+      "ouvrirLien": "Ouvrir le lien public dans un nouvel onglet",
+      "revoquer": "Révoquer",
+      "expireLe": "Expire le {date}",
+      "consultations": "{count, plural, =0 {0 consultation} one {# consultation} other {# consultations}}",
+      "creePar": "Créé par {auteur}",
+      "sectionNouveau": "Générer un nouveau lien",
+      "champDestinataire": "Destinataire (optionnel)",
+      "placeholderDestinataire": "Ex. : Bureau de contrôle, Maître d’ouvrage",
+      "champNote": "Note d’accompagnement (optionnel)",
+      "placeholderNote": "Ex. : Transmis pour visa avant exécution",
+      "generer": "Générer un lien {heures} h",
+      "sectionExistants": "Liens existants ({count})",
+      "indisponible": "L’historique des liens de partage n’est pas encore disponible sur le serveur.",
+      "aucunLienTitre": "Aucun lien généré",
+      "aucunLienDescription": "Créez un lien temporaire de 72 h pour transmettre ce document à un intervenant externe.",
+      "succesCreation": "Le lien de partage 72 h a été généré.",
+      "succesRevocation": "Le lien de partage a été révoqué immédiatement.",
+      "statuts": {
+        "actif": "Actif",
+        "expire": "Expiré",
+        "revoque": "Révoqué"
+      }
+    },
+    "suppression": {
+      "titre": "Supprimer le document",
+      "confirmer": "Supprimer définitivement",
+      "succes": "Le document « {nom} » a été supprimé.",
+      "automatiqueTitre": "Suppression interdite",
+      "automatiqueDescription": "Ce document a été archivé automatiquement par le système (F1, F2 ou F9). Il est protégé pour la traçabilité et ne peut pas être supprimé.",
+      "confirmation": "Confirmez-vous la suppression du document <fort>{nom}</fort> ainsi que de ses {versions, plural, =0 {versions} one {# version} other {# versions}} ? Cette action est consignée dans le journal d’audit.",
+      "champMotif": "Motif de suppression (optionnel)",
+      "placeholderMotif": "Ex. : Doublon, document déposé dans la mauvaise catégorie…",
+      "verrouAutoInfobulle": "Document archivé automatiquement : suppression impossible.",
+      "verrouRoleInfobulle": "Suppression réservée à l’Administrateur (AD) ou au Chef de Projet (CP) habilité."
+    },
+    "partagePublic": {
+      "meta": {
+        "titre": "Document partagé — CCD Digital"
+      },
+      "chargement": "Chargement du document partagé…",
+      "expireTitre": "Ce lien de partage a expiré",
+      "expireDescription": "La durée de validité de 72 heures est dépassée ou l’émetteur a révoqué l’accès. Demandez un nouveau lien à votre interlocuteur.",
+      "introuvableTitre": "Document introuvable",
+      "introuvableDescription": "Ce lien de partage est invalide ou ne correspond à aucun document accessible.",
+      "erreurGenerique": "Impossible de charger ce document partagé. Réessayez dans quelques instants.",
+      "telecharger": "Télécharger le document",
+      "destinataireTitre": "Destiné à : {destinataire}",
+      "noteTitre": "Message de l’émetteur",
+      "accesTemporaire": "Accès temporaire en lecture seule sans compte requis.",
+      "mentionSecurite": "Lien sécurisé temporaire (72 h) — vérifiez l’empreinte SHA-256 pour garantir l’intégrité du fichier.",
+      "champs": {
+        "entreprise": "Entreprise émettrice",
+        "fichier": "Fichier",
+        "tailleFormat": "Taille & format",
+        "deposeLe": "Déposé le",
+        "mimeType": "Type MIME",
+        "expireLe": "Validité du lien"
+      }
+    },
+    "validation": {
+      "projetRequis": "Sélectionnez un projet.",
+      "categorieRequise": "Sélectionnez une catégorie documentaire.",
+      "nomRequis": "Le titre du document est obligatoire.",
+      "fichierRequis": "Sélectionnez un fichier à déposer.",
+      "noteRevisionRequise": "La note de révision est obligatoire pour publier une nouvelle version.",
+      "champTropLong": "Ce champ ne doit pas dépasser {max} caractères.",
+      "fichier": {
+        "vide": "Le fichier sélectionné est vide.",
+        "extension": "Format non autorisé. Formats acceptés : PDF, JPG, JPEG, PNG, DOC, DOCX, XLS, XLSX.",
+        "taille": "Le fichier dépasse la taille maximale autorisée de 50 Mo."
+      }
+    },
+    "erreurs": {
+      "chargementListe": "Impossible de charger les documents de la GED.",
+      "depotEchoue": "Le dépôt du document a échoué. Réessayez.",
+      "versionEchouee": "La publication de la nouvelle version a échoué. Réessayez.",
+      "suppressionEchouee": "La suppression du document a échoué. Réessayez.",
+      "telechargementEchoue": "Le téléchargement du fichier a échoué. Réessayez.",
+      "referenceEchouee": "Impossible de modifier le statut de référence du document.",
+      "partageEchoue": "Impossible de générer le lien de partage. Réessayez.",
+      "revocationEchouee": "Impossible de révoquer ce lien de partage.",
+      "chargementPartages": "Impossible de charger la liste des liens de partage.",
+      "chargementJournal": "Impossible de charger le journal des consultations."
     }
   }
 }

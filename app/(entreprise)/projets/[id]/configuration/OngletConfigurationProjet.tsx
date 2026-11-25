@@ -50,9 +50,11 @@ import {
   NOMBRE_MAX_CONTRATS,
   STATUTS_COMPOSANTE_DECOUPAGE,
   TAILLE_MAX_CONTRAT,
+  budgetRecevable,
   collecterPerimetresArbre,
   dateAujourdhuiIso,
   datesVerrouillees,
+  dureeContractuelleTotale,
   nomFichierSansExtension,
   normaliserStatutComposante,
   projetModifiable,
@@ -85,6 +87,7 @@ import {
   formaterMontant,
   formaterSaisieMontant,
   formaterTailleFichier,
+  saisieEnCentimes,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -105,7 +108,6 @@ const CLES_SECTEURS = [
   "autre",
 ] as const;
 
-const CLES_DEVISES = ["fcfa", "eur", "usd"] as const;
 const CLES_REGIMES = ["ttc", "ht_exonere", "tva_suspendue"] as const;
 const CLES_MODES_FIN = ["budget_etat", "conjoint", "ext_pret", "ext_don", "ppp"] as const;
 const CLES_SOURCES_FIN = ["fonds_propres", "credit_bancaire", "mixte", "vefa"] as const;
@@ -135,6 +137,7 @@ interface EtatFormulaire {
   description: string;
   dateDebutPrevue: string;
   dateFinPrevue: string;
+  budgetInitial: string;
   infos: InformationsComplementairesProjet;
   objectifsTexte: string;
   impactsTexte: string;
@@ -220,17 +223,19 @@ function etatInitialDepuisProjet(
     description: projet.description ?? "",
     dateDebutPrevue: projet.dateDebutPrevue ?? "",
     dateFinPrevue: projet.dateFinPrevue ?? "",
+    budgetInitial:
+      projet.budgetInitial !== null
+        ? formaterSaisieMontant(String(centimesEnFrancs(projet.budgetInitial)))
+        : "",
     infos: {
       ...infos,
       phase: infos.phase || projet.phaseActuelle || "",
       date_situation: infos.date_situation || dateAujourdhuiIso(),
-      cout: normaliserMontantTexte(infos.cout),
       etat_effectif: normaliserMontantTexte(infos.etat_effectif),
       etat_decaissement: normaliserMontantTexte(infos.etat_decaissement),
       purge_total: normaliserMontantTexte(infos.purge_total),
       purge_engage: normaliserMontantTexte(infos.purge_engage),
       purge_paye: normaliserMontantTexte(infos.purge_paye),
-      devise: infos.devise || "FCFA",
       coordonnateur: infos.coordonnateur ?? { nom: "", tel: "", email: "" },
       bailleurs: (infos.bailleurs ?? []).map((b) => ({
         ...b,
@@ -485,11 +490,21 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
   }, [projet.syntheseAvenantsDelai, etat.infos.reprogrammation, t]);
 
   const budgetContractuelCentimes =
-    projet.syntheseAvenantsDelai?.budgetContractuel ?? projet.budgetCourant;
+    projet.budgetContractuelInitial === null
+      ? null
+      : (projet.syntheseAvenantsDelai?.budgetContractuel ??
+          projet.budgetContractuelInitial + projet.montantAvenants);
   const budgetContractuelFormate =
     budgetContractuelCentimes !== null
       ? formaterSaisieMontant(String(centimesEnFrancs(budgetContractuelCentimes)))
       : "";
+
+  const dureeTotaleContractuelle = dureeContractuelleTotale(projet);
+  const dureeContractuelleAffichee = dureeTotaleContractuelle
+    ? formaterDureeCalendaire(dureeTotaleContractuelle)
+    : ABSENT;
+  const dureeContractuelleFormatee =
+    dureeContractuelleAffichee !== ABSENT ? dureeContractuelleAffichee : "";
 
   const optionsComposante = useMemo<OptionCombobox[]>(() => {
     const liste = trouverListeDuNiveau(requeteListes.data ?? [], niveau1?.liste);
@@ -564,6 +579,9 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
       description: etat.description,
       dateDebutPrevue: etat.dateDebutPrevue || projet.dateDebutPrevue,
       dateFinPrevue: etat.dateFinPrevue || projet.dateFinPrevue,
+      budgetInitial: voitMontants
+        ? saisieEnCentimes(etat.budgetInitial)
+        : projet.budgetInitial,
       informationsComplementaires: {
         ...etat.infos,
         phase: phaseEffective,
@@ -584,6 +602,7 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
     contactMoaDynamique,
     syntheseAvenantsTexte,
     budgetContractuelFormate,
+    voitMontants,
   ]);
 
   const fichePdf = useGenerationFicheProjet(projetApercu);
@@ -619,8 +638,8 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
         etat.dateDebutPrevue,
         etat.dateFinPrevue,
         i.date_situation,
-        i.cout || projet.budgetInitial || budgetContractuelCentimes,
-        i.devise,
+        etat.budgetInitial || budgetContractuelCentimes,
+        ...(estPublic ? [i.regime] : []),
       ],
       s4: estPublic
         ? [i.mode_fin, i.statut_fin, i.etat_effectif, i.etat_decaissement, i.bailleurs]
@@ -783,6 +802,15 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
 
   async function enregistrer() {
     if (!projet || !etat || !peutModifier) return;
+    const budgetInitialSaisi = voitMontants ? saisieEnCentimes(etat.budgetInitial) : undefined;
+    if (
+      voitMontants &&
+      etat.budgetInitial.trim() !== "" &&
+      !budgetRecevable(budgetInitialSaisi ?? null)
+    ) {
+      toast.error(t("champs.erreurBudgetInvalide"));
+      return;
+    }
     setEnCours(true);
     try {
       const objectifs = etat.objectifsTexte
@@ -806,6 +834,9 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
           ? { dateDebutPrevue: etat.dateDebutPrevue }
           : {}),
         ...(!verrouDates.fin && etat.dateFinPrevue ? { dateFinPrevue: etat.dateFinPrevue } : {}),
+        ...(voitMontants && budgetInitialSaisi !== projet.budgetInitial
+          ? { budgetInitial: budgetInitialSaisi }
+          : {}),
         informationsComplementaires: {
           ...etat.infos,
           phase: phaseEffective,
@@ -1509,10 +1540,11 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                 </Label>
                 <Input
                   id="cfg-duree-contrat"
-                  value={etat.infos.duree_contrat ?? ""}
-                  placeholder={t("champs.dureeContratPlaceholder")}
-                  onChange={(e) => majInfo("duree_contrat", e.target.value)}
-                  disabled={!peutModifier || enCours}
+                  value={dureeContractuelleFormatee}
+                  placeholder={t("champs.dureeContratNonDefinie")}
+                  readOnly
+                  disabled
+                  className="bg-neutral-100"
                 />
               </div>
             </div>
@@ -1532,50 +1564,24 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
             {voitMontants && (
               <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="cfg-cout" className="text-xs font-semibold text-neutral-700">
-                    {t("champs.cout")}
+                  <Label
+                    htmlFor="cfg-budget-initial"
+                    className="text-xs font-semibold text-neutral-700"
+                  >
+                    {t("champs.budgetInitial")}
                   </Label>
                   <Input
-                    id="cfg-cout"
-                    value={etat.infos.cout ?? ""}
-                    placeholder={t("champs.coutPlaceholder")}
+                    id="cfg-budget-initial"
+                    value={etat.budgetInitial}
+                    placeholder={t("champs.budgetInitialPlaceholder")}
                     inputMode="numeric"
                     className="tabular-nums"
-                    onChange={(e) => majInfo("cout", formaterSaisieMontant(e.target.value))}
+                    onChange={(e) =>
+                      majChamp("budgetInitial", formaterSaisieMontant(e.target.value))
+                    }
                     disabled={!peutModifier || enCours}
                   />
                 </div>
-
-                <ChampSelect
-                  id="cfg-devise"
-                  label={t("champs.devise")}
-                  valeur={etat.infos.devise ?? "FCFA"}
-                  placeholder={t("selectionner")}
-                  disabled={!peutModifier || enCours}
-                  options={CLES_DEVISES.map((cle) => ({
-                    cle,
-                    libelle: t(`options.devises.${cle}`),
-                  }))}
-                  onChange={(val) => majInfo("devise", val || "FCFA")}
-                />
-
-                {etat.infos.devise && etat.infos.devise !== "FCFA" && (
-                  <div className="flex flex-col gap-1.5">
-                    <Label
-                      htmlFor="cfg-taux-change"
-                      className="text-xs font-semibold text-neutral-700"
-                    >
-                      {t("champs.tauxChange")}
-                    </Label>
-                    <Input
-                      id="cfg-taux-change"
-                      value={etat.infos.taux_change ?? ""}
-                      placeholder={t("champs.tauxChangePlaceholder")}
-                      onChange={(e) => majInfo("taux_change", e.target.value)}
-                      disabled={!peutModifier || enCours}
-                    />
-                  </div>
-                )}
 
                 <div className="flex flex-col gap-1.5">
                   <Label
@@ -1589,6 +1595,7 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                     value={budgetContractuelFormate}
                     placeholder={t("champs.budgetContractuelNonDefini")}
                     readOnly
+                    disabled
                     className="bg-neutral-100 tabular-nums"
                   />
                   {projet.budgetContractuelInitial !== null && projet.montantAvenants > 0 && (

@@ -13,12 +13,17 @@ export type ModeMesurePlanning = "QUANTITE" | "POURCENTAGE" | "JALON";
 /** Échelle temporelle disponible pour le zoom du diagramme de Gantt. */
 export type EchelleGantt = "JOUR" | "SEMAINE" | "MOIS" | "TRIMESTRE";
 
+/** Quatre types de dépendances entre tâches (compatibles MS Project MSPDI). */
+export type TypeDependance = "FS" | "SS" | "FF" | "SF";
+
 /** État d'éligibilité du projet à l'import d'un planning MS Project `.xml`. */
 export interface EtatImportMsProject {
   autorise: boolean;
   decoupageExistant: boolean;
   remplacementRequis: boolean;
   motifBlocage: string | null;
+  peutVoirMontants: boolean;
+  peutChiffrer: boolean;
 }
 
 /** Une case (parent ou tâche feuille) dans l'arbre du planning. */
@@ -49,12 +54,14 @@ export interface CasePlanning {
   enfants: CasePlanning[];
 }
 
-/** Une dépendance Fin → Début entre deux tâches feuilles du planning. */
+/** Une dépendance typée (FS/SS/FF/SF) avec décalage en jours ouvrés entre deux tâches feuilles. */
 export interface DependancePlanning {
   id: string;
   predecesseurId: string;
   successeurId: string;
-  /** `false` si le successeur démarre avant la fin du prédécesseur ; `null` si une date manque. */
+  typeLien: TypeDependance;
+  decalageJours: number;
+  /** `false` si la contrainte temporelle du lien n'est pas respectée ; `null` si une date manque. */
   respectee: boolean | null;
 }
 
@@ -63,6 +70,7 @@ export interface PlanningGantt {
   aujourdhui: string;
   projetDebut: string | null;
   projetFin: string | null;
+  uniteAvancement: string;
   importMsProject: EtatImportMsProject;
   cases: CasePlanning[];
   dependances: DependancePlanning[];
@@ -79,6 +87,8 @@ export interface LienCaseElement {
   libelle: string | null;
   dateDebutPrevue: string | null;
   dateFinPrevue: string | null;
+  typeLien: TypeDependance;
+  decalageJours: number;
   respectee: boolean | null;
 }
 
@@ -86,6 +96,11 @@ export interface DependancesElement {
   elementId: string;
   predecesseurs: LienCaseElement[];
   successeurs: LienCaseElement[];
+}
+
+export interface OptionsAjoutDependance {
+  typeLien?: TypeDependance;
+  decalageJours?: number;
 }
 
 export interface LienDependanceCree {
@@ -100,6 +115,8 @@ export interface LienDependanceCree {
     libelle: string;
     dateDebutPrevue: string | null;
   };
+  typeLien: TypeDependance;
+  decalageJours: number;
   respectee: boolean | null;
 }
 
@@ -116,7 +133,16 @@ export interface ProjetXmlApercu {
   titre: string | null;
   dateDebut: string | null;
   dateFin: string | null;
+  dateDebutBaseline: string | null;
+  dateFinBaseline: string | null;
+  deviseCode: string;
+  deviseSymbole: string;
+  tauxConversionSuggere: number | null;
+  coutTotalBrut: number | null;
+  coutTotalFcfa: number | null;
 }
+
+export type ProjetXmlMsProject = ProjetXmlApercu;
 
 export interface NiveauMsProject {
   ordre: number;
@@ -126,15 +152,21 @@ export interface NiveauMsProject {
 export interface TacheMsProject {
   uid: string;
   numero: string | null;
+  code: string;
   libelle: string;
   niveauOrdre: number;
   niveau: string | null;
   debut: string | null;
   fin: string | null;
+  debutBaseline: string | null;
+  finBaseline: string | null;
   dureeHeures: number | null;
   estJalon: boolean;
   estFeuille: boolean;
+  estActif: boolean;
   pourcentageXml: number | null;
+  coutBrut: number | null;
+  coutFcfa: number | null;
   enfants: TacheMsProject[];
 }
 
@@ -143,7 +175,8 @@ export interface DependanceMsProject {
   predecesseurLibelle: string;
   successeurUid: string;
   successeurLibelle: string;
-  type: string;
+  type: TypeDependance;
+  decalageJours: number;
   respectee: boolean | null;
 }
 
@@ -151,6 +184,8 @@ export interface StatistiquesMsProject {
   totalTaches: number;
   feuilles: number;
   jalons: number;
+  inactives: number;
+  tachesChiffrees: number;
   dependancesRetenues: number;
   dependancesIgnorees: number;
 }
@@ -165,10 +200,18 @@ export interface AnalyseMsProject {
   avertissements: AvertissementMsProject[];
 }
 
+export interface OptionsImportMsProject {
+  confirmerRemplacement: boolean;
+  importerMontants?: boolean;
+  tauxConversion?: number;
+}
+
 export interface ResultatImportMsProject {
   elementsCrees: number;
   niveauxCrees: number;
   dependancesCreees: number;
+  inactivesCreees: number;
+  montantsImportes: boolean;
   remplacementEffectue: boolean;
   avertissements: AvertissementMsProject[];
   planning: PlanningGantt;
@@ -228,6 +271,12 @@ export interface FlecheGantt {
   id: string;
   predecesseurId: string;
   successeurId: string;
+  typeLien: TypeDependance;
+  decalageJours: number;
+  /** Chaîne vide pour `FS` sans décalage, sinon ex. `FS +7 j`, `SS +3 j`, `FF`, `FS -2 j`. */
+  etiquette: string;
+  xEtiquette: number;
+  yEtiquette: number;
   cheminSvg: string;
   respectee: boolean | null;
 }

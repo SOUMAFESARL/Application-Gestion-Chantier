@@ -194,38 +194,31 @@ export function CadreFicheProjet({ projetId, children }: { projetId: string; chi
             </span>
           }
           actions={
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/projets/${projet.id}/fiche`}>
-                  <FileText aria-hidden="true" />
-                  {t("apercuPleinePage")}
-                </Link>
-              </Button>
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" aria-busy={fichePdf.enCours}>
-                    {fichePdf.enCours && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-                    {t("actions")}
-                    <ChevronDown aria-hidden="true" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="bottom" align="end" className="min-w-48">
-                  {peutModifierProjet && projetModifiable(projet) && (
-                    <DropdownMenuItem onSelect={() => modifier(projet)}>
-                      <Pencil aria-hidden="true" />
-                      {t("modifier")}
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem asChild>
-                    <Link href={`/projets/${projet.id}/fiche`}>
-                      <FileText aria-hidden="true" />
-                      {t("apercuPleinePage")}
-                    </Link>
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" aria-busy={fichePdf.enCours}>
+                  {fichePdf.enCours && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+                  {t("actions")}
+                  <ChevronDown aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="bottom" align="end" className="min-w-48">
+                {peutModifierProjet && projetModifiable(projet) && (
+                  <DropdownMenuItem onSelect={() => modifier(projet)}>
+                    <Pencil aria-hidden="true" />
+                    {t("modifier")}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={fichePdf.generer} disabled={fichePdf.enCours}>
-                    <Printer aria-hidden="true" />
-                    {t("exporterPdf")}
-                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem asChild>
+                  <Link href={`/projets/${projet.id}/fiche`}>
+                    <FileText aria-hidden="true" />
+                    {t("apercuPleinePage")}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={fichePdf.generer} disabled={fichePdf.enCours}>
+                  <Printer aria-hidden="true" />
+                  {t("exporterPdf")}
+                </DropdownMenuItem>
                 {peutChangerStatutProjet && (peutSuspendre(projet) || peutReprendre(projet)) && (
                   <DropdownMenuSeparator />
                 )}
@@ -272,7 +265,6 @@ export function CadreFicheProjet({ projetId, children }: { projetId: string; chi
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-            </div>
           }
         />
       </div>

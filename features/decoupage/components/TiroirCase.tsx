@@ -8,6 +8,8 @@ import {
   Gauge,
   Pencil,
   Plus,
+  Power,
+  PowerOff,
   Trash2,
   TriangleAlert,
   Undo2,
@@ -24,7 +26,7 @@ import { REFERENTIEL_MODES_EXECUTION, useReferentiel } from "@/features/projets/
 import type { Projet } from "@/features/projets/types";
 import { ABSENT, formaterDate, formaterMontant, formaterQuantite } from "@/lib/format";
 
-import { gestesPossibles, PERMISSION_DU_GESTE, type GesteCase } from "../regles";
+import { codeDistinctDuNumero, gestesPossibles, PERMISSION_DU_GESTE, type GesteCase } from "../regles";
 import type { CaseArbre } from "../types";
 import { Derive, Ecart, Montant, MONTANT_MASQUE, Periode, Physique, Statut } from "./CellulesCase";
 
@@ -36,6 +38,8 @@ const ICONE_GESTE: Record<GesteCase, ReactNode> = {
   mesurer: <Gauge />,
   cloturer: <CheckCheck />,
   rouvrir: <Undo2 />,
+  desactiver: <PowerOff />,
+  reactiver: <Power />,
   supprimer: <Trash2 />,
 };
 
@@ -76,7 +80,7 @@ export function TiroirCase({
               </SheetTitle>
               <SheetDescription className="flex flex-wrap items-center gap-2">
                 {cible.niveau.libelle && <Badge variante="neutre">{cible.niveau.libelle}</Badge>}
-                {cible.code && <Badge variante="primaire">{cible.code}</Badge>}
+                {codeDistinctDuNumero(cible) && <Badge variante="primaire">{cible.code}</Badge>}
                 <Statut une={cible} />
               </SheetDescription>
             </SheetHeader>
@@ -88,6 +92,16 @@ export function TiroirCase({
                 </Alert>
               ) : (
                 <>
+                  {!cible.estActif && (
+                    <Alert variant="avertissement">
+                      <PowerOff />
+                      <AlertDescription>
+                        {cible.motif.trim()
+                          ? t("motifDesactivation", { motif: cible.motif.trim() })
+                          : t("caseDesactiveeInfo")}
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   {cible.aCompleter && (
                     <Alert variant="avertissement">
                       <TriangleAlert />
@@ -204,7 +218,13 @@ export function TiroirCase({
                       <BoutonPermis
                         key={geste}
                         size="sm"
-                        variant={geste === "supprimer" ? "destructive" : "secondary"}
+                        variant={
+                          geste === "supprimer"
+                            ? "destructive"
+                            : geste === "reactiver"
+                              ? "default"
+                              : "secondary"
+                        }
                         permis={peutSurProjet(PERMISSION_DU_GESTE[geste], projet)}
                         permission={PERMISSION_DU_GESTE[geste]}
                         onClick={() => onGeste(geste, cible)}
@@ -214,7 +234,7 @@ export function TiroirCase({
                       </BoutonPermis>
                     ))}
                   </div>
-                  {cible.dateDebutPrevue && cible.dateFinPrevue && (
+                  {cible.estActif && cible.dateDebutPrevue && cible.dateFinPrevue && (
                     <p className="m-0 flex items-center gap-1.5 text-xs text-neutral-500">
                       <CalendarCheck size={14} aria-hidden="true" />
                       {t("dejaPlanifiee")}
