@@ -63,6 +63,7 @@ interface ChargeAuteur {
 interface ChargeSourceLiaison {
   type_source?: string | null;
   objet_id?: string | null;
+  sous_type?: string | null;
 }
 
 interface ChargeVersionDocument {
@@ -98,6 +99,9 @@ interface ChargeDocumentGed {
   createur?: ChargeAuteur | null;
   cree_le?: string | null;
   modifie_le?: string | null;
+  peut_partager?: boolean;
+  peut_voir_historique?: boolean;
+  peut_supprimer?: boolean;
 }
 
 interface ChargeEvenementAudit {
@@ -196,6 +200,7 @@ function versSourceLiaison(
   return {
     typeSource: charge.type_source,
     objetId: charge.objet_id,
+    sousType: charge.sous_type ?? null,
   };
 }
 
@@ -252,6 +257,9 @@ function versDocumentGed(charge: ChargeDocumentGed): DocumentGed {
     createur: versAuteur(charge.createur),
     creeLe: charge.cree_le ?? versionActive?.creeLe ?? "",
     modifieLe: charge.modifie_le ?? versionActive?.creeLe ?? charge.cree_le ?? "",
+    peutPartager: charge.peut_partager,
+    peutVoirHistorique: charge.peut_voir_historique,
+    peutSupprimer: charge.peut_supprimer,
   };
 }
 

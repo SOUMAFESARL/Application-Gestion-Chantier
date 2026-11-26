@@ -710,8 +710,8 @@ export function libelleTypeProjet(
 /** Formats acceptés par le serveur (`apps/projets/services/contrats.py`). */
 export const FORMAT_CONTRAT = "application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg";
 
-/** Plafond par fichier aligné sur `MAX_FICHIER` du serveur (10 Mo). */
-export const TAILLE_MAX_CONTRAT = 10 * 1024 * 1024;
+/** Plafond par fichier aligné sur `MAX_FICHIER` du serveur et la GED (50 Mo). */
+export const TAILLE_MAX_CONTRAT = 50 * 1024 * 1024;
 
 /** Un seul contrat actif à la fois : tout nouvel import archive la version précédente. */
 export const NOMBRE_MAX_CONTRATS = 1;

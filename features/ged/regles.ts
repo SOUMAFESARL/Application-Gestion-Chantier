@@ -163,23 +163,24 @@ export function peutTelechargerGed(droits: Droits | null): boolean {
 
 /**
  * Suppression autorisée uniquement sur un document manuel (`!estAutomatique`)
- * avec la permission `ged.supprimer_<categorie>` (le serveur vérifie aussi AD/CP).
+ * avec l'autorité AD/CP + `ged.supprimer_<categorie>` (drapeau SSOT serveur en priorité).
  */
 export function peutSupprimerDocument(
   droits: Droits | null,
-  document: Pick<DocumentGed, "estAutomatique" | "categorie">,
+  document: Pick<DocumentGed, "estAutomatique" | "categorie" | "peutSupprimer">,
 ): boolean {
   if (document.estAutomatique) return false;
+  if (document.peutSupprimer !== undefined) return Boolean(document.peutSupprimer);
   return peutCode(droits, codePermissionGed("supprimer", document.categorie));
 }
 
 /** Explique pourquoi un document ne peut pas être supprimé (pour l'info-bulle). */
 export function motifRefusSuppressionDocument(
   droits: Droits | null,
-  document: Pick<DocumentGed, "estAutomatique" | "categorie">,
+  document: Pick<DocumentGed, "estAutomatique" | "categorie" | "peutSupprimer">,
 ): "automatique" | "permission" | null {
   if (document.estAutomatique) return "automatique";
-  if (!peutCode(droits, codePermissionGed("supprimer", document.categorie))) return "permission";
+  if (!peutSupprimerDocument(droits, document)) return "permission";
   return null;
 }
 
@@ -200,15 +201,28 @@ export function peutAjouterVersionDocument(
   return peutDeposerCategorie(droits, document.categorie);
 }
 
-/** Partager un lien externe 72 h exige la lecture sur la catégorie et un droit de téléchargement ou dépôt. */
+/**
+ * Partager un lien externe 72 h est strictement réservé aux profils AD / DG / DO / CP.
+ * Suit le drapeau SSOT `peutPartager` calculé par Django (fermé par défaut hors direction).
+ */
 export function peutPartagerDocument(
   droits: Droits | null,
-  document: Pick<DocumentGed, "categorie">,
+  document: Pick<DocumentGed, "categorie" | "peutPartager">,
 ): boolean {
-  return (
-    peutVoirCategorie(droits, document.categorie) &&
-    (peutTelechargerGed(droits) || peutDeposerCategorie(droits, document.categorie))
-  );
+  if (document.peutPartager !== undefined) return Boolean(document.peutPartager);
+  return Boolean(droits?.estDirection) && peutVoirCategorie(droits, document.categorie);
+}
+
+/**
+ * Consulter le journal des consultations et suppressions est strictement réservé à AD / DG / DO / CP.
+ * Suit le drapeau SSOT `peutVoirHistorique` calculé par Django (fermé par défaut hors direction).
+ */
+export function peutVoirHistoriqueDocument(
+  droits: Droits | null,
+  document: Pick<DocumentGed, "categorie" | "peutVoirHistorique">,
+): boolean {
+  if (document.peutVoirHistorique !== undefined) return Boolean(document.peutVoirHistorique);
+  return Boolean(droits?.estDirection) && peutVoirCategorie(droits, document.categorie);
 }
 
 /* ------------------------------------------------------------------ *
@@ -337,7 +351,8 @@ export function lienSourceDocument(
     case "F1_CONTRAT": {
       if (!doc.projetId) return "/projets";
       const typeSource = (doc.sourceLiaison?.typeSource ?? "").toUpperCase();
-      if (typeSource.includes("AVENANT")) {
+      const sousType = (doc.sourceLiaison?.sousType ?? "").toUpperCase();
+      if (sousType === "AVENANT" || typeSource.includes("AVENANT")) {
         return `/projets/${doc.projetId}/avenants`;
       }
       return `/projets/${doc.projetId}/configuration`;

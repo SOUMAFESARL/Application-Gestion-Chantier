@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, FileDown, History, LoaderCircle, Lock, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -44,6 +44,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ZoneDepotFichiers } from "@/components/ui/zone-depot-fichiers";
 import { paysEntreprise } from "@/features/configuration/api";
+import { CLE_TOUTES_LISTES_DOCUMENTS_GED } from "@/features/ged/cles";
+import { peutVoirCategorie } from "@/features/ged/regles";
 import { useDroits } from "@/features/habilitations";
 import {
   creerProjet,
@@ -166,7 +168,9 @@ export function TiroirCreationProjet({
 }: Props) {
   const t = useTranslations("projets.tiroirCreation");
   const tReprog = useTranslations("projets.reprogrammation");
-  const { voitMontants } = useDroits();
+  const clientRequetes = useQueryClient();
+  const { droits, voitMontants } = useDroits();
+  const peutVoirContrats = peutVoirCategorie(droits, "CONTRATS");
   const router = useRouter();
   const modification = projet !== undefined;
 
@@ -330,6 +334,7 @@ export function TiroirCreationProjet({
         if (verrou.debut) delete modifications.dateDebutPrevue;
         if (verrou.fin) delete modifications.dateFinPrevue;
         const projetModifie = await modifierProjet(projet.id, modifications);
+        void clientRequetes.invalidateQueries({ queryKey: CLE_TOUTES_LISTES_DOCUMENTS_GED });
         onProjetModifie?.(projetModifie);
         toast.success(t("succesModification", { nom: projetModifie.nom }));
         setSaisieAConfirmer(null);
@@ -343,6 +348,7 @@ export function TiroirCreationProjet({
       });
       if (tiersMoa) creationPayload.clientId = tiersMoa.id;
       const projetCree = await creerProjet(creationPayload);
+      void clientRequetes.invalidateQueries({ queryKey: CLE_TOUTES_LISTES_DOCUMENTS_GED });
       reinitialiser();
       onProjetCree?.(projetCree);
       toast.success(t("succesCreation", { nom: projetCree.nom }));
@@ -769,15 +775,17 @@ export function TiroirCreationProjet({
                         {t("historiqueVersions", { nombre: anciennesVersionsContrat.length })}
                       </Button>
                     )}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void telechargerContratActuel(contratActif)}
-                    >
-                      <FileDown className="size-4" aria-hidden="true" />
-                      {t("telechargerContrat")}
-                    </Button>
+                    {peutVoirContrats && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void telechargerContratActuel(contratActif)}
+                      >
+                        <FileDown className="size-4" aria-hidden="true" />
+                        {t("telechargerContrat")}
+                      </Button>
+                    )}
                   </div>
                 </div>
                 {historiqueContratOuvert && anciennesVersionsContrat.length > 0 && (
@@ -800,16 +808,18 @@ export function TiroirCreationProjet({
                             </span>
                           )}
                         </span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs text-primary-600"
-                          onClick={() => void telechargerContratActuel(version)}
-                        >
-                          <FileDown className="size-3.5" aria-hidden="true" />
-                          {t("telechargerContrat")}
-                        </Button>
+                        {peutVoirContrats && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs text-primary-600"
+                            onClick={() => void telechargerContratActuel(version)}
+                          >
+                            <FileDown className="size-3.5" aria-hidden="true" />
+                            {t("telechargerContrat")}
+                          </Button>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -1013,15 +1023,17 @@ export function TiroirCreationProjet({
                     {projet.ordreService.nom}
                   </span>
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void telechargerOsActuel()}
-                >
-                  <FileDown className="size-4" aria-hidden="true" />
-                  {t("telechargerOrdreService")}
-                </Button>
+                {peutVoirContrats && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void telechargerOsActuel()}
+                  >
+                    <FileDown className="size-4" aria-hidden="true" />
+                    {t("telechargerOrdreService")}
+                  </Button>
+                )}
               </div>
             )}
 

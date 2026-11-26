@@ -32,6 +32,8 @@ import { paysEntreprise } from "@/features/configuration/api";
 import { lireArbre, listerListes } from "@/features/decoupage/adaptateur";
 import { CLE_LISTES, cleArbre } from "@/features/decoupage/cles";
 import { trouverListeDuNiveau } from "@/features/decoupage/regles";
+import { CLE_TOUTES_LISTES_DOCUMENTS_GED } from "@/features/ged/cles";
+import { peutVoirCategorie } from "@/features/ged/regles";
 import { useDroits } from "@/features/habilitations";
 import {
   lireProjet,
@@ -360,7 +362,8 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
   const t = useTranslations("ficheProjet.configuration");
   const tCreation = useTranslations("projets.tiroirCreation");
   const clientRequetes = useQueryClient();
-  const { peutSurProjet, voitMontants } = useDroits();
+  const { droits, peutSurProjet, voitMontants } = useDroits();
+  const peutVoirContrats = peutVoirCategorie(droits, "CONTRATS");
 
   const libelleStatutComposante = (code: StatutComposanteDecoupage) =>
     t(`options.statutsComposante.${code}`);
@@ -850,6 +853,9 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
 
       clientRequetes.setQueryData(cleProjet(projet.id), projetMaj);
       void clientRequetes.invalidateQueries({ queryKey: CLE_LISTE_PROJETS });
+      if (nouveauxContrats.length > 0 || nouvelOs.length > 0) {
+        void clientRequetes.invalidateQueries({ queryKey: CLE_TOUTES_LISTES_DOCUMENTS_GED });
+      }
       setNouveauxContrats([]);
       setNouvelOs([]);
       toast.success(t("succesEnregistrement"));
@@ -1636,29 +1642,31 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                     <span className="truncate text-xs font-medium text-neutral-800">
                       {projet.ordreService.nom}
                     </span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={async () => {
-                        try {
-                          const blob = await telechargerOrdreServiceProjet(projet.id);
-                          const lien = document.createElement("a");
-                          lien.href = URL.createObjectURL(blob);
-                          lien.download =
-                            projet.ordreService?.nom || `ordre-service-${projet.reference}`;
-                          lien.click();
-                          URL.revokeObjectURL(lien.href);
-                        } catch (err) {
-                          const cause = err as ErreurApi;
-                          toast.error(cause.message || t("erreurEnregistrement"));
-                        }
-                      }}
-                    >
-                      <FileDown className="size-3.5" aria-hidden="true" />
-                      {tCreation("telechargerOrdreService")}
-                    </Button>
+                    {peutVoirContrats && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={async () => {
+                          try {
+                            const blob = await telechargerOrdreServiceProjet(projet.id);
+                            const lien = document.createElement("a");
+                            lien.href = URL.createObjectURL(blob);
+                            lien.download =
+                              projet.ordreService?.nom || `ordre-service-${projet.reference}`;
+                            lien.click();
+                            URL.revokeObjectURL(lien.href);
+                          } catch (err) {
+                            const cause = err as ErreurApi;
+                            toast.error(cause.message || t("erreurEnregistrement"));
+                          }
+                        }}
+                      >
+                        <FileDown className="size-3.5" aria-hidden="true" />
+                        {tCreation("telechargerOrdreService")}
+                      </Button>
+                    )}
                   </div>
                 )}
                 {peutModifier && (
@@ -1709,16 +1717,18 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                             })}
                           </Button>
                         )}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => void telechargerContrat(contratActif)}
-                        >
-                          <FileDown className="size-3.5" aria-hidden="true" />
-                          {tCreation("telechargerContrat")}
-                        </Button>
+                        {peutVoirContrats && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => void telechargerContrat(contratActif)}
+                          >
+                            <FileDown className="size-3.5" aria-hidden="true" />
+                            {tCreation("telechargerContrat")}
+                          </Button>
+                        )}
                       </div>
                     </div>
 
@@ -1746,16 +1756,18 @@ function FormulaireConfigurationProjet({ projet }: { projet: Projet }) {
                                 <span className="text-neutral-500">{version.creeParNom}</span>
                               )}
                             </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs text-primary-600"
-                              onClick={() => void telechargerContrat(version)}
-                            >
-                              <FileDown className="size-3.5" aria-hidden="true" />
-                              {tCreation("telechargerContrat")}
-                            </Button>
+                            {peutVoirContrats && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-primary-600"
+                                onClick={() => void telechargerContrat(version)}
+                              >
+                                <FileDown className="size-3.5" aria-hidden="true" />
+                                {tCreation("telechargerContrat")}
+                              </Button>
+                            )}
                           </li>
                         ))}
                       </ul>

@@ -27,6 +27,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { cleDecoupage } from "@/features/decoupage/cles";
 import { MONTANT_MASQUE } from "@/features/decoupage/components/CellulesCase";
 import { SelecteurPerimetre } from "@/features/decoupage/components/SelecteurPerimetre";
+import { CLE_TOUTES_LISTES_DOCUMENTS_GED } from "@/features/ged/cles";
+import { peutVoirCategorie } from "@/features/ged/regles";
 import { BoutonPermis, PERMISSIONS, useDroits } from "@/features/habilitations";
 import { cleProjet } from "@/features/projets/cles";
 import { aProlongationContractuelle } from "@/features/projets/regles";
@@ -71,7 +73,8 @@ function libelleProlongationAvenant(avenant: Pick<Avenant, "anneesAccordees" | "
  */
 export function OngletAvenants({ projet }: { projet: Projet }) {
   const t = useTranslations("avenants");
-  const { peutSurProjet, voitMontants } = useDroits();
+  const { droits, peutSurProjet, voitMontants } = useDroits();
+  const peutVoirContrats = peutVoirCategorie(droits, "CONTRATS");
   const permis = peutSurProjet(PERMISSIONS.AVENANTS_GERER, projet);
   const aContrat = projet.contrats.length > 0;
   const client = useQueryClient();
@@ -135,16 +138,22 @@ export function OngletAvenants({ projet }: { projet: Projet }) {
         header: t("colonnes.avenant"),
         cell: ({ row }) =>
           row.original.document ? (
-            <button
-              type="button"
-              onClick={() => document.mutate(row.original)}
-              disabled={document.isPending}
-              title={row.original.document.nom}
-              className="inline-flex max-w-44 cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-left text-xs font-medium text-primary-600 hover:underline"
-            >
-              <FileDown className="size-3.5 shrink-0" aria-hidden="true" />
-              <span className="truncate">{row.original.document.nom}</span>
-            </button>
+            peutVoirContrats ? (
+              <button
+                type="button"
+                onClick={() => document.mutate(row.original)}
+                disabled={document.isPending}
+                title={row.original.document.nom}
+                className="inline-flex max-w-44 cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-left text-xs font-medium text-primary-600 hover:underline"
+              >
+                <FileDown className="size-3.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">{row.original.document.nom}</span>
+              </button>
+            ) : (
+              <span className="inline-block max-w-44 truncate text-xs text-neutral-500">
+                {row.original.document.nom}
+              </span>
+            )
           ) : (
             ABSENT
           ),
@@ -154,16 +163,22 @@ export function OngletAvenants({ projet }: { projet: Projet }) {
         header: t("colonnes.ordreService"),
         cell: ({ row }) =>
           row.original.ordreService ? (
-            <button
-              type="button"
-              onClick={() => ordreService.mutate(row.original)}
-              disabled={ordreService.isPending}
-              title={row.original.ordreService.nom}
-              className="inline-flex max-w-44 cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-left text-xs font-medium text-primary-600 hover:underline"
-            >
-              <FileDown className="size-3.5 shrink-0" aria-hidden="true" />
-              <span className="truncate">{row.original.ordreService.nom}</span>
-            </button>
+            peutVoirContrats ? (
+              <button
+                type="button"
+                onClick={() => ordreService.mutate(row.original)}
+                disabled={ordreService.isPending}
+                title={row.original.ordreService.nom}
+                className="inline-flex max-w-44 cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-left text-xs font-medium text-primary-600 hover:underline"
+              >
+                <FileDown className="size-3.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">{row.original.ordreService.nom}</span>
+              </button>
+            ) : (
+              <span className="inline-block max-w-44 truncate text-xs text-neutral-500">
+                {row.original.ordreService.nom}
+              </span>
+            )
           ) : (
             ABSENT
           ),
@@ -189,7 +204,7 @@ export function OngletAvenants({ projet }: { projet: Projet }) {
         meta: { classe: BORD_DROIT_TABLEAU },
       }),
     ],
-    [t, voitMontants, permis, document, ordreService],
+    [t, voitMontants, peutVoirContrats, permis, document, ordreService],
   );
 
   const exporter = useMemo<ExportTableau<Avenant>>(
@@ -226,6 +241,7 @@ export function OngletAvenants({ projet }: { projet: Projet }) {
     await client.invalidateQueries({ queryKey: cleAvenants(projet.id) });
     await client.invalidateQueries({ queryKey: cleProjet(projet.id) });
     await client.invalidateQueries({ queryKey: cleDecoupage(projet.id) });
+    await client.invalidateQueries({ queryKey: CLE_TOUTES_LISTES_DOCUMENTS_GED });
   }
 
   if (requete.isPending) return <EtatChargement />;
