@@ -30,6 +30,7 @@ export interface AuteurGed {
 export interface SourceLiaisonGed {
   typeSource: string;
   objetId: string;
+  sousType?: "CONTRAT" | "ORDRE_SERVICE" | "AVENANT" | string | null;
 }
 
 /** Une version horodatée d'un document GED (v1, v2, …). */
@@ -67,6 +68,10 @@ export interface DocumentGed {
   createur: AuteurGed | null;
   creeLe: string;
   modifieLe: string;
+  /** Flags SSOT calculés par le serveur (partage & audit réservés AD / DG / DO / CP). */
+  peutPartager?: boolean;
+  peutVoirHistorique?: boolean;
+  peutSupprimer?: boolean;
 }
 
 /** Actions tracées dans le journal d'audit documentaire. */

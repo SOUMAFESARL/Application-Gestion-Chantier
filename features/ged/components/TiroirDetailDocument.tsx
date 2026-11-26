@@ -63,6 +63,7 @@ import {
   peutPartagerDocument,
   peutSupprimerDocument,
   peutTelechargerGed,
+  peutVoirHistoriqueDocument,
 } from "../regles";
 import type { ActionAuditGed, DocumentGed, VersionDocumentGed } from "../types";
 
@@ -154,6 +155,9 @@ export function TiroirDetailDocument({
   });
 
   const docCourant = requeteDetail.data ?? document;
+  const autoriseJournal = docCourant ? peutVoirHistoriqueDocument(droits, docCourant) : false;
+  const ongletEffectif: OngletDetailGed =
+    ongletActif === "journal" && !autoriseJournal ? "metadonnees" : ongletActif;
 
   const requeteVersions = useQuery({
     queryKey: cleVersionsDocumentGed(documentId),
@@ -161,14 +165,14 @@ export function TiroirDetailDocument({
     enabled:
       ouverte &&
       Boolean(documentId) &&
-      ongletActif === "versions" &&
+      ongletEffectif === "versions" &&
       (!requeteDetail.data?.versions || requeteDetail.data.versions.length === 0),
   });
 
   const requeteHistorique = useQuery({
     queryKey: cleHistoriqueDocumentGed(documentId),
     queryFn: ({ signal }) => listerHistoriqueDocumentGed(documentId, signal),
-    enabled: ouverte && Boolean(documentId) && ongletActif === "journal",
+    enabled: ouverte && Boolean(documentId) && autoriseJournal && ongletEffectif === "journal",
   });
 
   if (!docCourant) return null;
@@ -241,11 +245,15 @@ export function TiroirDetailDocument({
       libelle: t("detail.onglets.versions"),
       compteur: Math.max(docCourant.nombreVersions, versions.length),
     },
-    {
-      id: "journal",
-      libelle: t("detail.onglets.journal"),
-      compteur: requeteHistorique.data?.length,
-    },
+    ...(autoriseJournal
+      ? [
+          {
+            id: "journal" as const,
+            libelle: t("detail.onglets.journal"),
+            compteur: requeteHistorique.data?.length,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -286,7 +294,7 @@ export function TiroirDetailDocument({
           className="flex gap-1 overflow-x-auto border-0 border-b border-solid border-neutral-200 px-6"
         >
           {onglets.map((onglet) => {
-            const actif = ongletActif === onglet.id;
+            const actif = ongletEffectif === onglet.id;
             return (
               <button
                 key={onglet.id}
@@ -319,7 +327,7 @@ export function TiroirDetailDocument({
         </nav>
 
         <div className={cn("flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5", ASCENSEUR_FIN)}>
-          {ongletActif === "metadonnees" && (
+          {ongletEffectif === "metadonnees" && (
             <>
               {docCourant.estAutomatique && (
                 <Alerte
@@ -514,7 +522,7 @@ export function TiroirDetailDocument({
             </>
           )}
 
-          {ongletActif === "versions" && (
+          {ongletEffectif === "versions" && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="m-0 text-sm text-neutral-600">
@@ -623,7 +631,7 @@ export function TiroirDetailDocument({
             </div>
           )}
 
-          {ongletActif === "journal" && (
+          {autoriseJournal && ongletEffectif === "journal" && (
             <div className="flex flex-col gap-3">
               <p className="m-0 text-sm text-neutral-600">{t("detail.journalDescription")}</p>
 
