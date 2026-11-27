@@ -1090,7 +1090,7 @@ interface ChargePreparation {
     presence: boolean;
     attendue: boolean;
     qualite: boolean;
-    membres: { personne_id: string; nom: string; fonction: string; est_chef: boolean }[];
+    membres: { personne_id: string; nom: string; fonction: string; fonction_libelle?: string; est_chef: boolean }[];
   }[];
   rapport: ChargeRapportExistant | null;
 }
@@ -1425,6 +1425,7 @@ function versPreparation(charge: ChargePreparation): PreparationSaisie {
         personneId: membre.personne_id,
         nom: membre.nom,
         fonction: membre.fonction,
+        fonctionLibelle: membre.fonction_libelle,
         estChef: membre.est_chef,
       })),
     })),

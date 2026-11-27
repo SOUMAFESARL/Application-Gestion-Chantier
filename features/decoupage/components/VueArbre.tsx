@@ -22,9 +22,11 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { RefObject } from "react";
 import { toast } from "sonner";
 
+import { RechercheRapideElements } from "@/components/metier/RechercheRapideElements";
 import { Badge, EtatChargement, EtatErreur, EtatVide } from "@/components/ui";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -48,6 +50,15 @@ import { cn } from "@/lib/utils";
 
 import { exporterArbre, lireArbre } from "../adaptateur";
 import { cleArbre } from "../cles";
+import {
+  aCriteresRechercheActifs,
+  aplatirArbreDecoupagePourRecherche,
+  CRITERES_RECHERCHE_ELEMENTS_VIDES,
+  filtrerArbreParIds,
+  rechercherElements,
+  type CriteresRechercheElements,
+  type ElementRecherchable,
+} from "../rechercheRapide";
 import {
   arbreDepliable,
   arbreToutDeplie,
@@ -79,12 +90,22 @@ const colonne = createColumnHelper<typeof FONCTIONNALITES, CaseArbre>();
  */
 export function VueArbre({ projet }: { projet: Projet }) {
   const t = useTranslations("decoupage.arbre");
+  const tRecherche = useTranslations("rechercheElements");
   const { peutSurProjet, voitMontants } = useDroits();
   const [caseOuverte, setCaseOuverte] = useState<string | null>(null);
   const [geste, setGeste] = useState<GesteOuvert | null>(null);
   const [reglages, setReglages] = useState(false);
   const [deplie, setDeplie] = useState<ExpandedState>(true);
   const [afficherDesactivees, setAfficherDesactivees] = useState(true);
+  const [criteresRecherche, setCriteresRecherche] = useState<CriteresRechercheElements>(
+    CRITERES_RECHERCHE_ELEMENTS_VIDES,
+  );
+  const [modeFiltreVue, setModeFiltreVue] = useState(false);
+  const [elementSurligneId, setElementSurligneId] = useState<string | null>(null);
+  const [demandeScroll, setDemandeScroll] = useState<{ id: string; nonce: number } | null>(null);
+
+  const tableauConteneurRef = useRef<HTMLDivElement | null>(null);
+  const timeoutSurligneRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const requete = useQuery({
     queryKey: cleArbre(projet.id),
@@ -104,6 +125,77 @@ export function VueArbre({ projet }: { projet: Projet }) {
       toast.error(erreur instanceof ErreurApi && erreur.message ? erreur.message : t("erreurExport")),
   });
 
+  useEffect(() => {
+    return () => {
+      if (timeoutSurligneRef.current) clearTimeout(timeoutSurligneRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!demandeScroll) return;
+    const rafId = window.requestAnimationFrame(() => {
+      const conteneur = tableauConteneurRef.current;
+      if (!conteneur) return;
+      const lignesElements = conteneur.querySelectorAll<HTMLElement>("[data-element-id]");
+      for (const ligneEl of lignesElements) {
+        if (ligneEl.dataset.elementId === demandeScroll.id) {
+          ligneEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          break;
+        }
+      }
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, [demandeScroll]);
+
+  const casesBrutes = useMemo(() => requete.data?.cases ?? [], [requete.data?.cases]);
+
+  const elementsRecherchables = useMemo(
+    () => aplatirArbreDecoupagePourRecherche(casesBrutes),
+    [casesBrutes],
+  );
+
+  const resultatsRecherche = useMemo(
+    () => rechercherElements(elementsRecherchables, criteresRecherche, { voitMontants }),
+    [elementsRecherchables, criteresRecherche, voitMontants],
+  );
+
+  const idsCorrespondants = useMemo(
+    () => new Set(resultatsRecherche.map((el) => el.id)),
+    [resultatsRecherche],
+  );
+
+  const rechercheActive = useMemo(
+    () => aCriteresRechercheActifs(criteresRecherche, { voitMontants }),
+    [criteresRecherche, voitMontants],
+  );
+
+  const vueFiltreeActive = modeFiltreVue && rechercheActive;
+
+  const surAccederElement = useCallback(
+    (el: ElementRecherchable) => {
+      if (!el.estActif && !afficherDesactivees) {
+        setAfficherDesactivees(true);
+      }
+      if (el.cheminAncetresIds.length > 0) {
+        setDeplie((precedent) => {
+          if (precedent === true) return true;
+          const suivant = { ...precedent };
+          for (const ancetreId of el.cheminAncetresIds) {
+            suivant[ancetreId] = true;
+          }
+          return suivant;
+        });
+      }
+      if (timeoutSurligneRef.current) clearTimeout(timeoutSurligneRef.current);
+      setElementSurligneId(el.id);
+      timeoutSurligneRef.current = setTimeout(() => {
+        setElementSurligneId(null);
+      }, 3000);
+      setDemandeScroll((precedent) => ({ id: el.id, nonce: (precedent?.nonce ?? 0) + 1 }));
+    },
+    [afficherDesactivees],
+  );
+
   if (requete.isPending) return <EtatChargement />;
   if (requete.isError) return <EtatErreur onReessayer={() => void requete.refetch()} />;
 
@@ -111,9 +203,13 @@ export function VueArbre({ projet }: { projet: Projet }) {
   const ouverte = trouverCase(arbre.cases, caseOuverte);
   const peutDecouper = peutSurProjet(PERMISSIONS.DECOUPER, projet);
   const nbDesactivees = compterCasesDesactivees(arbre.cases);
-  const casesVisibles = afficherDesactivees ? arbre.cases : filtrerCasesActives(arbre.cases);
+  const casesApresActives = afficherDesactivees ? arbre.cases : filtrerCasesActives(arbre.cases);
+  const casesVisibles = vueFiltreeActive
+    ? filtrerArbreParIds(casesApresActives, idsCorrespondants)
+    : casesApresActives;
+  const deplieEffectif: ExpandedState = vueFiltreeActive ? true : deplie;
   const depliable = arbreDepliable(casesVisibles);
-  const toutDeplie = arbreToutDeplie(casesVisibles, deplie);
+  const toutDeplie = arbreToutDeplie(casesVisibles, deplieEffectif);
   const plafondBudget = budgetEnVigueur(projet);
   const sourcePlafond = sourcePlafondBudget(projet);
   const depassement = depassementDecoupage(projet);
@@ -146,6 +242,7 @@ export function VueArbre({ projet }: { projet: Projet }) {
             <Button
               variant="outline"
               size="sm"
+              disabled={vueFiltreeActive}
               onClick={() => setDeplie(toutDeplie ? {} : true)}
             >
               {toutDeplie ? <ChevronsDownUp /> : <ChevronsUpDown />}
@@ -213,14 +310,48 @@ export function VueArbre({ projet }: { projet: Projet }) {
 
       {reglages && <ReglagesNiveaux projet={projet} niveaux={arbre.niveaux} />}
 
+      {arbre.cases.length > 0 && (
+        <RechercheRapideElements
+          elements={elementsRecherchables}
+          criteres={criteresRecherche}
+          onCriteresChange={setCriteresRecherche}
+          voitMontants={voitMontants}
+          onAccederElement={surAccederElement}
+          modeFiltreVue={modeFiltreVue}
+          onModeFiltreVueChange={setModeFiltreVue}
+          resultatsPrecalcules={resultatsRecherche}
+        />
+      )}
+
       {casesVisibles.length === 0 ? (
-        <EtatVide titre={t("vide")} />
+        vueFiltreeActive ? (
+          <EtatVide
+            titre={tRecherche("aucunResultatVueFiltree")}
+            action={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCriteresRecherche(CRITERES_RECHERCHE_ELEMENTS_VIDES);
+                  setModeFiltreVue(false);
+                }}
+              >
+                {tRecherche("reinitialiserFiltres")}
+              </Button>
+            }
+          />
+        ) : (
+          <EtatVide titre={t("vide")} />
+        )
       ) : (
         <TableauArbre
           cases={casesVisibles}
-          deplie={deplie}
+          deplie={deplieEffectif}
           onDeplieChange={setDeplie}
           onOuvrir={setCaseOuverte}
+          elementSurligneId={elementSurligneId}
+          conteneurRef={tableauConteneurRef}
         />
       )}
 
@@ -240,11 +371,15 @@ function TableauArbre({
   deplie,
   onDeplieChange,
   onOuvrir,
+  elementSurligneId,
+  conteneurRef,
 }: {
   cases: CaseArbre[];
   deplie: ExpandedState;
   onDeplieChange: OnChangeFn<ExpandedState>;
   onOuvrir: (id: string) => void;
+  elementSurligneId: string | null;
+  conteneurRef: RefObject<HTMLDivElement | null>;
 }) {
   const t = useTranslations("decoupage.arbre");
   const { voitMontants } = useDroits();
@@ -355,7 +490,10 @@ function TableauArbre({
   );
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-solid border-neutral-200 bg-neutral-0">
+    <div
+      ref={conteneurRef}
+      className="overflow-x-auto rounded-lg border border-solid border-neutral-200 bg-neutral-0"
+    >
       <Table className="min-w-max">
         <TableHeader>
           {table.getHeaderGroups().map((groupe) => (
@@ -369,23 +507,28 @@ function TableauArbre({
           ))}
         </TableHeader>
         <TableBody>
-          {table.getExpandedRowModel().rows.map((ligne) => (
-            <TableRow
-              key={ligne.id}
-              onClick={() => onOuvrir(ligne.original.id)}
-              className={cn(
-                "cursor-pointer",
-                ligne.depth === 0 && "bg-neutral-50",
-                !ligne.original.estActif && "bg-neutral-50/70 opacity-65",
-              )}
-            >
-              {ligne.getAllCells().map((cellule) => (
-                <TableCell key={cellule.id} className="py-2">
-                  <table.FlexRender cell={cellule} />
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
+          {table.getExpandedRowModel().rows.map((ligne) => {
+            const surlignee = elementSurligneId === ligne.original.id;
+            return (
+              <TableRow
+                key={ligne.id}
+                data-element-id={ligne.original.id}
+                onClick={() => onOuvrir(ligne.original.id)}
+                className={cn(
+                  "cursor-pointer transition-colors",
+                  ligne.depth === 0 && "bg-neutral-50",
+                  !ligne.original.estActif && "bg-neutral-50/70 opacity-65",
+                  surlignee && "bg-primary-50 opacity-100 ring-2 ring-inset ring-primary-500",
+                )}
+              >
+                {ligne.getAllCells().map((cellule) => (
+                  <TableCell key={cellule.id} className="py-2">
+                    <table.FlexRender cell={cellule} />
+                  </TableCell>
+                ))}
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>

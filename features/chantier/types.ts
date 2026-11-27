@@ -541,6 +541,7 @@ export interface MembreDuJour {
   personneId: string;
   nom: string;
   fonction: string;
+  fonctionLibelle?: string;
   estChef: boolean;
 }
 

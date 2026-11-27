@@ -63,21 +63,15 @@ export interface FiltresRegistre {
  * Les équipes d'un projet.
  * ------------------------------------------------------------------ */
 
-export const FONCTIONS_MEMBRE = [
-  "CHEF_EQUIPE",
-  "OUVRIER_QUALIFIE",
-  "OUVRIER",
-  "MANOEUVRE",
-  "CONDUCTEUR_ENGIN",
-  "APPRENTI",
-] as const;
-export type FonctionMembre = (typeof FONCTIONS_MEMBRE)[number];
+export const FONCTION_MEMBRE_DEFAUT = "OUVRIER";
+export type FonctionMembre = string;
 
 /** Un membre d'une équipe : une personne du registre, sur une période datée. */
 export interface MembreEquipe {
   id: string;
   personne: Personne;
   fonction: FonctionMembre;
+  fonctionLibelle: string;
   estChef: boolean;
   dateArrivee: string | null;
   /** `null` : toujours dans l'équipe. */

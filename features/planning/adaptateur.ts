@@ -54,8 +54,10 @@ interface ChargeEtatImportMsProject {
 interface ChargeCasePlanning {
   id: string;
   libelle: string;
+  code?: string | null;
   numero?: string | null;
   niveau?: string | null;
+  montant?: number | string | null;
   debut?: string | null;
   fin?: string | null;
   debut_prevu?: string | null;
@@ -295,8 +297,10 @@ function versCasePlanning(charge: ChargeCasePlanning): CasePlanning {
   return {
     id: charge.id,
     libelle: charge.libelle,
+    code: charge.code ?? "",
     numero: charge.numero ?? null,
     niveau: charge.niveau ?? null,
+    montant: versNombre(charge.montant),
     debut,
     fin,
     debutPrevu: charge.debut_prevu !== undefined ? charge.debut_prevu : debut,

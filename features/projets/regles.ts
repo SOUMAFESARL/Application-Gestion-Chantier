@@ -1698,30 +1698,8 @@ export function filtrerEquipes(equipes: Equipe[], nature: NatureEquipe | ""): Eq
  * Les membres d'une équipe.
  * ------------------------------------------------------------------ */
 
-/** Les rôles dans une équipe, du chef à l'apprenti : l'ordre des listes. */
-export const ROLES_MEMBRE_EQUIPE: RoleMembreEquipe[] = [
-  "CHEF_EQUIPE",
-  "OUVRIER_QUALIFIE",
-  "CONDUCTEUR_ENGIN",
-  "OUVRIER",
-  "MANOEUVRE",
-  "APPRENTI",
-];
-
-/**
- * Les rôles qu'un membre prend à son arrivée. Le chef se désigne à part : on
- * ne le devient qu'en changeant de rôle, ce qui dit ce qu'il advient de
- * l'ancien (voir `changerRoleMembre`).
- */
-export const ROLES_MEMBRE_SIMPLE: RoleMembreEquipe[] = ROLES_MEMBRE_EQUIPE.filter(
-  (role) => role !== "CHEF_EQUIPE",
-);
-
 /** Le rôle proposé d'office à une personne qu'on ajoute. */
 export const ROLE_MEMBRE_PAR_DEFAUT: RoleMembreEquipe = "OUVRIER";
-
-/** Ce que redevient un chef d'équipe remplacé : il garde sa qualification. */
-export const ROLE_ANCIEN_CHEF: RoleMembreEquipe = "OUVRIER_QUALIFIE";
 
 /** Toute l'équipe, chef en tête : l'ordre du tableau et du tiroir des membres. */
 export function membresEquipe(equipe: Pick<Equipe, "chef" | "membres">): MembreEquipe[] {
@@ -1741,38 +1719,6 @@ export function effectifProjet(equipes: Pick<Equipe, "chef" | "membres">[]): num
     }
   }
   return personnes.size;
-}
-
-/**
- * Une équipe dont un membre change de rôle.
- *
- * Il n'y a qu'un chef par équipe : en nommer un nouveau fait redescendre
- * l'ancien au rang d'ouvrier qualifié, et un chef qui prend un autre rôle
- * laisse l'équipe sans chef désigné — jamais deux chefs, jamais un chef
- * choisi à la place de l'utilisateur.
- */
-export function changerRoleMembre<E extends Pick<Equipe, "chef" | "membres">>(
-  equipe: E,
-  membreId: string,
-  role: RoleMembreEquipe,
-): E {
-  const membre = membresEquipe(equipe).find((candidat) => candidat.id === membreId);
-  if (!membre || membre.role === role) return equipe;
-
-  const autres = equipe.membres.filter((candidat) => candidat.id !== membreId);
-  if (role === "CHEF_EQUIPE") {
-    const ancien = equipe.chef ? [{ ...equipe.chef, role: ROLE_ANCIEN_CHEF }] : [];
-    return { ...equipe, chef: { ...membre, role }, membres: [...ancien, ...autres] };
-  }
-  if (equipe.chef?.id === membreId) {
-    return { ...equipe, chef: null, membres: [{ ...membre, role }, ...autres] };
-  }
-  return {
-    ...equipe,
-    membres: equipe.membres.map((candidat) =>
-      candidat.id === membreId ? { ...candidat, role } : candidat,
-    ),
-  };
 }
 
 /** Une équipe sans l'un de ses membres — le chef compris, qui laisse la place vide. */
@@ -1888,36 +1834,6 @@ export function nomsEquipesDuCandidat(candidat: CandidatEquipe, equipeId?: strin
 export function separerNomComplet(nomComplet: string): { prenom: string; nom: string } {
   const [prenom = "", ...nom] = nomComplet.trim().split(/\s+/);
   return { prenom, nom: nom.join(" ") };
-}
-
-/** Les critères du tableau des membres d'une équipe. */
-export interface CriteresMembres {
-  recherche: string;
-  role: RoleMembreEquipe | "";
-}
-
-export const CRITERES_MEMBRES_VIDES: CriteresMembres = { recherche: "", role: "" };
-
-/** Les membres d'une équipe, chef en tête, restreints aux critères. */
-export function filtrerMembres(
-  equipe: Pick<Equipe, "chef" | "membres">,
-  criteres: CriteresMembres,
-): MembreEquipe[] {
-  const cle = normaliser(criteres.recherche);
-  return membresEquipe(equipe).filter((membre) => {
-    if (criteres.role && membre.role !== criteres.role) return false;
-    return !cle || normaliser(`${membre.prenom} ${membre.nom}`).includes(cle);
-  });
-}
-
-export function criteresMembresActifs(criteres: CriteresMembres): boolean {
-  return criteres.recherche.trim() !== "" || criteres.role !== "";
-}
-
-/** Les rôles que porte au moins un membre : un filtre ne propose que ce qui existe. */
-export function rolesPresents(equipe: Pick<Equipe, "chef" | "membres">): RoleMembreEquipe[] {
-  const presents = new Set(membresEquipe(equipe).map((membre) => membre.role));
-  return ROLES_MEMBRE_EQUIPE.filter((role) => presents.has(role));
 }
 
 /**

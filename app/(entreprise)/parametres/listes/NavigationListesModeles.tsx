@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderKanban, Layers, ListChecks, Wrench } from "lucide-react";
+import { FolderKanban, HardHat, Layers, ListChecks, Wrench } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -28,6 +28,11 @@ const ONGLETS_LISTES_MODELES = [
     href: "/parametres/listes/types-projet",
     cleNavigation: "listesTypesProjet",
     icone: FolderKanban,
+  },
+  {
+    href: "/parametres/listes/fonctions-equipe",
+    cleNavigation: "listesFonctionsEquipe",
+    icone: HardHat,
   },
 ] as const;
 

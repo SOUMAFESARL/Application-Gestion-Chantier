@@ -13,10 +13,12 @@ import { api } from "@/lib/api";
 
 export const REFERENTIEL_TYPES_PROJET = "types-projet";
 export const REFERENTIEL_MODES_EXECUTION = "modes-execution";
+export const REFERENTIEL_FONCTIONS_EQUIPE = "fonctions-equipe";
 
 export type CategorieReferentiel =
   | typeof REFERENTIEL_TYPES_PROJET
-  | typeof REFERENTIEL_MODES_EXECUTION;
+  | typeof REFERENTIEL_MODES_EXECUTION
+  | typeof REFERENTIEL_FONCTIONS_EQUIPE;
 
 /**
  * Les listes où l'on ajoute sur place, depuis un champ de formulaire : un mode

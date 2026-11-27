@@ -2,7 +2,26 @@
  * Les règles du domaine Équipes — pures, sans React.
  */
 
+import type { EntreeReferentiel } from "@/features/projets/referentiels";
+import type { RoleTiers, Tiers } from "@/features/tiers/types";
+
 import type { LigneImport, Personne, StatutLigneImport } from "./types";
+
+/** Seuls les tiers pouvant fournir de la main-d'œuvre peuvent porter une équipe ou un salarié. */
+const ROLES_PARTENAIRES_EQUIPE: ReadonlySet<RoleTiers> = new Set([
+  "SOUS_TRAITANT",
+  "TACHERON",
+  "PRESTATAIRE",
+]);
+
+/** Filtre les tiers aux seuls partenaires éligibles (sous-traitant, tâcheron, prestataire). */
+export function filtrerPartenairesEligibles<
+  T extends Pick<Tiers, "roles"> & { estActif?: boolean },
+>(tiers: T[]): T[] {
+  return tiers.filter(
+    (item) => (item.estActif ?? true) && item.roles.some((role) => ROLES_PARTENAIRES_EQUIPE.has(role)),
+  );
+}
 
 /** D'où vient une personne du registre : notre entreprise, ou un partenaire. */
 export const ORIGINES_PERSONNE = ["INTERNE", "PARTENAIRE"] as const;
@@ -10,6 +29,39 @@ export type OriginePersonne = (typeof ORIGINES_PERSONNE)[number];
 
 function normaliser(texte: string): string {
   return texte.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+/**
+ * Trie les personnes du registre pour une équipe : d'abord celles de l'entreprise de
+ * l'équipe (partenaire donné, ou notre entreprise si `entrepriseId === null`), puis les autres.
+ */
+export function trierPersonnesPourEquipe(
+  personnes: Personne[],
+  entrepriseId: string | null,
+): Personne[] {
+  const estDeLEntreprise = (p: Personne) =>
+    entrepriseId === null ? p.entreprise.interne : p.entreprise.id === entrepriseId;
+  return [...personnes].sort((a, b) => {
+    const prioA = estDeLEntreprise(a) ? 0 : 1;
+    const prioB = estDeLEntreprise(b) ? 0 : 1;
+    return prioA - prioB;
+  });
+}
+
+/**
+ * Retrouve le code de fonction du référentiel correspondant au métier d'une personne
+ * (comparaison insensible à la casse et aux accents).
+ */
+export function resoudreCodeFonctionDepuisMetier(
+  metier: string,
+  entrees: Pick<EntreeReferentiel, "code" | "libelle">[],
+): string | null {
+  const cle = normaliser(metier.trim());
+  if (!cle) return null;
+  const trouvee = entrees.find(
+    (e) => normaliser(e.libelle) === cle || normaliser(e.code) === cle,
+  );
+  return trouvee ? trouvee.code : null;
 }
 
 /** Le registre filtré par la recherche (nom, métier, entreprise, téléphone) et par l'origine. */
