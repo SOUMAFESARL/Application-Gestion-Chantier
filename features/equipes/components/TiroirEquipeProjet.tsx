@@ -692,8 +692,8 @@ function FenetreEditionMembre({
           <DialogTitle>{t("titreEditionMembre", { nom: nomComplet })}</DialogTitle>
           <DialogDescription>{t("descriptionEditionMembre")}</DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+        <div className="flex min-w-0 flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-neutral-700">
             <span>{t("fonction")}</span>
             <ComboboxReferentiel
               categorie={REFERENTIEL_FONCTIONS_EQUIPE}
@@ -703,7 +703,7 @@ function FenetreEditionMembre({
               disabled={enCours}
             />
           </div>
-          <div className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+          <div className="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-neutral-700">
             <span>{t("arrivee")}</span>
             <SelecteurDate
               valeur={arrivee}
@@ -810,12 +810,12 @@ function FenetreAjoutMembre({
       ? personnesAjoutables(registre.data ?? [], equipe.membres)
       : (registre.data ?? []).filter((p) => p.estActive);
     const filtrables = base.filter((p) => {
+      if (p.aUnCompte || p.utilisateurId) return false;
       if (ensemblePersonnesPresentes.has(p.id)) return false;
-      if (p.utilisateurId && ensembleUtilisateursPresents.has(p.utilisateurId)) return false;
       return true;
     });
     return trierPersonnesPourEquipe(filtrables, entrepriseId);
-  }, [registre.data, equipe, ensemblePersonnesPresentes, ensembleUtilisateursPresents, entrepriseId]);
+  }, [registre.data, equipe, ensemblePersonnesPresentes, entrepriseId]);
 
   const proposeesFiltrees = useMemo(() => {
     const terme = recherchePersonne.trim().toLowerCase();
@@ -884,10 +884,6 @@ function FenetreAjoutMembre({
       const ensembleVisible = new Set(idsVisibles);
       setPersonneIds((courants) => courants.filter((id) => !ensembleVisible.has(id)));
     } else {
-      const utilisateursARetirer = new Set(
-        proposeesFiltrees.filter((p) => p.utilisateurId).map((p) => p.utilisateurId as string),
-      );
-      setUtilisateurIds((courants) => courants.filter((id) => !utilisateursARetirer.has(id)));
       setPersonneIds((courants) => Array.from(new Set([...courants, ...idsVisibles])));
     }
   }
@@ -979,8 +975,8 @@ function FenetreAjoutMembre({
           <DialogDescription>{t("descriptionAjoutMembre")}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-          <div className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+        <div className="grid min-w-0 grid-cols-2 gap-3 max-sm:grid-cols-1">
+          <div className="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-neutral-700">
             <span>{t("fonction")}</span>
             <ComboboxReferentiel
               categorie={REFERENTIEL_FONCTIONS_EQUIPE}
@@ -993,7 +989,7 @@ function FenetreAjoutMembre({
               disabled={ecriture.isPending}
             />
           </div>
-          <div className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+          <div className="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-neutral-700">
             <span>{t("arrivee")}</span>
             <SelecteurDate
               valeur={arrivee}
@@ -1005,7 +1001,7 @@ function FenetreAjoutMembre({
         </div>
 
         {/* Onglets Collaborateurs / Registre */}
-        <div className="flex border-b border-neutral-200">
+        <div className="flex min-w-0 border-b border-neutral-200">
           <button
             type="button"
             onClick={() => setOnglet("utilisateurs")}
@@ -1033,7 +1029,7 @@ function FenetreAjoutMembre({
         </div>
 
         {/* Sélection des personnes */}
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-medium text-neutral-700">
               {t("totalMembresSelectionnes", { nombre: totalSelectionnes })}
@@ -1063,7 +1059,7 @@ function FenetreAjoutMembre({
 
           {onglet === "utilisateurs" ? (
             <>
-              <div className="relative">
+              <div className="relative min-w-0">
                 <Search
                   className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-neutral-400"
                   aria-hidden="true"
@@ -1076,7 +1072,7 @@ function FenetreAjoutMembre({
                 />
               </div>
 
-              <div className="max-h-56 divide-y divide-neutral-100 overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50/40">
+              <div className="max-h-56 min-w-0 divide-y divide-neutral-100 overflow-x-hidden overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50/40">
                 {utilisateurs.isPending ? (
                   <p className="m-0 p-3 text-xs text-neutral-500">{t("chargement")}</p>
                 ) : utilisateursFiltres.length === 0 ? (
@@ -1088,9 +1084,9 @@ function FenetreAjoutMembre({
                     return (
                       <label
                         key={u.id}
-                        className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-neutral-100/70"
+                        className="flex min-w-0 cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-neutral-100/70"
                       >
-                        <span className="flex min-w-0 items-center gap-2.5">
+                        <span className="flex min-w-0 flex-1 items-center gap-2.5">
                           <Checkbox
                             checked={coche}
                             onCheckedChange={(v) => basculerUtilisateur(u.id, v === true)}
@@ -1102,7 +1098,9 @@ function FenetreAjoutMembre({
                             <span className="truncate text-xs text-neutral-500">{u.email}</span>
                           </span>
                         </span>
-                        <Badge variante="neutre">{t("avecCompte")}</Badge>
+                        <span className="shrink-0">
+                          <Badge variante="neutre">{t("avecCompte")}</Badge>
+                        </span>
                       </label>
                     );
                   })
@@ -1111,7 +1109,7 @@ function FenetreAjoutMembre({
             </>
           ) : (
             <>
-              <div className="relative">
+              <div className="relative min-w-0">
                 <Search
                   className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-neutral-400"
                   aria-hidden="true"
@@ -1124,7 +1122,7 @@ function FenetreAjoutMembre({
                 />
               </div>
 
-              <div className="max-h-56 divide-y divide-neutral-100 overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50/40">
+              <div className="max-h-56 min-w-0 divide-y divide-neutral-100 overflow-x-hidden overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50/40">
                 {registre.isPending ? (
                   <p className="m-0 p-3 text-xs text-neutral-500">{t("chargement")}</p>
                 ) : proposeesFiltrees.length === 0 ? (
@@ -1135,9 +1133,9 @@ function FenetreAjoutMembre({
                     return (
                       <label
                         key={personne.id}
-                        className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-neutral-100/70"
+                        className="flex min-w-0 cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-neutral-100/70"
                       >
-                        <span className="flex min-w-0 items-center gap-2.5">
+                        <span className="flex min-w-0 flex-1 items-center gap-2.5">
                           <Checkbox
                             checked={coche}
                             onCheckedChange={(v) => basculerPersonne(personne.id, v === true)}
@@ -1148,12 +1146,11 @@ function FenetreAjoutMembre({
                               : personne.nomComplet}
                           </span>
                         </span>
-                        <span className="flex items-center gap-1.5">
-                          {personne.aUnCompte && <Badge variante="neutre">{t("avecCompte")}</Badge>}
-                          {!personne.entreprise.interne && (
+                        {!personne.entreprise.interne && (
+                          <span className="flex shrink-0 items-center gap-1.5">
                             <Badge variante="neutre">{personne.entreprise.nom}</Badge>
-                          )}
-                        </span>
+                          </span>
+                        )}
                       </label>
                     );
                   })
