@@ -875,6 +875,13 @@ export default function LayoutApp({ children }: LayoutAppProps) {
                 déjà plus la place du relevé météo. */}
             <span className="hidden sm:inline-flex">
               <BadgeEssai
+                dateFin={
+                  abonnement
+                    ? abonnement.statut === "ESSAI"
+                      ? (abonnement.fin_essai ?? abonnement.date_fin)
+                      : abonnement.date_fin
+                    : null
+                }
                 joursRestants={abonnement?.jours_essai_restants ?? 14}
                 estExpire={abonnement?.est_expire ?? false}
               />

@@ -2,11 +2,12 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Ban, CalendarClock, CreditCard, Play } from "lucide-react";
+import { ArrowLeft, Ban, CalendarClock, CheckCircle2, CreditCard, Play } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 
 import { ModaleFinAbonnement } from "../ModaleFinAbonnement";
 import { ModulesClient } from "./ModulesClient";
@@ -15,6 +16,7 @@ import { SuppressionClient } from "./SuppressionClient";
 import { Alerte, Bouton, EtatChargement, EtatErreur, Modale } from "@/components/ui";
 import { Input } from "@/components/ui/input";
 import {
+  activationAbonnementPossible,
   alerteClient,
   peutAgirSurClients,
   peutGererModulesClient,
@@ -25,13 +27,22 @@ import {
 import type { ClientPlateforme, CodePlan } from "@/features/administration";
 import { PLANS_DISPONIBLES } from "@/features/abonnement/types";
 import {
+  activerAbonnementClient,
   changerPlan,
   lireClient,
   reactiverClient,
   suspendreClient,
 } from "@/features/administration/adaptateur";
-import { schemaSuspension } from "@/features/administration/validations";
-import type { SaisieSuspension, ValeursSuspension } from "@/features/administration/validations";
+import {
+  schemaActivationAbonnement,
+  schemaSuspension,
+} from "@/features/administration/validations";
+import type {
+  SaisieActivationAbonnement,
+  SaisieSuspension,
+  ValeursActivationAbonnement,
+  ValeursSuspension,
+} from "@/features/administration/validations";
 import { ErreurApi } from "@/lib/api";
 import { ABSENT, formaterDate, formaterMontant, nomDePays } from "@/lib/format";
 import { afficherTelephone } from "@/features/referentiels/telephone";
@@ -62,9 +73,10 @@ const PLANS: CodePlan[] = PLANS_DISPONIBLES.map((definition) => definition.code)
  * pas distinguer un identifiant technique d'un libelle.
  */
 const ID_FORM_SUSPENSION = "form-suspension";
+const ID_FORM_ACTIVATION_ABONNEMENT = "form-activation-abonnement";
 
 /** Quelle modale est ouverte — une seule a la fois, d'ou l'union. */
-type Action = "suspension" | "reactivation" | "plan" | null;
+type Action = "suspension" | "reactivation" | "plan" | "activation" | null;
 
 function Ligne({ libelle, valeur }: { libelle: string; valeur: React.ReactNode }) {
   return (
@@ -108,13 +120,24 @@ export function FicheClient({ id }: { id: string }) {
     defaultValues: { motif: "" },
   });
 
+  const formulaireActivation = useForm<
+    SaisieActivationAbonnement,
+    unknown,
+    ValeursActivationAbonnement
+  >({
+    resolver: zodResolver(schemaActivationAbonnement),
+    defaultValues: { motif: "" },
+  });
+
   /** Toute mutation rafraichit la fiche **et** la liste, qui compte les statuts. */
   function apresSucces(client: ClientPlateforme) {
     cache.setQueryData(CLES_ADMINISTRATION.client(id), client);
     void cache.invalidateQueries({ queryKey: CLES_ADMINISTRATION.clients() });
+    void cache.invalidateQueries({ queryKey: CLES_ADMINISTRATION.indicateurs() });
     setAction(null);
     setErreurAction(null);
     formulaireSuspension.reset();
+    formulaireActivation.reset();
   }
 
   function surEchec(cause: unknown) {
@@ -136,6 +159,18 @@ export function FicheClient({ id }: { id: string }) {
   const changement = useMutation({
     mutationFn: (code: CodePlan) => changerPlan(id, code),
     onSuccess: apresSucces,
+    onError: surEchec,
+  });
+
+  const activationAbonnement = useMutation({
+    mutationFn: (valeurs: ValeursActivationAbonnement) =>
+      activerAbonnementClient(id, valeurs.motif),
+    onSuccess: (clientMisAJour) => {
+      apresSucces(clientMisAJour);
+      toast.success(
+        t("activationAbonnement.succes", { client: clientMisAJour.nomCommercial }),
+      );
+    },
     onError: surEchec,
   });
 
@@ -209,6 +244,17 @@ export function FicheClient({ id }: { id: string }) {
               onClick={() => ouvrir("reactivation")}
             >
               {t("fiche.reactiver")}
+            </Bouton>
+          )}
+          {activationAbonnementPossible(client) && (
+            <Bouton
+              variante="primaire"
+              taille="sm"
+              disabled={!peutAgir}
+              iconeGauche={<CheckCircle2 size={16} />}
+              onClick={() => ouvrir("activation")}
+            >
+              {t("fiche.activerAbonnement")}
             </Bouton>
           )}
           <Bouton
@@ -432,6 +478,54 @@ export function FicheClient({ id }: { id: string }) {
         client={echeanceOuverte ? client : null}
         onFermer={() => setEcheanceOuverte(false)}
       />
+
+      <Modale
+        ouverte={action === "activation"}
+        titre={t("activationAbonnement.titre", { client: client.nomCommercial })}
+        onFermer={() => setAction(null)}
+        actions={
+          <>
+            <Bouton variante="ghost" onClick={() => setAction(null)}>
+              {t("activationAbonnement.annuler")}
+            </Bouton>
+            <Bouton
+              variante="primaire"
+              type="submit"
+              form={ID_FORM_ACTIVATION_ABONNEMENT}
+              enCours={activationAbonnement.isPending}
+            >
+              {activationAbonnement.isPending
+                ? t("activationAbonnement.enCours")
+                : t("activationAbonnement.confirmer")}
+            </Bouton>
+          </>
+        }
+      >
+        <form
+          id={ID_FORM_ACTIVATION_ABONNEMENT}
+          onSubmit={formulaireActivation.handleSubmit((valeurs) =>
+            activationAbonnement.mutate(valeurs),
+          )}
+          className="flex flex-col gap-3"
+        >
+          <p className="text-sm text-neutral-600">{t("activationAbonnement.description")}</p>
+          <p className="text-xs text-neutral-500">{t("activationAbonnement.aideMotif")}</p>
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-800">
+            {t("activationAbonnement.motif")}
+            <Input
+              {...formulaireActivation.register("motif")}
+              placeholder={t("activationAbonnement.motifPlaceholder")}
+              disabled={activationAbonnement.isPending}
+            />
+          </label>
+          {formulaireActivation.formState.errors.motif && (
+            <p className="text-sm text-erreur">
+              {formulaireActivation.formState.errors.motif.message}
+            </p>
+          )}
+          {erreurAction && <Alerte type="erreur">{erreurAction}</Alerte>}
+        </form>
+      </Modale>
     </div>
   );
 }

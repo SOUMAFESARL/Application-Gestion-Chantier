@@ -103,6 +103,20 @@ export type SaisieFinAbonnement = z.input<ReturnType<typeof schemaFinAbonnement>
 export type ValeursFinAbonnement = z.output<ReturnType<typeof schemaFinAbonnement>>;
 
 /**
+ * L'activation manuelle de l'abonnement (passage à `ACTIF`) — le motif est
+ * obligatoire et journalisé côté plateforme.
+ */
+export const schemaActivationAbonnement = z.object({
+  motif: chaineNonVide(texte("administration.activationAbonnement.erreurMotifRequis")).min(
+    MOTIF_MIN,
+    texte("administration.activationAbonnement.erreurMotifCourt"),
+  ),
+});
+
+export type SaisieActivationAbonnement = z.input<typeof schemaActivationAbonnement>;
+export type ValeursActivationAbonnement = z.output<typeof schemaActivationAbonnement>;
+
+/**
  * Un numéro de téléphone facultatif : vide, ou des chiffres avec un `+` de
  * tête et des espaces de lecture.
  *

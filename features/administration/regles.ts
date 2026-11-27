@@ -317,6 +317,19 @@ export function reactivationPossible(client: ClientPlateforme): boolean {
 }
 
 /**
+ * L'abonnement d'un client actif ou en attente peut être passé manuellement à `ACTIF`
+ * tant qu'il est en essai, impayé ou suspendu (essai expiré).
+ */
+export function activationAbonnementPossible(client: ClientPlateforme): boolean {
+  return (
+    client.statut !== "SUSPENDU" &&
+    client.statut !== "RESILIE" &&
+    client.abonnement.statut !== "ACTIF" &&
+    client.abonnement.statut !== "RESILIE"
+  );
+}
+
+/**
  * Le revenu mensuel récurrent.
  *
  * **Un essai ne compte pas** : il ne rapporte rien tant qu'il n'est pas

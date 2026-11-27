@@ -34,9 +34,16 @@
       "exportNomFichier": "paiements",
       "exportMontant": "Montant (FCFA)"
     },
+    "dureeRestanteAlertePluriel": "{duree} restants (Renouveler)",
+    "dureeRestanteAlerteSingulier": "{duree} restant (Renouveler)",
+    "dureeRestantePluriel": "{duree} restants",
+    "dureeRestanteSingulier": "{duree} restant",
     "joursRestants": "{jours, plural, one {# jour restant} other {# jours restants}}",
     "joursRestantsAlerte": "{jours, plural, one {# jour restant (Renouveler)} other {# jours restants (Renouveler)}}",
     "joursRestantsCourt": "{jours}j",
+    "uniteAnCourt": "{n}a",
+    "uniteJourCourt": "{n}j",
+    "uniteMoisCourt": "{n}m",
     "mode": {
       "CARTE_BANCAIRE": "Carte bancaire",
       "MTN_MOMO": "MTN MoMo",
@@ -267,6 +274,7 @@
       "abonnement": "Abonnement",
       "activeLe": "Activé le",
       "activite": "Activité",
+      "activerAbonnement": "Passer à actif",
       "changerPlan": "Changer de plan",
       "creeLe": "Inscrit le",
       "dateFin": "Échéance",
@@ -1039,6 +1047,19 @@
         "erreurAdresse": "Saisissez une adresse e-mail valide."
       }
     },
+    "activationAbonnement": {
+      "titre": "Passer l’abonnement de {client} à actif",
+      "description": "L’abonnement passe immédiatement au statut Actif (hors période d’essai). Le dirigeant de l’entreprise est prévenu par courriel.",
+      "motif": "Motif de l’activation",
+      "motifPlaceholder": "Règlement reçu par virement bancaire, accord commercial…",
+      "aideMotif": "Le motif reste au journal de la plateforme ; il n’est pas communiqué au client.",
+      "annuler": "Annuler",
+      "confirmer": "Passer à actif",
+      "enCours": "Activation en cours…",
+      "succes": "L’abonnement de {client} est désormais actif.",
+      "erreurMotifRequis": "Le motif est requis.",
+      "erreurMotifCourt": "Le motif doit contenir au moins 10 caractères."
+    },
     "finAbonnement": {
       "titre": "Modifier la fin d’abonnement de {client}",
       "description": "Abonnement {plan} débuté le {debut}. L’accès de l’entreprise court jusqu’à la date choisie.",
@@ -1101,6 +1122,7 @@
         "SUSPENSION_CLIENT": "Suspension d’une entreprise",
         "REACTIVATION_CLIENT": "Réactivation d’une entreprise",
         "CHANGEMENT_PLAN": "Changement de forfait",
+        "ACTIVATION_ABONNEMENT": "Activation d’un abonnement",
         "MODIFICATION_ECHEANCE": "Modification de l’échéance",
         "ACTIVATION_MODULE": "Activation d’un module",
         "DESACTIVATION_MODULE": "Retrait d’un module",

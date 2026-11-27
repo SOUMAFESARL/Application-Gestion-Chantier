@@ -906,6 +906,21 @@ export async function changerPlan(id: string, plan: CodePlan): Promise<ClientPla
 }
 
 /**
+ * Passe manuellement l'abonnement d'un client au statut `ACTIF` —
+ * `POST /admins/clients/<id>/abonnement/activer/`.
+ */
+export async function activerAbonnementClient(
+  id: string,
+  motif: string,
+): Promise<ClientPlateforme> {
+  const charge = await apiAdministration.creer<ChargeClient>(
+    `/admins/clients/${id}/abonnement/activer/`,
+    { motif },
+  );
+  return versClient(charge);
+}
+
+/**
  * Active ou retire un module pour un client —
  * `POST /admins/clients/<id>/modules/<module>/activer|desactiver/`.
  *

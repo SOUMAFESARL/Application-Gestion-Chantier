@@ -3,6 +3,12 @@
 import { Timer } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import {
+  dureeRestanteDepuisDate,
+  dureeRestanteDepuisJours,
+  estDureeSinguliere,
+} from "@/features/abonnement/regles";
+import { formaterDureeCalendaire } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const SOCLE =
@@ -16,19 +22,27 @@ const AMBRE = "border-avertissement/20 bg-avertissement-fond text-avertissement"
 const ROUGE = "border-erreur/20 bg-erreur-fond text-erreur";
 
 export interface BadgeEssaiProps {
+  dateFin?: string | null;
   joursRestants?: number | null;
   estExpire?: boolean;
   court?: boolean;
 }
 
 /**
- * Badge de compteur d'essai gratuit — Maquette M10, US-016 & T-025.
+ * Badge de compteur d'abonnement / essai gratuit — Maquette M10, US-016 & T-025.
  * La couleur n'est jamais seule : icône + texte explicite.
  */
-export function BadgeEssai({ joursRestants, estExpire = false, court = false }: BadgeEssaiProps) {
+export function BadgeEssai({
+  dateFin,
+  joursRestants,
+  estExpire = false,
+  court = false,
+}: BadgeEssaiProps) {
   const t = useTranslations("abonnement");
+  const duree =
+    dureeRestanteDepuisDate(dateFin) ?? dureeRestanteDepuisJours(joursRestants ?? 14);
 
-  if (estExpire || joursRestants === 0) {
+  if (estExpire || duree.totalJours <= 0) {
     return (
       <span className={cn(SOCLE, ROUGE, court && COURT)}>
         <Timer size={court ? 14 : 16} />
@@ -37,20 +51,38 @@ export function BadgeEssai({ joursRestants, estExpire = false, court = false }: 
     );
   }
 
-  const jours = joursRestants ?? 14;
-  const estAlerte = jours <= 3;
+  const estAlerte = duree.totalJours <= 3;
   const ton = estAlerte ? AMBRE : VERT;
 
-  return (
-    <span className={cn(SOCLE, ton, court && COURT)}>
-      <Timer size={court ? 14 : 16} />
-      <span>
-        {court
-          ? t("joursRestantsCourt", { jours })
-          : estAlerte
-            ? t("joursRestantsAlerte", { jours })
-            : t("joursRestants", { jours })}
+  if (court) {
+    const partiesCourtes = [
+      duree.annees > 0 && t("uniteAnCourt", { n: duree.annees }),
+      duree.mois > 0 && t("uniteMoisCourt", { n: duree.mois }),
+      duree.jours > 0 && t("uniteJourCourt", { n: duree.jours }),
+    ].filter((partie): partie is string => Boolean(partie));
+
+    return (
+      <span className={cn(SOCLE, ton, COURT)}>
+        <Timer size={14} />
+        <span>{partiesCourtes.join(" ")}</span>
       </span>
+    );
+  }
+
+  const libelleDuree = formaterDureeCalendaire(duree);
+  const singulier = estDureeSinguliere(duree);
+  const cle = estAlerte
+    ? singulier
+      ? "dureeRestanteAlerteSingulier"
+      : "dureeRestanteAlertePluriel"
+    : singulier
+      ? "dureeRestanteSingulier"
+      : "dureeRestantePluriel";
+
+  return (
+    <span className={cn(SOCLE, ton)}>
+      <Timer size={16} />
+      <span>{t(cle, { duree: libelleDuree })}</span>
     </span>
   );
 }
