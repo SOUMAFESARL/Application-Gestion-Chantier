@@ -8,17 +8,25 @@ import {
   ChevronsUpDown,
   Crosshair,
   Diamond,
-  Search,
-  X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
 
+import { RechercheRapideElements } from "@/components/metier/RechercheRapideElements";
 import { Badge, EtatVide } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { MenuExport, type ExportTableau } from "@/components/ui/export-tableau";
-import { Input } from "@/components/ui/input";
+import {
+  aCriteresRechercheActifs,
+  aplatirArbrePlanningPourRecherche,
+  CRITERES_RECHERCHE_ELEMENTS_VIDES,
+  filtrerArbreParIds,
+  rechercherElements,
+  type CriteresRechercheElements,
+  type ElementRecherchable,
+} from "@/features/decoupage/rechercheRapide";
+import { useDroits } from "@/features/habilitations";
 import { ABSENT, formaterDate, formaterEcartAvancement, formaterPourcentage } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +46,7 @@ import {
   genererGraduationsGantt,
   HAUTEUR_ENTETE_GANTT,
   HAUTEUR_LIGNE_GANTT,
+  trouverCaseParId,
 } from "../regles";
 import type {
   CasePlanning,
@@ -136,25 +145,68 @@ export function DiagrammeGantt({
   actionsBarreOutils,
 }: PropsDiagrammeGantt) {
   const t = useTranslations("planning");
+  const { voitMontants: droitVoirMontants, connus: droitsConnus } = useDroits();
+  const voitMontants = droitsConnus
+    ? droitVoirMontants && planning.importMsProject.peutVoirMontants
+    : planning.importMsProject.peutVoirMontants;
+
   const prefixeId = useId();
   const conteneurRef = useRef<HTMLDivElement | null>(null);
+  const timeoutSurligneRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [echelle, setEchelle] = useState<EchelleGantt>(echelleInitiale);
-  const [recherche, setRecherche] = useState("");
+  const [criteresRecherche, setCriteresRecherche] = useState<CriteresRechercheElements>(
+    CRITERES_RECHERCHE_ELEMENTS_VIDES,
+  );
+  const [modeFiltreVue, setModeFiltreVue] = useState(false);
   const [retardsUniquement, setRetardsUniquement] = useState(false);
   const [noeudsReplies, setNoeudsReplies] = useState<Set<string>>(() => new Set());
+  const [elementSurligneId, setElementSurligneId] = useState<string | null>(null);
+  const [demandeScroll, setDemandeScroll] = useState<{ id: string; nonce: number } | null>(null);
   const [survolId, setSurvolId] = useState<string | null>(null);
   const [infobulle, setInfobulle] = useState<EtatInfobulle | null>(null);
 
+  useEffect(() => {
+    return () => {
+      if (timeoutSurligneRef.current) clearTimeout(timeoutSurligneRef.current);
+    };
+  }, []);
+
   const tousIdsParents = useMemo(() => collecterIdsParents(planning.cases), [planning.cases]);
 
-  const casesFiltrees = useMemo(
-    () => filtrerArbrePlanning(planning.cases, { recherche, retardsUniquement }),
-    [planning.cases, recherche, retardsUniquement],
+  const elementsRecherchables = useMemo(
+    () => aplatirArbrePlanningPourRecherche(planning.cases),
+    [planning.cases],
   );
 
-  // En présence d'une recherche ou d'un filtre retard, on déplie toutes les branches correspondantes.
-  const filtreActif = recherche.trim().length > 0 || retardsUniquement;
+  const resultatsRecherche = useMemo(
+    () => rechercherElements(elementsRecherchables, criteresRecherche, { voitMontants }),
+    [elementsRecherchables, criteresRecherche, voitMontants],
+  );
+
+  const idsCorrespondants = useMemo(
+    () => new Set(resultatsRecherche.map((el) => el.id)),
+    [resultatsRecherche],
+  );
+
+  const rechercheActive = useMemo(
+    () => aCriteresRechercheActifs(criteresRecherche, { voitMontants }),
+    [criteresRecherche, voitMontants],
+  );
+
+  const vueFiltreeActive = modeFiltreVue && rechercheActive;
+
+  const casesFiltrees = useMemo(() => {
+    const base = vueFiltreeActive
+      ? filtrerArbreParIds(planning.cases, idsCorrespondants)
+      : planning.cases;
+    return retardsUniquement
+      ? filtrerArbrePlanning(base, { recherche: "", retardsUniquement: true })
+      : base;
+  }, [idsCorrespondants, planning.cases, retardsUniquement, vueFiltreeActive]);
+
+  // En présence d'un filtre actif sur la vue ou d'un filtre retard, on déplie toutes les branches correspondantes.
+  const filtreActif = vueFiltreeActive || retardsUniquement;
   const noeudsDeplies = useMemo(() => {
     if (filtreActif) return new Set(collecterIdsParents(casesFiltrees));
     const resultat = new Set<string>();
@@ -243,6 +295,71 @@ export function DiagrammeGantt({
     conteneur.scrollTo({ left: cibleScroll, behavior: "smooth" });
   }, [xAujourdhui]);
 
+  const lignesRef = useRef(lignes);
+  const geometrieParIdRef = useRef(geometrieParId);
+
+  useEffect(() => {
+    lignesRef.current = lignes;
+    geometrieParIdRef.current = geometrieParId;
+  }, [lignes, geometrieParId]);
+
+  const surAccederElement = useCallback(
+    (el: ElementRecherchable) => {
+      if (el.cheminAncetresIds.length > 0) {
+        setNoeudsReplies((precedent) => {
+          const suivant = new Set(precedent);
+          for (const idAncetre of el.cheminAncetresIds) {
+            suivant.delete(idAncetre);
+          }
+          return suivant;
+        });
+      }
+      if (retardsUniquement && !trouverCaseParId(casesFiltrees, el.id)) {
+        setRetardsUniquement(false);
+      }
+      if (timeoutSurligneRef.current) clearTimeout(timeoutSurligneRef.current);
+      setElementSurligneId(el.id);
+      timeoutSurligneRef.current = setTimeout(() => {
+        setElementSurligneId(null);
+      }, 3000);
+      setDemandeScroll((precedent) => ({ id: el.id, nonce: (precedent?.nonce ?? 0) + 1 }));
+    },
+    [casesFiltrees, retardsUniquement],
+  );
+
+  useEffect(() => {
+    if (!demandeScroll) return;
+    const rafId = window.requestAnimationFrame(() => {
+      const conteneur = conteneurRef.current;
+      if (!conteneur) return;
+      const indexLigne = lignesRef.current.findIndex(
+        (ligne) => ligne.caseItem.id === demandeScroll.id,
+      );
+      if (indexLigne === -1) return;
+
+      const hauteurVisibleCorps = Math.max(
+        HAUTEUR_LIGNE_GANTT,
+        conteneur.clientHeight - HAUTEUR_ENTETE_GANTT,
+      );
+      const topCible = Math.max(
+        0,
+        indexLigne * HAUTEUR_LIGNE_GANTT - hauteurVisibleCorps / 2 + HAUTEUR_LIGNE_GANTT / 2,
+      );
+      const geo = geometrieParIdRef.current.get(demandeScroll.id);
+      const largeurVisibleFrise = Math.max(200, conteneur.clientWidth - LARGEUR_COLONNE_ARBRE);
+      const leftCible = geo
+        ? Math.max(0, geo.x - largeurVisibleFrise / 3)
+        : conteneur.scrollLeft;
+
+      conteneur.scrollTo({
+        top: topCible,
+        left: leftCible,
+        behavior: "smooth",
+      });
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, [demandeScroll]);
+
   const lignesExport = useMemo(() => construireLignesExportPlanning(lignes), [lignes]);
 
   const configurationExport = useMemo<ExportTableau<LigneExportPlanning>>(
@@ -319,33 +436,18 @@ export function DiagrammeGantt({
       {/* Barre d'outils du Gantt */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-0 border-b border-solid border-neutral-200 bg-neutral-50 px-4 py-3">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          {/* Recherche */}
-          <div className="relative w-full sm:w-64">
-            <Search
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-neutral-400"
-              aria-hidden="true"
-            />
-            <Input
-              type="search"
-              value={recherche}
-              onChange={(evenement) => setRecherche(evenement.target.value)}
-              placeholder={t("barreOutils.recherchePlaceholder")}
-              aria-label={t("barreOutils.recherche")}
-              className="h-9 bg-neutral-0 pr-8 pl-9 text-sm"
-            />
-            {recherche && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setRecherche("")}
-                aria-label={t("barreOutils.effacerRecherche")}
-                className="absolute top-1/2 right-1 size-7 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
-              >
-                <X className="size-3.5" aria-hidden="true" />
-              </Button>
-            )}
-          </div>
+          {/* Recherche rapide multicritères */}
+          <RechercheRapideElements
+            elements={elementsRecherchables}
+            criteres={criteresRecherche}
+            onCriteresChange={setCriteresRecherche}
+            voitMontants={voitMontants}
+            onAccederElement={surAccederElement}
+            modeFiltreVue={modeFiltreVue}
+            onModeFiltreVueChange={setModeFiltreVue}
+            resultatsPrecalcules={resultatsRecherche}
+            className="min-w-0 flex-1 sm:flex-initial"
+          />
 
           {/* Filtre retards */}
           <Button
@@ -458,7 +560,8 @@ export function DiagrammeGantt({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setRecherche("");
+                  setCriteresRecherche(CRITERES_RECHERCHE_ELEMENTS_VIDES);
+                  setModeFiltreVue(false);
                   setRetardsUniquement(false);
                 }}
               >
@@ -555,6 +658,7 @@ export function DiagrammeGantt({
                   const item = ligne.caseItem;
                   const interactive = !lectureSeule && item.acces === "COMPLET" && Boolean(onSelectionnerCase);
                   const selectionnee = caseSelectionneeId === item.id;
+                  const surlignee = elementSurligneId === item.id;
                   const survolee = survolId === item.id;
                   const dates = datesEffectivesCase(item);
                   const decale = Math.min(ligne.profondeur, 6) * 16;
@@ -579,6 +683,7 @@ export function DiagrammeGantt({
                         ligne.indexLigne % 2 === 1 && "bg-neutral-50/60",
                         survolee && "bg-primary-50/70",
                         selectionnee && "bg-primary-50 ring-1 ring-inset ring-primary-300",
+                        surlignee && "bg-primary-100/80 ring-2 ring-inset ring-primary-500",
                         item.acces === "CHEMIN" && "text-neutral-400",
                       )}
                       style={{ height: HAUTEUR_LIGNE_GANTT }}
@@ -752,28 +857,51 @@ export function DiagrammeGantt({
                     ))}
                   </g>
 
-                  {/* Bandes horizontales synchronisées (alternance + survol + sélection) */}
+                  {/* Bandes horizontales synchronisées (alternance + survol + sélection + surbrillance) */}
                   <g aria-hidden="true">
                     {lignes.map((ligne) => {
                       const y = ligne.indexLigne * HAUTEUR_LIGNE_GANTT;
                       const selectionnee = caseSelectionneeId === ligne.caseItem.id;
+                      const surlignee = elementSurligneId === ligne.caseItem.id;
                       const survolee = survolId === ligne.caseItem.id;
                       return (
                         <g key={ligne.caseItem.id}>
-                          {(selectionnee || survolee || ligne.indexLigne % 2 === 1) && (
+                          {(surlignee || selectionnee || survolee || ligne.indexLigne % 2 === 1) && (
                             <rect
                               x={0}
                               y={y}
                               width={bornes.largeurTotalePx}
                               height={HAUTEUR_LIGNE_GANTT}
                               className={cn(
-                                selectionnee
-                                  ? "fill-primary-50/90"
-                                  : survolee
-                                    ? "fill-primary-50/50"
-                                    : "fill-neutral-50/50",
+                                surlignee
+                                  ? "fill-primary-100/80"
+                                  : selectionnee
+                                    ? "fill-primary-50/90"
+                                    : survolee
+                                      ? "fill-primary-50/50"
+                                      : "fill-neutral-50/50",
                               )}
                             />
+                          )}
+                          {surlignee && (
+                            <>
+                              <line
+                                x1={0}
+                                y1={y + 1}
+                                x2={bornes.largeurTotalePx}
+                                y2={y + 1}
+                                className="stroke-primary-500"
+                                strokeWidth={2}
+                              />
+                              <line
+                                x1={0}
+                                y1={y + HAUTEUR_LIGNE_GANTT - 1}
+                                x2={bornes.largeurTotalePx}
+                                y2={y + HAUTEUR_LIGNE_GANTT - 1}
+                                className="stroke-primary-500"
+                                strokeWidth={2}
+                              />
+                            </>
                           )}
                           <line
                             x1={0}

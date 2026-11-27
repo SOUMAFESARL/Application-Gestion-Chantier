@@ -1,14 +1,15 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ChampTelephone } from "@/components/metier/ChampTelephone";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Combobox, type OptionCombobox } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -20,11 +21,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { paysEntreprise } from "@/features/configuration/api";
+import {
+  ajouterAuReferentiel,
+  cleReferentiel,
+  REFERENTIEL_FONCTIONS_EQUIPE,
+  useDroitsReferentiels,
+  useReferentiel,
+} from "@/features/projets/referentiels";
 import { listerTiers } from "@/features/tiers/adaptateur";
 import { ErreurApi } from "@/lib/api";
 
 import { creerPersonne, modifierPersonne } from "../adaptateur";
 import { CLE_PARTENAIRES, CLE_REGISTRE } from "../cles";
+import { filtrerPartenairesEligibles } from "../regles";
 import type { Personne } from "../types";
 
 const INTERNE = "interne";
@@ -49,6 +58,7 @@ export function FenetrePersonne({
   onEnregistree?: (personne: Personne) => void;
 }) {
   const t = useTranslations("mainOeuvre.fenetre");
+  const tRef = useTranslations("projets.referentiels");
   const client = useQueryClient();
   const [nom, setNom] = useState(personne?.nom ?? "");
   const [prenom, setPrenom] = useState(personne?.prenom ?? "");
@@ -69,6 +79,62 @@ export function FenetrePersonne({
   }, []);
 
   const partenaires = useQuery({ queryKey: CLE_PARTENAIRES, queryFn: ({ signal }) => listerTiers(undefined, signal) });
+  const partenairesEligibles = useMemo(() => {
+    const filtres = filtrerPartenairesEligibles(partenaires.data ?? []);
+    if (
+      personne &&
+      !personne.entreprise.interne &&
+      personne.entreprise.id &&
+      !filtres.some((p) => p.id === personne.entreprise.id)
+    ) {
+      return [...filtres, { id: personne.entreprise.id, raisonSociale: personne.entreprise.nom }];
+    }
+    return filtres;
+  }, [partenaires.data, personne]);
+
+  const { entrees: fonctions } = useReferentiel(REFERENTIEL_FONCTIONS_EQUIPE);
+  const { droits: droitsReferentiels } = useDroitsReferentiels();
+
+  const optionsMetier = useMemo<OptionCombobox[]>(
+    () =>
+      fonctions.map((entree) => ({
+        valeur: entree.libelle,
+        libelle: entree.libelle,
+        groupe:
+          entree.groupe || (entree.origine === "ENTREPRISE" ? tRef("groupeEntreprise") : undefined),
+      })),
+    [fonctions, tRef],
+  );
+
+  const ajoutMetier = useMutation({
+    mutationFn: (libelle: string) => ajouterAuReferentiel(REFERENTIEL_FONCTIONS_EQUIPE, libelle),
+    onSuccess: (entree) => {
+      void client.invalidateQueries({ queryKey: cleReferentiel(REFERENTIEL_FONCTIONS_EQUIPE) });
+      setMetier(entree.libelle);
+    },
+    onError: (cause, libelle) => {
+      // Rétrocompatibilité : on garde la saisie libre si l'ajout au référentiel échoue.
+      setMetier(libelle);
+      toast.error(cause instanceof ErreurApi ? cause.message : tRef("erreurAjout"));
+    },
+  });
+
+  function choisirMetier(choix: string) {
+    if (optionsMetier.some((option) => option.valeur === choix)) {
+      setMetier(choix);
+      return;
+    }
+    const nettoye = choix.trim();
+    if (!nettoye) {
+      setMetier("");
+      return;
+    }
+    if (droitsReferentiels.peutAjouter) {
+      ajoutMetier.mutate(nettoye);
+    } else {
+      setMetier(nettoye);
+    }
+  }
 
   const ecriture = useMutation({
     mutationFn: () => {
@@ -134,10 +200,37 @@ export function FenetrePersonne({
           {pays && (
             <ChampTelephone libelle={t("telephone")} valeur={telephone} onChange={setTelephone} paysDefaut={pays} />
           )}
-          <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
-            {t("metier")}
-            <Input value={metier} maxLength={100} onChange={(e) => setMetier(e.target.value)} placeholder={t("metierExemple")} />
-          </label>
+          <div className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
+            <span>{t("metier")}</span>
+            <div className="flex items-center gap-1.5">
+              <Combobox
+                options={optionsMetier}
+                valeur={metier}
+                onChange={choisirMetier}
+                placeholder={t("metierExemple")}
+                placeholderRecherche={tRef("rechercher")}
+                aucunResultat={tRef("aucun")}
+                libelleSaisieLibre={(saisie) =>
+                  droitsReferentiels.peutAjouter ? tRef("ajouter", { saisie }) : t("utiliserMetier", { saisie })
+                }
+                aria-label={t("metier")}
+                disabled={ecriture.isPending || ajoutMetier.isPending}
+              />
+              {metier && (
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={t("effacerMetier")}
+                  title={t("effacerMetier")}
+                  disabled={ecriture.isPending}
+                  onClick={() => setMetier("")}
+                >
+                  <X />
+                </Button>
+              )}
+            </div>
+          </div>
           <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-700">
             {t("entreprise")}
             <Select value={entreprise} onValueChange={setEntreprise}>
@@ -146,7 +239,7 @@ export function FenetrePersonne({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={INTERNE}>{t("notreEntreprise")}</SelectItem>
-                {(partenaires.data ?? []).map((tiers) => (
+                {partenairesEligibles.map((tiers) => (
                   <SelectItem key={tiers.id} value={tiers.id}>
                     {tiers.raisonSociale}
                   </SelectItem>
@@ -163,7 +256,7 @@ export function FenetrePersonne({
             <Button type="button" variant="outline" onClick={onFermer} disabled={ecriture.isPending}>
               {t("annuler")}
             </Button>
-            <Button type="submit" disabled={ecriture.isPending}>
+            <Button type="submit" disabled={ecriture.isPending || ajoutMetier.isPending}>
               {ecriture.isPending && <LoaderCircle className="animate-spin" />}
               {t("enregistrer")}
             </Button>

@@ -30,8 +30,11 @@ export interface EtatImportMsProject {
 export interface CasePlanning {
   id: string;
   libelle: string;
+  code: string;
   numero: string | null;
   niveau: string | null;
+  /** Montant (feuille) ou poids (parent) en centimes ; `null` si masqué ou absent. */
+  montant: number | null;
   /** Dates contractuelles (baseline si complète, sinon prévues). */
   debut: string | null;
   fin: string | null;

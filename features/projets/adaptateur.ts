@@ -1256,6 +1256,7 @@ interface ChargeMembre {
   personne?: { id: string; nom: string; prenom: string } | null;
   prenom?: string;
   nom?: string;
+  fonction?: string;
   role?: RoleMembreEquipe;
   collaborateur_id?: string | null;
   utilisateur_id?: string | null;
@@ -1270,13 +1271,12 @@ interface ChargeEquipeDetail extends ChargeEquipe {
   membres?: ChargeMembre[];
 }
 
-function versMembre(charge: ChargeMembre, chef = false): MembreEquipe {
+function versMembre(charge: ChargeMembre): MembreEquipe {
   return {
     id: charge.id,
     prenom: charge.personne?.prenom ?? charge.prenom ?? "",
     nom: charge.personne?.nom ?? charge.nom ?? "",
-    // Un serveur qui ne renverrait pas encore le rôle : la place dans l'équipe le dit.
-    role: charge.role ?? (chef ? "CHEF_EQUIPE" : ROLE_MEMBRE_PAR_DEFAUT),
+    role: (charge.fonction ?? charge.role ?? ROLE_MEMBRE_PAR_DEFAUT) as RoleMembreEquipe,
     collaborateurId: charge.personne?.id ?? charge.collaborateur_id ?? charge.utilisateur_id ?? null,
   };
 }
@@ -1287,7 +1287,7 @@ function versEquipeDetail(charge: ChargeEquipeDetail): Equipe {
     projetId: charge.projet_id,
     nature: charge.nature,
     specialite: charge.specialite ?? charge.corps_etat ?? "",
-    chef: charge.chef ? versMembre(charge.chef, true) : null,
+    chef: charge.chef ? versMembre(charge.chef) : null,
     membres: (charge.membres ?? []).map((membre) => versMembre(membre)),
   };
 }

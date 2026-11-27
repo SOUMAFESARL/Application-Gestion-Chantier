@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderKanban, Layers, ListChecks, Wrench } from "lucide-react";
+import { FolderKanban, HardHat, Layers, ListChecks, Wrench } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -11,7 +11,12 @@ import { EnTeteParametrage } from "../EnTeteParametrage";
 
 const ONGLETS: {
   href: string;
-  cle: "ongletListes" | "ongletModeles" | "ongletModesExecution" | "ongletTypesProjet";
+  cle:
+    | "ongletListes"
+    | "ongletModeles"
+    | "ongletModesExecution"
+    | "ongletTypesProjet"
+    | "ongletFonctionsEquipe";
   icone: typeof Layers;
 }[] = [
   { href: "/admin/parametres/referentiels/listes", cle: "ongletListes", icone: ListChecks },
@@ -25,6 +30,11 @@ const ONGLETS: {
     href: "/admin/parametres/referentiels/types-projet",
     cle: "ongletTypesProjet",
     icone: FolderKanban,
+  },
+  {
+    href: "/admin/parametres/referentiels/fonctions-equipe",
+    cle: "ongletFonctionsEquipe",
+    icone: HardHat,
   },
 ];
 

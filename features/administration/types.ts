@@ -527,7 +527,11 @@ export interface DemandeRoleSysteme {
 }
 
 /** Les référentiels de la plateforme, proposés à toutes les entreprises. */
-export const CATEGORIES_REFERENTIEL_PLATEFORME = ["types-projet", "modes-execution"] as const;
+export const CATEGORIES_REFERENTIEL_PLATEFORME = [
+  "types-projet",
+  "modes-execution",
+  "fonctions-equipe",
+] as const;
 
 export type CategorieReferentielPlateforme = (typeof CATEGORIES_REFERENTIEL_PLATEFORME)[number];
 

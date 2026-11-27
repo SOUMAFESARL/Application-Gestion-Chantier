@@ -20,10 +20,7 @@ import { formaterDate, formaterMontant, formaterSaisieMontant, saisieEnCentimes 
 import { chaineNonVide } from "@/lib/validations/champs";
 
 import {
-  NATURES_EQUIPE,
   NATURES_PROJET,
-  ROLE_MEMBRE_PAR_DEFAUT,
-  ROLES_MEMBRE_EQUIPE,
   TYPES_BORDEREAU,
   NOMBRE_MAX_CONTRATS,
   STATUT_DECLARE_PAR_DEFAUT,
@@ -39,20 +36,16 @@ import {
 } from "./regles";
 import type {
   Activite,
-  CreationEquipe,
   CreationLotProjet,
   CreationProjet,
   Lot,
   MiseAJourAvancement,
   ModificationProjet,
-  NatureEquipe,
   NatureProjet,
   PlanningProjet,
   Projet,
   Reprogrammation,
-  RoleMembreEquipe,
   SaisieActiviteDomaine,
-  SaisieMembreEquipe,
   StatutDeclare,
   TypeBordereau,
   UniteActivite,
@@ -837,123 +830,6 @@ export function versMiseAJourAvancement(valeurs: ValeursAvancement): MiseAJourAv
 
 /** Au-delà, un nom d'équipe ne tient plus sur l'en-tête de sa carte. */
 export const LONGUEUR_MAX_NOM_EQUIPE = 80;
-
-/**
- * Une personne de l'équipe, telle que le formulaire la tient : soit un
- * collaborateur de l'entreprise (`collaborateurId`), soit une personne
- * saisie sur place (`nouveau`), dont on exige alors les deux moitiés du nom
- * — pour ses initiales. Un collaborateur apporte son nom avec lui.
- */
-const schemaMembre = z
-  .object({
-    collaborateurId: z.string(),
-    nouveau: z.boolean(),
-    prenom: z.string().trim(),
-    nom: z.string().trim(),
-    role: choixParmi(ROLES_MEMBRE_EQUIPE, texte("projets.equipesAffectations.formEquipe.erreurRoleRequis")),
-  })
-  .superRefine((membre, contexte) => {
-    if (!membre.collaborateurId && !membre.nouveau) {
-      contexte.addIssue({
-        code: "custom",
-        path: ["collaborateurId"],
-        message: texte("projets.equipesAffectations.formEquipe.erreurPersonneRequise"),
-      });
-      return;
-    }
-    if (membre.collaborateurId) return;
-    if (!membre.prenom) {
-      contexte.addIssue({
-        code: "custom",
-        path: ["prenom"],
-        message: texte("projets.equipesAffectations.formEquipe.erreurPrenomRequis"),
-      });
-    }
-    if (!membre.nom) {
-      contexte.addIssue({
-        code: "custom",
-        path: ["nom"],
-        message: texte("projets.equipesAffectations.formEquipe.erreurNomMembreRequis"),
-      });
-    }
-  });
-
-export type SaisieMembre = z.input<typeof schemaMembre>;
-export type ValeursMembre = z.output<typeof schemaMembre>;
-
-export const schemaEquipe = z
-  .object({
-    nom: chaineNonVide(texte("projets.equipesAffectations.formEquipe.erreurNomRequis")).max(
-      LONGUEUR_MAX_NOM_EQUIPE,
-      { message: texte("projets.equipesAffectations.formEquipe.erreurNomTropLong") },
-    ),
-    nature: choixParmi(NATURES_EQUIPE, texte("projets.equipesAffectations.formEquipe.erreurNatureRequise")),
-    specialite: chaineNonVide(texte("projets.equipesAffectations.formEquipe.erreurSpecialiteRequise")),
-    chef: schemaMembre,
-    membres: z.array(schemaMembre),
-  })
-  .superRefine((equipe, contexte) => {
-    // Une personne ne compte qu'une fois : le même collaborateur choisi sur
-    // deux lignes gonflerait l'effectif d'une personne qui n'existe pas.
-    const vus = new Set<string>();
-    [equipe.chef, ...equipe.membres].forEach((membre, rang) => {
-      if (!membre.collaborateurId) return;
-      if (vus.has(membre.collaborateurId)) {
-        contexte.addIssue({
-          code: "custom",
-          path: rang === 0 ? ["chef", "collaborateurId"] : ["membres", rang - 1, "collaborateurId"],
-          message: texte("projets.equipesAffectations.formEquipe.erreurPersonneEnDouble"),
-        });
-      }
-      vus.add(membre.collaborateurId);
-    });
-  });
-
-export type SaisieEquipe = z.input<typeof schemaEquipe>;
-export type ValeursEquipe = z.output<typeof schemaEquipe>;
-
-/** Une personne vierge, le temps qu'on la choisisse ou qu'on la saisisse. */
-export function membreVide(role: RoleMembreEquipe = ROLE_MEMBRE_PAR_DEFAUT): SaisieMembre {
-  return { collaborateurId: "", nouveau: false, prenom: "", nom: "", role };
-}
-
-/** Le formulaire vierge : une équipe interne, un membre à saisir sous le chef. */
-export function saisieEquipeVide(): SaisieEquipe {
-  return {
-    nom: "",
-    nature: "INTERNE",
-    specialite: "",
-    chef: membreVide("CHEF_EQUIPE"),
-    membres: [membreVide()],
-  };
-}
-
-/** Du formulaire au domaine : le drapeau `nouveau` ne sert qu'à l'écran. */
-export function versSaisieMembreEquipe(valeurs: ValeursMembre): SaisieMembreEquipe {
-  return {
-    prenom: valeurs.prenom,
-    nom: valeurs.nom,
-    role: valeurs.role as RoleMembreEquipe,
-    collaborateurId: valeurs.collaborateurId || null,
-  };
-}
-
-export function versCreationEquipe(valeurs: ValeursEquipe): CreationEquipe {
-  return {
-    nom: valeurs.nom,
-    nature: valeurs.nature as NatureEquipe,
-    specialite: valeurs.specialite,
-    // Le chef l'est par sa place dans le formulaire, quoi que dise sa ligne.
-    chef: { ...versSaisieMembreEquipe(valeurs.chef), role: "CHEF_EQUIPE" },
-    membres: valeurs.membres.map(versSaisieMembreEquipe),
-  };
-}
-
-/** L'ajout d'une personne à une équipe déjà constituée, depuis sa fiche. */
-export const schemaAjoutMembre = z.object({ membre: schemaMembre });
-
-export type SaisieAjoutMembre = z.input<typeof schemaAjoutMembre>;
-export type ValeursAjoutMembre = z.output<typeof schemaAjoutMembre>;
 
 /**
  * L'affectation d'une équipe à une activité. L'équipe est exigée : retirer

@@ -880,8 +880,10 @@ function convertirTachesMsProjectActives(
     resultat.push({
       id: tache.uid,
       libelle: tache.libelle,
+      code: tache.code ?? "",
       numero: tache.numero,
       niveau: tache.niveau,
+      montant: tache.coutFcfa,
       debut: tache.debut,
       fin: tache.fin,
       debutPrevu: tache.debut,

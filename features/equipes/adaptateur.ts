@@ -175,6 +175,7 @@ interface ChargeMembre {
   id: string;
   personne: ChargePersonne;
   fonction: string;
+  fonction_libelle?: string;
   est_chef?: boolean;
   date_arrivee?: string | null;
   date_depart?: string | null;
@@ -201,6 +202,7 @@ function versMembre(charge: ChargeMembre): MembreEquipe {
     id: charge.id,
     personne: versPersonne(charge.personne),
     fonction: charge.fonction as FonctionMembre,
+    fonctionLibelle: charge.fonction_libelle ?? "",
     estChef: charge.est_chef ?? false,
     dateArrivee: charge.date_arrivee ?? null,
     dateDepart: charge.date_depart ?? null,
